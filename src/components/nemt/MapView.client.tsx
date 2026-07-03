@@ -1,5 +1,6 @@
 // This module touches `window` (leaflet). Must ONLY be dynamically imported
 // from useEffect. Never top-level import from a route/component.
+import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Marker } from "react-leaflet";
 import L from "leaflet";
 import type { ReactNode } from "react";
