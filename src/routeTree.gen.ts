@@ -17,6 +17,7 @@ import { Route as AuthenticatedTripsRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSchedulesRouteImport } from './routes/_authenticated/schedules'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPassengersRouteImport } from './routes/_authenticated/passengers'
+import { Route as AuthenticatedNewsRouteImport } from './routes/_authenticated/news'
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
 import { Route as AuthenticatedIncidentsRouteImport } from './routes/_authenticated/incidents'
 import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
@@ -63,6 +64,11 @@ const AuthenticatedPassengersRoute = AuthenticatedPassengersRouteImport.update({
   path: '/passengers',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedNewsRoute = AuthenticatedNewsRouteImport.update({
+  id: '/news',
+  path: '/news',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMessagesRoute = AuthenticatedMessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/drivers': typeof AuthenticatedDriversRoute
   '/incidents': typeof AuthenticatedIncidentsRoute
   '/messages': typeof AuthenticatedMessagesRoute
+  '/news': typeof AuthenticatedNewsRoute
   '/passengers': typeof AuthenticatedPassengersRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/drivers': typeof AuthenticatedDriversRoute
   '/incidents': typeof AuthenticatedIncidentsRoute
   '/messages': typeof AuthenticatedMessagesRoute
+  '/news': typeof AuthenticatedNewsRoute
   '/passengers': typeof AuthenticatedPassengersRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/_authenticated/drivers': typeof AuthenticatedDriversRoute
   '/_authenticated/incidents': typeof AuthenticatedIncidentsRoute
   '/_authenticated/messages': typeof AuthenticatedMessagesRoute
+  '/_authenticated/news': typeof AuthenticatedNewsRoute
   '/_authenticated/passengers': typeof AuthenticatedPassengersRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/drivers'
     | '/incidents'
     | '/messages'
+    | '/news'
     | '/passengers'
     | '/reports'
     | '/schedules'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/drivers'
     | '/incidents'
     | '/messages'
+    | '/news'
     | '/passengers'
     | '/reports'
     | '/schedules'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/_authenticated/drivers'
     | '/_authenticated/incidents'
     | '/_authenticated/messages'
+    | '/_authenticated/news'
     | '/_authenticated/passengers'
     | '/_authenticated/reports'
     | '/_authenticated/schedules'
@@ -256,6 +268,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPassengersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/news': {
+      id: '/_authenticated/news'
+      path: '/news'
+      fullPath: '/news'
+      preLoaderRoute: typeof AuthenticatedNewsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/messages': {
       id: '/_authenticated/messages'
       path: '/messages'
@@ -307,6 +326,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDriversRoute: typeof AuthenticatedDriversRoute
   AuthenticatedIncidentsRoute: typeof AuthenticatedIncidentsRoute
   AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRoute
+  AuthenticatedNewsRoute: typeof AuthenticatedNewsRoute
   AuthenticatedPassengersRoute: typeof AuthenticatedPassengersRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSchedulesRoute: typeof AuthenticatedSchedulesRoute
@@ -320,6 +340,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDriversRoute: AuthenticatedDriversRoute,
   AuthenticatedIncidentsRoute: AuthenticatedIncidentsRoute,
   AuthenticatedMessagesRoute: AuthenticatedMessagesRoute,
+  AuthenticatedNewsRoute: AuthenticatedNewsRoute,
   AuthenticatedPassengersRoute: AuthenticatedPassengersRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSchedulesRoute: AuthenticatedSchedulesRoute,

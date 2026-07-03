@@ -1,8 +1,9 @@
-import { createFileRoute, useServerFn } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, ExternalLink, MapPin, RefreshCw } from "lucide-react";
-import { getDriverLocations, getLocationNews } from "@/lib/news.functions";
+import { getDriverLocations, getLocationNews, type NewsItem, type DriverLocation } from "@/lib/news.functions";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/news")({
