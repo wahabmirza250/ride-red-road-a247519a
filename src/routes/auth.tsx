@@ -20,6 +20,7 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [role, setRole] = useState<"driver" | "admin">("driver");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -42,7 +43,7 @@ function AuthPage() {
           password,
           options: {
             emailRedirectTo: redirectTo,
-            data: { first_name: firstName, last_name: lastName },
+            data: { first_name: firstName, last_name: lastName, role },
           },
         });
         if (error) throw error;
@@ -102,6 +103,27 @@ function AuthPage() {
                     onChange={(e) => setLastName(e.target.value)}
                     required
                   />
+                </div>
+              </div>
+            ) : null}
+            {mode === "signup" ? (
+              <div className="space-y-1.5">
+                <Label>I am a</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["driver", "admin"] as const).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setRole(r)}
+                      className={`rounded-xl border p-3 text-sm font-medium capitalize transition ${
+                        role === r
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border text-muted-foreground hover:bg-accent"
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
                 </div>
               </div>
             ) : null}
