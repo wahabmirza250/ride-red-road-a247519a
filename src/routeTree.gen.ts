@@ -17,8 +17,10 @@ import { Route as AuthenticatedTripsRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSchedulesRouteImport } from './routes/_authenticated/schedules'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPassengersRouteImport } from './routes/_authenticated/passengers'
+import { Route as AuthenticatedNewsRouteImport } from './routes/_authenticated/news'
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
 import { Route as AuthenticatedIncidentsRouteImport } from './routes/_authenticated/incidents'
+import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/games'
 import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
@@ -63,6 +65,11 @@ const AuthenticatedPassengersRoute = AuthenticatedPassengersRouteImport.update({
   path: '/passengers',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedNewsRoute = AuthenticatedNewsRouteImport.update({
+  id: '/news',
+  path: '/news',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMessagesRoute = AuthenticatedMessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
@@ -71,6 +78,11 @@ const AuthenticatedMessagesRoute = AuthenticatedMessagesRouteImport.update({
 const AuthenticatedIncidentsRoute = AuthenticatedIncidentsRouteImport.update({
   id: '/incidents',
   path: '/incidents',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGamesRoute = AuthenticatedGamesRouteImport.update({
+  id: '/games',
+  path: '/games',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDriversRoute = AuthenticatedDriversRouteImport.update({
@@ -101,8 +113,10 @@ export interface FileRoutesByFullPath {
   '/billing': typeof AuthenticatedBillingRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/drivers': typeof AuthenticatedDriversRoute
+  '/games': typeof AuthenticatedGamesRoute
   '/incidents': typeof AuthenticatedIncidentsRoute
   '/messages': typeof AuthenticatedMessagesRoute
+  '/news': typeof AuthenticatedNewsRoute
   '/passengers': typeof AuthenticatedPassengersRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
@@ -116,8 +130,10 @@ export interface FileRoutesByTo {
   '/billing': typeof AuthenticatedBillingRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/drivers': typeof AuthenticatedDriversRoute
+  '/games': typeof AuthenticatedGamesRoute
   '/incidents': typeof AuthenticatedIncidentsRoute
   '/messages': typeof AuthenticatedMessagesRoute
+  '/news': typeof AuthenticatedNewsRoute
   '/passengers': typeof AuthenticatedPassengersRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
@@ -133,8 +149,10 @@ export interface FileRoutesById {
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/drivers': typeof AuthenticatedDriversRoute
+  '/_authenticated/games': typeof AuthenticatedGamesRoute
   '/_authenticated/incidents': typeof AuthenticatedIncidentsRoute
   '/_authenticated/messages': typeof AuthenticatedMessagesRoute
+  '/_authenticated/news': typeof AuthenticatedNewsRoute
   '/_authenticated/passengers': typeof AuthenticatedPassengersRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
@@ -150,8 +168,10 @@ export interface FileRouteTypes {
     | '/billing'
     | '/dashboard'
     | '/drivers'
+    | '/games'
     | '/incidents'
     | '/messages'
+    | '/news'
     | '/passengers'
     | '/reports'
     | '/schedules'
@@ -165,8 +185,10 @@ export interface FileRouteTypes {
     | '/billing'
     | '/dashboard'
     | '/drivers'
+    | '/games'
     | '/incidents'
     | '/messages'
+    | '/news'
     | '/passengers'
     | '/reports'
     | '/schedules'
@@ -181,8 +203,10 @@ export interface FileRouteTypes {
     | '/_authenticated/billing'
     | '/_authenticated/dashboard'
     | '/_authenticated/drivers'
+    | '/_authenticated/games'
     | '/_authenticated/incidents'
     | '/_authenticated/messages'
+    | '/_authenticated/news'
     | '/_authenticated/passengers'
     | '/_authenticated/reports'
     | '/_authenticated/schedules'
@@ -256,6 +280,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPassengersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/news': {
+      id: '/_authenticated/news'
+      path: '/news'
+      fullPath: '/news'
+      preLoaderRoute: typeof AuthenticatedNewsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/messages': {
       id: '/_authenticated/messages'
       path: '/messages'
@@ -268,6 +299,13 @@ declare module '@tanstack/react-router' {
       path: '/incidents'
       fullPath: '/incidents'
       preLoaderRoute: typeof AuthenticatedIncidentsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/games': {
+      id: '/_authenticated/games'
+      path: '/games'
+      fullPath: '/games'
+      preLoaderRoute: typeof AuthenticatedGamesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/drivers': {
@@ -305,8 +343,10 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBillingRoute: typeof AuthenticatedBillingRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDriversRoute: typeof AuthenticatedDriversRoute
+  AuthenticatedGamesRoute: typeof AuthenticatedGamesRoute
   AuthenticatedIncidentsRoute: typeof AuthenticatedIncidentsRoute
   AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRoute
+  AuthenticatedNewsRoute: typeof AuthenticatedNewsRoute
   AuthenticatedPassengersRoute: typeof AuthenticatedPassengersRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSchedulesRoute: typeof AuthenticatedSchedulesRoute
@@ -318,8 +358,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBillingRoute: AuthenticatedBillingRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDriversRoute: AuthenticatedDriversRoute,
+  AuthenticatedGamesRoute: AuthenticatedGamesRoute,
   AuthenticatedIncidentsRoute: AuthenticatedIncidentsRoute,
   AuthenticatedMessagesRoute: AuthenticatedMessagesRoute,
+  AuthenticatedNewsRoute: AuthenticatedNewsRoute,
   AuthenticatedPassengersRoute: AuthenticatedPassengersRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSchedulesRoute: AuthenticatedSchedulesRoute,
