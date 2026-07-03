@@ -152,7 +152,7 @@ function NewsPage() {
                 ) : null}
 
                 <ul className="divide-y divide-border">
-                  {(newsQuery.data?.items ?? []).map((item, i) => (
+                  {(newsQuery.data?.items ?? []).map((item: NewsItem, i: number) => (
                     <li key={i} className="py-3">
                       <a
                         href={item.link}
