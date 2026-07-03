@@ -284,3 +284,86 @@ function GamesPage() {
     </div>
   );
 }
+
+function isHttpUrl(v: string | null | undefined): boolean {
+  return !!v && /^https?:\/\//i.test(v);
+}
+
+function GameThumb({ src, title }: { src: string | null; title: string }) {
+  const [resolved, setResolved] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!src) {
+      setResolved(null);
+      return;
+    }
+    if (isHttpUrl(src)) {
+      setResolved(src);
+      return;
+    }
+    // Treat as storage path in "games" bucket
+    supabase.storage
+      .from("games")
+      .createSignedUrl(src, 60 * 60 * 6)
+      .then(({ data }) => {
+        if (!cancelled) setResolved(data?.signedUrl ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+
+  if (!resolved) {
+    return <Gamepad2 className="h-10 w-10 text-muted-foreground" />;
+  }
+  return (
+    <img
+      src={resolved}
+      alt={title}
+      className="h-full w-full object-cover transition group-hover:scale-105"
+      loading="lazy"
+      onError={(e) => {
+        (e.currentTarget as HTMLImageElement).style.display = "none";
+      }}
+    />
+  );
+}
+
+function ThumbnailUploader({ onUploaded }: { onUploaded: (path: string) => void }) {
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Max 5 MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("games")
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      onUploaded(path);
+      toast.success("Thumbnail uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs font-medium text-foreground shadow-soft hover:bg-accent">
+      {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+      {uploading ? "Uploading…" : "Upload image"}
+      <input type="file" accept="image/*" className="hidden" onChange={handleFile} disabled={uploading} />
+    </label>
+  );
+}
+
