@@ -51,7 +51,7 @@ function AuthPage() {
         if (error) throw error;
         toast.success("Account created");
       }
-      navigate({ to: "/dashboard", replace: true });
+      // Landing handled by the effect above once auth state hydrates.
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       toast.error(msg);
