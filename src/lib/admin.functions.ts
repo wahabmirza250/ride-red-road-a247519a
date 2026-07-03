@@ -92,6 +92,61 @@ export const createDriver = createServerFn({ method: "POST" })
     return { ok: true, user_id: userId };
   });
 
+type CreateAdminInput = {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
+};
+
+export const createAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: CreateAdminInput) => input)
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+      email: data.email,
+      password: data.password,
+      email_confirm: true,
+      user_metadata: {
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: data.phone ?? "",
+        role: "admin",
+      },
+    });
+    if (error || !created.user) throw new Error(error?.message ?? "Failed to create user");
+    const userId = created.user.id;
+    await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).neq("role", "admin");
+    await supabaseAdmin
+      .from("profiles")
+      .update({ first_name: data.first_name, last_name: data.last_name, phone: data.phone ?? "" })
+      .eq("id", userId);
+    return { ok: true, user_id: userId };
+  });
+
+export const listAdmins = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureAdmin(context.supabase, context.userId);
+    const { data: roles } = await context.supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "admin");
+    const ids = (roles ?? []).map((r) => r.user_id);
+    if (!ids.length) return [];
+    const { data: profs } = await context.supabase
+      .from("profiles")
+      .select("id, first_name, last_name, email, phone")
+      .in("id", ids);
+    return profs ?? [];
+  });
+
 export const createPassengerAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: CreatePassengerInput) => input)

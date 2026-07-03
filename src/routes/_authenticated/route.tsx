@@ -20,6 +20,7 @@ import {
   Moon,
   Radio,
   Megaphone,
+  Shield,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
@@ -40,6 +41,7 @@ const ADMIN_NAV = [
   { to: "/medicaid-billing", label: "Medicaid Billing", icon: FileSignature },
   { to: "/drivers", label: "Drivers", icon: Users },
   { to: "/passengers", label: "Passengers", icon: UserRound },
+  { to: "/team", label: "Team & apps", icon: Shield },
   { to: "/billing", label: "Billing", icon: Receipt },
   { to: "/messages", label: "Messages", icon: MessageSquare },
   { to: "/reports", label: "Reports", icon: BarChart3 },
