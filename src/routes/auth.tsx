@@ -43,7 +43,7 @@ function AuthPage() {
           password,
           options: {
             emailRedirectTo: redirectTo,
-            data: { first_name: firstName, last_name: lastName },
+            data: { first_name: firstName, last_name: lastName, role },
           },
         });
         if (error) throw error;
