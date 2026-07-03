@@ -57,6 +57,9 @@ function AuthenticatedLayout() {
   const { loading, user, isAdmin, isDriver, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme, toggle: toggleTheme } = useTheme();
+
+  useDriverLocationPing();
 
   useEffect(() => {
     if (!loading && !user) {
