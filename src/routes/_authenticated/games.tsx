@@ -208,16 +208,23 @@ function GamesPage() {
                   className="mt-1"
                 />
               </label>
-              <label className="block text-xs font-medium text-muted-foreground">
-                Thumbnail URL
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">Thumbnail</div>
+                <div className="flex items-center gap-3">
+                  <div className="h-16 w-24 shrink-0 overflow-hidden rounded-md border border-border bg-surface-muted">
+                    <GameThumb src={editing.thumbnail_url ?? null} title={editing.title || "Preview"} />
+                  </div>
+                  <ThumbnailUploader
+                    onUploaded={(path) => setEditing({ ...editing, thumbnail_url: path })}
+                  />
+                </div>
                 <Input
-                  type="url"
-                  placeholder="https://…/image.png"
+                  type="text"
+                  placeholder="Or paste an image URL (https://…) or upload above"
                   value={editing.thumbnail_url ?? ""}
                   onChange={(e) => setEditing({ ...editing, thumbnail_url: e.target.value })}
-                  className="mt-1"
                 />
-              </label>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block text-xs font-medium text-muted-foreground">
                   Category
