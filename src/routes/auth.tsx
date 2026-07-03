@@ -20,6 +20,7 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [role, setRole] = useState<"driver" | "admin">("driver");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
