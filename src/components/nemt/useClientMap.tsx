@@ -25,7 +25,8 @@ function useMapModule(): MapModule | null {
   const [mod, setMod] = useState<MapModule | null>(null);
   useEffect(() => {
     let cancelled = false;
-    import("./MapView.client").then((m) => {
+    const path = "./MapView.client";
+    import(/* @vite-ignore */ path).then((m) => {
       if (!cancelled) setMod(m as unknown as MapModule);
     });
     return () => {
