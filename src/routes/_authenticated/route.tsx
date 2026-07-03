@@ -35,6 +35,8 @@ const NAV = [
   { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/incidents", label: "Incidents", icon: AlertTriangle },
   { to: "/schedules", label: "Schedules", icon: CalendarClock },
+  { to: "/news", label: "News", icon: Newspaper },
+  { to: "/games", label: "Games", icon: Gamepad2 },
 ] as const;
 
 function AuthenticatedLayout() {
