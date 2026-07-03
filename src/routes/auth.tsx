@@ -14,20 +14,22 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { user, loading, isAdmin, isDriver } = useAuth();
+  const { user, loading, isAdmin, isDriver, isPassenger } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [role, setRole] = useState<"driver" | "admin">("driver");
+  const [role, setRole] = useState<"passenger" | "driver" | "admin">("passenger");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (loading || !user) return;
-    if (isDriver && !isAdmin) navigate({ to: "/medicaid-trips", replace: true });
-    else navigate({ to: "/dashboard", replace: true });
-  }, [loading, user, isAdmin, isDriver, navigate]);
+    if (isAdmin) navigate({ to: "/dashboard", replace: true });
+    else if (isDriver) navigate({ to: "/driver", replace: true });
+    else if (isPassenger) navigate({ to: "/rider", replace: true });
+    else navigate({ to: "/rider", replace: true });
+  }, [loading, user, isAdmin, isDriver, isPassenger, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -111,8 +113,8 @@ function AuthPage() {
             {mode === "signup" ? (
               <div className="space-y-1.5">
                 <Label>I am a</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(["driver", "admin"] as const).map((r) => (
+                <div className="grid grid-cols-3 gap-2">
+                  {(["passenger", "driver", "admin"] as const).map((r) => (
                     <button
                       key={r}
                       type="button"

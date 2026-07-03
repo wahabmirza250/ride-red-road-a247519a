@@ -7,7 +7,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { loading, user, isAdmin, isDriver } = useAuth();
+  const { loading, user, isAdmin, isDriver, isPassenger } = useAuth();
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -16,6 +16,8 @@ function Index() {
     );
   }
   if (!user) return <Navigate to="/auth" />;
-  if (isDriver && !isAdmin) return <Navigate to="/medicaid-trips" />;
-  return <Navigate to="/dashboard" />;
+  if (isAdmin) return <Navigate to="/dashboard" />;
+  if (isDriver) return <Navigate to="/driver" />;
+  if (isPassenger) return <Navigate to="/rider" />;
+  return <Navigate to="/rider" />;
 }
