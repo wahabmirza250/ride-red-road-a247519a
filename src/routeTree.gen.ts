@@ -23,6 +23,7 @@ import { Route as RiderPlacesRouteImport } from './routes/rider.places'
 import { Route as RiderHistoryRouteImport } from './routes/rider.history'
 import { Route as RiderFunRouteImport } from './routes/rider.fun'
 import { Route as DriverSigninRouteImport } from './routes/driver.signin'
+import { Route as DriverMessagesRouteImport } from './routes/driver.messages'
 import { Route as DriverEarningsRouteImport } from './routes/driver.earnings'
 import { Route as AuthenticatedTripsRouteImport } from './routes/_authenticated/trips'
 import { Route as AuthenticatedSchedulesRouteImport } from './routes/_authenticated/schedules'
@@ -109,6 +110,11 @@ const RiderFunRoute = RiderFunRouteImport.update({
 const DriverSigninRoute = DriverSigninRouteImport.update({
   id: '/signin',
   path: '/signin',
+  getParentRoute: () => DriverRoute,
+} as any)
+const DriverMessagesRoute = DriverMessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
   getParentRoute: () => DriverRoute,
 } as any)
 const DriverEarningsRoute = DriverEarningsRouteImport.update({
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/trips': typeof AuthenticatedTripsRoute
   '/driver/earnings': typeof DriverEarningsRoute
+  '/driver/messages': typeof DriverMessagesRoute
   '/driver/signin': typeof DriverSigninRoute
   '/rider/fun': typeof RiderFunRoute
   '/rider/history': typeof RiderHistoryRoute
@@ -258,6 +265,7 @@ export interface FileRoutesByTo {
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/trips': typeof AuthenticatedTripsRoute
   '/driver/earnings': typeof DriverEarningsRoute
+  '/driver/messages': typeof DriverMessagesRoute
   '/driver/signin': typeof DriverSigninRoute
   '/rider/fun': typeof RiderFunRoute
   '/rider/history': typeof RiderHistoryRoute
@@ -293,6 +301,7 @@ export interface FileRoutesById {
   '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
   '/_authenticated/trips': typeof AuthenticatedTripsRoute
   '/driver/earnings': typeof DriverEarningsRoute
+  '/driver/messages': typeof DriverMessagesRoute
   '/driver/signin': typeof DriverSigninRoute
   '/rider/fun': typeof RiderFunRoute
   '/rider/history': typeof RiderHistoryRoute
@@ -328,6 +337,7 @@ export interface FileRouteTypes {
     | '/schedules'
     | '/trips'
     | '/driver/earnings'
+    | '/driver/messages'
     | '/driver/signin'
     | '/rider/fun'
     | '/rider/history'
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | '/schedules'
     | '/trips'
     | '/driver/earnings'
+    | '/driver/messages'
     | '/driver/signin'
     | '/rider/fun'
     | '/rider/history'
@@ -393,6 +404,7 @@ export interface FileRouteTypes {
     | '/_authenticated/schedules'
     | '/_authenticated/trips'
     | '/driver/earnings'
+    | '/driver/messages'
     | '/driver/signin'
     | '/rider/fun'
     | '/rider/history'
@@ -513,6 +525,13 @@ declare module '@tanstack/react-router' {
       path: '/signin'
       fullPath: '/driver/signin'
       preLoaderRoute: typeof DriverSigninRouteImport
+      parentRoute: typeof DriverRoute
+    }
+    '/driver/messages': {
+      id: '/driver/messages'
+      path: '/messages'
+      fullPath: '/driver/messages'
+      preLoaderRoute: typeof DriverMessagesRouteImport
       parentRoute: typeof DriverRoute
     }
     '/driver/earnings': {
@@ -701,12 +720,14 @@ const AuthenticatedRouteRouteWithChildren =
 
 interface DriverRouteChildren {
   DriverEarningsRoute: typeof DriverEarningsRoute
+  DriverMessagesRoute: typeof DriverMessagesRoute
   DriverSigninRoute: typeof DriverSigninRoute
   DriverIndexRoute: typeof DriverIndexRoute
 }
 
 const DriverRouteChildren: DriverRouteChildren = {
   DriverEarningsRoute: DriverEarningsRoute,
+  DriverMessagesRoute: DriverMessagesRoute,
   DriverSigninRoute: DriverSigninRoute,
   DriverIndexRoute: DriverIndexRoute,
 }
