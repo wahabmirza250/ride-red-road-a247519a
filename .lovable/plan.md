@@ -1,103 +1,87 @@
+## What you'll get
 
-## What we're building
+Three connected experiences on one codebase, all sharing the same database in real time:
 
-A single app with three role-based sections that share one database:
+1. **Admin dashboard** — you already have it. Gets new live tabs: active ride requests, drivers online, live map.
+2. **Driver app** at `/driver` — mobile-first, installable.
+3. **Passenger app** at `/rider` — mobile-first, installable.
 
-1. **Driver** — fills out the Colorado Medicaid trip form on their phone
-2. **Rider (Passenger)** — a signature tab the driver hands over so the rider signs once and their profile is saved
-3. **Admin/Billing** — reviews completed trips, approves them, exports the state-form PDF, and marks each bill as submitted
+Anyone visits the site, signs in, and is auto-routed to the right app based on their role (admin / driver / passenger).
 
-All three views live in this project under role-gated routes.
+## Passenger app (`/rider`)
 
----
+- **Home** — big "Where to?" search, saved Home/Work chips, current location auto-fill.
+- **Book a ride** — pick pickup + dropoff on map, see fare estimate + ETA before requesting.
+- **Waiting screen** — live car icon moving toward you, driver name/photo/rating, minutes-to-arrival, "Cancel" and "Message driver".
+- **In-trip** — live route line, ETA to destination.
+- **Rate driver** — 1-5 stars + comment after trip.
+- **Ride history** — list of past trips with fare + driver.
+- **Saved places** — Home, Work, custom.
+- **Entertainment tab** — games (uses your existing games system) + news feed so people stay in the app.
 
-## Flow
+## Driver app (`/driver`)
 
-```text
-Driver taps "New Trip"
-   │
-   ├─ Types rider name  →  matches on name + Medicaid ID
-   │     ├─ Existing rider  →  profile auto-fills
-   │     └─ New rider       →  quick "Add rider" form
-   │
-   ├─ Fills: pickup date/time, pickup addr, dropoff addr,
-   │         odometer start, odometer end, miles (auto-calc, editable)
-   │
-   ├─ Hands phone to rider  →  "Rider signature" tab
-   │     └─ Rider signs on-screen, taps Confirm
-   │
-   └─ Submit trip  →  status = pending_review
-                       │
-                       ▼
-              Admin billing queue
-                       │
-       ┌───────────────┼────────────────┐
-       ▼               ▼                ▼
-   Approve         Request fix       Reject
-       │
-       ▼
-   Generate filled state-form PDF (matches the paper form)
-       │
-       ▼
-   Admin downloads PDF, submits on state site manually
-       │
-       ▼
-   Admin clicks "Mark submitted"  →  logs date + confirmation #
-```
+- **Go online toggle** — starts GPS broadcast (already-built ping hook, upgraded to 5s while online).
+- **Incoming request popup** — pickup address, distance, fare, Accept/Decline with countdown.
+- **Active trip screen** — pickup → dropoff, passenger name, "Navigate" button (opens Google/Apple Maps), status buttons: Arrived → Start trip → Complete → Collect.
+- **Earnings** — today, this week, all-time; hours online; trips completed.
+- **Shift summary** at end of day.
 
-Because there's no state API, "auto-bill after review" means: the system produces the ready-to-submit PDF, tracks who approved it, and records submission — the human only uploads to the state site.
+## Live sync (the "Uber magic")
 
----
+- Supabase Realtime channels on `trips`, `drivers`, `ride_requests`.
+- Driver GPS writes to `drivers.current_lat/lng` every 5s while online.
+- Passenger subscribes to their trip's driver row → car icon moves live.
+- Admin dashboard subscribes to everything → sees all drivers + all active trips on the map.
 
-## Screens
+## Installable (PWA)
 
-**Driver**
-- Trip list (today / week)
-- New Trip form (single scrollable page, mobile-first)
-- Rider search + "Add new rider" modal
-- Signature tab (fullscreen canvas, "Pass to rider" header)
-- Trip detail (see status: pending / approved / submitted)
+- Web manifest + icons so both `/driver` and `/rider` show an **Install** prompt on phones.
+- Opens fullscreen like a native app, gets its own home-screen icon.
+- No offline mode (you didn't ask for it — keeps things simple and safe).
 
-**Rider profile store** (populated once, reused forever)
-- Full name, Medicaid ID, DOB, phone, home address, notes
+## Database changes
 
-**Admin / Billing**
-- Queue: pending review, approved, submitted, rejected
-- Trip detail with signature preview + all fields + rider profile
-- Approve / Request fix / Reject buttons
-- "Download state PDF" + "Mark submitted" (confirmation # + date)
-- Simple totals: trips this week, miles, submitted vs pending
+New tables:
+- `ride_requests` — pending/accepted/rejected ride requests broadcast to nearby drivers
+- `saved_places` — passenger's Home/Work/custom addresses
+- `news_items` — admin-managed news feed for passenger entertainment tab
 
----
+Extends existing tables:
+- `drivers`: add `current_lat`, `current_lng`, `is_online`, `last_ping_at`
+- `trips`: add `estimated_fare`, `estimated_arrival_at`, `passenger_rating`, `driver_rating`
+- Enable Realtime publication on `trips`, `drivers`, `ride_requests`
 
-## Data (new tables)
+New role: `passenger` (added to `app_role` enum; admin can also create passenger accounts).
 
-- `riders` — name, medicaid_id (unique), dob, phone, address, notes, created_by_driver
-- `medicaid_trips` — driver_id, rider_id, pickup_at, pickup_address, dropoff_address, odometer_start, odometer_end, miles, signature (PNG in storage), status, submitted_confirmation, submitted_at, reviewed_by, review_notes
-- Storage buckets: `signatures`, `state-pdfs`
+## Admin dashboard additions
 
-RLS: drivers see only their own trips + riders they've created or used; admins see everything.
+- **Live Ops** page: real-time map with every online driver (green = idle, blue = on trip), active ride requests, live trip cards.
+- **News** page: create/edit news items shown to passengers.
+- Driver creation form already sends email/password — extend the same to passengers.
 
----
+## Out of scope for this turn
 
-## Roles
-
-Extends the existing `user_roles` table with a `billing_admin` role (or reuses `admin`). Drivers and admins are the only sign-in roles; riders don't log in — they just sign on the driver's device.
-
----
-
-## Open items before build
-
-1. **The Colorado state PDF you mentioned** — please attach it. I need it to (a) match exact field labels, (b) generate a filled PDF that looks like the real form (`pdf-lib` fills the actual PDF).
-2. If no PDF arrives, I'll ship a generic printable trip receipt as a placeholder and swap it in once you upload the form.
-
----
+- Real payment processing (Stripe) — trips mark "Collect cash" for now. Say the word later and I'll wire Stripe.
+- Turn-by-turn navigation inside the app — we hand off to Google/Apple Maps via a deep link (industry standard, avoids Mapbox nav SDK costs).
+- Native iOS/Android builds — PWA covers 95% of the experience; Capacitor wrapper is a follow-up.
+- Push notifications — needs Firebase Cloud Messaging setup; can add next turn if you want.
 
 ## Technical notes
 
-- Signature capture: `react-signature-canvas`, saved as PNG to `signatures` bucket
-- PDF generation: `pdf-lib` in a `createServerFn`, output stored in `state-pdfs` bucket
-- Rider search: server function with `ilike` on name + exact match on Medicaid ID
-- Mileage auto-calc = `odometer_end - odometer_start`, editable in case of detours
-- Realtime: admin queue subscribes to `medicaid_trips` inserts so new trips appear live
-- All three views are the same app — role gate decides which nav they see after login
+- Fare estimate: haversine distance × configurable per-km rate + base fare (stored in a `pricing_config` row so you can edit it).
+- ETA: straight-line distance ÷ avg 40 km/h until a routing API is added (Mapbox Directions is easy to bolt on later).
+- Map: existing Leaflet setup extended with driver marker updates on realtime events.
+- Role routing: `/` redirects → admin → `/dashboard`, driver → `/driver`, passenger → `/rider`.
+- All new tables get RLS: passengers see only their own rides, drivers see only assigned rides + open requests, admin sees all.
+
+## Build order
+
+1. DB migration (tables, columns, realtime, RLS, roles)
+2. Passenger booking flow + live tracking
+3. Driver online/offline + request accept + trip lifecycle
+4. Admin Live Ops page + News management
+5. PWA manifest + install prompt
+6. Role-based routing polish
+
+Approve and I'll ship it.
