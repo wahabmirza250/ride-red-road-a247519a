@@ -13,9 +13,9 @@ export const Route = createFileRoute("/rider")({
 
 const NAV = [
   { to: "/rider", label: "Ride", icon: Home, exact: true },
-  { to: "/rider/history", label: "History", icon: Clock },
-  { to: "/rider/places", label: "Places", icon: MapPinned },
-  { to: "/rider/fun", label: "Fun", icon: Sparkles },
+  { to: "/rider/history", label: "History", icon: Clock, exact: false },
+  { to: "/rider/places", label: "Places", icon: MapPinned, exact: false },
+  { to: "/rider/fun", label: "Fun", icon: Sparkles, exact: false },
 ] as const;
 
 function RiderLayout() {
