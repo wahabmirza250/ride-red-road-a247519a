@@ -27,8 +27,8 @@ function AuthPage() {
     if (loading || !user) return;
     if (isAdmin) navigate({ to: "/dashboard", replace: true });
     else if (isDriver) navigate({ to: "/driver", replace: true });
-    else if (isPassenger) navigate({ to: "/rider", replace: true });
-    else navigate({ to: "/rider", replace: true });
+    else if (isPassenger) navigate({ to: "/passenger", replace: true });
+    else navigate({ to: "/passenger", replace: true });
   }, [loading, user, isAdmin, isDriver, isPassenger, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
