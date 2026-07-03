@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 
 export type DriverMarker = {
   id: string;
-  name: string;
   lat: number;
   lng: number;
-  status?: string | null;
+  status: "available" | "on_trip" | "offline";
+  label?: string;
 };
 export type GpsPoint = { lat: number; lng: number; t?: string | null };
 export type StopDot = { lat: number; lng: number; label?: string };
