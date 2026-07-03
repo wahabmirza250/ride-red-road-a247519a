@@ -129,19 +129,7 @@ function GamesPage() {
             >
               <a href={g.url} target="_blank" rel="noreferrer" className="block">
                 <div className="flex aspect-video items-center justify-center overflow-hidden bg-surface-muted">
-                  {g.thumbnail_url ? (
-                    <img
-                      src={g.thumbnail_url}
-                      alt={g.title}
-                      className="h-full w-full object-cover transition group-hover:scale-105"
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <Gamepad2 className="h-10 w-10 text-muted-foreground" />
-                  )}
+                  <GameThumb src={g.thumbnail_url} title={g.title} />
                 </div>
                 <div className="p-3">
                   <div className="flex items-center justify-between gap-2">
