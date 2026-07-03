@@ -1,87 +1,66 @@
-## What you'll get
 
-Three connected experiences on one codebase, all sharing the same database in real time:
+# Separate Driver + Passenger apps with live chat
 
-1. **Admin dashboard** — you already have it. Gets new live tabs: active ride requests, drivers online, live map.
-2. **Driver app** at `/driver` — mobile-first, installable.
-3. **Passenger app** at `/rider` — mobile-first, installable.
+Turn the current single site into three distinctly-branded apps sharing one backend, and add real-time chat between admin, drivers, and passengers.
 
-Anyone visits the site, signs in, and is auto-routed to the right app based on their role (admin / driver / passenger).
+## 1. Three branded surfaces, three links
 
-## Passenger app (`/rider`)
+| App | Link to share | Sign-in page | Who can register |
+|---|---|---|---|
+| Admin | `/admin` | `/admin/signin` | Only from dashboard |
+| Driver | `/driver` | `/driver/signin` | Admin creates them |
+| Passenger | `/rider` | `/rider/signup` + `/rider/signin` | Anyone (self sign-up) |
 
-- **Home** — big "Where to?" search, saved Home/Work chips, current location auto-fill.
-- **Book a ride** — pick pickup + dropoff on map, see fare estimate + ETA before requesting.
-- **Waiting screen** — live car icon moving toward you, driver name/photo/rating, minutes-to-arrival, "Cancel" and "Message driver".
-- **In-trip** — live route line, ETA to destination.
-- **Rate driver** — 1-5 stars + comment after trip.
-- **Ride history** — list of past trips with fare + driver.
-- **Saved places** — Home, Work, custom.
-- **Entertainment tab** — games (uses your existing games system) + news feed so people stay in the app.
+Each app gets its own logo/name/color accent so a driver opening `/driver` sees a driver-branded product, not the admin dashboard.
 
-## Driver app (`/driver`)
+- Visiting `/driver` while signed out → driver sign-in page (not the shared `/auth`).
+- Visiting `/rider` while signed out → passenger sign-in/sign-up.
+- If a passenger tries the driver link, they're told "This link is for drivers" with a button to the passenger app (and vice versa).
+- Signed-in users always land in their own app; wrong-role visits get bounced to the right one.
 
-- **Go online toggle** — starts GPS broadcast (already-built ping hook, upgraded to 5s while online).
-- **Incoming request popup** — pickup address, distance, fare, Accept/Decline with countdown.
-- **Active trip screen** — pickup → dropoff, passenger name, "Navigate" button (opens Google/Apple Maps), status buttons: Arrived → Start trip → Complete → Collect.
-- **Earnings** — today, this week, all-time; hours online; trips completed.
-- **Shift summary** at end of day.
+## 2. Passenger self sign-up
 
-## Live sync (the "Uber magic")
+New public `/rider/signup` page: name, phone, email, password → creates auth user + `passengers` row automatically, then drops them into the passenger app. No admin action needed.
 
-- Supabase Realtime channels on `trips`, `drivers`, `ride_requests`.
-- Driver GPS writes to `drivers.current_lat/lng` every 5s while online.
-- Passenger subscribes to their trip's driver row → car icon moves live.
-- Admin dashboard subscribes to everything → sees all drivers + all active trips on the map.
+## 3. Driver accounts stay admin-created
 
-## Installable (PWA)
+Admin `Drivers` page gets a "Create driver login" button: enter email + temporary password → server function creates the auth user, `drivers` row, and `driver` role in one shot. You share the `/driver` link + credentials.
 
-- Web manifest + icons so both `/driver` and `/rider` show an **Install** prompt on phones.
-- Opens fullscreen like a native app, gets its own home-screen icon.
-- No offline mode (you didn't ask for it — keeps things simple and safe).
+## 4. Live chat system (the big one)
 
-## Database changes
+New `conversations` + `messages` tables (Realtime enabled) with three conversation kinds:
+- **Driver ↔ Admin** — always available
+- **Passenger ↔ Admin** — always available
+- **Driver ↔ Passenger** — auto-created when a trip goes active, auto-closed when trip completes (like Uber in-trip chat)
 
-New tables:
-- `ride_requests` — pending/accepted/rejected ride requests broadcast to nearby drivers
-- `saved_places` — passenger's Home/Work/custom addresses
-- `news_items` — admin-managed news feed for passenger entertainment tab
+Where chat lives:
+- **Driver app**: "Messages" tab — one thread with dispatch, plus per-active-trip thread with the passenger.
+- **Passenger app**: "Messages" tab — one thread with support, plus per-active-trip thread with the driver.
+- **Admin dashboard**: new `/messages` inbox — all conversations in one list, unread counts, search by name, live updates, reply from one place.
 
-Extends existing tables:
-- `drivers`: add `current_lat`, `current_lng`, `is_online`, `last_ping_at`
-- `trips`: add `estimated_fare`, `estimated_arrival_at`, `passenger_rating`, `driver_rating`
-- Enable Realtime publication on `trips`, `drivers`, `ride_requests`
+Chat features: text messages, read receipts, unread badge in each app's nav, sound/toast on new message when app is open, RLS so each side only sees their own threads.
 
-New role: `passenger` (added to `app_role` enum; admin can also create passenger accounts).
+## 5. Publish + PWA polish
 
-## Admin dashboard additions
+- Publish the site so the three links actually work on phones.
+- Update PWA manifest so installing from `/driver` shows "RedArt Driver" and from `/rider` shows "RedArt Rider" (separate app icons on the home screen).
+- Keep the existing "Install app" prompt.
 
-- **Live Ops** page: real-time map with every online driver (green = idle, blue = on trip), active ride requests, live trip cards.
-- **News** page: create/edit news items shown to passengers.
-- Driver creation form already sends email/password — extend the same to passengers.
+## Out of scope (say if you want any of these)
 
-## Out of scope for this turn
+- Native App Store / Play Store builds
+- Voice / video calls in chat
+- File / photo attachments in chat (text only for v1)
+- Custom domain (do that in Project Settings after publish)
+- Changing any existing booking / tracking / earnings logic
 
-- Real payment processing (Stripe) — trips mark "Collect cash" for now. Say the word later and I'll wire Stripe.
-- Turn-by-turn navigation inside the app — we hand off to Google/Apple Maps via a deep link (industry standard, avoids Mapbox nav SDK costs).
-- Native iOS/Android builds — PWA covers 95% of the experience; Capacitor wrapper is a follow-up.
-- Push notifications — needs Firebase Cloud Messaging setup; can add next turn if you want.
+---
 
-## Technical notes
+## Technical notes (safe to skip)
 
-- Fare estimate: haversine distance × configurable per-km rate + base fare (stored in a `pricing_config` row so you can edit it).
-- ETA: straight-line distance ÷ avg 40 km/h until a routing API is added (Mapbox Directions is easy to bolt on later).
-- Map: existing Leaflet setup extended with driver marker updates on realtime events.
-- Role routing: `/` redirects → admin → `/dashboard`, driver → `/driver`, passenger → `/rider`.
-- All new tables get RLS: passengers see only their own rides, drivers see only assigned rides + open requests, admin sees all.
-
-## Build order
-
-1. DB migration (tables, columns, realtime, RLS, roles)
-2. Passenger booking flow + live tracking
-3. Driver online/offline + request accept + trip lifecycle
-4. Admin Live Ops page + News management
-5. PWA manifest + install prompt
-6. Role-based routing polish
-
-Approve and I'll ship it.
+- **Routing**: split `/driver` and `/rider` out of the shared `_authenticated` gate so each has its own auth flow. Add `driver/signin.tsx`, `rider/signin.tsx`, `rider/signup.tsx` as public routes; child routes stay protected by role checks.
+- **DB migration** (`conversations`, `messages`, `conversation_participants`): RLS policies scoped via `has_role` + participant membership; GRANTs to `authenticated` and `service_role`; add both tables to `supabase_realtime` publication.
+- **Auto-thread on trip**: trigger on `trips` — when status becomes `in_progress`, insert a driver↔passenger conversation; when `completed`, mark it closed (history stays visible).
+- **Admin-creates-driver**: `createServerFn` with `requireSupabaseAuth` + `has_role('admin')` check, then dynamic `import('@/integrations/supabase/client.server')` to call Auth Admin API.
+- **PWA per-app**: two manifest files (`/driver/manifest.webmanifest`, `/rider/manifest.webmanifest`) referenced from each app's route `head()`, distinct `name`, `short_name`, `theme_color`, icons.
+- **Chat UI**: install AI Elements `conversation`, `message`, `prompt-input` primitives and reuse them for the human-to-human chat surface (message list + composer).
