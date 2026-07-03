@@ -21,6 +21,7 @@ import { Route as DriverSigninRouteImport } from './routes/driver.signin'
 import { Route as DriverMessagesRouteImport } from './routes/driver.messages'
 import { Route as DriverEarningsRouteImport } from './routes/driver.earnings'
 import { Route as AuthenticatedTripsRouteImport } from './routes/_authenticated/trips'
+import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSchedulesRouteImport } from './routes/_authenticated/schedules'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPassengersRouteImport } from './routes/_authenticated/passengers'
@@ -95,6 +96,11 @@ const DriverEarningsRoute = DriverEarningsRouteImport.update({
 const AuthenticatedTripsRoute = AuthenticatedTripsRouteImport.update({
   id: '/trips',
   path: '/trips',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSchedulesRoute = AuthenticatedSchedulesRouteImport.update({
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/passengers': typeof AuthenticatedPassengersRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
+  '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRoute
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/messages': typeof DriverMessagesRoute
@@ -228,6 +235,7 @@ export interface FileRoutesByTo {
   '/passengers': typeof AuthenticatedPassengersRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
+  '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRoute
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/messages': typeof DriverMessagesRoute
@@ -259,6 +267,7 @@ export interface FileRoutesById {
   '/_authenticated/passengers': typeof AuthenticatedPassengersRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
+  '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/trips': typeof AuthenticatedTripsRoute
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/messages': typeof DriverMessagesRoute
@@ -290,6 +299,7 @@ export interface FileRouteTypes {
     | '/passengers'
     | '/reports'
     | '/schedules'
+    | '/team'
     | '/trips'
     | '/driver/earnings'
     | '/driver/messages'
@@ -317,6 +327,7 @@ export interface FileRouteTypes {
     | '/passengers'
     | '/reports'
     | '/schedules'
+    | '/team'
     | '/trips'
     | '/driver/earnings'
     | '/driver/messages'
@@ -347,6 +358,7 @@ export interface FileRouteTypes {
     | '/_authenticated/passengers'
     | '/_authenticated/reports'
     | '/_authenticated/schedules'
+    | '/_authenticated/team'
     | '/_authenticated/trips'
     | '/driver/earnings'
     | '/driver/messages'
@@ -451,6 +463,13 @@ declare module '@tanstack/react-router' {
       path: '/trips'
       fullPath: '/trips'
       preLoaderRoute: typeof AuthenticatedTripsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/team': {
+      id: '/_authenticated/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof AuthenticatedTeamRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/schedules': {
@@ -597,6 +616,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPassengersRoute: typeof AuthenticatedPassengersRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSchedulesRoute: typeof AuthenticatedSchedulesRoute
+  AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedTripsRoute: typeof AuthenticatedTripsRoute
   AuthenticatedPayrollDriverIdRoute: typeof AuthenticatedPayrollDriverIdRoute
 }
@@ -616,6 +636,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPassengersRoute: AuthenticatedPassengersRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSchedulesRoute: AuthenticatedSchedulesRoute,
+  AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedTripsRoute: AuthenticatedTripsRoute,
   AuthenticatedPayrollDriverIdRoute: AuthenticatedPayrollDriverIdRoute,
 }
