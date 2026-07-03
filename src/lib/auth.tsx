@@ -44,18 +44,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    refresh();
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, sess) => {
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+
+    async function applySession(sess: Session | null) {
+      if (cancelled) return;
       setSession(sess);
-      if (sess?.user) {
-        setRoles(await fetchRolesFor(sess.user.id));
-      } else {
-        setRoles([]);
+      setRoles(sess?.user ? await fetchRolesFor(sess.user.id) : []);
+      if (!cancelled) setLoading(false);
+    }
+
+    async function init() {
+      try {
+        const { data } = await supabase.auth.getSession();
+        await applySession(data.session);
+      } catch {
+        await applySession(null);
       }
-      setLoading(false);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, [refresh]);
+
+      if (cancelled) return;
+      const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+        window.setTimeout(() => void applySession(sess), 0);
+      });
+      unsubscribe = () => sub.subscription.unsubscribe();
+    }
+
+    void init();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, []);
 
   const value = useMemo<AuthState>(
     () => ({

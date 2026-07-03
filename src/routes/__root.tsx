@@ -10,9 +10,8 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { AuthProvider, useAuth } from "@/lib/auth";
+import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/lib/theme";
-import { supabase } from "@/lib/supabaseBrowser";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -122,21 +121,6 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-function AuthEventBridge() {
-  const router = useRouter();
-  const { refresh } = useAuth();
-  useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
-        refresh();
-        router.invalidate();
-      }
-    });
-    return () => data.subscription.unsubscribe();
-  }, [router, refresh]);
-  return null;
-}
-
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -144,7 +128,6 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <AuthEventBridge />
           <Outlet />
           <Toaster position="top-right" richColors closeButton />
         </AuthProvider>
