@@ -201,9 +201,13 @@ export async function ensureAdminConversation(
 
   if (existing?.id) return existing.id;
 
+  const insertPayload =
+    role === "driver"
+      ? { kind, driver_user_id: userId, is_closed: false }
+      : { kind, passenger_user_id: userId, is_closed: false };
   const { data: created, error } = await supabase
     .from("chat_conversations")
-    .insert({ kind, [column]: userId, is_closed: false })
+    .insert(insertPayload)
     .select("id")
     .single();
   if (error) throw error;
