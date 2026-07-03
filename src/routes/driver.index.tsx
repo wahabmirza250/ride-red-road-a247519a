@@ -143,7 +143,7 @@ function DriverHome() {
       .insert({
         driver_id: driver.id,
         passenger_id: req.passenger_id,
-        status: "accepted",
+        status: "assigned",
         pickup_address: req.pickup_address,
         pickup_lat: req.pickup_lat,
         pickup_lng: req.pickup_lng,
@@ -166,9 +166,13 @@ function DriverHome() {
     void loadRequests();
   }
 
-  async function setStatus(next: string) {
+  async function setStatus(next: "arrived_at_pickup" | "in_progress" | "completed") {
     if (!active?.trip_id) return;
-    const patch: Record<string, unknown> = { status: next };
+    const patch: {
+      status: typeof next;
+      actual_pickup_time?: string;
+      actual_dropoff_time?: string;
+    } = { status: next };
     if (next === "in_progress") patch.actual_pickup_time = new Date().toISOString();
     if (next === "completed") patch.actual_dropoff_time = new Date().toISOString();
     const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
