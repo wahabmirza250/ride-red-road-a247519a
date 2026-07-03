@@ -5,8 +5,9 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Car } from "lucide-react";
+import { Loader2, Car, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 
 export const Route = createFileRoute("/driver/signin")({
   component: DriverSignIn,
@@ -40,11 +41,12 @@ function DriverSignIn() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-900 to-background px-4 py-10 text-foreground">
-      <div className="w-full max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
+      <AuroraBackdrop />
+      <div className="w-full max-w-md animate-rise-in">
         <div className="mb-8 text-center">
           <div className="inline-flex items-center gap-2">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-soft">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lift">
               <Car className="h-5 w-5" />
             </span>
             <span className="text-lg font-semibold tracking-tight">RedArt Driver</span>
@@ -52,30 +54,54 @@ function DriverSignIn() {
           <p className="mt-2 text-sm text-muted-foreground">Go online. Get trips. Get paid.</p>
         </div>
 
-        <div className="rounded-3xl border border-border bg-surface p-8 shadow-lift">
+        <div className="rounded-3xl border border-border/60 bg-surface/70 p-8 shadow-lift backdrop-blur-xl">
           <h1 className="text-xl font-semibold tracking-tight">Driver sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">Use the credentials dispatch gave you.</p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-11 rounded-xl"
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" autoComplete="current-password" minLength={6} required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                minLength={6}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 rounded-xl"
+              />
             </div>
-            <Button type="submit" disabled={submitting} className="w-full rounded-full">
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
+            <Button type="submit" disabled={submitting} className="group h-11 w-full rounded-full text-base">
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  Sign in
+                  <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </>
+              )}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            Drivers are onboarded by dispatch. If you don't have credentials, contact your admin.
+            Don't have credentials? Contact your admin.
           </p>
-          <div className="mt-2 text-center text-xs text-muted-foreground">
+          <div className="mt-1 text-center text-xs text-muted-foreground">
             Passenger?{" "}
-            <Link to="/passenger" className="hover:underline">
+            <Link to="/passenger" className="font-medium text-primary hover:underline">
               Open passenger app
             </Link>
           </div>
