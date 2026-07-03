@@ -147,12 +147,15 @@ function DashboardPage() {
 
   // Colorado default center
   const [mapCenter] = useState<[number, number]>([39.5501, -105.7821]);
-  const markers = (drivers.data ?? []).filter(
-    (d) => d.current_lat != null && d.current_lng != null,
-  );
-
-  const markerColor = (s: DriverRow["status"]) =>
-    s === "available" ? "#16a34a" : s === "on_trip" ? "#2563eb" : "#9ca3af";
+  const markers = (drivers.data ?? [])
+    .filter((d) => d.current_lat != null && d.current_lng != null)
+    .map((d) => ({
+      id: d.id,
+      lat: d.current_lat!,
+      lng: d.current_lng!,
+      status: d.status,
+      label: `${d.profiles?.first_name ?? ""} ${d.profiles?.last_name ?? ""}`.trim() || "Driver",
+    }));
 
   return (
     <div className="space-y-6">
@@ -204,39 +207,7 @@ function DashboardPage() {
             </div>
           </div>
           <div className="h-[420px] overflow-hidden rounded-xl">
-            <MapContainer
-              center={mapCenter}
-              zoom={7}
-              scrollWheelZoom
-              style={{ height: "100%", width: "100%" }}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              {markers.map((d) => (
-                <CircleMarker
-                  key={d.id}
-                  center={[d.current_lat!, d.current_lng!]}
-                  radius={9}
-                  pathOptions={{
-                    color: markerColor(d.status),
-                    fillColor: markerColor(d.status),
-                    fillOpacity: 0.85,
-                    weight: 2,
-                  }}
-                >
-                  <Popup>
-                    <div className="text-sm">
-                      <div className="font-semibold">
-                        {d.profiles?.first_name} {d.profiles?.last_name}
-                      </div>
-                      <div className="text-muted-foreground">{d.status}</div>
-                    </div>
-                  </Popup>
-                </CircleMarker>
-              ))}
-            </MapContainer>
+            <ClientMap as="DriverFleetMap" center={mapCenter} markers={markers} />
           </div>
         </div>
 
