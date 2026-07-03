@@ -157,31 +157,12 @@ function TrackPage() {
 
         <div className="overflow-hidden rounded-3xl border border-border bg-surface shadow-soft">
           <div className="h-[380px]">
-            <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }}>
-              <TileLayer
-                attribution='&copy; OpenStreetMap contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              {t.pickup_lat && t.pickup_lng && (
-                <Marker position={[t.pickup_lat, t.pickup_lng]}>
-                  <Popup>Pickup</Popup>
-                </Marker>
-              )}
-              {t.dropoff_lat && t.dropoff_lng && (
-                <Marker position={[t.dropoff_lat, t.dropoff_lng]}>
-                  <Popup>Dropoff</Popup>
-                </Marker>
-              )}
-              {driverPos && (
-                <CircleMarker
-                  center={[driverPos.lat, driverPos.lng]}
-                  radius={10}
-                  pathOptions={{ color: "#dc2626", fillColor: "#dc2626", fillOpacity: 0.9, weight: 2 }}
-                >
-                  <Popup>Your driver</Popup>
-                </CircleMarker>
-              )}
-            </MapContainer>
+            <TrackMap
+              center={center}
+              pickup={t.pickup_lat && t.pickup_lng ? [t.pickup_lat, t.pickup_lng] : null}
+              dropoff={t.dropoff_lat && t.dropoff_lng ? [t.dropoff_lat, t.dropoff_lng] : null}
+              driver={driverPos ? [driverPos.lat, driverPos.lng] : null}
+            />
           </div>
         </div>
 
