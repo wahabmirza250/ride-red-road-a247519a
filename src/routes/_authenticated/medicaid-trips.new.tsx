@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { Button } from "@/components/ui/button";

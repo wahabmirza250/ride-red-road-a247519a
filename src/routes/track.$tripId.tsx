@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseBrowser";
 import { TrackMap } from "@/components/nemt/useClientMap";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { Loader2, Phone } from "lucide-react";
