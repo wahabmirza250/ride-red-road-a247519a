@@ -54,7 +54,7 @@ function RiderLayout() {
           <button
             onClick={async () => {
               await signOut();
-              nav({ to: "/auth", replace: true });
+              nav({ to: "/rider/signin", replace: true });
             }}
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
           >
