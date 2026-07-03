@@ -50,7 +50,7 @@ const DRIVER_NAV = [
 ] as const;
 
 function AuthenticatedLayout() {
-  const { loading, user, isAdmin, signOut } = useAuth();
+  const { loading, user, isAdmin, isDriver, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -68,7 +68,6 @@ function AuthenticatedLayout() {
     );
   }
 
-  const { isAdmin, isDriver } = useAuth();
   const NAV = isAdmin ? ADMIN_NAV : isDriver ? DRIVER_NAV : [];
 
   if (!isAdmin && !isDriver) {
