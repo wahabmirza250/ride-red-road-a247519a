@@ -11,10 +11,10 @@ export const Route = createFileRoute("/driver")({
   component: DriverLayout,
 });
 
-const NAV: ReadonlyArray<{ to: string; label: string; icon: typeof Car; exact?: boolean }> = [
+const NAV = [
   { to: "/driver", label: "Drive", icon: Car, exact: true },
-  { to: "/driver/earnings", label: "Earnings", icon: DollarSign },
-];
+  { to: "/driver/earnings", label: "Earnings", icon: DollarSign, exact: false },
+] as const;
 
 function DriverLayout() {
   const { loading, user, isDriver, isAdmin, signOut } = useAuth();
