@@ -156,30 +156,15 @@ function ReportsPage() {
           <div className="rounded-2xl border border-border bg-surface p-4 shadow-soft">
             <h2 className="mb-3 text-sm font-semibold">GPS route</h2>
             <div className="h-[400px] overflow-hidden rounded-xl">
-              <MapContainer center={center} zoom={allPoints.length ? 12 : 7} style={{ height: "100%", width: "100%" }}>
-                <TileLayer
-                  attribution='&copy; OpenStreetMap contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                {allPoints.length > 1 && (
-                  <Polyline
-                    positions={allPoints.map((p) => [p.lat, p.lng] as [number, number])}
-                    pathOptions={{ color: "#2563eb", weight: 3, opacity: 0.8 }}
-                  />
-                )}
-                {stops.map((s, i) => (
-                  <CircleMarker
-                    key={i}
-                    center={[s.lat, s.lng]}
-                    radius={7}
-                    pathOptions={{ color: "#dc2626", fillColor: "#dc2626", fillOpacity: 0.9, weight: 2 }}
-                  >
-                    <Popup>
-                      Stop {i + 1} — {Math.round(s.durationMs / 60_000)} min
-                    </Popup>
-                  </CircleMarker>
-                ))}
-              </MapContainer>
+              <RouteMap
+                center={center}
+                path={allPoints}
+                stops={stops.map((s, i) => ({
+                  lat: s.lat,
+                  lng: s.lng,
+                  label: `Stop ${i + 1} — ${Math.round(s.durationMs / 60_000)} min`,
+                }))}
+              />
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               Blue line = travel path. Red dots = stops longer than 2 minutes.
