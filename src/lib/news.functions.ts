@@ -79,26 +79,28 @@ export const getDriverLocations = createServerFn({ method: "GET" })
     const { supabase } = context;
     const { data, error } = await supabase
       .from("drivers")
-      .select("id, first_name, last_name, status, current_lat, current_lng")
+      .select("id, user_id, status, current_lat, current_lng, profiles:user_id(first_name, last_name)")
       .not("current_lat", "is", null)
       .not("current_lng", "is", null);
     if (error) throw new Error(error.message);
-    const rows = data ?? [];
+    type Row = {
+      id: string;
+      user_id: string | null;
+      status: string | null;
+      current_lat: number | null;
+      current_lng: number | null;
+      profiles: { first_name: string | null; last_name: string | null } | { first_name: string | null; last_name: string | null }[] | null;
+    };
+    const rows = (data ?? []) as unknown as Row[];
     const out: DriverLocation[] = await Promise.all(
-      rows.map(async (d: {
-        id: string;
-        first_name: string | null;
-        last_name: string | null;
-        status: string | null;
-        current_lat: number | null;
-        current_lng: number | null;
-      }) => {
+      rows.map(async (d) => {
         const geo = d.current_lat != null && d.current_lng != null
           ? await reverseGeocode(d.current_lat, d.current_lng)
           : { city: null, region: null };
+        const p = Array.isArray(d.profiles) ? d.profiles[0] : d.profiles;
         return {
           driver_id: d.id,
-          name: `${d.first_name ?? ""} ${d.last_name ?? ""}`.trim() || "Driver",
+          name: `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim() || "Driver",
           status: d.status,
           lat: d.current_lat,
           lng: d.current_lng,
