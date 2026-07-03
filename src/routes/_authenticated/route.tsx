@@ -16,8 +16,12 @@ import {
   Loader2,
   ClipboardList,
   FileSignature,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
+import { useDriverLocationPing } from "@/lib/useDriverLocationPing";
 import { cn } from "@/lib/utils";
 import { initials } from "@/lib/format";
 import { Button } from "@/components/ui/button";
