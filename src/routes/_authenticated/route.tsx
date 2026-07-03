@@ -41,7 +41,7 @@ const ADMIN_NAV = [
   { to: "/drivers", label: "Drivers", icon: Users },
   { to: "/passengers", label: "Passengers", icon: UserRound },
   { to: "/billing", label: "Billing", icon: Receipt },
-  { to: "/messages", label: "Dispatch", icon: MessageSquare },
+  { to: "/messages", label: "Messages", icon: MessageSquare },
   { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/incidents", label: "Incidents", icon: AlertTriangle },
   { to: "/schedules", label: "Schedules", icon: CalendarClock },
