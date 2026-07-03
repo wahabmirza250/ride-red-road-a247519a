@@ -18,6 +18,8 @@ import {
   FileSignature,
   Sun,
   Moon,
+  Radio,
+  Megaphone,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
@@ -33,6 +35,7 @@ export const Route = createFileRoute("/_authenticated")({
 
 const ADMIN_NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/live-ops", label: "Live Ops", icon: Radio },
   { to: "/trips", label: "Trips", icon: RouteIcon },
   { to: "/medicaid-billing", label: "Medicaid Billing", icon: FileSignature },
   { to: "/drivers", label: "Drivers", icon: Users },
@@ -42,6 +45,7 @@ const ADMIN_NAV = [
   { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/incidents", label: "Incidents", icon: AlertTriangle },
   { to: "/schedules", label: "Schedules", icon: CalendarClock },
+  { to: "/news-feed", label: "News Feed", icon: Megaphone },
   { to: "/news", label: "News", icon: Newspaper },
   { to: "/games", label: "Games", icon: Gamepad2 },
 ] as const;
