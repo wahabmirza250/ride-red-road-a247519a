@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatCard } from "@/components/nemt/StatCard";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { Users, Route as RouteIcon, DollarSign, CheckCircle2 } from "lucide-react";
-import { ClientMap } from "@/components/nemt/useClientMap";
+import { DriverFleetMap } from "@/components/nemt/useClientMap";
 import { formatDateTime, formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -207,7 +207,7 @@ function DashboardPage() {
             </div>
           </div>
           <div className="h-[420px] overflow-hidden rounded-xl">
-            <ClientMap as="DriverFleetMap" center={mapCenter} markers={markers} />
+            <DriverFleetMap center={mapCenter} markers={markers} />
           </div>
         </div>
 

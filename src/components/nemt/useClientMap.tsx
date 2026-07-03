@@ -1,12 +1,13 @@
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useState } from "react";
+import type {
+  DriverMarker,
+  GpsPoint,
+  StopDot,
+} from "@/components/nemt/MapView.client";
 
 type MapModule = typeof import("@/components/nemt/MapView.client");
 
-/**
- * Dynamically loads the client-only map module. Leaflet touches `window`
- * at module scope so it MUST NOT be imported during SSR.
- */
-export function useClientMap(): MapModule | null {
+function useMapModule(): MapModule | null {
   const [mod, setMod] = useState<MapModule | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -20,24 +21,40 @@ export function useClientMap(): MapModule | null {
   return mod;
 }
 
-export function ClientMap<T extends keyof MapModule>({
-  as,
-  fallback,
-  ...props
-}: {
-  as: T;
-  fallback?: React.ReactNode;
-} & React.ComponentProps<Extract<MapModule[T], ComponentType<unknown>>>) {
-  const mod = useClientMap();
-  if (!mod) {
-    return (
-      <>{fallback ?? (
-        <div className="flex h-full w-full items-center justify-center bg-surface-muted text-xs text-muted-foreground">
-          Loading map…
-        </div>
-      )}</>
-    );
-  }
-  const Comp = mod[as] as ComponentType<Record<string, unknown>>;
-  return <Comp {...(props as Record<string, unknown>)} />;
+function MapFallback() {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-surface-muted text-xs text-muted-foreground">
+      Loading map…
+    </div>
+  );
+}
+
+export function DriverFleetMap(props: { center: [number, number]; markers: DriverMarker[] }) {
+  const mod = useMapModule();
+  if (!mod) return <MapFallback />;
+  const C = mod.DriverFleetMap;
+  return <C {...props} />;
+}
+
+export function RouteMap(props: {
+  center: [number, number];
+  path: GpsPoint[];
+  stops: StopDot[];
+}) {
+  const mod = useMapModule();
+  if (!mod) return <MapFallback />;
+  const C = mod.RouteMap;
+  return <C {...props} />;
+}
+
+export function TrackMap(props: {
+  center: [number, number];
+  pickup?: [number, number] | null;
+  dropoff?: [number, number] | null;
+  driver?: [number, number] | null;
+}) {
+  const mod = useMapModule();
+  if (!mod) return <MapFallback />;
+  const C = mod.TrackMap;
+  return <C {...props} />;
 }
