@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatCard } from "@/components/nemt/StatCard";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { Users, Route as RouteIcon, DollarSign, CheckCircle2 } from "lucide-react";
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+import { ClientMap } from "@/components/nemt/useClientMap";
 import { formatDateTime, formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 
