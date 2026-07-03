@@ -256,12 +256,12 @@ function DriverHome() {
                 <Navigation className="mr-1 h-4 w-4" /> Navigate
               </a>
             </Button>
-            {tripStatus === "accepted" && (
-              <Button className="rounded-full" onClick={() => setStatus("arrived")}>
+            {tripStatus === "assigned" && (
+              <Button className="rounded-full" onClick={() => setStatus("arrived_at_pickup")}>
                 <Car className="mr-1 h-4 w-4" /> Arrived
               </Button>
             )}
-            {tripStatus === "arrived" && (
+            {tripStatus === "arrived_at_pickup" && (
               <Button className="rounded-full" onClick={() => setStatus("in_progress")}>
                 Start trip
               </Button>
