@@ -10,6 +10,8 @@ import {
   BarChart3,
   AlertTriangle,
   CalendarClock,
+  Newspaper,
+  Gamepad2,
   LogOut,
   Loader2,
 } from "lucide-react";
