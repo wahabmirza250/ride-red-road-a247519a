@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseBrowser";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatCard } from "@/components/nemt/StatCard";
 import { Button } from "@/components/ui/button";
