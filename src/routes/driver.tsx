@@ -62,7 +62,7 @@ function DriverLayout() {
           <button
             onClick={async () => {
               await signOut();
-              nav({ to: "/auth", replace: true });
+              nav({ to: "/driver/signin", replace: true });
             }}
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
           >
