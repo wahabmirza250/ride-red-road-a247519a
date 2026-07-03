@@ -201,10 +201,15 @@ export async function ensureAdminConversation(
 
   if (existing?.id) return existing.id;
 
-  const insertPayload =
-    role === "driver"
-      ? { kind, driver_user_id: userId, is_closed: false }
-      : { kind, passenger_user_id: userId, is_closed: false };
+  const insertPayload: {
+    kind: string;
+    is_closed: boolean;
+    driver_user_id?: string;
+    passenger_user_id?: string;
+  } = { kind, is_closed: false };
+  if (role === "driver") insertPayload.driver_user_id = userId;
+  else insertPayload.passenger_user_id = userId;
+
   const { data: created, error } = await supabase
     .from("chat_conversations")
     .insert(insertPayload)
