@@ -31,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
+  console.log("[auth-provider-render]", { loading, hasSession: !!session, roles });
 
   const refresh = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -48,17 +49,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let unsubscribe: (() => void) | undefined;
 
     async function applySession(sess: Session | null) {
+      console.log("[auth-provider-applySession]", { hasSession: !!sess });
       if (cancelled) return;
       setSession(sess);
-      setRoles(sess?.user ? await fetchRolesFor(sess.user.id) : []);
+      const nextRoles = sess?.user ? await fetchRolesFor(sess.user.id) : [];
+      console.log("[auth-provider-roles]", nextRoles);
+      setRoles(nextRoles);
       if (!cancelled) setLoading(false);
     }
 
     async function init() {
       try {
+        console.log("[auth-provider-init-start]");
         const { data } = await supabase.auth.getSession();
+        console.log("[auth-provider-init-session]", { hasSession: !!data.session });
         await applySession(data.session);
       } catch {
+        console.log("[auth-provider-init-error]");
         await applySession(null);
       }
 
