@@ -14,6 +14,8 @@ import {
   Gamepad2,
   LogOut,
   Loader2,
+  ClipboardList,
+  FileSignature,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -25,9 +27,10 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
 });
 
-const NAV = [
+const ADMIN_NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/trips", label: "Trips", icon: RouteIcon },
+  { to: "/medicaid-billing", label: "Medicaid Billing", icon: FileSignature },
   { to: "/drivers", label: "Drivers", icon: Users },
   { to: "/passengers", label: "Passengers", icon: UserRound },
   { to: "/billing", label: "Billing", icon: Receipt },
@@ -35,6 +38,13 @@ const NAV = [
   { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/incidents", label: "Incidents", icon: AlertTriangle },
   { to: "/schedules", label: "Schedules", icon: CalendarClock },
+  { to: "/news", label: "News", icon: Newspaper },
+  { to: "/games", label: "Games", icon: Gamepad2 },
+] as const;
+
+const DRIVER_NAV = [
+  { to: "/medicaid-trips", label: "My Trips", icon: ClipboardList },
+  { to: "/medicaid-trips/new", label: "New Trip", icon: FileSignature },
   { to: "/news", label: "News", icon: Newspaper },
   { to: "/games", label: "Games", icon: Gamepad2 },
 ] as const;
