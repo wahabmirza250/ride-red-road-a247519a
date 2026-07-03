@@ -108,15 +108,25 @@ function TeamPage() {
       </div>
 
       <div className="rounded-2xl border border-border bg-surface p-5">
-        <h2 className="text-base font-semibold">Drivers</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Driver accounts are managed on the Drivers page — that's where you set credentials and
-          vehicle info.
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold">Drivers</h2>
+            <p className="text-xs text-muted-foreground">
+              Create driver logins and manage vehicle info.
+            </p>
+          </div>
+          <Button asChild size="sm" className="rounded-full">
+            <a href="/drivers">
+              <Plus className="mr-1 h-4 w-4" /> Create driver
+            </a>
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Tip: on the Drivers page, click <span className="font-medium text-foreground">Add driver</span> to
+          issue an email + password. The driver then signs in at <code className="rounded bg-muted px-1">/driver/signin</code>.
         </p>
-        <Button asChild size="sm" variant="outline" className="mt-3 rounded-full">
-          <a href="/drivers">Open Drivers →</a>
-        </Button>
       </div>
+
     </div>
   );
 }

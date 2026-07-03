@@ -204,3 +204,27 @@
 .leaflet-container a {
   color: var(--primary);
 }
+
+/* Aurora blobs for sign-in / passenger surfaces */
+@keyframes aurora-drift-a {
+  0%, 100% { transform: translate3d(0,0,0) scale(1); }
+  50% { transform: translate3d(60px,40px,0) scale(1.15); }
+}
+@keyframes aurora-drift-b {
+  0%, 100% { transform: translate3d(0,0,0) scale(1); }
+  50% { transform: translate3d(-70px,50px,0) scale(1.1); }
+}
+@keyframes aurora-drift-c {
+  0%, 100% { transform: translate3d(0,0,0) scale(1); }
+  50% { transform: translate3d(30px,-60px,0) scale(1.2); }
+}
+.animate-aurora-slow { animation: aurora-drift-a 22s ease-in-out infinite; }
+.animate-aurora-med  { animation: aurora-drift-b 17s ease-in-out infinite; }
+.animate-aurora-fast { animation: aurora-drift-c 14s ease-in-out infinite; }
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-rise-in { animation: rise-in 0.6s cubic-bezier(.2,.7,.2,1) both; }
+

@@ -672,58 +672,73 @@ export type Database = {
       }
       ride_requests: {
         Row: {
+          contact_medicaid: string | null
+          contact_name: string | null
+          contact_phone: string | null
           created_at: string
           distance_km: number | null
           driver_id: string | null
           dropoff_address: string
-          dropoff_lat: number
-          dropoff_lng: number
+          dropoff_lat: number | null
+          dropoff_lng: number | null
           estimated_fare: number | null
           estimated_minutes: number | null
           id: string
           notes: string | null
-          passenger_id: string
+          passenger_id: string | null
           pickup_address: string
-          pickup_lat: number
-          pickup_lng: number
+          pickup_lat: number | null
+          pickup_lng: number | null
+          requested_pickup_time: string | null
+          source: string
           status: string
           trip_id: string | null
           updated_at: string
         }
         Insert: {
+          contact_medicaid?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string
           distance_km?: number | null
           driver_id?: string | null
           dropoff_address: string
-          dropoff_lat: number
-          dropoff_lng: number
+          dropoff_lat?: number | null
+          dropoff_lng?: number | null
           estimated_fare?: number | null
           estimated_minutes?: number | null
           id?: string
           notes?: string | null
-          passenger_id: string
+          passenger_id?: string | null
           pickup_address: string
-          pickup_lat: number
-          pickup_lng: number
+          pickup_lat?: number | null
+          pickup_lng?: number | null
+          requested_pickup_time?: string | null
+          source?: string
           status?: string
           trip_id?: string | null
           updated_at?: string
         }
         Update: {
+          contact_medicaid?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string
           distance_km?: number | null
           driver_id?: string | null
           dropoff_address?: string
-          dropoff_lat?: number
-          dropoff_lng?: number
+          dropoff_lat?: number | null
+          dropoff_lng?: number | null
           estimated_fare?: number | null
           estimated_minutes?: number | null
           id?: string
           notes?: string | null
-          passenger_id?: string
+          passenger_id?: string | null
           pickup_address?: string
-          pickup_lat?: number
-          pickup_lng?: number
+          pickup_lat?: number | null
+          pickup_lng?: number | null
+          requested_pickup_time?: string | null
+          source?: string
           status?: string
           trip_id?: string | null
           updated_at?: string
