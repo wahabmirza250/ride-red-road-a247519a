@@ -68,14 +68,16 @@ function AuthenticatedLayout() {
     );
   }
 
-  if (!isAdmin) {
+  const { isAdmin, isDriver } = useAuth();
+  const NAV = isAdmin ? ADMIN_NAV : isDriver ? DRIVER_NAV : [];
+
+  if (!isAdmin && !isDriver) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-6">
         <div className="max-w-md rounded-3xl border border-border bg-surface p-8 text-center shadow-soft">
-          <h1 className="text-xl font-semibold">Admin access required</h1>
+          <h1 className="text-xl font-semibold">No access</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            This dashboard is for RedArt LLC administrators. Contact dispatch to have your
-            account promoted, or use the driver / passenger app instead.
+            Your account has no role assigned. Contact dispatch to be added as a driver or admin.
           </p>
           <Button
             className="mt-6 rounded-full"
