@@ -14,7 +14,7 @@ export const Route = createFileRoute("/driver/signin")({
 
 function DriverSignIn() {
   const nav = useNavigate();
-  const { user, loading, isDriver, isAdmin, isPassenger } = useAuth();
+  const { user, loading, isDriver, isAdmin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -23,8 +23,7 @@ function DriverSignIn() {
     if (loading || !user) return;
     if (isDriver) nav({ to: "/driver", replace: true });
     else if (isAdmin) nav({ to: "/dashboard", replace: true });
-    else if (isPassenger) nav({ to: "/rider", replace: true });
-  }, [loading, user, isDriver, isAdmin, isPassenger, nav]);
+  }, [loading, user, isDriver, isAdmin, nav]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,8 +75,8 @@ function DriverSignIn() {
           </p>
           <div className="mt-2 text-center text-xs text-muted-foreground">
             Passenger?{" "}
-            <Link to="/rider/signin" className="hover:underline">
-              Open rider app
+            <Link to="/passenger" className="hover:underline">
+              Open passenger app
             </Link>
           </div>
         </div>

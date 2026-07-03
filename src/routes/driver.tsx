@@ -30,8 +30,7 @@ function DriverLayout() {
     if (loading) return;
     if (!user) nav({ to: "/driver/signin", replace: true });
     else if (!isDriver && !isAdmin) {
-      // Wrong role — bounce to their own app
-      nav({ to: "/rider", replace: true });
+      nav({ to: "/", replace: true });
     }
   }, [isPublicAuthRoute, loading, user, isDriver, isAdmin, nav]);
 
@@ -47,7 +46,7 @@ function DriverLayout() {
   if (!isDriver && !isAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center p-6 text-center text-sm text-muted-foreground">
-        This link is for drivers. Redirecting…
+        This app is for drivers. Redirecting…
       </div>
     );
   }

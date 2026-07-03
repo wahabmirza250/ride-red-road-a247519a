@@ -1,0 +1,71 @@
+import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
+import { Car, Home, LogOut } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
+
+export const Route = createFileRoute("/passenger")({
+  ssr: false,
+  component: PassengerLayout,
+});
+
+function PassengerLayout() {
+  const loc = useLocation();
+  function forget() {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("passenger_phone");
+      window.localStorage.removeItem("passenger_medicaid");
+      window.location.reload();
+    }
+  }
+  const hasSession =
+    typeof window !== "undefined" &&
+    (window.localStorage.getItem("passenger_phone") ||
+      window.localStorage.getItem("passenger_medicaid"));
+
+  return (
+    <div className="min-h-screen bg-surface-muted pb-20">
+      <header className="glass sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border px-4">
+        <Link to="/passenger" className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+            R
+          </span>
+          <span className="text-sm font-semibold">RedArt Rides</span>
+        </Link>
+        <div className="flex items-center gap-2">
+          {hasSession && (
+            <button
+              onClick={forget}
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
+              title="Forget me on this device"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </header>
+      <main className="mx-auto max-w-2xl p-4">
+        <Outlet />
+      </main>
+      <nav className="fixed bottom-0 z-30 flex w-full items-center justify-around border-t border-border bg-surface/95 backdrop-blur">
+        <Link
+          to="/passenger"
+          className={cn(
+            "flex flex-1 flex-col items-center gap-0.5 py-3 text-[11px] font-medium",
+            loc.pathname === "/passenger" ? "text-primary" : "text-muted-foreground",
+          )}
+        >
+          <Home className="h-5 w-5" />
+          My rides
+        </Link>
+        <a
+          href="tel:+18005551234"
+          className="flex flex-1 flex-col items-center gap-0.5 py-3 text-[11px] font-medium text-muted-foreground"
+        >
+          <Car className="h-5 w-5" />
+          Call dispatch
+        </a>
+      </nav>
+      <InstallPrompt />
+    </div>
+  );
+}

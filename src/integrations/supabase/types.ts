@@ -900,6 +900,9 @@ export type Database = {
           pickup_lng: number | null
           problem_reason: string | null
           scheduled_pickup_time: string
+          signature_url: string | null
+          signed_at: string | null
+          signer_name: string | null
           status: Database["public"]["Enums"]["trip_status"]
           updated_at: string
           waypoints: Json
@@ -939,6 +942,9 @@ export type Database = {
           pickup_lng?: number | null
           problem_reason?: string | null
           scheduled_pickup_time: string
+          signature_url?: string | null
+          signed_at?: string | null
+          signer_name?: string | null
           status?: Database["public"]["Enums"]["trip_status"]
           updated_at?: string
           waypoints?: Json
@@ -978,6 +984,9 @@ export type Database = {
           pickup_lng?: number | null
           problem_reason?: string | null
           scheduled_pickup_time?: string
+          signature_url?: string | null
+          signed_at?: string | null
+          signer_name?: string | null
           status?: Database["public"]["Enums"]["trip_status"]
           updated_at?: string
           waypoints?: Json

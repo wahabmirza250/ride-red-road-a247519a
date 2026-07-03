@@ -9,20 +9,14 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as RiderRouteImport } from './routes/rider'
+import { Route as PassengerRouteImport } from './routes/passenger'
 import { Route as DriverRouteImport } from './routes/driver'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as RiderIndexRouteImport } from './routes/rider.index'
+import { Route as PassengerIndexRouteImport } from './routes/passenger.index'
 import { Route as DriverIndexRouteImport } from './routes/driver.index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
-import { Route as RiderSignupRouteImport } from './routes/rider.signup'
-import { Route as RiderSigninRouteImport } from './routes/rider.signin'
-import { Route as RiderPlacesRouteImport } from './routes/rider.places'
-import { Route as RiderMessagesRouteImport } from './routes/rider.messages'
-import { Route as RiderHistoryRouteImport } from './routes/rider.history'
-import { Route as RiderFunRouteImport } from './routes/rider.fun'
 import { Route as DriverSigninRouteImport } from './routes/driver.signin'
 import { Route as DriverMessagesRouteImport } from './routes/driver.messages'
 import { Route as DriverEarningsRouteImport } from './routes/driver.earnings'
@@ -44,9 +38,9 @@ import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPayrollDriverIdRouteImport } from './routes/_authenticated/payroll.$driverId'
 import { Route as AuthenticatedMedicaidTripsNewRouteImport } from './routes/_authenticated/medicaid-trips.new'
 
-const RiderRoute = RiderRouteImport.update({
-  id: '/rider',
-  path: '/rider',
+const PassengerRoute = PassengerRouteImport.update({
+  id: '/passenger',
+  path: '/passenger',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DriverRoute = DriverRouteImport.update({
@@ -68,10 +62,10 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RiderIndexRoute = RiderIndexRouteImport.update({
+const PassengerIndexRoute = PassengerIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => RiderRoute,
+  getParentRoute: () => PassengerRoute,
 } as any)
 const DriverIndexRoute = DriverIndexRouteImport.update({
   id: '/',
@@ -82,36 +76,6 @@ const TrackTripIdRoute = TrackTripIdRouteImport.update({
   id: '/track/$tripId',
   path: '/track/$tripId',
   getParentRoute: () => rootRouteImport,
-} as any)
-const RiderSignupRoute = RiderSignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => RiderRoute,
-} as any)
-const RiderSigninRoute = RiderSigninRouteImport.update({
-  id: '/signin',
-  path: '/signin',
-  getParentRoute: () => RiderRoute,
-} as any)
-const RiderPlacesRoute = RiderPlacesRouteImport.update({
-  id: '/places',
-  path: '/places',
-  getParentRoute: () => RiderRoute,
-} as any)
-const RiderMessagesRoute = RiderMessagesRouteImport.update({
-  id: '/messages',
-  path: '/messages',
-  getParentRoute: () => RiderRoute,
-} as any)
-const RiderHistoryRoute = RiderHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => RiderRoute,
-} as any)
-const RiderFunRoute = RiderFunRouteImport.update({
-  id: '/fun',
-  path: '/fun',
-  getParentRoute: () => RiderRoute,
 } as any)
 const DriverSigninRoute = DriverSigninRouteImport.update({
   id: '/signin',
@@ -222,7 +186,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/driver': typeof DriverRouteWithChildren
-  '/rider': typeof RiderRouteWithChildren
+  '/passenger': typeof PassengerRouteWithChildren
   '/billing': typeof AuthenticatedBillingRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/drivers': typeof AuthenticatedDriversRoute
@@ -241,15 +205,9 @@ export interface FileRoutesByFullPath {
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/messages': typeof DriverMessagesRoute
   '/driver/signin': typeof DriverSigninRoute
-  '/rider/fun': typeof RiderFunRoute
-  '/rider/history': typeof RiderHistoryRoute
-  '/rider/messages': typeof RiderMessagesRoute
-  '/rider/places': typeof RiderPlacesRoute
-  '/rider/signin': typeof RiderSigninRoute
-  '/rider/signup': typeof RiderSignupRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver/': typeof DriverIndexRoute
-  '/rider/': typeof RiderIndexRoute
+  '/passenger/': typeof PassengerIndexRoute
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
 }
@@ -274,15 +232,9 @@ export interface FileRoutesByTo {
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/messages': typeof DriverMessagesRoute
   '/driver/signin': typeof DriverSigninRoute
-  '/rider/fun': typeof RiderFunRoute
-  '/rider/history': typeof RiderHistoryRoute
-  '/rider/messages': typeof RiderMessagesRoute
-  '/rider/places': typeof RiderPlacesRoute
-  '/rider/signin': typeof RiderSigninRoute
-  '/rider/signup': typeof RiderSignupRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver': typeof DriverIndexRoute
-  '/rider': typeof RiderIndexRoute
+  '/passenger': typeof PassengerIndexRoute
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
 }
@@ -292,7 +244,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/driver': typeof DriverRouteWithChildren
-  '/rider': typeof RiderRouteWithChildren
+  '/passenger': typeof PassengerRouteWithChildren
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/drivers': typeof AuthenticatedDriversRoute
@@ -311,15 +263,9 @@ export interface FileRoutesById {
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/messages': typeof DriverMessagesRoute
   '/driver/signin': typeof DriverSigninRoute
-  '/rider/fun': typeof RiderFunRoute
-  '/rider/history': typeof RiderHistoryRoute
-  '/rider/messages': typeof RiderMessagesRoute
-  '/rider/places': typeof RiderPlacesRoute
-  '/rider/signin': typeof RiderSigninRoute
-  '/rider/signup': typeof RiderSignupRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver/': typeof DriverIndexRoute
-  '/rider/': typeof RiderIndexRoute
+  '/passenger/': typeof PassengerIndexRoute
   '/_authenticated/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/_authenticated/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
 }
@@ -329,7 +275,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/driver'
-    | '/rider'
+    | '/passenger'
     | '/billing'
     | '/dashboard'
     | '/drivers'
@@ -348,15 +294,9 @@ export interface FileRouteTypes {
     | '/driver/earnings'
     | '/driver/messages'
     | '/driver/signin'
-    | '/rider/fun'
-    | '/rider/history'
-    | '/rider/messages'
-    | '/rider/places'
-    | '/rider/signin'
-    | '/rider/signup'
     | '/track/$tripId'
     | '/driver/'
-    | '/rider/'
+    | '/passenger/'
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
   fileRoutesByTo: FileRoutesByTo
@@ -381,15 +321,9 @@ export interface FileRouteTypes {
     | '/driver/earnings'
     | '/driver/messages'
     | '/driver/signin'
-    | '/rider/fun'
-    | '/rider/history'
-    | '/rider/messages'
-    | '/rider/places'
-    | '/rider/signin'
-    | '/rider/signup'
     | '/track/$tripId'
     | '/driver'
-    | '/rider'
+    | '/passenger'
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
   id:
@@ -398,7 +332,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/driver'
-    | '/rider'
+    | '/passenger'
     | '/_authenticated/billing'
     | '/_authenticated/dashboard'
     | '/_authenticated/drivers'
@@ -417,15 +351,9 @@ export interface FileRouteTypes {
     | '/driver/earnings'
     | '/driver/messages'
     | '/driver/signin'
-    | '/rider/fun'
-    | '/rider/history'
-    | '/rider/messages'
-    | '/rider/places'
-    | '/rider/signin'
-    | '/rider/signup'
     | '/track/$tripId'
     | '/driver/'
-    | '/rider/'
+    | '/passenger/'
     | '/_authenticated/medicaid-trips/new'
     | '/_authenticated/payroll/$driverId'
   fileRoutesById: FileRoutesById
@@ -435,17 +363,17 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   DriverRoute: typeof DriverRouteWithChildren
-  RiderRoute: typeof RiderRouteWithChildren
+  PassengerRoute: typeof PassengerRouteWithChildren
   TrackTripIdRoute: typeof TrackTripIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/rider': {
-      id: '/rider'
-      path: '/rider'
-      fullPath: '/rider'
-      preLoaderRoute: typeof RiderRouteImport
+    '/passenger': {
+      id: '/passenger'
+      path: '/passenger'
+      fullPath: '/passenger'
+      preLoaderRoute: typeof PassengerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/driver': {
@@ -476,12 +404,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/rider/': {
-      id: '/rider/'
+    '/passenger/': {
+      id: '/passenger/'
       path: '/'
-      fullPath: '/rider/'
-      preLoaderRoute: typeof RiderIndexRouteImport
-      parentRoute: typeof RiderRoute
+      fullPath: '/passenger/'
+      preLoaderRoute: typeof PassengerIndexRouteImport
+      parentRoute: typeof PassengerRoute
     }
     '/driver/': {
       id: '/driver/'
@@ -496,48 +424,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/track/$tripId'
       preLoaderRoute: typeof TrackTripIdRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/rider/signup': {
-      id: '/rider/signup'
-      path: '/signup'
-      fullPath: '/rider/signup'
-      preLoaderRoute: typeof RiderSignupRouteImport
-      parentRoute: typeof RiderRoute
-    }
-    '/rider/signin': {
-      id: '/rider/signin'
-      path: '/signin'
-      fullPath: '/rider/signin'
-      preLoaderRoute: typeof RiderSigninRouteImport
-      parentRoute: typeof RiderRoute
-    }
-    '/rider/places': {
-      id: '/rider/places'
-      path: '/places'
-      fullPath: '/rider/places'
-      preLoaderRoute: typeof RiderPlacesRouteImport
-      parentRoute: typeof RiderRoute
-    }
-    '/rider/messages': {
-      id: '/rider/messages'
-      path: '/messages'
-      fullPath: '/rider/messages'
-      preLoaderRoute: typeof RiderMessagesRouteImport
-      parentRoute: typeof RiderRoute
-    }
-    '/rider/history': {
-      id: '/rider/history'
-      path: '/history'
-      fullPath: '/rider/history'
-      preLoaderRoute: typeof RiderHistoryRouteImport
-      parentRoute: typeof RiderRoute
-    }
-    '/rider/fun': {
-      id: '/rider/fun'
-      path: '/fun'
-      fullPath: '/rider/fun'
-      preLoaderRoute: typeof RiderFunRouteImport
-      parentRoute: typeof RiderRoute
     }
     '/driver/signin': {
       id: '/driver/signin'
@@ -754,34 +640,24 @@ const DriverRouteChildren: DriverRouteChildren = {
 const DriverRouteWithChildren =
   DriverRoute._addFileChildren(DriverRouteChildren)
 
-interface RiderRouteChildren {
-  RiderFunRoute: typeof RiderFunRoute
-  RiderHistoryRoute: typeof RiderHistoryRoute
-  RiderMessagesRoute: typeof RiderMessagesRoute
-  RiderPlacesRoute: typeof RiderPlacesRoute
-  RiderSigninRoute: typeof RiderSigninRoute
-  RiderSignupRoute: typeof RiderSignupRoute
-  RiderIndexRoute: typeof RiderIndexRoute
+interface PassengerRouteChildren {
+  PassengerIndexRoute: typeof PassengerIndexRoute
 }
 
-const RiderRouteChildren: RiderRouteChildren = {
-  RiderFunRoute: RiderFunRoute,
-  RiderHistoryRoute: RiderHistoryRoute,
-  RiderMessagesRoute: RiderMessagesRoute,
-  RiderPlacesRoute: RiderPlacesRoute,
-  RiderSigninRoute: RiderSigninRoute,
-  RiderSignupRoute: RiderSignupRoute,
-  RiderIndexRoute: RiderIndexRoute,
+const PassengerRouteChildren: PassengerRouteChildren = {
+  PassengerIndexRoute: PassengerIndexRoute,
 }
 
-const RiderRouteWithChildren = RiderRoute._addFileChildren(RiderRouteChildren)
+const PassengerRouteWithChildren = PassengerRoute._addFileChildren(
+  PassengerRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   DriverRoute: DriverRouteWithChildren,
-  RiderRoute: RiderRouteWithChildren,
+  PassengerRoute: PassengerRouteWithChildren,
   TrackTripIdRoute: TrackTripIdRoute,
 }
 export const routeTree = rootRouteImport
