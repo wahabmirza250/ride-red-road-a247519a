@@ -2,19 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { MapContainer, TileLayer, CircleMarker, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
+import { TrackMap } from "@/components/nemt/useClientMap";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { Loader2, Phone } from "lucide-react";
 import { humanizeStatus } from "@/lib/format";
-
-// Fix default marker icon (Leaflet + Vite bundling)
-delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
 
 export const Route = createFileRoute("/track/$tripId")({
   ssr: false,
