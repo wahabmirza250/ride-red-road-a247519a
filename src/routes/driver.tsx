@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Car, DollarSign, LogOut, Sun, Moon, Loader2 } from "lucide-react";
+import { Car, DollarSign, LogOut, Sun, Moon, Loader2, MessageSquare } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ export const Route = createFileRoute("/driver")({
 
 const NAV = [
   { to: "/driver", label: "Drive", icon: Car, exact: true },
+  { to: "/driver/messages", label: "Messages", icon: MessageSquare, exact: false },
   { to: "/driver/earnings", label: "Earnings", icon: DollarSign, exact: false },
 ] as const;
 
@@ -23,8 +24,13 @@ function DriverLayout() {
   const { theme, toggle } = useTheme();
 
   useEffect(() => {
-    if (!loading && !user) nav({ to: "/auth", replace: true });
-  }, [loading, user, nav]);
+    if (loading) return;
+    if (!user) nav({ to: "/driver/signin", replace: true });
+    else if (!isDriver && !isAdmin) {
+      // Wrong role — bounce to their own app
+      nav({ to: "/rider", replace: true });
+    }
+  }, [loading, user, isDriver, isAdmin, nav]);
 
   if (loading || !user)
     return (
@@ -36,7 +42,7 @@ function DriverLayout() {
   if (!isDriver && !isAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center p-6 text-center text-sm text-muted-foreground">
-        Driver access only. Ask an admin to assign you the driver role.
+        This link is for drivers. Redirecting…
       </div>
     );
   }
@@ -57,7 +63,7 @@ function DriverLayout() {
           <button
             onClick={async () => {
               await signOut();
-              nav({ to: "/auth", replace: true });
+              nav({ to: "/driver/signin", replace: true });
             }}
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
           >

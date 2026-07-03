@@ -1,251 +1,206 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabaseBrowser";
-import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/nemt/PageHeader";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Loader2, Send } from "lucide-react";
-import { formatDateTime, initials } from "@/lib/format";
+import { ChatThread } from "@/components/chat/ChatThread";
+import { Loader2, MessageSquare, Car, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { initials } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/messages")({
-  component: MessagesPage,
+  component: DispatchInboxPage,
 });
 
-type Message = {
+type ConvKind = "driver_admin" | "passenger_admin" | "driver_passenger";
+
+type InboxRow = {
   id: string;
-  driver_id: string;
-  sender_id: string;
-  sender_role: "admin" | "driver" | "passenger";
-  body: string;
-  read: boolean;
-  created_at: string;
+  kind: ConvKind;
+  title: string;
+  subtitle: string;
+  last_message_at: string | null;
+  is_closed: boolean;
 };
 
-function useDriverThreads() {
-  return useQuery({
-    queryKey: ["driver-threads"],
-    queryFn: async () => {
-      const { data: drivers, error } = await supabase.from("drivers").select("id, user_id");
-      if (error) throw error;
-      const ids = (drivers ?? []).map((d) => d.user_id);
-      const { data: profs } = ids.length
-        ? await supabase.from("profiles").select("id, first_name, last_name").in("id", ids)
-        : { data: [] };
-      const profMap = new Map<string, { first_name: string | null; last_name: string | null }>();
-      (profs ?? []).forEach((p) => profMap.set(p.id, p));
-      const { data: msgs } = await supabase
-        .from("messages")
-        .select("driver_id, body, read, created_at, sender_role")
-        .order("created_at", { ascending: false })
-        .limit(1000);
-      const last = new Map<string, Message>();
-      const unread = new Map<string, number>();
-      (msgs ?? []).forEach((m) => {
-        if (!last.has(m.driver_id)) last.set(m.driver_id, m as unknown as Message);
-        if (!m.read && m.sender_role === "driver") {
-          unread.set(m.driver_id, (unread.get(m.driver_id) ?? 0) + 1);
-        }
-      });
-      return (drivers ?? []).map((d) => ({
-        driver_id: d.id,
-        name: `${profMap.get(d.user_id)?.first_name ?? ""} ${profMap.get(d.user_id)?.last_name ?? ""}`.trim() || "Driver",
-        last: last.get(d.id),
-        unread: unread.get(d.id) ?? 0,
-      }));
-    },
-    refetchInterval: 20_000,
-  });
-}
-
-function MessagesPage() {
-  const threads = useDriverThreads();
-  const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!selectedDriver && threads.data?.length) {
-      setSelectedDriver(threads.data[0].driver_id);
-    }
-  }, [threads.data, selectedDriver]);
-
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Dispatch" description="Chat with drivers in real time." />
-
-      <div className="grid h-[70vh] gap-4 rounded-2xl border border-border bg-surface shadow-soft lg:grid-cols-[280px_1fr]">
-        <aside className="overflow-y-auto border-b border-border p-3 lg:border-b-0 lg:border-r">
-          {threads.isLoading && (
-            <div className="flex justify-center py-10"><Loader2 className="h-4 w-4 animate-spin" /></div>
-          )}
-          {threads.data?.length ? (
-            <ul className="space-y-1">
-              {threads.data.map((t) => (
-                <li key={t.driver_id}>
-                  <button
-                    onClick={() => setSelectedDriver(t.driver_id)}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-accent",
-                      selectedDriver === t.driver_id && "bg-primary/8",
-                    )}
-                  >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                      {initials(t.name.split(" ")[0], t.name.split(" ")[1])}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-medium">{t.name}</span>
-                        {t.unread > 0 && (
-                          <span className="rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-                            {t.unread}
-                          </span>
-                        )}
-                      </div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {t.last?.body ?? "No messages yet"}
-                      </div>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            !threads.isLoading && (
-              <div className="p-6 text-center text-sm text-muted-foreground">
-                No drivers yet.
-              </div>
-            )
-          )}
-        </aside>
-
-        {selectedDriver ? (
-          <Thread driverId={selectedDriver} />
-        ) : (
-          <div className="flex items-center justify-center text-sm text-muted-foreground">
-            Select a driver to start chatting.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Thread({ driverId }: { driverId: string }) {
+function DispatchInboxPage() {
   const qc = useQueryClient();
-  const { user } = useAuth();
-  const [text, setText] = useState("");
-  const endRef = useRef<HTMLDivElement | null>(null);
+  const [filter, setFilter] = useState<"all" | "drivers" | "passengers" | "trips">("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const msgs = useQuery({
-    queryKey: ["messages", driverId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("driver_id", driverId)
-        .order("created_at", { ascending: true });
+  const threads = useQuery({
+    queryKey: ["chat-threads", "admin"],
+    queryFn: async (): Promise<InboxRow[]> => {
+      const { data: convs, error } = await supabase
+        .from("chat_conversations")
+        .select("id, kind, driver_user_id, passenger_user_id, trip_id, is_closed, last_message_at")
+        .order("last_message_at", { ascending: false, nullsFirst: false });
       if (error) throw error;
-      // mark all unread received messages as read
-      const unread = (data ?? []).filter((m) => !m.read && m.sender_role !== "admin");
-      if (unread.length) {
-        await supabase
-          .from("messages")
-          .update({ read: true })
-          .in("id", unread.map((m) => m.id));
-        qc.invalidateQueries({ queryKey: ["driver-threads"] });
+
+      const userIds = new Set<string>();
+      (convs ?? []).forEach((c) => {
+        if (c.driver_user_id) userIds.add(c.driver_user_id);
+        if (c.passenger_user_id) userIds.add(c.passenger_user_id);
+      });
+      const profMap = new Map<string, { first_name: string | null; last_name: string | null; email: string | null }>();
+      if (userIds.size) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name, email")
+          .in("id", Array.from(userIds));
+        (profs ?? []).forEach((p) => profMap.set(p.id, p));
       }
-      return (data ?? []) as Message[];
+
+      const nameOf = (id?: string | null) => {
+        if (!id) return "";
+        const p = profMap.get(id);
+        return `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim() || p?.email || "Unknown";
+      };
+
+      return (convs ?? []).map((c) => {
+        if (c.kind === "driver_admin") {
+          return {
+            id: c.id,
+            kind: "driver_admin" as ConvKind,
+            title: nameOf(c.driver_user_id),
+            subtitle: "Driver ↔ Dispatch",
+            last_message_at: c.last_message_at,
+            is_closed: c.is_closed,
+          };
+        }
+        if (c.kind === "passenger_admin") {
+          return {
+            id: c.id,
+            kind: "passenger_admin" as ConvKind,
+            title: nameOf(c.passenger_user_id),
+            subtitle: "Passenger ↔ Support",
+            last_message_at: c.last_message_at,
+            is_closed: c.is_closed,
+          };
+        }
+        return {
+          id: c.id,
+          kind: "driver_passenger" as ConvKind,
+          title: `${nameOf(c.driver_user_id)} ↔ ${nameOf(c.passenger_user_id)}`,
+          subtitle: c.is_closed ? "Trip ended" : "Active trip",
+          last_message_at: c.last_message_at,
+          is_closed: c.is_closed,
+        };
+      });
     },
   });
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [msgs.data?.length]);
 
   useEffect(() => {
     const ch = supabase
-      .channel(`messages-${driverId}`)
+      .channel("admin-inbox")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `driver_id=eq.${driverId}` },
-        () => {
-          qc.invalidateQueries({ queryKey: ["messages", driverId] });
-          qc.invalidateQueries({ queryKey: ["driver-threads"] });
-        },
+        { event: "*", schema: "public", table: "chat_conversations" },
+        () => qc.invalidateQueries({ queryKey: ["chat-threads", "admin"] }),
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_messages" },
+        () => qc.invalidateQueries({ queryKey: ["chat-threads", "admin"] }),
       )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [driverId, qc]);
+  }, [qc]);
 
-  const send = useMutation({
-    mutationFn: async () => {
-      const body = text.trim();
-      if (!body || !user) return;
-      const { error } = await supabase.from("messages").insert({
-        driver_id: driverId,
-        sender_id: user.id,
-        sender_role: "admin",
-        body,
-      });
-      if (error) throw error;
-      setText("");
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["messages", driverId] });
-      qc.invalidateQueries({ queryKey: ["driver-threads"] });
-    },
+  const filtered = (threads.data ?? []).filter((t) => {
+    if (filter === "all") return true;
+    if (filter === "drivers") return t.kind === "driver_admin";
+    if (filter === "passengers") return t.kind === "passenger_admin";
+    if (filter === "trips") return t.kind === "driver_passenger";
+    return true;
   });
 
+  useEffect(() => {
+    if (!selectedId && filtered.length) setSelectedId(filtered[0].id);
+  }, [filtered, selectedId]);
+
+  const selected = filtered.find((t) => t.id === selectedId);
+
   return (
-    <div className="flex min-h-0 flex-col">
-      <div className="flex-1 space-y-2 overflow-y-auto p-4">
-        {msgs.isLoading ? (
-          <div className="flex justify-center py-10"><Loader2 className="h-4 w-4 animate-spin" /></div>
-        ) : msgs.data?.length ? (
-          msgs.data.map((m) => {
-            const isAdmin = m.sender_role === "admin";
-            return (
-              <div key={m.id} className={cn("flex", isAdmin ? "justify-end" : "justify-start")}>
-                <div
-                  className={cn(
-                    "max-w-[70%] rounded-2xl px-3.5 py-2 text-sm shadow-soft",
-                    isAdmin
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-surface-muted text-foreground",
-                  )}
-                >
-                  <div>{m.body}</div>
-                  <div className={cn("mt-1 text-[10px]", isAdmin ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                    {formatDateTime(m.created_at)}
-                  </div>
-                </div>
+    <div className="space-y-4">
+      <PageHeader title="Messages" description="Every driver and passenger conversation in one inbox." />
+
+      <div className="flex gap-2">
+        {(["all", "drivers", "passengers", "trips"] as const).map((k) => (
+          <button
+            key={k}
+            onClick={() => setFilter(k)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium capitalize transition",
+              filter === k
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:bg-accent",
+            )}
+          >
+            {k}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid h-[70vh] gap-4 rounded-2xl border border-border bg-surface shadow-soft lg:grid-cols-[320px_1fr]">
+        <aside className="overflow-y-auto border-b border-border p-3 lg:border-b-0 lg:border-r">
+          {threads.isLoading && (
+            <div className="flex justify-center py-10">
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </div>
+          )}
+          {filtered.length ? (
+            <ul className="space-y-1">
+              {filtered.map((t) => {
+                const Icon =
+                  t.kind === "driver_admin" ? Car : t.kind === "passenger_admin" ? User : MessageSquare;
+                return (
+                  <li key={t.id}>
+                    <button
+                      onClick={() => setSelectedId(t.id)}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-accent",
+                        selectedId === t.id && "bg-primary/8",
+                      )}
+                    >
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                        {t.kind === "driver_passenger" ? (
+                          <Icon className="h-4 w-4" />
+                        ) : (
+                          initials(t.title.split(" ")[0], t.title.split(" ")[1])
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-sm font-medium">{t.title}</span>
+                          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">{t.subtitle}</div>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            !threads.isLoading && (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                No conversations yet.
               </div>
-            );
-          })
+            )
+          )}
+        </aside>
+
+        {selected ? (
+          <ChatThread conversationId={selected.id} />
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            No messages yet. Say hi.
+          <div className="flex items-center justify-center text-sm text-muted-foreground">
+            Select a conversation to reply.
           </div>
         )}
-        <div ref={endRef} />
       </div>
-      <form
-        className="flex items-center gap-2 border-t border-border p-3"
-        onSubmit={(e) => { e.preventDefault(); send.mutate(); }}
-      >
-        <Input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Type a message"
-          className="flex-1"
-        />
-        <Button type="submit" disabled={!text.trim() || send.isPending} size="icon" className="rounded-full">
-          <Send className="h-4 w-4" />
-        </Button>
-      </form>
     </div>
   );
 }

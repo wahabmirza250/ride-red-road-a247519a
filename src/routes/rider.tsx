@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Home, Clock, MapPinned, Sparkles, LogOut, Sun, Moon, Loader2 } from "lucide-react";
+import { Home, Clock, MapPinned, Sparkles, LogOut, Sun, Moon, Loader2, MessageSquare } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -14,19 +14,22 @@ export const Route = createFileRoute("/rider")({
 const NAV = [
   { to: "/rider", label: "Ride", icon: Home, exact: true },
   { to: "/rider/history", label: "History", icon: Clock, exact: false },
+  { to: "/rider/messages", label: "Chat", icon: MessageSquare, exact: false },
   { to: "/rider/places", label: "Places", icon: MapPinned, exact: false },
   { to: "/rider/fun", label: "Fun", icon: Sparkles, exact: false },
 ] as const;
 
 function RiderLayout() {
-  const { loading, user, signOut } = useAuth();
+  const { loading, user, isDriver, isAdmin, signOut } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
   const { theme, toggle } = useTheme();
 
   useEffect(() => {
-    if (!loading && !user) nav({ to: "/auth", replace: true });
-  }, [loading, user, nav]);
+    if (loading) return;
+    if (!user) nav({ to: "/rider/signin", replace: true });
+    else if (isDriver && !isAdmin) nav({ to: "/driver", replace: true });
+  }, [loading, user, isDriver, isAdmin, nav]);
 
   if (loading || !user)
     return (
@@ -51,7 +54,7 @@ function RiderLayout() {
           <button
             onClick={async () => {
               await signOut();
-              nav({ to: "/auth", replace: true });
+              nav({ to: "/rider/signin", replace: true });
             }}
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
           >

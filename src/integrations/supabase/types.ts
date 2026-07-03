@@ -67,6 +67,85 @@ export type Database = {
           },
         ]
       }
+      chat_conversations: {
+        Row: {
+          created_at: string
+          driver_user_id: string | null
+          id: string
+          is_closed: boolean
+          kind: string
+          last_message_at: string | null
+          passenger_user_id: string | null
+          trip_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_user_id?: string | null
+          id?: string
+          is_closed?: boolean
+          kind: string
+          last_message_at?: string | null
+          passenger_user_id?: string | null
+          trip_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_user_id?: string | null
+          id?: string
+          is_closed?: boolean
+          kind?: string
+          last_message_at?: string | null
+          passenger_user_id?: string | null
+          trip_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_conversations_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          body: string
+          conversation_id: string
+          created_at: string
+          id: string
+          read_at: string | null
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           created_at: string

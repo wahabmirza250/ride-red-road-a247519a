@@ -15,7 +15,7 @@ function Index() {
       </div>
     );
   }
-  if (!user) return <Navigate to="/auth" />;
+  if (!user) return <Navigate to="/rider/signin" />;
   if (isAdmin) return <Navigate to="/dashboard" />;
   if (isDriver) return <Navigate to="/driver" />;
   if (isPassenger) return <Navigate to="/rider" />;
