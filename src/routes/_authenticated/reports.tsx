@@ -163,7 +163,7 @@ function ReportsPage() {
                 />
                 {allPoints.length > 1 && (
                   <Polyline
-                    positions={allPoints.map((p) => [p.lat, p.lng])}
+                    positions={allPoints.map((p) => [p.lat, p.lng] as [number, number])}
                     pathOptions={{ color: "#2563eb", weight: 3, opacity: 0.8 }}
                   />
                 )}
