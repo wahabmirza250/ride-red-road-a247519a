@@ -1,17 +1,31 @@
 import { useEffect, useState } from "react";
-import type {
-  DriverMarker,
-  GpsPoint,
-  StopDot,
-} from "@/components/nemt/MapView.client";
 
-type MapModule = typeof import("@/components/nemt/MapView.client");
+export type DriverMarker = {
+  id: string;
+  lat: number;
+  lng: number;
+  status: "available" | "on_trip" | "offline";
+  label?: string;
+};
+export type GpsPoint = { lat: number; lng: number; t?: string | null };
+export type StopDot = { lat: number; lng: number; label?: string };
+
+type MapModule = {
+  DriverFleetMap: React.ComponentType<{ center: [number, number]; markers: DriverMarker[] }>;
+  RouteMap: React.ComponentType<{ center: [number, number]; path: GpsPoint[]; stops: StopDot[] }>;
+  TrackMap: React.ComponentType<{
+    center: [number, number];
+    pickup?: [number, number] | null;
+    dropoff?: [number, number] | null;
+    driver?: [number, number] | null;
+  }>;
+};
 
 function useMapModule(): MapModule | null {
   const [mod, setMod] = useState<MapModule | null>(null);
   useEffect(() => {
     let cancelled = false;
-    import("@/components/nemt/MapView.client").then((m) => {
+    (import(/* @vite-ignore */ "@/components/nemt/MapView.client" as string) as Promise<MapModule>).then((m) => {
       if (!cancelled) setMod(m);
     });
     return () => {
