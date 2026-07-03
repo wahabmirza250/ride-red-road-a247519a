@@ -317,6 +317,86 @@ export type Database = {
           },
         ]
       }
+      medicaid_trips: {
+        Row: {
+          created_at: string
+          driver_id: string
+          dropoff_address: string
+          id: string
+          miles: number
+          odometer_end: number
+          odometer_start: number
+          pickup_address: string
+          pickup_at: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          rider_id: string
+          signature_name: string | null
+          signature_path: string | null
+          state_pdf_path: string | null
+          status: Database["public"]["Enums"]["medicaid_trip_status"]
+          submitted_at: string | null
+          submitted_by: string | null
+          submitted_confirmation: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          dropoff_address: string
+          id?: string
+          miles: number
+          odometer_end: number
+          odometer_start: number
+          pickup_address: string
+          pickup_at: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rider_id: string
+          signature_name?: string | null
+          signature_path?: string | null
+          state_pdf_path?: string | null
+          status?: Database["public"]["Enums"]["medicaid_trip_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          submitted_confirmation?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          dropoff_address?: string
+          id?: string
+          miles?: number
+          odometer_end?: number
+          odometer_start?: number
+          pickup_address?: string
+          pickup_at?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rider_id?: string
+          signature_name?: string | null
+          signature_path?: string | null
+          state_pdf_path?: string | null
+          status?: Database["public"]["Enums"]["medicaid_trip_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          submitted_confirmation?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medicaid_trips_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string
@@ -437,6 +517,45 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_name?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      riders: {
+        Row: {
+          address: string | null
+          created_at: string
+          created_by: string | null
+          dob: string | null
+          full_name: string
+          id: string
+          medicaid_id: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          dob?: string | null
+          full_name: string
+          id?: string
+          medicaid_id: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          dob?: string | null
+          full_name?: string
+          id?: string
+          medicaid_id?: string
+          notes?: string | null
           phone?: string | null
           updated_at?: string
         }
@@ -659,6 +778,12 @@ export type Database = {
         | "complaint"
         | "mechanical"
         | "other"
+      medicaid_trip_status:
+        | "pending_review"
+        | "approved"
+        | "rejected"
+        | "submitted"
+        | "needs_fix"
       shift_status: "scheduled" | "completed" | "no_show"
       trip_status:
         | "scheduled"
@@ -807,6 +932,13 @@ export const Constants = {
         "complaint",
         "mechanical",
         "other",
+      ],
+      medicaid_trip_status: [
+        "pending_review",
+        "approved",
+        "rejected",
+        "submitted",
+        "needs_fix",
       ],
       shift_status: ["scheduled", "completed", "no_show"],
       trip_status: [

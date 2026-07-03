@@ -14,6 +14,8 @@ import {
   Gamepad2,
   LogOut,
   Loader2,
+  ClipboardList,
+  FileSignature,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -25,9 +27,10 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
 });
 
-const NAV = [
+const ADMIN_NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/trips", label: "Trips", icon: RouteIcon },
+  { to: "/medicaid-billing", label: "Medicaid Billing", icon: FileSignature },
   { to: "/drivers", label: "Drivers", icon: Users },
   { to: "/passengers", label: "Passengers", icon: UserRound },
   { to: "/billing", label: "Billing", icon: Receipt },
@@ -39,8 +42,15 @@ const NAV = [
   { to: "/games", label: "Games", icon: Gamepad2 },
 ] as const;
 
+const DRIVER_NAV = [
+  { to: "/medicaid-trips", label: "My Trips", icon: ClipboardList },
+  { to: "/medicaid-trips/new", label: "New Trip", icon: FileSignature },
+  { to: "/news", label: "News", icon: Newspaper },
+  { to: "/games", label: "Games", icon: Gamepad2 },
+] as const;
+
 function AuthenticatedLayout() {
-  const { loading, user, isAdmin, signOut } = useAuth();
+  const { loading, user, isAdmin, isDriver, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -58,14 +68,15 @@ function AuthenticatedLayout() {
     );
   }
 
-  if (!isAdmin) {
+  const NAV = isAdmin ? ADMIN_NAV : isDriver ? DRIVER_NAV : [];
+
+  if (!isAdmin && !isDriver) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-6">
         <div className="max-w-md rounded-3xl border border-border bg-surface p-8 text-center shadow-soft">
-          <h1 className="text-xl font-semibold">Admin access required</h1>
+          <h1 className="text-xl font-semibold">No access</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            This dashboard is for RedArt LLC administrators. Contact dispatch to have your
-            account promoted, or use the driver / passenger app instead.
+            Your account has no role assigned. Contact dispatch to be added as a driver or admin.
           </p>
           <Button
             className="mt-6 rounded-full"

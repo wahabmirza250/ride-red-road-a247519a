@@ -19,12 +19,15 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPassengersRouteImport } from './routes/_authenticated/passengers'
 import { Route as AuthenticatedNewsRouteImport } from './routes/_authenticated/news'
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
+import { Route as AuthenticatedMedicaidTripsRouteImport } from './routes/_authenticated/medicaid-trips'
+import { Route as AuthenticatedMedicaidBillingRouteImport } from './routes/_authenticated/medicaid-billing'
 import { Route as AuthenticatedIncidentsRouteImport } from './routes/_authenticated/incidents'
 import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/games'
 import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as AuthenticatedPayrollDriverIdRouteImport } from './routes/_authenticated/payroll.$driverId'
+import { Route as AuthenticatedMedicaidTripsNewRouteImport } from './routes/_authenticated/medicaid-trips.new'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -75,6 +78,18 @@ const AuthenticatedMessagesRoute = AuthenticatedMessagesRouteImport.update({
   path: '/messages',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMedicaidTripsRoute =
+  AuthenticatedMedicaidTripsRouteImport.update({
+    id: '/medicaid-trips',
+    path: '/medicaid-trips',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedMedicaidBillingRoute =
+  AuthenticatedMedicaidBillingRouteImport.update({
+    id: '/medicaid-billing',
+    path: '/medicaid-billing',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedIncidentsRoute = AuthenticatedIncidentsRouteImport.update({
   id: '/incidents',
   path: '/incidents',
@@ -106,6 +121,12 @@ const AuthenticatedPayrollDriverIdRoute =
     path: '/payroll/$driverId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedMedicaidTripsNewRoute =
+  AuthenticatedMedicaidTripsNewRouteImport.update({
+    id: '/new',
+    path: '/new',
+    getParentRoute: () => AuthenticatedMedicaidTripsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -115,6 +136,8 @@ export interface FileRoutesByFullPath {
   '/drivers': typeof AuthenticatedDriversRoute
   '/games': typeof AuthenticatedGamesRoute
   '/incidents': typeof AuthenticatedIncidentsRoute
+  '/medicaid-billing': typeof AuthenticatedMedicaidBillingRoute
+  '/medicaid-trips': typeof AuthenticatedMedicaidTripsRouteWithChildren
   '/messages': typeof AuthenticatedMessagesRoute
   '/news': typeof AuthenticatedNewsRoute
   '/passengers': typeof AuthenticatedPassengersRoute
@@ -122,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/trips': typeof AuthenticatedTripsRoute
   '/track/$tripId': typeof TrackTripIdRoute
+  '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
 }
 export interface FileRoutesByTo {
@@ -132,6 +156,8 @@ export interface FileRoutesByTo {
   '/drivers': typeof AuthenticatedDriversRoute
   '/games': typeof AuthenticatedGamesRoute
   '/incidents': typeof AuthenticatedIncidentsRoute
+  '/medicaid-billing': typeof AuthenticatedMedicaidBillingRoute
+  '/medicaid-trips': typeof AuthenticatedMedicaidTripsRouteWithChildren
   '/messages': typeof AuthenticatedMessagesRoute
   '/news': typeof AuthenticatedNewsRoute
   '/passengers': typeof AuthenticatedPassengersRoute
@@ -139,6 +165,7 @@ export interface FileRoutesByTo {
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/trips': typeof AuthenticatedTripsRoute
   '/track/$tripId': typeof TrackTripIdRoute
+  '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
 }
 export interface FileRoutesById {
@@ -151,6 +178,8 @@ export interface FileRoutesById {
   '/_authenticated/drivers': typeof AuthenticatedDriversRoute
   '/_authenticated/games': typeof AuthenticatedGamesRoute
   '/_authenticated/incidents': typeof AuthenticatedIncidentsRoute
+  '/_authenticated/medicaid-billing': typeof AuthenticatedMedicaidBillingRoute
+  '/_authenticated/medicaid-trips': typeof AuthenticatedMedicaidTripsRouteWithChildren
   '/_authenticated/messages': typeof AuthenticatedMessagesRoute
   '/_authenticated/news': typeof AuthenticatedNewsRoute
   '/_authenticated/passengers': typeof AuthenticatedPassengersRoute
@@ -158,6 +187,7 @@ export interface FileRoutesById {
   '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
   '/_authenticated/trips': typeof AuthenticatedTripsRoute
   '/track/$tripId': typeof TrackTripIdRoute
+  '/_authenticated/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/_authenticated/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
 }
 export interface FileRouteTypes {
@@ -170,6 +200,8 @@ export interface FileRouteTypes {
     | '/drivers'
     | '/games'
     | '/incidents'
+    | '/medicaid-billing'
+    | '/medicaid-trips'
     | '/messages'
     | '/news'
     | '/passengers'
@@ -177,6 +209,7 @@ export interface FileRouteTypes {
     | '/schedules'
     | '/trips'
     | '/track/$tripId'
+    | '/medicaid-trips/new'
     | '/payroll/$driverId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -187,6 +220,8 @@ export interface FileRouteTypes {
     | '/drivers'
     | '/games'
     | '/incidents'
+    | '/medicaid-billing'
+    | '/medicaid-trips'
     | '/messages'
     | '/news'
     | '/passengers'
@@ -194,6 +229,7 @@ export interface FileRouteTypes {
     | '/schedules'
     | '/trips'
     | '/track/$tripId'
+    | '/medicaid-trips/new'
     | '/payroll/$driverId'
   id:
     | '__root__'
@@ -205,6 +241,8 @@ export interface FileRouteTypes {
     | '/_authenticated/drivers'
     | '/_authenticated/games'
     | '/_authenticated/incidents'
+    | '/_authenticated/medicaid-billing'
+    | '/_authenticated/medicaid-trips'
     | '/_authenticated/messages'
     | '/_authenticated/news'
     | '/_authenticated/passengers'
@@ -212,6 +250,7 @@ export interface FileRouteTypes {
     | '/_authenticated/schedules'
     | '/_authenticated/trips'
     | '/track/$tripId'
+    | '/_authenticated/medicaid-trips/new'
     | '/_authenticated/payroll/$driverId'
   fileRoutesById: FileRoutesById
 }
@@ -294,6 +333,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMessagesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/medicaid-trips': {
+      id: '/_authenticated/medicaid-trips'
+      path: '/medicaid-trips'
+      fullPath: '/medicaid-trips'
+      preLoaderRoute: typeof AuthenticatedMedicaidTripsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/medicaid-billing': {
+      id: '/_authenticated/medicaid-billing'
+      path: '/medicaid-billing'
+      fullPath: '/medicaid-billing'
+      preLoaderRoute: typeof AuthenticatedMedicaidBillingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/incidents': {
       id: '/_authenticated/incidents'
       path: '/incidents'
@@ -336,8 +389,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPayrollDriverIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/medicaid-trips/new': {
+      id: '/_authenticated/medicaid-trips/new'
+      path: '/new'
+      fullPath: '/medicaid-trips/new'
+      preLoaderRoute: typeof AuthenticatedMedicaidTripsNewRouteImport
+      parentRoute: typeof AuthenticatedMedicaidTripsRoute
+    }
   }
 }
+
+interface AuthenticatedMedicaidTripsRouteChildren {
+  AuthenticatedMedicaidTripsNewRoute: typeof AuthenticatedMedicaidTripsNewRoute
+}
+
+const AuthenticatedMedicaidTripsRouteChildren: AuthenticatedMedicaidTripsRouteChildren =
+  {
+    AuthenticatedMedicaidTripsNewRoute: AuthenticatedMedicaidTripsNewRoute,
+  }
+
+const AuthenticatedMedicaidTripsRouteWithChildren =
+  AuthenticatedMedicaidTripsRoute._addFileChildren(
+    AuthenticatedMedicaidTripsRouteChildren,
+  )
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedBillingRoute: typeof AuthenticatedBillingRoute
@@ -345,6 +419,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDriversRoute: typeof AuthenticatedDriversRoute
   AuthenticatedGamesRoute: typeof AuthenticatedGamesRoute
   AuthenticatedIncidentsRoute: typeof AuthenticatedIncidentsRoute
+  AuthenticatedMedicaidBillingRoute: typeof AuthenticatedMedicaidBillingRoute
+  AuthenticatedMedicaidTripsRoute: typeof AuthenticatedMedicaidTripsRouteWithChildren
   AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRoute
   AuthenticatedNewsRoute: typeof AuthenticatedNewsRoute
   AuthenticatedPassengersRoute: typeof AuthenticatedPassengersRoute
@@ -360,6 +436,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDriversRoute: AuthenticatedDriversRoute,
   AuthenticatedGamesRoute: AuthenticatedGamesRoute,
   AuthenticatedIncidentsRoute: AuthenticatedIncidentsRoute,
+  AuthenticatedMedicaidBillingRoute: AuthenticatedMedicaidBillingRoute,
+  AuthenticatedMedicaidTripsRoute: AuthenticatedMedicaidTripsRouteWithChildren,
   AuthenticatedMessagesRoute: AuthenticatedMessagesRoute,
   AuthenticatedNewsRoute: AuthenticatedNewsRoute,
   AuthenticatedPassengersRoute: AuthenticatedPassengersRoute,
@@ -381,13 +459,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
