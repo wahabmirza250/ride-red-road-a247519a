@@ -16,7 +16,7 @@ import { Loader2, ExternalLink, Route as RouteIcon, Clock, DollarSign, Fuel } fr
 import { formatCurrency, addDays, startOfDay, endOfDay } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { getPayroll } from "@/lib/admin.functions";
-import { MapContainer, TileLayer, Polyline, CircleMarker, Popup } from "react-leaflet";
+import { RouteMap } from "@/components/nemt/useClientMap";
 import { detectStops } from "@/lib/geo";
 
 export const Route = createFileRoute("/_authenticated/reports")({
