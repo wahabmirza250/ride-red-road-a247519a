@@ -9,10 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PassengerRouteImport } from './routes/passenger'
 import { Route as DriverRouteImport } from './routes/driver'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PassengerIndexRouteImport } from './routes/passenger.index'
 import { Route as DriverIndexRouteImport } from './routes/driver.index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
 import { Route as DriverSigninRouteImport } from './routes/driver.signin'
@@ -36,6 +38,11 @@ import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPayrollDriverIdRouteImport } from './routes/_authenticated/payroll.$driverId'
 import { Route as AuthenticatedMedicaidTripsNewRouteImport } from './routes/_authenticated/medicaid-trips.new'
 
+const PassengerRoute = PassengerRouteImport.update({
+  id: '/passenger',
+  path: '/passenger',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DriverRoute = DriverRouteImport.update({
   id: '/driver',
   path: '/driver',
@@ -54,6 +61,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PassengerIndexRoute = PassengerIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PassengerRoute,
 } as any)
 const DriverIndexRoute = DriverIndexRouteImport.update({
   id: '/',
@@ -174,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/driver': typeof DriverRouteWithChildren
+  '/passenger': typeof PassengerRouteWithChildren
   '/billing': typeof AuthenticatedBillingRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/drivers': typeof AuthenticatedDriversRoute
@@ -194,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/driver/signin': typeof DriverSigninRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver/': typeof DriverIndexRoute
+  '/passenger/': typeof PassengerIndexRoute
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
 }
@@ -220,6 +234,7 @@ export interface FileRoutesByTo {
   '/driver/signin': typeof DriverSigninRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver': typeof DriverIndexRoute
+  '/passenger': typeof PassengerIndexRoute
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
 }
@@ -229,6 +244,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/driver': typeof DriverRouteWithChildren
+  '/passenger': typeof PassengerRouteWithChildren
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/drivers': typeof AuthenticatedDriversRoute
@@ -249,6 +265,7 @@ export interface FileRoutesById {
   '/driver/signin': typeof DriverSigninRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver/': typeof DriverIndexRoute
+  '/passenger/': typeof PassengerIndexRoute
   '/_authenticated/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/_authenticated/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
 }
@@ -258,6 +275,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/driver'
+    | '/passenger'
     | '/billing'
     | '/dashboard'
     | '/drivers'
@@ -278,6 +296,7 @@ export interface FileRouteTypes {
     | '/driver/signin'
     | '/track/$tripId'
     | '/driver/'
+    | '/passenger/'
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
   fileRoutesByTo: FileRoutesByTo
@@ -304,6 +323,7 @@ export interface FileRouteTypes {
     | '/driver/signin'
     | '/track/$tripId'
     | '/driver'
+    | '/passenger'
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
   id:
@@ -312,6 +332,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/driver'
+    | '/passenger'
     | '/_authenticated/billing'
     | '/_authenticated/dashboard'
     | '/_authenticated/drivers'
@@ -332,6 +353,7 @@ export interface FileRouteTypes {
     | '/driver/signin'
     | '/track/$tripId'
     | '/driver/'
+    | '/passenger/'
     | '/_authenticated/medicaid-trips/new'
     | '/_authenticated/payroll/$driverId'
   fileRoutesById: FileRoutesById
@@ -341,11 +363,19 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   DriverRoute: typeof DriverRouteWithChildren
+  PassengerRoute: typeof PassengerRouteWithChildren
   TrackTripIdRoute: typeof TrackTripIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/passenger': {
+      id: '/passenger'
+      path: '/passenger'
+      fullPath: '/passenger'
+      preLoaderRoute: typeof PassengerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/driver': {
       id: '/driver'
       path: '/driver'
@@ -373,6 +403,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/passenger/': {
+      id: '/passenger/'
+      path: '/'
+      fullPath: '/passenger/'
+      preLoaderRoute: typeof PassengerIndexRouteImport
+      parentRoute: typeof PassengerRoute
     }
     '/driver/': {
       id: '/driver/'
@@ -603,11 +640,24 @@ const DriverRouteChildren: DriverRouteChildren = {
 const DriverRouteWithChildren =
   DriverRoute._addFileChildren(DriverRouteChildren)
 
+interface PassengerRouteChildren {
+  PassengerIndexRoute: typeof PassengerIndexRoute
+}
+
+const PassengerRouteChildren: PassengerRouteChildren = {
+  PassengerIndexRoute: PassengerIndexRoute,
+}
+
+const PassengerRouteWithChildren = PassengerRoute._addFileChildren(
+  PassengerRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   DriverRoute: DriverRouteWithChildren,
+  PassengerRoute: PassengerRouteWithChildren,
   TrackTripIdRoute: TrackTripIdRoute,
 }
 export const routeTree = rootRouteImport
