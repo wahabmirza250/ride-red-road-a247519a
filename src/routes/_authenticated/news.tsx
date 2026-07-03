@@ -137,7 +137,7 @@ function NewsPage() {
                       {active.region ? `, ${active.region}` : ""}
                     </h2>
                     <p className="text-xs text-muted-foreground">
-                      {active.drivers.map((d) => d.name).join(" · ")}
+                      {active.drivers.map((d: DriverLocation) => d.name).join(" · ")}
                     </p>
                   </div>
                   {newsQuery.isFetching ? (
