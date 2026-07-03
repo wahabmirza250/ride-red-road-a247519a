@@ -22,15 +22,19 @@ function DriverLayout() {
   const nav = useNavigate();
   const loc = useLocation();
   const { theme, toggle } = useTheme();
+  const isPublicAuthRoute = loc.pathname === "/driver/signin";
 
   useEffect(() => {
+    if (isPublicAuthRoute) return;
     if (loading) return;
     if (!user) nav({ to: "/driver/signin", replace: true });
     else if (!isDriver && !isAdmin) {
       // Wrong role — bounce to their own app
       nav({ to: "/rider", replace: true });
     }
-  }, [loading, user, isDriver, isAdmin, nav]);
+  }, [isPublicAuthRoute, loading, user, isDriver, isAdmin, nav]);
+
+  if (isPublicAuthRoute) return <Outlet />;
 
   if (loading || !user)
     return (
