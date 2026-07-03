@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Car, DollarSign, LogOut, Sun, Moon, Loader2 } from "lucide-react";
+import { Car, DollarSign, LogOut, Sun, Moon, Loader2, MessageSquare } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ export const Route = createFileRoute("/driver")({
 
 const NAV = [
   { to: "/driver", label: "Drive", icon: Car, exact: true },
+  { to: "/driver/messages", label: "Messages", icon: MessageSquare, exact: false },
   { to: "/driver/earnings", label: "Earnings", icon: DollarSign, exact: false },
 ] as const;
 
