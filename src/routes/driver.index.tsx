@@ -151,6 +151,7 @@ function DriverHome() {
         dropoff_lat: req.dropoff_lat,
         dropoff_lng: req.dropoff_lng,
         estimated_fare: req.estimated_fare,
+        scheduled_pickup_time: new Date().toISOString(),
       })
       .select("id")
       .single();
