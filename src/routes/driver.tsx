@@ -23,8 +23,13 @@ function DriverLayout() {
   const { theme, toggle } = useTheme();
 
   useEffect(() => {
-    if (!loading && !user) nav({ to: "/auth", replace: true });
-  }, [loading, user, nav]);
+    if (loading) return;
+    if (!user) nav({ to: "/driver/signin", replace: true });
+    else if (!isDriver && !isAdmin) {
+      // Wrong role — bounce to their own app
+      nav({ to: "/rider", replace: true });
+    }
+  }, [loading, user, isDriver, isAdmin, nav]);
 
   if (loading || !user)
     return (
@@ -36,7 +41,7 @@ function DriverLayout() {
   if (!isDriver && !isAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center p-6 text-center text-sm text-muted-foreground">
-        Driver access only. Ask an admin to assign you the driver role.
+        This link is for drivers. Redirecting…
       </div>
     );
   }
