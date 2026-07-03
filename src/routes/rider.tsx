@@ -20,14 +20,16 @@ const NAV = [
 ] as const;
 
 function RiderLayout() {
-  const { loading, user, signOut } = useAuth();
+  const { loading, user, isDriver, isAdmin, signOut } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
   const { theme, toggle } = useTheme();
 
   useEffect(() => {
-    if (!loading && !user) nav({ to: "/auth", replace: true });
-  }, [loading, user, nav]);
+    if (loading) return;
+    if (!user) nav({ to: "/rider/signin", replace: true });
+    else if (isDriver && !isAdmin) nav({ to: "/driver", replace: true });
+  }, [loading, user, isDriver, isAdmin, nav]);
 
   if (loading || !user)
     return (
