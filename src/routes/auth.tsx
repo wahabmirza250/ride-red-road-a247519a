@@ -106,6 +106,27 @@ function AuthPage() {
                 </div>
               </div>
             ) : null}
+            {mode === "signup" ? (
+              <div className="space-y-1.5">
+                <Label>I am a</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["driver", "admin"] as const).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setRole(r)}
+                      className={`rounded-xl border p-3 text-sm font-medium capitalize transition ${
+                        role === r
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border text-muted-foreground hover:bg-accent"
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
