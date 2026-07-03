@@ -22,7 +22,8 @@ function DriverLayout() {
   const nav = useNavigate();
   const loc = useLocation();
   const { theme, toggle } = useTheme();
-  const isPublicAuthRoute = loc.pathname === "/driver/signin";
+  const pathname = typeof window !== "undefined" ? window.location.pathname : loc.pathname;
+  const isPublicAuthRoute = pathname === "/driver/signin";
 
   useEffect(() => {
     if (isPublicAuthRoute) return;

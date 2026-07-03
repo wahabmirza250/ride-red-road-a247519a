@@ -24,7 +24,8 @@ function RiderLayout() {
   const nav = useNavigate();
   const loc = useLocation();
   const { theme, toggle } = useTheme();
-  const isPublicAuthRoute = loc.pathname === "/rider/signin" || loc.pathname === "/rider/signup";
+  const pathname = typeof window !== "undefined" ? window.location.pathname : loc.pathname;
+  const isPublicAuthRoute = pathname === "/rider/signin" || pathname === "/rider/signup";
 
   useEffect(() => {
     if (isPublicAuthRoute) return;
