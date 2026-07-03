@@ -14,7 +14,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin, isDriver } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,8 +24,10 @@ function AuthPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/dashboard", replace: true });
-  }, [loading, user, navigate]);
+    if (loading || !user) return;
+    if (isDriver && !isAdmin) navigate({ to: "/medicaid-trips", replace: true });
+    else navigate({ to: "/dashboard", replace: true });
+  }, [loading, user, isAdmin, isDriver, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,7 +51,7 @@ function AuthPage() {
         if (error) throw error;
         toast.success("Account created");
       }
-      navigate({ to: "/dashboard", replace: true });
+      // Landing handled by the effect above once auth state hydrates.
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       toast.error(msg);

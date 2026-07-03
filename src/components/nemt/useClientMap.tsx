@@ -25,8 +25,8 @@ function useMapModule(): MapModule | null {
   const [mod, setMod] = useState<MapModule | null>(null);
   useEffect(() => {
     let cancelled = false;
-    (import(/* @vite-ignore */ "@/components/nemt/MapView.client" as string) as Promise<MapModule>).then((m) => {
-      if (!cancelled) setMod(m);
+    import("./MapView.client").then((m) => {
+      if (!cancelled) setMod(m as unknown as MapModule);
     });
     return () => {
       cancelled = true;

@@ -16,8 +16,12 @@ import {
   Loader2,
   ClipboardList,
   FileSignature,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
+import { useDriverLocationPing } from "@/lib/useDriverLocationPing";
 import { cn } from "@/lib/utils";
 import { initials } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -53,6 +57,9 @@ function AuthenticatedLayout() {
   const { loading, user, isAdmin, isDriver, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme, toggle: toggleTheme } = useTheme();
+
+  useDriverLocationPing();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -146,6 +153,13 @@ function AuthenticatedLayout() {
               <div className="truncate text-xs text-muted-foreground">{user.email}</div>
             </div>
             <button
+              onClick={toggleTheme}
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              title="Toggle theme"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <button
               onClick={async () => {
                 await signOut();
                 navigate({ to: "/auth", replace: true });
@@ -169,15 +183,24 @@ function AuthenticatedLayout() {
             </span>
             <span className="text-sm font-semibold">RedArt Dispatch</span>
           </div>
-          <button
-            onClick={async () => {
-              await signOut();
-              navigate({ to: "/auth", replace: true });
-            }}
-            className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleTheme}
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
+              title="Toggle theme"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={async () => {
+                await signOut();
+                navigate({ to: "/auth", replace: true });
+              }}
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </div>
         {/* Mobile bottom nav */}
         <nav className="fixed bottom-0 z-30 flex w-full items-center justify-around border-t border-border bg-surface/95 backdrop-blur lg:hidden">

@@ -16,7 +16,6 @@ function Index() {
     );
   }
   if (!user) return <Navigate to="/auth" />;
-  if (isAdmin) return <Navigate to="/dashboard" />;
-  if (isDriver) return <Navigate to="/dashboard" />;
+  if (isDriver && !isAdmin) return <Navigate to="/medicaid-trips" />;
   return <Navigate to="/dashboard" />;
 }
