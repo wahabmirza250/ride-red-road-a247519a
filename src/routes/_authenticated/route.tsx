@@ -153,6 +153,13 @@ function AuthenticatedLayout() {
               <div className="truncate text-xs text-muted-foreground">{user.email}</div>
             </div>
             <button
+              onClick={toggleTheme}
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              title="Toggle theme"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <button
               onClick={async () => {
                 await signOut();
                 navigate({ to: "/auth", replace: true });
