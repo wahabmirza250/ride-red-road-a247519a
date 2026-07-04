@@ -1,8 +1,20 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import templateAsset from "@/assets/nemt_trip_report_template.pdf.asset.json";
 
 type Args = {
-  rider: { full_name: string; medicaid_id: string; dob?: string | null; phone?: string | null; address?: string | null } | null;
+  rider: {
+    full_name: string;
+    medicaid_id: string;
+    dob?: string | null;
+    phone?: string | null;
+    address?: string | null;
+  } | null;
   driverName: string;
+  vehiclePlate?: string | null;
+  vehicleType?: string | null;
+  escortName?: string | null;
+  identityVerified?: boolean;
+  tripKind?: "one_way" | "round_trip" | null;
   pickupAt: string;
   pickupAddress: string;
   dropoffAddress: string;
@@ -14,77 +26,113 @@ type Args = {
 };
 
 /**
- * Placeholder Colorado Medicaid NEMT trip receipt.
- * Once the state form PDF is provided, we'll replace this with a template fill.
+ * Overlays trip data on top of the official Colorado NEMT Trip Report
+ * template (April 2025). Coordinates are calibrated to the shipped template;
+ * if the state updates the form, adjust the COORDS map below.
  */
 export async function generateStateFormPdf(a: Args): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  const page = pdf.addPage([612, 792]); // US Letter
+  // Load the state PDF as our base
+  const templateBytes = await fetch(templateAsset.url).then((r) => {
+    if (!r.ok) throw new Error(`Failed to load template PDF: ${r.status}`);
+    return r.arrayBuffer();
+  });
+  const pdf = await PDFDocument.load(templateBytes);
+  const page = pdf.getPage(0);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const { height } = page.getSize();
 
-  const draw = (text: string, x: number, y: number, opts: { size?: number; bold?: boolean } = {}) =>
-    page.drawText(text, {
+  // Convert top-origin coords → pdf-lib bottom-origin
+  const T = (yFromTop: number) => height - yFromTop;
+
+  const put = (text: string | number | null | undefined, x: number, yTop: number, size = 9, isBold = false) => {
+    if (text === null || text === undefined) return;
+    page.drawText(String(text), {
       x,
-      y,
-      size: opts.size ?? 10,
-      font: opts.bold ? bold : font,
+      y: T(yTop) - size + 2,
+      size,
+      font: isBold ? bold : font,
       color: rgb(0, 0, 0),
     });
-
-  // Header
-  draw("Colorado Medicaid NEMT Trip Record", 40, 750, { size: 16, bold: true });
-  draw("RedArt LLC", 40, 732, { size: 10 });
-  page.drawLine({ start: { x: 40, y: 725 }, end: { x: 572, y: 725 }, thickness: 1 });
-
-  let y = 700;
-  const row = (label: string, value: string) => {
-    draw(label, 40, y, { bold: true });
-    draw(value, 180, y);
-    y -= 20;
   };
 
-  row("Rider name:", a.rider?.full_name ?? "");
-  row("Medicaid ID:", a.rider?.medicaid_id ?? "");
-  row("Date of birth:", a.rider?.dob ?? "");
-  row("Rider phone:", a.rider?.phone ?? "");
-  row("Rider address:", a.rider?.address ?? "");
-  y -= 6;
+  const check = (x: number, yTop: number) => {
+    page.drawText("X", { x, y: T(yTop) - 8, size: 10, font: bold, color: rgb(0, 0, 0) });
+  };
 
-  row("Driver:", a.driverName);
-  row("Pickup date/time:", new Date(a.pickupAt).toLocaleString());
-  row("Pickup address:", a.pickupAddress);
-  row("Drop-off address:", a.dropoffAddress);
-  y -= 6;
+  // ---- Coordinates (calibrated for April 2025 template, US Letter) ----
+  // Member Information
+  put(a.rider?.full_name ?? "", 130, 165, 10, true);
+  put(a.rider?.medicaid_id ?? "", 470, 165, 10, true);
 
-  row("Odometer start:", String(a.odometerStart));
-  row("Odometer end:", String(a.odometerEnd));
-  row("Total miles:", String(a.miles));
+  if (a.identityVerified) check(178, 200);
+  else check(215, 200); // No
 
-  y -= 20;
-  draw("Rider signature:", 40, y, { bold: true });
-  y -= 12;
+  put(a.signatureName ?? a.rider?.full_name ?? "", 130, 240);
+  put(new Date(a.pickupAt).toLocaleDateString(), 400, 240);
+  put(a.escortName ?? "", 400, 262);
 
+  // Driver / Vehicle
+  put(a.driverName, 130, 320, 10, true);
+  put(a.vehiclePlate ?? "", 400, 320);
+
+  // Vehicle type checkboxes (approx x positions of each option)
+  const vtMap: Record<string, number> = {
+    ground_ambulance: 130,
+    wheelchair_van: 220,
+    stretcher_van: 305,
+    taxi: 385,
+    ambulatory: 430,
+  };
+  const vx = vtMap[a.vehicleType ?? ""];
+  if (vx) check(vx, 353);
+
+  // Trip type
+  if (a.tripKind === "one_way") check(200, 385);
+  else if (a.tripKind === "round_trip") check(275, 385);
+
+  // First trip leg
+  const dateStr = new Date(a.pickupAt).toLocaleDateString();
+  const t = new Date(a.pickupAt);
+  const pickupTime = t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: false });
+
+  put(dateStr, 90, 425);
+  put(pickupTime, 110, 450);
+  put(String(a.odometerStart), 280, 425);
+  put(a.pickupAddress, 380, 425, 8);
+
+  put("—", 110, 480);
+  put(String(a.odometerEnd), 280, 480);
+  put(a.dropoffAddress, 380, 480, 8);
+
+  // Embed rider signature image over the signature line
   if (a.signatureUrl) {
     try {
       const bytes = await fetch(a.signatureUrl).then((r) => r.arrayBuffer());
-      const img = await pdf.embedPng(bytes);
-      const dims = img.scale(0.4);
-      const w = Math.min(dims.width, 300);
-      const h = (w / dims.width) * dims.height;
-      page.drawImage(img, { x: 40, y: y - h, width: w, height: h });
-      y -= h + 10;
+      let img;
+      try {
+        img = await pdf.embedPng(bytes);
+      } catch {
+        img = await pdf.embedJpg(bytes);
+      }
+      const targetW = 160;
+      const scale = targetW / img.width;
+      const targetH = img.height * scale;
+      page.drawImage(img, {
+        x: 130,
+        y: T(245) - targetH,
+        width: targetW,
+        height: targetH,
+      });
     } catch {
-      /* skip */
+      /* signature optional */
     }
   }
-  draw(`Printed name: ${a.signatureName ?? ""}`, 40, y);
-  y -= 16;
-  draw(`Signed on: ${new Date().toLocaleString()}`, 40, y);
 
+  // Audit footer
   page.drawText(
-    "Placeholder receipt — replace with official Colorado state form once provided.",
-    { x: 40, y: 40, size: 8, font, color: rgb(0.4, 0.4, 0.4) },
+    `Auto-filled by RedArt NEMT · ${new Date().toISOString()}`,
+    { x: 40, y: 30, size: 7, font, color: rgb(0.45, 0.45, 0.45) },
   );
 
   return await pdf.save();

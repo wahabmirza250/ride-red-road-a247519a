@@ -1,61 +1,107 @@
-## What you're asking for
 
-1. **Driver app "Navigate" button** throws `ERR_BLOCKED_BY_RESPONSE`.
-2. **Dispatch address inputs** should autocomplete like Google Maps (type → suggestions).
-3. **Live Ops / admin main map**: below the map, list all drivers; clicking one **zooms** the map to that driver's exact location.
-4. Map should default to a **city-level view**, not a random driver's coordinates.
+# NEMT Billing Automation Plan
 
-## Plan
+Goal: turn every completed trip into a signed Colorado NEMT Trip Report PDF, then submit it to the Health First Colorado provider portal automatically — with a mandatory human review step — even though the state offers no API.
 
-### 1. Fix Navigate button (`src/routes/driver.index.tsx`)
+## 1. Data model (Lovable Cloud)
 
-Root cause: the button is an `<a target="_blank">` opening `google.com/maps/dir/...` from inside the Lovable preview iframe. The preview sandbox strips the popup and the browser reports `ERR_BLOCKED_BY_RESPONSE` (Google refuses to render in an iframe via `X-Frame-Options: DENY`).
+Add tables so we only ask for member info once:
 
-Fix:
-- Replace the anchor with a real `<Button onClick>` that calls `window.open(navUrl, "_blank", "noopener,noreferrer")`. Popups from a user gesture escape the sandbox correctly.
-- On mobile, prefer a native intent: try `geo:lat,lng?q=lat,lng(Label)` first (iOS/Android), fall back to the Google Maps web URL.
-- Add a small "Copy address" secondary button as a guaranteed fallback so the driver is never stuck.
+- `member_billing_profiles` (one row per passenger)
+  - `passenger_id` (FK), `member_health_first_id`, `full_legal_name`, `dob`, `escort_name_default`, `default_pickup_address`, `verified_at`
+- `vehicles`
+  - `driver_id` (FK), `license_plate`, `vin`, `vehicle_type` (ambulance/wheelchair/stretcher/taxi/ambulatory)
+- `billing_submissions` (one per trip billed)
+  - `trip_id`, `status` (draft → signed → in_review → approved → submitting → submitted → failed), `pdf_path` (storage), `signature_path`, `portal_confirmation_number`, `portal_screenshot_path`, `submitted_at`, `submitted_by`, `error_log`
+- `portal_credentials` (single admin-managed row, encrypted)
+  - stored as Cloud secrets `HFC_PORTAL_USERNAME` / `HFC_PORTAL_PASSWORD`, not in DB
 
-### 2. Address autocomplete for dispatch (`src/routes/_authenticated/trips.tsx`)
+Storage buckets: `nemt-pdfs` (private), `signatures` (already exists), `portal-evidence` (private) for confirmation screenshots.
 
-- Enable the Google Maps Platform connector (Places API New).
-- Create `src/components/AddressAutocomplete.tsx`: a controlled input that debounces the user's keystrokes, calls `AutocompleteSuggestion.fetchAutocompleteSuggestions()` via the browser Maps JS lib (using `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY`), and shows a dropdown of matches. On select it fills the address and returns `{ address, lat, lng, placeId }` to the parent.
-- A tiny `src/lib/googleMapsLoader.ts` loads the Maps JS API once with `loading=async&libraries=places&callback=...`.
-- Replace the two plain `<Input>` fields in the "New trip" form (lines 437–442) with `<AddressAutocomplete>`. Store the resolved lat/lng alongside the address so trips get real coordinates (fixes downstream map/geocoding calls too).
-- Same component can later be reused in the passenger apply form.
+## 2. Auto-fill the state PDF
 
-### 3. Driver list + click-to-zoom on Live Ops map (`src/routes/_authenticated/live-ops.tsx` + `src/components/nemt/MapView.client.tsx`)
+- Keep the official April 2025 PDF as a template in `nemt-pdfs/templates/trip_report.pdf`.
+- Server function `generateTripReport(tripId)`:
+  - Pulls trip (pickup/drop addresses, times, odometer readings, driver, vehicle, passenger).
+  - Pulls `member_billing_profiles` for the passenger (Med ID, legal name, DOB). If missing, returns `needs_member_info: true` so the UI prompts the driver once.
+  - Uses `pdf-lib` to fill AcroForm fields; if the state PDF has no form fields, overlays text at fixed coordinates (measured once from the template).
+  - Writes to `nemt-pdfs/{trip_id}/unsigned.pdf`.
 
-- Extend `DriverFleetMap` to accept an optional `focus?: { lat; lng; zoom? }` prop. Inside, a small child component uses `useMap()` from `react-leaflet` and calls `map.flyTo([lat, lng], zoom ?? 15)` whenever `focus` changes.
-- In `live-ops.tsx`:
-  - Add a `focus` state, default `null`.
-  - Below the map, render a "Drivers" list showing avatar (already wired), name, status dot, last-known coords / "no GPS". Clicking a row that has coordinates sets `focus` to that driver's lat/lng; rows without GPS are disabled.
-  - Selected row gets a highlighted ring and the pill on the map animates via `flyTo`.
-- Also expose the same list on the "Active requests" side for symmetry — out of scope for this pass; only the drivers list is added.
+## 3. Passenger signature capture
 
-### 4. Default map center on a city, not the first driver
+- New `driver.trip.$id.sign.tsx` route: canvas signature pad (react-signature-canvas).
+- Uploads PNG to `signatures/{trip_id}.png`, then server fn `attachSignature(tripId)` embeds it into the PDF at the Member's Signature box → writes `nemt-pdfs/{trip_id}/signed.pdf`, sets submission status = `signed`.
 
-- Add a `DEFAULT_CENTER` constant (Denver `[39.7392, -104.9903]` — already used as fallback) and a `DEFAULT_ZOOM = 11`.
-- Compute center as: `focus ?? (markers.length ? fitBounds(markers) : DEFAULT_CENTER)`. When no `focus` and multiple markers exist, use `map.fitBounds()` inside the same `useMap()` helper on first render; when zero markers, stay on the city.
-- Update `useClientMap.tsx` type to forward the new `focus` prop.
+## 4. Admin review queue
 
-### Technical notes
+- New `_authenticated/billing.tsx` (admin only via `has_role`):
+  - Lists submissions with status `signed`, shows PDF preview (`<iframe>` via signed URL).
+  - Buttons: **Approve & Submit**, **Reject** (with reason, sends back to driver).
+  - Approve transitions to `in_review → approved` and enqueues submission.
 
-- All Places calls go through the browser key that ships with the Google Maps connector; no server function needed for autocomplete.
-- Geocoding the selected place uses the `location` field returned by Places API New (`X-Goog-FieldMask: places.location,places.formattedAddress,places.displayName`) — one gateway `POST /places/v1/places:searchText` per selection to resolve lat/lng, or read them directly from the suggestion detail call.
-- No DB migration needed. `trips` already has `pickup_lat/lng` and `dropoff_lat/lng`.
-- No changes to auth, RLS, or server functions.
+## 5. Portal submission (no API → browser automation)
 
-### Files touched
+Because Health First Colorado has no billing API, we drive their web portal headlessly. This CANNOT run inside the Cloudflare Worker runtime (no Chromium, no long-lived processes). We host it separately and call it from a server function:
 
-- `src/routes/driver.index.tsx` — swap anchor for button + native intent + copy fallback
-- `src/routes/_authenticated/trips.tsx` — use `AddressAutocomplete` in New Trip form, persist lat/lng
-- `src/routes/_authenticated/live-ops.tsx` — driver list + focus state + default city center
-- `src/components/nemt/MapView.client.tsx` — `focus` prop, `flyTo` helper, `fitBounds` on first load
-- `src/components/nemt/useClientMap.tsx` — forward `focus` prop
-- `src/components/AddressAutocomplete.tsx` — **new**
-- `src/lib/googleMapsLoader.ts` — **new**
+- **Runner**: a small Node service using **Playwright** (Chromium), deployed on a worker-friendly host (Fly.io, Railway, Render, or a small VPS). Repo lives in `/automation/hfc-runner/` for reference; deployed independently.
+- Endpoint: `POST /submit` with HMAC-signed payload `{ submission_id, pdf_url (signed), member_id, trip fields }`.
+- Runner script:
+  1. Launch Chromium, go to Health First provider portal login.
+  2. Read `HFC_PORTAL_USERNAME` / `HFC_PORTAL_PASSWORD` from its own env (never sent from client).
+  3. Handle MFA: if the portal requires OTP, the runner pauses and posts back to a `/api/public/hfc-mfa-request` webhook; admin enters the code in the UI; runner polls a short-lived token to continue. (Confirm MFA type before build.)
+  4. Navigate to the NEMT claim entry page, fill fields from payload, upload the signed PDF.
+  5. Screenshot every step into `portal-evidence/{submission_id}/step-N.png`.
+  6. Capture confirmation number, POST result to `/api/public/hfc-callback` (HMAC verified).
+- Lovable side:
+  - Server route `src/routes/api/public/hfc-submit.ts` triggers the runner (signed request).
+  - Server route `src/routes/api/public/hfc-callback.ts` updates submission row, stores screenshots.
+  - Admin UI live-updates via Supabase Realtime on `billing_submissions`.
 
-### Connector
+## 6. Human-in-the-loop guardrails
 
-- Requires enabling the **Google Maps Platform** connector (managed key is fine on `*.lovable.app`). I'll trigger the connect prompt as the first build step.
+- Nothing is submitted without an admin clicking **Approve & Submit**.
+- After the runner logs in and reaches the final "Submit claim" button, it can optionally **stop and screenshot** for a second confirmation click in-app before the final submit (configurable per-tenant; default ON for the first 30 days).
+- Full audit trail: who approved, when, screenshots, confirmation number, raw HTML of the confirmation page.
+
+## 7. Security & compliance notes (PHI)
+
+- Med ID, DOB, SSN-last-4, and signed PDFs are PHI — restrict via RLS to the owning driver and admins only; deny `anon`.
+- Storage buckets private; access only through signed URLs generated server-side.
+- Portal credentials live only in the runner's env (and a Lovable Cloud secret mirror for rotation UI). Never returned to the browser.
+- All runner traffic signed with `HFC_RUNNER_HMAC_SECRET`.
+- Add a Business Associate Agreement reminder in the admin panel; note that we are not a HIPAA-audited platform out of the box — this workflow must be reviewed by the customer's compliance officer.
+
+## 8. What we need from you before build
+
+1. Confirm the exact portal URL you bill through (Gainwell/Health First Colorado provider web portal, or the DXC/Kepro NEMT portal?).
+2. Does that portal use MFA? SMS, email, TOTP?
+3. Do you have a test/sandbox provider account we can point the runner at first?
+4. Where should we host the Playwright runner? (Fly.io is cheapest & fastest to stand up — ~$5/mo.)
+5. Do you want the "second confirm click" guardrail permanently on, or only for the first N submissions?
+
+## Technical summary
+
+```text
+Trip complete
+  → generateTripReport() fills PDF (pdf-lib)
+  → driver captures signature → attachSignature() embeds into PDF
+  → status=signed → appears in admin /billing queue
+  → admin Approve & Submit
+  → POST /api/public/hfc-submit → signed call to Playwright runner
+  → runner logs in, fills claim, uploads PDF, screenshots each step
+  → (optional) pause for admin final-confirm click
+  → runner submits, captures confirmation #
+  → callback → billing_submissions.status=submitted, evidence stored
+```
+
+## Files to create (build phase)
+
+- Migration: `member_billing_profiles`, `vehicles`, `billing_submissions` + RLS + grants
+- `src/lib/billing.functions.ts` — `generateTripReport`, `attachSignature`, `approveSubmission`, `requestPortalSubmit`
+- `src/lib/pdfFill.server.ts` — pdf-lib overlay helpers
+- `src/routes/driver.trip.$id.sign.tsx` — signature pad
+- `src/routes/_authenticated/billing.tsx` — admin review queue
+- `src/routes/_authenticated/billing.$id.tsx` — single submission detail + Approve
+- `src/routes/api/public/hfc-submit.ts`, `hfc-callback.ts`, `hfc-mfa-request.ts` (HMAC-verified)
+- `automation/hfc-runner/` — standalone Playwright service (Dockerfile + README for deploy)
+- Secrets: `HFC_RUNNER_URL`, `HFC_RUNNER_HMAC_SECRET`, and on the runner: `HFC_PORTAL_USERNAME`, `HFC_PORTAL_PASSWORD`
