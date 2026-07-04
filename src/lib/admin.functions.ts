@@ -95,6 +95,26 @@ export const createDriver = createServerFn({ method: "POST" })
     return { ok: true, user_id: userId };
   });
 
+export const deleteDriver = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { driver_id: string }) => input)
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: d } = await supabaseAdmin
+      .from("drivers")
+      .select("user_id")
+      .eq("id", data.driver_id)
+      .maybeSingle();
+    if (!d?.user_id) throw new Error("Driver not found");
+    const uid = d.user_id;
+    await supabaseAdmin.from("trips").update({ driver_id: null }).eq("driver_id", data.driver_id);
+    await supabaseAdmin.from("drivers").delete().eq("id", data.driver_id);
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", uid);
+    await supabaseAdmin.auth.admin.deleteUser(uid);
+    return { ok: true };
+  });
+
 type CreateAdminInput = {
   email: string;
   password: string;
