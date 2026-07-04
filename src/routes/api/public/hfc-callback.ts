@@ -40,7 +40,7 @@ export const Route = createFileRoute("/api/public/hfc-callback")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        const updates: Record<string, unknown> = {
+        const updates: Partial<Record<string, unknown>> = {
           portal_status: parsed.status,
           portal_error: parsed.error ?? null,
           portal_mfa_prompt: parsed.mfa_prompt ?? null,
@@ -48,7 +48,6 @@ export const Route = createFileRoute("/api/public/hfc-callback")({
         if (parsed.status === "submitted") {
           updates.portal_confirmation = parsed.confirmation ?? null;
           updates.portal_submitted_at = new Date().toISOString();
-          // Also flip trip status to submitted
           updates.status = "submitted";
           updates.submitted_confirmation = parsed.confirmation ?? null;
           updates.submitted_at = new Date().toISOString();
@@ -57,7 +56,8 @@ export const Route = createFileRoute("/api/public/hfc-callback")({
 
         const { error } = await supabaseAdmin
           .from("medicaid_trips")
-          .update(updates)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .update(updates as any)
           .eq("id", parsed.submission_id)
           .eq("portal_run_id", parsed.run_id);
 
