@@ -17,6 +17,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PassengerIndexRouteImport } from './routes/passenger.index'
 import { Route as DriverIndexRouteImport } from './routes/driver.index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
+import { Route as PassengerProfileRouteImport } from './routes/passenger.profile'
 import { Route as PassengerNewsRouteImport } from './routes/passenger.news'
 import { Route as PassengerGamesRouteImport } from './routes/passenger.games'
 import { Route as PassengerApplyRouteImport } from './routes/passenger.apply'
@@ -82,6 +83,11 @@ const TrackTripIdRoute = TrackTripIdRouteImport.update({
   id: '/track/$tripId',
   path: '/track/$tripId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PassengerProfileRoute = PassengerProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => PassengerRoute,
 } as any)
 const PassengerNewsRoute = PassengerNewsRouteImport.update({
   id: '/news',
@@ -247,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/passenger/apply': typeof PassengerApplyRoute
   '/passenger/games': typeof PassengerGamesRoute
   '/passenger/news': typeof PassengerNewsRoute
+  '/passenger/profile': typeof PassengerProfileRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver/': typeof DriverIndexRoute
   '/passenger/': typeof PassengerIndexRoute
@@ -280,6 +287,7 @@ export interface FileRoutesByTo {
   '/passenger/apply': typeof PassengerApplyRoute
   '/passenger/games': typeof PassengerGamesRoute
   '/passenger/news': typeof PassengerNewsRoute
+  '/passenger/profile': typeof PassengerProfileRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver': typeof DriverIndexRoute
   '/passenger': typeof PassengerIndexRoute
@@ -317,6 +325,7 @@ export interface FileRoutesById {
   '/passenger/apply': typeof PassengerApplyRoute
   '/passenger/games': typeof PassengerGamesRoute
   '/passenger/news': typeof PassengerNewsRoute
+  '/passenger/profile': typeof PassengerProfileRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver/': typeof DriverIndexRoute
   '/passenger/': typeof PassengerIndexRoute
@@ -354,6 +363,7 @@ export interface FileRouteTypes {
     | '/passenger/apply'
     | '/passenger/games'
     | '/passenger/news'
+    | '/passenger/profile'
     | '/track/$tripId'
     | '/driver/'
     | '/passenger/'
@@ -387,6 +397,7 @@ export interface FileRouteTypes {
     | '/passenger/apply'
     | '/passenger/games'
     | '/passenger/news'
+    | '/passenger/profile'
     | '/track/$tripId'
     | '/driver'
     | '/passenger'
@@ -423,6 +434,7 @@ export interface FileRouteTypes {
     | '/passenger/apply'
     | '/passenger/games'
     | '/passenger/news'
+    | '/passenger/profile'
     | '/track/$tripId'
     | '/driver/'
     | '/passenger/'
@@ -496,6 +508,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/track/$tripId'
       preLoaderRoute: typeof TrackTripIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/passenger/profile': {
+      id: '/passenger/profile'
+      path: '/profile'
+      fullPath: '/passenger/profile'
+      preLoaderRoute: typeof PassengerProfileRouteImport
+      parentRoute: typeof PassengerRoute
     }
     '/passenger/news': {
       id: '/passenger/news'
@@ -764,6 +783,7 @@ interface PassengerRouteChildren {
   PassengerApplyRoute: typeof PassengerApplyRoute
   PassengerGamesRoute: typeof PassengerGamesRoute
   PassengerNewsRoute: typeof PassengerNewsRoute
+  PassengerProfileRoute: typeof PassengerProfileRoute
   PassengerIndexRoute: typeof PassengerIndexRoute
 }
 
@@ -771,6 +791,7 @@ const PassengerRouteChildren: PassengerRouteChildren = {
   PassengerApplyRoute: PassengerApplyRoute,
   PassengerGamesRoute: PassengerGamesRoute,
   PassengerNewsRoute: PassengerNewsRoute,
+  PassengerProfileRoute: PassengerProfileRoute,
   PassengerIndexRoute: PassengerIndexRoute,
 }
 

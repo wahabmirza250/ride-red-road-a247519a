@@ -1,8 +1,11 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-import { Home, PlusCircle, Newspaper, Gamepad2, LogOut } from "lucide-react";
+import { useEffect } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { Home, PlusCircle, Newspaper, Gamepad2, UserCircle2, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
+import { trackVisitor } from "@/lib/passengerPublic.functions";
 
 export const Route = createFileRoute("/passenger")({
   ssr: false,
@@ -14,21 +17,56 @@ const TABS = [
   { to: "/passenger/apply", label: "Book", icon: PlusCircle },
   { to: "/passenger/news", label: "News", icon: Newspaper },
   { to: "/passenger/games", label: "Games", icon: Gamepad2 },
+  { to: "/passenger/profile", label: "Profile", icon: UserCircle2 },
 ] as const;
+
+function getOrCreateDeviceId(): string {
+  let id = window.localStorage.getItem("passenger_device_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    window.localStorage.setItem("passenger_device_id", id);
+  }
+  return id;
+}
 
 function PassengerLayout() {
   const loc = useLocation();
+  const track = useServerFn(trackVisitor);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const deviceId = getOrCreateDeviceId();
+    // Throttle: only ping once per hour per device.
+    const lastPing = Number(window.localStorage.getItem("passenger_last_ping") ?? "0");
+    if (Date.now() - lastPing < 60 * 60_000) return;
+    track({ data: { device_id: deviceId } })
+      .then((r) => {
+        window.localStorage.setItem("passenger_last_ping", String(Date.now()));
+        if (r.city || r.region) {
+          window.localStorage.setItem(
+            "passenger_location",
+            JSON.stringify({ city: r.city, region: r.region }),
+          );
+        }
+      })
+      .catch(() => {
+        // Silent — the app works fine without tracking.
+      });
+  }, [track]);
+
   function forget() {
     if (typeof window !== "undefined") {
       window.localStorage.removeItem("passenger_phone");
       window.localStorage.removeItem("passenger_medicaid");
+      window.localStorage.removeItem("passenger_device_id");
+      window.localStorage.removeItem("passenger_location");
+      window.localStorage.removeItem("passenger_last_ping");
       window.location.reload();
     }
   }
   const hasSession =
     typeof window !== "undefined" &&
-    (window.localStorage.getItem("passenger_phone") ||
-      window.localStorage.getItem("passenger_medicaid"));
+    !!window.localStorage.getItem("passenger_device_id");
 
   return (
     <div className="relative min-h-screen bg-background pb-24 text-foreground">
