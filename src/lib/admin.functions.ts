@@ -76,17 +76,20 @@ export const createDriver = createServerFn({ method: "POST" })
       .update({ first_name: data.first_name, last_name: data.last_name, phone: data.phone })
       .eq("id", userId);
 
-    // Create driver row
-    const { error: dErr } = await supabaseAdmin.from("drivers").insert({
-      user_id: userId,
-      license_number: data.license_number,
-      vehicle_make: data.vehicle_make,
-      vehicle_model: data.vehicle_model,
-      vehicle_year: data.vehicle_year,
-      vehicle_plate: data.vehicle_plate,
-      vehicle_color: data.vehicle_color,
-      status: "offline",
-    });
+    // Create/update driver row (trigger may have already inserted one)
+    const { error: dErr } = await supabaseAdmin.from("drivers").upsert(
+      {
+        user_id: userId,
+        license_number: data.license_number,
+        vehicle_make: data.vehicle_make,
+        vehicle_model: data.vehicle_model,
+        vehicle_year: data.vehicle_year,
+        vehicle_plate: data.vehicle_plate,
+        vehicle_color: data.vehicle_color,
+        status: "offline",
+      },
+      { onConflict: "user_id" },
+    );
     if (dErr) throw new Error(dErr.message);
 
     return { ok: true, user_id: userId };
