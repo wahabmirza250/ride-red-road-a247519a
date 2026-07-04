@@ -79,7 +79,7 @@ export const getDriverLocations = createServerFn({ method: "GET" })
     const { supabase } = context;
     const { data, error } = await supabase
       .from("drivers")
-      .select("id, user_id, status, current_lat, current_lng, profiles:user_id(first_name, last_name)")
+      .select("id, user_id, status, current_lat, current_lng")
       .not("current_lat", "is", null)
       .not("current_lng", "is", null);
     if (error) throw new Error(error.message);
@@ -89,18 +89,24 @@ export const getDriverLocations = createServerFn({ method: "GET" })
       status: string | null;
       current_lat: number | null;
       current_lng: number | null;
-      profiles: { first_name: string | null; last_name: string | null } | { first_name: string | null; last_name: string | null }[] | null;
     };
-    const rows = (data ?? []) as unknown as Row[];
+    const rows = (data ?? []) as Row[];
+    const userIds = rows.map((r) => r.user_id).filter((v): v is string => !!v);
+    const { data: profs } = userIds.length
+      ? await supabase.from("profiles").select("id, first_name, last_name").in("id", userIds)
+      : { data: [] as { id: string; first_name: string | null; last_name: string | null }[] };
+    const nameById = new Map<string, string>();
+    (profs ?? []).forEach((p) =>
+      nameById.set(p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Driver"),
+    );
     const out: DriverLocation[] = await Promise.all(
       rows.map(async (d) => {
         const geo = d.current_lat != null && d.current_lng != null
           ? await reverseGeocode(d.current_lat, d.current_lng)
           : { city: null, region: null };
-        const p = Array.isArray(d.profiles) ? d.profiles[0] : d.profiles;
         return {
           driver_id: d.id,
-          name: `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim() || "Driver",
+          name: (d.user_id && nameById.get(d.user_id)) || "Driver",
           status: d.status,
           lat: d.current_lat,
           lng: d.current_lng,
