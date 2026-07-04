@@ -327,6 +327,43 @@ function EditDriverDialog({
     status: driver.status,
   });
   const [saving, setSaving] = useState(false);
+  const [avatarPath, setAvatarPath] = useState<string | null>(driver.profile?.avatar_url ?? null);
+  const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const del = useServerFn(deleteDriver);
+
+  async function uploadAvatar(file: File) {
+    setUploading(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${driver.user_id}/avatar-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("avatars")
+      .upload(path, file, { contentType: file.type, upsert: true });
+    if (error) {
+      setUploading(false);
+      return toast.error(error.message);
+    }
+    await supabase.from("profiles").update({ avatar_url: path }).eq("id", driver.user_id);
+    setAvatarPath(path);
+    setUploading(false);
+    toast.success("Photo updated");
+    qc.invalidateQueries({ queryKey: ["drivers"] });
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Delete ${driver.profile?.first_name ?? "this driver"}? This removes their login and cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await del({ data: { driver_id: driver.id } });
+      toast.success("Driver deleted");
+      qc.invalidateQueries({ queryKey: ["drivers"] });
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const update = useMutation({
     mutationFn: async () => {
