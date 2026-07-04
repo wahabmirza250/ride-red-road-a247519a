@@ -13,6 +13,7 @@ import {
   Search,
   Loader2,
   PenLine,
+  XCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
@@ -78,6 +79,7 @@ function DriverHome() {
   const [signature, setSignature] = useState<string | null>(null);
   const [signerName, setSignerName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const [showPicker, setShowPicker] = useState(false);
 
@@ -264,16 +266,16 @@ function DriverHome() {
   }
 
   async function saveSignatureAndStart() {
-    if (!active?.trip_id || !driver) return;
+    if (!active?.trip_id || !driver || !user) return;
     if (!signature) return toast.error("Please have the passenger sign");
     if (!signerName.trim()) return toast.error("Enter signer name");
     setSaving(true);
     try {
       const blob = await (await fetch(signature)).blob();
-      const path = `${driver.id}/${active.trip_id}-${Date.now()}.png`;
+      const path = `${user.id}/${active.trip_id}-${Date.now()}.png`;
       const up = await supabase.storage.from("signatures").upload(path, blob, {
         contentType: "image/png",
-        upsert: true,
+        upsert: false,
       });
       if (up.error) throw up.error;
       const { error } = await supabase
@@ -298,6 +300,45 @@ function DriverHome() {
     }
   }
 
+  async function cancelActiveTrip() {
+    if (!active?.trip_id || !driver) return;
+    if (!window.confirm("Cancel this ride?")) return;
+    setCancelling(true);
+    try {
+      const { error: tripError } = await supabase
+        .from("trips")
+        .update({ status: "cancelled" })
+        .eq("id", active.trip_id)
+        .eq("driver_id", driver.id);
+      if (tripError) throw tripError;
+
+      if (!active.id.startsWith("trip-")) {
+        const { error: requestError } = await supabase
+          .from("ride_requests")
+          .update({ status: "cancelled" })
+          .eq("id", active.id)
+          .eq("driver_id", driver.id);
+        if (requestError) throw requestError;
+      }
+
+      const { error: driverError } = await supabase
+        .from("drivers")
+        .update({ status: online ? "available" : "offline" })
+        .eq("id", driver.id);
+      if (driverError) throw driverError;
+
+      toast.success("Ride cancelled");
+      setActive(null);
+      setTripStatus("");
+      setPassenger(null);
+      void loadRequests();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to cancel ride");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   async function switchPassenger(pax: PaxRow) {
     if (!active?.trip_id) return;
     const { error } = await supabase
@@ -312,12 +353,31 @@ function DriverHome() {
 
   const navUrl = useMemo(() => {
     if (!active) return "";
-    const dest =
-      tripStatus === "in_progress"
-        ? `${active.dropoff_lat},${active.dropoff_lng}`
-        : `${active.pickup_lat},${active.pickup_lng}`;
-    return `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
+    const goingToDropoff = tripStatus === "in_progress";
+    const lat = Number(goingToDropoff ? active.dropoff_lat : active.pickup_lat);
+    const lng = Number(goingToDropoff ? active.dropoff_lng : active.pickup_lng);
+    const address = goingToDropoff ? active.dropoff_address : active.pickup_address;
+    const destination = Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0
+      ? `${lat},${lng}`
+      : address;
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
   }, [active, tripStatus]);
+
+  async function openNavigation() {
+    if (!navUrl) return;
+    const opened = window.open(navUrl, "_blank");
+    if (opened) {
+      opened.opener = null;
+      opened.focus();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(navUrl);
+      toast.info("Google Maps link copied");
+    } catch {
+      toast.error("Allow pop-ups to open Google Maps");
+    }
+  }
 
   if (!driver) {
     return (
@@ -402,17 +462,18 @@ function DriverHome() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 pt-2">
-            {/* Use a real anchor so the browser opens Google Maps in a new tab
-                even inside sandboxed preview iframes. Never navigate window.top
-                to google.com — Google blocks framing (ERR_BLOCKED_BY_RESPONSE). */}
-            <a
-              href={navUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-10 items-center justify-center rounded-full border border-border bg-background px-4 text-sm font-medium hover:bg-accent"
-            >
+            <Button variant="outline" className="rounded-full" onClick={openNavigation}>
               <Navigation className="mr-1 h-4 w-4" /> Navigate
-            </a>
+            </Button>
+            <Button
+              variant="destructive"
+              className="rounded-full"
+              onClick={cancelActiveTrip}
+              disabled={cancelling}
+            >
+              {cancelling ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />}
+              Cancel
+            </Button>
             {tripStatus === "assigned" && (
               <Button className="rounded-full" onClick={() => setStatus("arrived_at_pickup")}>
                 <Car className="mr-1 h-4 w-4" /> Arrived
