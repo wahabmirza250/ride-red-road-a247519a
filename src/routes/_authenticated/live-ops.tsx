@@ -32,6 +32,7 @@ type Req = {
 function LiveOps() {
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [reqs, setReqs] = useState<Req[]>([]);
+  const [focus, setFocus] = useState<{ lat: number; lng: number; zoom?: number; id?: string } | null>(null);
 
   const load = useCallback(async () => {
     const [{ data: d }, { data: r }] = await Promise.all([
