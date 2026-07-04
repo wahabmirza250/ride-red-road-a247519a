@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, Wand2, Search } from "lucide-react";
+import { Plus, Loader2, Wand2, Search, Trash2 } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
 import { haversineMiles } from "@/lib/geo";
@@ -311,6 +311,10 @@ function TripsPage() {
             passengerName={passengerName(detail.passenger_id)}
             driverName={driverName(detail.driver_id)}
             onClose={() => setDetail(null)}
+            onDeleted={() => {
+              setDetail(null);
+              qc.invalidateQueries({ queryKey: ["trips"] });
+            }}
           />
         )}
       </Dialog>
@@ -505,13 +509,27 @@ function TripDetailDialog({
   passengerName,
   driverName,
   onClose,
+  onDeleted,
 }: {
   trip: Trip;
   passengerName: string;
   driverName: string;
   onClose: () => void;
+  onDeleted: () => void;
 }) {
   const [photoUrls, setPhotoUrls] = useState<{ start?: string; end?: string }>({});
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!window.confirm(`Delete this trip permanently? This cannot be undone.`)) return;
+    setDeleting(true);
+    const { error } = await supabase.from("trips").delete().eq("id", trip.id);
+    setDeleting(false);
+    if (error) return toast.error(error.message);
+    toast.success("Trip deleted");
+    onDeleted();
+  }
+
 
   useState(() => {
     async function load() {
@@ -597,18 +615,33 @@ function TripDetailDialog({
           <div className="rounded-xl bg-surface-muted p-3 text-sm">{trip.notes}</div>
         </div>
       )}
-      <DialogFooter>
-        <a
-          href={`/track/${trip.id}`}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-full border border-border px-4 py-2 text-sm hover:bg-accent"
+      <DialogFooter className="gap-2 sm:justify-between">
+        <Button
+          variant="destructive"
+          onClick={handleDelete}
+          disabled={deleting}
+          className="rounded-full"
         >
-          Open passenger tracking
-        </a>
-        <Button variant="secondary" onClick={onClose}>
-          Close
+          {deleting ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="mr-2 h-4 w-4" />
+          )}
+          Delete trip
         </Button>
+        <div className="flex gap-2">
+          <a
+            href={`/track/${trip.id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-border px-4 py-2 text-sm hover:bg-accent"
+          >
+            Open passenger tracking
+          </a>
+          <Button variant="secondary" onClick={onClose}>
+            Close
+          </Button>
+        </div>
       </DialogFooter>
     </DialogContent>
   );
