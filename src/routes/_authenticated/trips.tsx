@@ -39,6 +39,7 @@ type Driver = {
   status: string;
   current_lat: number | null;
   current_lng: number | null;
+  name?: string;
 };
 
 type Trip = {
