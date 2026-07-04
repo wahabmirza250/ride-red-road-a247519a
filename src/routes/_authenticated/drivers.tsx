@@ -172,6 +172,18 @@ function NewDriverDialog({ onClose }: { onClose: () => void }) {
   const [submitting, setSubmitting] = useState(false);
 
   async function submit() {
+    if (!form.email || !form.password) {
+      toast.error("Email and password are required — these are the driver's login");
+      return;
+    }
+    if (form.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    if (!form.first_name || !form.last_name) {
+      toast.error("First and last name are required");
+      return;
+    }
     setSubmitting(true);
     try {
       await create({
@@ -189,7 +201,10 @@ function NewDriverDialog({ onClose }: { onClose: () => void }) {
           vehicle_color: form.vehicle_color || null,
         },
       });
-      toast.success("Driver created");
+      toast.success(
+        `Driver account created. They can sign in at /driver/signin with ${form.email}`,
+        { duration: 8000 },
+      );
       qc.invalidateQueries({ queryKey: ["drivers"] });
       onClose();
     } catch (e) {
@@ -200,25 +215,62 @@ function NewDriverDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <DialogContent className="max-w-lg">
+    <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>Add driver</DialogTitle>
+        <DialogTitle>Create driver account</DialogTitle>
+        <p className="text-xs text-muted-foreground">
+          This creates a login for the driver. Share the email and password with them so they can
+          sign in at <code className="rounded bg-muted px-1">/driver/signin</code>.
+        </p>
       </DialogHeader>
+
+      <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary">
+          Login credentials (required)
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Email *">
+            <Input
+              type="email"
+              placeholder="driver@example.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </Field>
+          <Field label="Password *">
+            <Input
+              type="text"
+              placeholder="min 6 characters"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </Field>
+        </div>
+        <button
+          type="button"
+          className="mt-2 text-[11px] font-medium text-primary hover:underline"
+          onClick={() => {
+            const p = Math.random().toString(36).slice(-10) + "A1!";
+            setForm({ ...form, password: p });
+            toast.success("Password generated — copy it before saving");
+          }}
+        >
+          Generate random password
+        </button>
+      </div>
+
+      <div className="mt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Driver info
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="First name">
+        <Field label="First name *">
           <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
         </Field>
-        <Field label="Last name">
+        <Field label="Last name *">
           <Input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
-        </Field>
-        <Field label="Email">
-          <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         </Field>
         <Field label="Phone">
           <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        </Field>
-        <Field label="Password" className="sm:col-span-2">
-          <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
         </Field>
         <Field label="License #">
           <Input value={form.license_number} onChange={(e) => setForm({ ...form, license_number: e.target.value })} />
@@ -243,7 +295,7 @@ function NewDriverDialog({ onClose }: { onClose: () => void }) {
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={submit} disabled={submitting}>
           {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Create
+          Create login
         </Button>
       </DialogFooter>
     </DialogContent>
