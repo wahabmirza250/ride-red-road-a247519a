@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import SignatureCanvas from "react-signature-canvas";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/nemt/PageHeader";
+import { SignaturePad } from "@/components/driver/SignaturePad";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,15 +24,20 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, UserPlus, X, Eraser, Loader2, Check } from "lucide-react";
+import { Search, UserPlus, X, Loader2, Check, Camera } from "lucide-react";
 import {
   createNemtTripGroup,
   attachRiderSignature,
   getMyDriverDefaults,
+  getAssignedTripForNemt,
+  detectOdometerFromImage,
 } from "@/lib/nemtTrip.functions";
 import { generateStateFormPdf } from "@/lib/medicaidPdf";
 
 export const Route = createFileRoute("/driver/trip/new")({
+  validateSearch: (search) => ({
+    tripId: typeof search.tripId === "string" ? search.tripId : undefined,
+  }),
   component: NewNemtTripWizard,
 });
 
@@ -64,6 +69,14 @@ type RiderSlot = {
   signer_name: string;
 };
 
+type AssignedTrip = {
+  id: string;
+  pickup_address: string;
+  dropoff_address: string;
+  scheduled_pickup_time: string;
+  status: string;
+};
+
 const VEHICLE_TYPES = [
   { value: "ground_ambulance", label: "Ground Ambulance" },
   { value: "wheelchair_van", label: "Wheelchair Van" },
@@ -89,9 +102,12 @@ function emptyLeg(index: 1 | 2): LegForm {
 }
 
 function NewNemtTripWizard() {
+  const { tripId } = Route.useSearch();
   const { user, isDriver } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState("vehicle");
+  const [assignedTrip, setAssignedTrip] = useState<AssignedTrip | null>(null);
+  const [assignedPassengerName, setAssignedPassengerName] = useState<string | null>(null);
 
   // Vehicle / trip meta
   const [tripKind, setTripKind] = useState<"one_way" | "round_trip" | "group_tour">("one_way");
@@ -119,6 +135,7 @@ function NewNemtTripWizard() {
   const [riderResults, setRiderResults] = useState<Rider[]>([]);
   const [addingRider, setAddingRider] = useState(false);
   const [newRider, setNewRider] = useState({ full_name: "", medicaid_id: "", dob: "", phone: "" });
+  const loadAssignedTrip = useServerFn(getAssignedTripForNemt);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +178,73 @@ function NewNemtTripWizard() {
     setRiderResults([]);
   }
 
+  useEffect(() => {
+    if (!tripId) return;
+    let cancelled = false;
+    loadAssignedTrip({ data: { trip_id: tripId } })
+      .then((prefill) => {
+        if (cancelled) return;
+        setAssignedTrip(prefill.trip as AssignedTrip);
+        setAssignedPassengerName(prefill.passenger?.full_name ?? null);
+
+        const scheduled = prefill.trip.scheduled_pickup_time
+          ? new Date(prefill.trip.scheduled_pickup_time)
+          : new Date();
+        const isValidDate = !Number.isNaN(scheduled.getTime());
+        const baseDate = isValidDate ? scheduled.toISOString().slice(0, 10) : today();
+        const baseTime = isValidDate ? scheduled.toTimeString().slice(0, 5) : nowHM();
+
+        setLegs((prev) => {
+          const first = prev[0] ?? emptyLeg(1);
+          const nextFirst: LegForm = {
+            ...first,
+            leg_date: first.leg_date || baseDate,
+            pickup_time: first.pickup_time || baseTime,
+            pickup_address: first.pickup_address || prefill.trip.pickup_address,
+            dropoff_address: first.dropoff_address || prefill.trip.dropoff_address,
+          };
+          if (tripKind === "round_trip") {
+            const second = prev[1] ?? emptyLeg(2);
+            return [
+              nextFirst,
+              {
+                ...second,
+                leg_date: second.leg_date || baseDate,
+                pickup_address: second.pickup_address || prefill.trip.dropoff_address,
+                dropoff_address: second.dropoff_address || prefill.trip.pickup_address,
+              },
+            ];
+          }
+          return [nextFirst];
+        });
+
+        if (prefill.rider) {
+          const rider = prefill.rider as Rider;
+          setRiderSlots((prev) => {
+            if (prev.some((slot) => slot.rider.id === rider.id)) return prev;
+            if (tripKind !== "group_tour" && prev.length >= 1) return prev;
+            return [
+              ...prev,
+              {
+                rider,
+                identity_verified: true,
+                signed_by_escort: false,
+                signature_data_url: null,
+                signer_name: rider.full_name,
+              },
+            ];
+          });
+        } else if (prefill.passenger) {
+          setRiderQuery(prefill.passenger.full_name ?? "");
+          toast.info("Assigned address loaded. Select or create the rider to continue.");
+        }
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not load assigned trip"));
+    return () => {
+      cancelled = true;
+    };
+  }, [loadAssignedTrip, tripId, tripKind]);
+
   async function createNewRider() {
     if (!newRider.full_name || !newRider.medicaid_id) {
       toast.error("Name and Medicaid ID required");
@@ -186,35 +270,32 @@ function NewNemtTripWizard() {
   const [legs, setLegs] = useState<LegForm[]>([emptyLeg(1)]);
   useEffect(() => {
     if (tripKind === "round_trip") {
-      setLegs((prev) => (prev.length === 2 ? prev : [prev[0], emptyLeg(2)]));
+      setLegs((prev) => {
+        if (prev.length === 2) return prev;
+        const first = prev[0] ?? emptyLeg(1);
+        const second = emptyLeg(2);
+        return [
+          first,
+          {
+            ...second,
+            leg_date: first.leg_date || second.leg_date,
+            pickup_address: assignedTrip?.dropoff_address || first.dropoff_address,
+            dropoff_address: assignedTrip?.pickup_address || first.pickup_address,
+          },
+        ];
+      });
     } else {
       setLegs((prev) => (prev.length === 1 ? prev : [prev[0]]));
     }
-  }, [tripKind]);
+  }, [assignedTrip, tripKind]);
 
   const updateLeg = (idx: number, patch: Partial<LegForm>) =>
     setLegs((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
 
-  // Signatures — canvases keyed by rider id
-  const sigRefs = useRef<Record<string, SignatureCanvas | null>>({});
-
-  function captureSignature(riderId: string) {
-    const c = sigRefs.current[riderId];
-    if (!c || c.isEmpty()) {
-      toast.error("Please draw a signature first");
-      return;
-    }
-    // getTrimmedCanvas is missing in some builds of react-signature-canvas —
-    // fall back to the raw canvas which always works.
-    const canvas =
-      typeof (c as unknown as { getTrimmedCanvas?: () => HTMLCanvasElement }).getTrimmedCanvas === "function"
-        ? (c as unknown as { getTrimmedCanvas: () => HTMLCanvasElement }).getTrimmedCanvas()
-        : c.getCanvas();
-    const url = canvas.toDataURL("image/png");
+  function saveSignature(riderId: string, url: string | null) {
     setRiderSlots((prev) =>
       prev.map((s) => (s.rider.id === riderId ? { ...s, signature_data_url: url } : s)),
     );
-    toast.success("Signature captured");
   }
 
   // Submit
@@ -222,20 +303,57 @@ function NewNemtTripWizard() {
   const attachSig = useServerFn(attachRiderSignature);
   const [submitting, setSubmitting] = useState(false);
 
-  const canSubmit = useMemo(() => {
-    if (!vehicleType || !plate) return false;
-    if (riderSlots.length === 0) return false;
-    if (riderSlots.some((s) => !s.signature_data_url)) return false;
+  const vehicleIssue = useMemo(() => {
+    if (!vehicleType) return "Select vehicle type";
+    if (!plate.trim()) return "Enter license plate";
+    return null;
+  }, [plate, vehicleType]);
+
+  const riderIssue = useMemo(() => {
+    if (riderSlots.length === 0) return "Add at least one rider";
+    return null;
+  }, [riderSlots.length]);
+
+  const legsIssue = useMemo(() => {
     for (const l of legs) {
-      if (!l.pickup_address || !l.dropoff_address) return false;
-      if (l.pickup_odometer === "" || l.dropoff_odometer === "") return false;
+      const legName = l.leg_index === 1 ? "outbound leg" : "return leg";
+      if (!l.leg_date) return `Enter date for ${legName}`;
+      if (!l.pickup_address.trim()) return `Enter pickup address for ${legName}`;
+      if (!l.dropoff_address.trim()) return `Enter drop-off address for ${legName}`;
+      if (l.pickup_odometer === "") return `Enter pickup odometer for ${legName}`;
+      if (l.dropoff_odometer === "") return `Enter drop-off odometer for ${legName}`;
+      if (!Number.isFinite(Number(l.pickup_odometer)) || Number(l.pickup_odometer) < 0) {
+        return `Check pickup odometer for ${legName}`;
+      }
+      if (!Number.isFinite(Number(l.dropoff_odometer)) || Number(l.dropoff_odometer) < 0) {
+        return `Check drop-off odometer for ${legName}`;
+      }
     }
-    return true;
-  }, [vehicleType, plate, riderSlots, legs]);
+    return null;
+  }, [legs]);
+
+  const signatureIssue = useMemo(() => {
+    const missingSignature = riderSlots.find((s) => !s.signature_data_url);
+    if (missingSignature) return `${missingSignature.rider.full_name} still needs a signature`;
+    const missingName = riderSlots.find((s) => !s.signer_name.trim());
+    if (missingName) return `Enter signer name for ${missingName.rider.full_name}`;
+    return null;
+  }, [riderSlots]);
+
+  const canSubmit = !vehicleIssue && !riderIssue && !legsIssue && !signatureIssue;
+
+  function goNext(nextTab: string, issue: string | null) {
+    if (issue) {
+      toast.error(issue);
+      return;
+    }
+    setTab(nextTab);
+  }
 
   async function handleSubmit() {
     if (!user) return;
-    if (!canSubmit) return toast.error("Fill every step first");
+    const issue = vehicleIssue || riderIssue || legsIssue || signatureIssue;
+    if (issue) return toast.error(issue);
     setSubmitting(true);
     try {
       const res = await submitGroup({
