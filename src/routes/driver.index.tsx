@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -344,6 +344,20 @@ function DriverHome() {
           <Power className="h-6 w-6" />
         </Button>
       </div>
+
+      {/* NEMT quick action */}
+      <Link
+        to="/driver/trip/new"
+        className="flex items-center justify-between rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-soft transition hover:border-primary hover:bg-primary/10"
+      >
+        <div>
+          <div className="text-sm font-semibold">Complete NEMT trip</div>
+          <div className="text-xs text-muted-foreground">
+            Fill the state Trip Report digitally · round-trip &amp; group tours
+          </div>
+        </div>
+        <PenLine className="h-5 w-5 text-primary" />
+      </Link>
 
       {/* Active trip */}
       {active && (

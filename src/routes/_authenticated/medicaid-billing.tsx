@@ -133,19 +133,53 @@ function MedicaidBillingPage() {
 
   async function downloadPdf(trip: any) {
     try {
+      // Load legs (fallback to legacy single-leg fields if none)
+      const { data: legs } = await supabase
+        .from("medicaid_trip_legs")
+        .select("*")
+        .eq("medicaid_trip_id", trip.id)
+        .order("leg_index", { ascending: true });
+
+      const legList =
+        legs && legs.length > 0
+          ? legs.map((l: any) => ({
+              leg_index: l.leg_index as 1 | 2,
+              leg_date: l.leg_date,
+              pickup_time: l.pickup_time,
+              pickup_odometer: Number(l.pickup_odometer ?? 0),
+              pickup_address: l.pickup_address,
+              dropoff_time: l.dropoff_time,
+              dropoff_odometer: Number(l.dropoff_odometer ?? 0),
+              dropoff_address: l.dropoff_address,
+            }))
+          : [
+              {
+                leg_index: 1 as const,
+                leg_date: (trip.pickup_at ?? "").slice(0, 10),
+                pickup_time: (trip.pickup_at ?? "").slice(11, 16) || null,
+                pickup_odometer: Number(trip.odometer_start ?? 0),
+                pickup_address: trip.pickup_address,
+                dropoff_time: null,
+                dropoff_odometer: Number(trip.odometer_end ?? 0),
+                dropoff_address: trip.dropoff_address,
+              },
+            ];
+
       const pdfBytes = await generateStateFormPdf({
         rider: trip.riders,
         driverName: trip.profiles
           ? `${trip.profiles.first_name ?? ""} ${trip.profiles.last_name ?? ""}`.trim()
           : "",
-        pickupAt: trip.pickup_at,
-        pickupAddress: trip.pickup_address,
-        dropoffAddress: trip.dropoff_address,
-        odometerStart: trip.odometer_start,
-        odometerEnd: trip.odometer_end,
-        miles: trip.miles,
+        vehiclePlate: trip.vehicle_plate,
+        vehicleVin: trip.vehicle_vin,
+        vehicleType: trip.vehicle_type,
+        escortName: trip.escort_name,
+        identityVerified: trip.identity_verified ?? true,
+        tripKind: trip.trip_kind,
+        legs: legList,
         signatureName: trip.signature_name,
         signatureUrl: sigUrl,
+        signedByEscort: trip.signed_by_escort ?? false,
       });
       const blob = new Blob([pdfBytes as BlobPart], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);

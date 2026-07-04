@@ -1,107 +1,103 @@
 
-# NEMT Billing Automation Plan
+# Driver-side digital NEMT Trip Report
 
-Goal: turn every completed trip into a signed Colorado NEMT Trip Report PDF, then submit it to the Health First Colorado provider portal automatically — with a mandatory human review step — even though the state offers no API.
+Right now the driver app never captures the fields the state form requires (vehicle type, plate/VIN, escort, identity verified, one-way vs round-trip, per-leg times/odometer/addresses, and — for group tours — each rider's info + signature). We're going to build the digital equivalent of the paper form the driver fills at the curb.
 
-## 1. Data model (Lovable Cloud)
+## What changes for the driver
 
-Add tables so we only ask for member info once:
+New flow, launched from the current trip screen with a big **"Complete NEMT trip"** button:
 
-- `member_billing_profiles` (one row per passenger)
-  - `passenger_id` (FK), `member_health_first_id`, `full_legal_name`, `dob`, `escort_name_default`, `default_pickup_address`, `verified_at`
-- `vehicles`
-  - `driver_id` (FK), `license_plate`, `vin`, `vehicle_type` (ambulance/wheelchair/stretcher/taxi/ambulatory)
-- `billing_submissions` (one per trip billed)
-  - `trip_id`, `status` (draft → signed → in_review → approved → submitting → submitted → failed), `pdf_path` (storage), `signature_path`, `portal_confirmation_number`, `portal_screenshot_path`, `submitted_at`, `submitted_by`, `error_log`
-- `portal_credentials` (single admin-managed row, encrypted)
-  - stored as Cloud secrets `HFC_PORTAL_USERNAME` / `HFC_PORTAL_PASSWORD`, not in DB
+1. **Step 1 — Trip type & vehicle** (auto-filled after first use)
+   - One way / Round trip / **Group tour** (multi-rider)
+   - Vehicle type: Ground Ambulance · Wheelchair Van · Stretcher Van · Taxi · Mobility/Ambulatory
+   - License plate / VIN
+   - Escort name (optional)
+   - Vehicle info remembered on driver profile so next trip auto-fills.
 
-Storage buckets: `nemt-pdfs` (private), `signatures` (already exists), `portal-evidence` (private) for confirmation screenshots.
+2. **Step 2 — Riders** (1 or many)
+   - "Add rider" → search existing (by name / Med ID) or add new.
+   - For each rider we store once: legal name, Health First Colorado ID, DOB, phone.
+   - Toggle "Driver verified member's identity" per rider (Y/N).
+   - For group tours, you can pin the same pickup/drop-off or override per rider.
 
-## 2. Auto-fill the state PDF
+3. **Step 3 — Leg 1 (Outbound)**
+   - Date, Pickup address (already known from dispatch), Pickup time (AM/PM), Pickup odometer, Drop-off address, Drop-off time (AM/PM), Destination odometer.
+   - Prefilled where possible: pickup address/time from the ride request, driver location, GPS odometer if the shift started with a reading.
 
-- Keep the official April 2025 PDF as a template in `nemt-pdfs/templates/trip_report.pdf`.
-- Server function `generateTripReport(tripId)`:
-  - Pulls trip (pickup/drop addresses, times, odometer readings, driver, vehicle, passenger).
-  - Pulls `member_billing_profiles` for the passenger (Med ID, legal name, DOB). If missing, returns `needs_member_info: true` so the UI prompts the driver once.
-  - Uses `pdf-lib` to fill AcroForm fields; if the state PDF has no form fields, overlays text at fixed coordinates (measured once from the template).
-  - Writes to `nemt-pdfs/{trip_id}/unsigned.pdf`.
+4. **Step 4 — Leg 2 (Return, only if Round Trip)**
+   - Same fields; date defaults to same day.
 
-## 3. Passenger signature capture
+5. **Step 5 — Signatures** — one per rider
+   - Signature pad + printed name.
+   - Escort/facility staff can sign on behalf of the member; a checkbox records "signed by escort".
 
-- New `driver.trip.$id.sign.tsx` route: canvas signature pad (react-signature-canvas).
-- Uploads PNG to `signatures/{trip_id}.png`, then server fn `attachSignature(tripId)` embeds it into the PDF at the Member's Signature box → writes `nemt-pdfs/{trip_id}/signed.pdf`, sets submission status = `signed`.
+6. **Step 6 — Review & submit**
+   - Preview the filled state PDF (one per rider) inline before submit.
+   - Submit → goes to admin billing queue.
 
-## 4. Admin review queue
+## What changes in the admin billing queue
 
-- New `_authenticated/billing.tsx` (admin only via `has_role`):
-  - Lists submissions with status `signed`, shows PDF preview (`<iframe>` via signed URL).
-  - Buttons: **Approve & Submit**, **Reject** (with reason, sends back to driver).
-  - Approve transitions to `in_review → approved` and enqueues submission.
+- Group-tour trips show grouped by driver + date with the rider list.
+- Round trips show both legs on the PDF.
+- Admin still approves → "Send to portal" fires the runner **once per rider PDF**.
 
-## 5. Portal submission (no API → browser automation)
+## Data model
 
-Because Health First Colorado has no billing API, we drive their web portal headlessly. This CANNOT run inside the Cloudflare Worker runtime (no Chromium, no long-lived processes). We host it separately and call it from a server function:
+Extend `medicaid_trips` to hold everything the form needs; add per-leg + per-rider structure.
 
-- **Runner**: a small Node service using **Playwright** (Chromium), deployed on a worker-friendly host (Fly.io, Railway, Render, or a small VPS). Repo lives in `/automation/hfc-runner/` for reference; deployed independently.
-- Endpoint: `POST /submit` with HMAC-signed payload `{ submission_id, pdf_url (signed), member_id, trip fields }`.
-- Runner script:
-  1. Launch Chromium, go to Health First provider portal login.
-  2. Read `HFC_PORTAL_USERNAME` / `HFC_PORTAL_PASSWORD` from its own env (never sent from client).
-  3. Handle MFA: if the portal requires OTP, the runner pauses and posts back to a `/api/public/hfc-mfa-request` webhook; admin enters the code in the UI; runner polls a short-lived token to continue. (Confirm MFA type before build.)
-  4. Navigate to the NEMT claim entry page, fill fields from payload, upload the signed PDF.
-  5. Screenshot every step into `portal-evidence/{submission_id}/step-N.png`.
-  6. Capture confirmation number, POST result to `/api/public/hfc-callback` (HMAC verified).
-- Lovable side:
-  - Server route `src/routes/api/public/hfc-submit.ts` triggers the runner (signed request).
-  - Server route `src/routes/api/public/hfc-callback.ts` updates submission row, stores screenshots.
-  - Admin UI live-updates via Supabase Realtime on `billing_submissions`.
+New columns on `medicaid_trips` (nullable so existing rows stay valid):
 
-## 6. Human-in-the-loop guardrails
+- `trip_kind` enum: `one_way` | `round_trip` | `group_tour`
+- `vehicle_type` enum: `ground_ambulance` | `wheelchair_van` | `stretcher_van` | `taxi` | `ambulatory`
+- `vehicle_plate` text, `vehicle_vin` text
+- `escort_name` text
+- `identity_verified` bool
+- `signed_by_escort` bool
+- `group_id` uuid — groups all rider-rows of the same physical trip; null for solo trips
 
-- Nothing is submitted without an admin clicking **Approve & Submit**.
-- After the runner logs in and reaches the final "Submit claim" button, it can optionally **stop and screenshot** for a second confirmation click in-app before the final submit (configurable per-tenant; default ON for the first 30 days).
-- Full audit trail: who approved, when, screenshots, confirmation number, raw HTML of the confirmation page.
-
-## 7. Security & compliance notes (PHI)
-
-- Med ID, DOB, SSN-last-4, and signed PDFs are PHI — restrict via RLS to the owning driver and admins only; deny `anon`.
-- Storage buckets private; access only through signed URLs generated server-side.
-- Portal credentials live only in the runner's env (and a Lovable Cloud secret mirror for rotation UI). Never returned to the browser.
-- All runner traffic signed with `HFC_RUNNER_HMAC_SECRET`.
-- Add a Business Associate Agreement reminder in the admin panel; note that we are not a HIPAA-audited platform out of the box — this workflow must be reviewed by the customer's compliance officer.
-
-## 8. What we need from you before build
-
-1. Confirm the exact portal URL you bill through (Gainwell/Health First Colorado provider web portal, or the DXC/Kepro NEMT portal?).
-2. Does that portal use MFA? SMS, email, TOTP?
-3. Do you have a test/sandbox provider account we can point the runner at first?
-4. Where should we host the Playwright runner? (Fly.io is cheapest & fastest to stand up — ~$5/mo.)
-5. Do you want the "second confirm click" guardrail permanently on, or only for the first N submissions?
-
-## Technical summary
-
-```text
-Trip complete
-  → generateTripReport() fills PDF (pdf-lib)
-  → driver captures signature → attachSignature() embeds into PDF
-  → status=signed → appears in admin /billing queue
-  → admin Approve & Submit
-  → POST /api/public/hfc-submit → signed call to Playwright runner
-  → runner logs in, fills claim, uploads PDF, screenshots each step
-  → (optional) pause for admin final-confirm click
-  → runner submits, captures confirmation #
-  → callback → billing_submissions.status=submitted, evidence stored
+New table `medicaid_trip_legs`:
 ```
+id, medicaid_trip_id (fk), leg_index (1|2),
+date, pickup_time, pickup_odometer, pickup_address,
+dropoff_time, dropoff_odometer, dropoff_address
+```
+(A one-way trip = 1 leg; round trip = 2 legs. Group tours share the same legs across all rider-rows via `group_id`.)
 
-## Files to create (build phase)
+New columns on `drivers`:
+- `default_vehicle_type`, `default_plate`, `default_vin` — saved once, reused.
 
-- Migration: `member_billing_profiles`, `vehicles`, `billing_submissions` + RLS + grants
-- `src/lib/billing.functions.ts` — `generateTripReport`, `attachSignature`, `approveSubmission`, `requestPortalSubmit`
-- `src/lib/pdfFill.server.ts` — pdf-lib overlay helpers
-- `src/routes/driver.trip.$id.sign.tsx` — signature pad
-- `src/routes/_authenticated/billing.tsx` — admin review queue
-- `src/routes/_authenticated/billing.$id.tsx` — single submission detail + Approve
-- `src/routes/api/public/hfc-submit.ts`, `hfc-callback.ts`, `hfc-mfa-request.ts` (HMAC-verified)
-- `automation/hfc-runner/` — standalone Playwright service (Dockerfile + README for deploy)
-- Secrets: `HFC_RUNNER_URL`, `HFC_RUNNER_HMAC_SECRET`, and on the runner: `HFC_PORTAL_USERNAME`, `HFC_PORTAL_PASSWORD`
+Existing `riders` already stores name + Med ID + DOB — good.
+
+RLS: drivers can insert/update their own rows; admins full access. Legs inherit via join.
+
+## PDF generator update
+
+`generateStateFormPdf` becomes `generateStateFormPdfs(tripGroup)`:
+
+- Iterates the riders in the group.
+- Renders one PDF per rider, using the same driver / vehicle / leg data.
+- Fills all newly-captured fields (vehicle type checkbox, plate/VIN, escort, identity Y/N, both legs, per-rider signature).
+
+Coordinates for the extra fields are calibrated once against the April 2025 template already uploaded (nothing to re-upload — that file is our source of truth).
+
+## Files to create / modify
+
+Create:
+- `src/routes/driver.trip.new.tsx` — the 6-step wizard (uses shadcn `Tabs` + form components).
+- `src/components/driver/TripWizard/` — `StepVehicle.tsx`, `StepRiders.tsx`, `StepLeg.tsx`, `StepSignatures.tsx`, `StepReview.tsx`.
+- `src/lib/nemtTrip.functions.ts` — server fns: `saveDefaultVehicle`, `createTripGroup`, `saveTripLeg`, `attachRiderSignature`, `submitGroupForReview`.
+- Migration: new columns on `medicaid_trips` + `drivers`, new `medicaid_trip_legs` table with grants + RLS.
+
+Modify:
+- `src/lib/medicaidPdf.ts` — support 2 legs + all extra checkboxes; export a `generateForRider(group, riderId)` helper.
+- `src/routes/driver.index.tsx` — add "Complete NEMT trip" CTA linking to the wizard.
+- `src/routes/_authenticated/medicaid-billing.tsx` — group by `group_id`, download-all button for group tours, "Send to portal" iterates per rider.
+- `src/lib/portalSubmit.functions.ts` — accept `medicaid_trip_id` list (one call per rider) OR add `submitGroupToPortal` that fans out.
+
+## Open questions (please confirm before I build)
+
+1. **Group tour = one signed form per rider, right?** (Colorado still requires one Trip Report per Medicaid member even if they rode together.) If yes, we generate N PDFs from shared trip data.
+2. **Escort/facility signing** — should a single escort signature cover all riders in a group tour, or does each rider still need their own signature block?
+3. **Odometer** — capture once per leg (shared across group tour riders) is what the form implies. Confirm.
+4. **Vehicle info** — is it fine to save vehicle type + plate/VIN on the driver's profile and let them override per trip? (Cuts data entry to zero after first use.)
+5. **Default identity-verified** — should the Y checkbox default to Yes with the driver having to un-check, or default blank?

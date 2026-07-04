@@ -151,6 +151,11 @@ export type Database = {
           created_at: string
           current_lat: number | null
           current_lng: number | null
+          default_plate: string | null
+          default_vehicle_type:
+            | Database["public"]["Enums"]["nemt_vehicle_type"]
+            | null
+          default_vin: string | null
           id: string
           is_online: boolean
           last_location_at: string | null
@@ -172,6 +177,11 @@ export type Database = {
           created_at?: string
           current_lat?: number | null
           current_lng?: number | null
+          default_plate?: string | null
+          default_vehicle_type?:
+            | Database["public"]["Enums"]["nemt_vehicle_type"]
+            | null
+          default_vin?: string | null
           id?: string
           is_online?: boolean
           last_location_at?: string | null
@@ -193,6 +203,11 @@ export type Database = {
           created_at?: string
           current_lat?: number | null
           current_lng?: number | null
+          default_plate?: string | null
+          default_vehicle_type?:
+            | Database["public"]["Enums"]["nemt_vehicle_type"]
+            | null
+          default_vin?: string | null
           id?: string
           is_online?: boolean
           last_location_at?: string | null
@@ -399,12 +414,68 @@ export type Database = {
           },
         ]
       }
+      medicaid_trip_legs: {
+        Row: {
+          created_at: string
+          dropoff_address: string
+          dropoff_odometer: number | null
+          dropoff_time: string | null
+          id: string
+          leg_date: string
+          leg_index: number
+          medicaid_trip_id: string
+          pickup_address: string
+          pickup_odometer: number | null
+          pickup_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dropoff_address: string
+          dropoff_odometer?: number | null
+          dropoff_time?: string | null
+          id?: string
+          leg_date: string
+          leg_index: number
+          medicaid_trip_id: string
+          pickup_address: string
+          pickup_odometer?: number | null
+          pickup_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dropoff_address?: string
+          dropoff_odometer?: number | null
+          dropoff_time?: string | null
+          id?: string
+          leg_date?: string
+          leg_index?: number
+          medicaid_trip_id?: string
+          pickup_address?: string
+          pickup_odometer?: number | null
+          pickup_time?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medicaid_trip_legs_medicaid_trip_id_fkey"
+            columns: ["medicaid_trip_id"]
+            isOneToOne: false
+            referencedRelation: "medicaid_trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medicaid_trips: {
         Row: {
           created_at: string
           driver_id: string
           dropoff_address: string
+          escort_name: string | null
+          group_id: string | null
           id: string
+          identity_verified: boolean | null
           miles: number
           odometer_end: number
           odometer_start: number
@@ -423,18 +494,26 @@ export type Database = {
           rider_id: string
           signature_name: string | null
           signature_path: string | null
+          signed_by_escort: boolean | null
           state_pdf_path: string | null
           status: Database["public"]["Enums"]["medicaid_trip_status"]
           submitted_at: string | null
           submitted_by: string | null
           submitted_confirmation: string | null
+          trip_kind: Database["public"]["Enums"]["nemt_trip_kind"] | null
           updated_at: string
+          vehicle_plate: string | null
+          vehicle_type: Database["public"]["Enums"]["nemt_vehicle_type"] | null
+          vehicle_vin: string | null
         }
         Insert: {
           created_at?: string
           driver_id: string
           dropoff_address: string
+          escort_name?: string | null
+          group_id?: string | null
           id?: string
+          identity_verified?: boolean | null
           miles: number
           odometer_end: number
           odometer_start: number
@@ -453,18 +532,26 @@ export type Database = {
           rider_id: string
           signature_name?: string | null
           signature_path?: string | null
+          signed_by_escort?: boolean | null
           state_pdf_path?: string | null
           status?: Database["public"]["Enums"]["medicaid_trip_status"]
           submitted_at?: string | null
           submitted_by?: string | null
           submitted_confirmation?: string | null
+          trip_kind?: Database["public"]["Enums"]["nemt_trip_kind"] | null
           updated_at?: string
+          vehicle_plate?: string | null
+          vehicle_type?: Database["public"]["Enums"]["nemt_vehicle_type"] | null
+          vehicle_vin?: string | null
         }
         Update: {
           created_at?: string
           driver_id?: string
           dropoff_address?: string
+          escort_name?: string | null
+          group_id?: string | null
           id?: string
+          identity_verified?: boolean | null
           miles?: number
           odometer_end?: number
           odometer_start?: number
@@ -483,12 +570,17 @@ export type Database = {
           rider_id?: string
           signature_name?: string | null
           signature_path?: string | null
+          signed_by_escort?: boolean | null
           state_pdf_path?: string | null
           status?: Database["public"]["Enums"]["medicaid_trip_status"]
           submitted_at?: string | null
           submitted_by?: string | null
           submitted_confirmation?: string | null
+          trip_kind?: Database["public"]["Enums"]["nemt_trip_kind"] | null
           updated_at?: string
+          vehicle_plate?: string | null
+          vehicle_type?: Database["public"]["Enums"]["nemt_vehicle_type"] | null
+          vehicle_vin?: string | null
         }
         Relationships: [
           {
@@ -1121,6 +1213,13 @@ export type Database = {
         | "rejected"
         | "submitted"
         | "needs_fix"
+      nemt_trip_kind: "one_way" | "round_trip" | "group_tour"
+      nemt_vehicle_type:
+        | "ground_ambulance"
+        | "wheelchair_van"
+        | "stretcher_van"
+        | "taxi"
+        | "ambulatory"
       shift_status: "scheduled" | "completed" | "no_show"
       trip_status:
         | "scheduled"
@@ -1276,6 +1375,14 @@ export const Constants = {
         "rejected",
         "submitted",
         "needs_fix",
+      ],
+      nemt_trip_kind: ["one_way", "round_trip", "group_tour"],
+      nemt_vehicle_type: [
+        "ground_ambulance",
+        "wheelchair_van",
+        "stretcher_van",
+        "taxi",
+        "ambulatory",
       ],
       shift_status: ["scheduled", "completed", "no_show"],
       trip_status: [
