@@ -121,6 +121,16 @@ function MedicaidBillingPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const submitPortalFn = useServerFn(submitTripToPortal);
+  const submitToPortal = useMutation({
+    mutationFn: async ({ id }: { id: string }) => submitPortalFn({ data: { tripId: id } }),
+    onSuccess: () => {
+      toast.success("Runner started — watch the portal status update live.");
+      qc.invalidateQueries({ queryKey: ["medicaid_billing"] });
+    },
+    onError: (e: any) => toast.error(e.message ?? "Runner call failed"),
+  });
+
   async function downloadPdf(trip: any) {
     try {
       const pdfBytes = await generateStateFormPdf({
