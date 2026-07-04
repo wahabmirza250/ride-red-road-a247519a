@@ -111,6 +111,8 @@ function DriverHome() {
       .order("created_at", { ascending: false })
       .limit(5);
     setPending((pend ?? []) as Request[]);
+
+    // Active from ride_requests (driver-accepted flow)
     const { data: act } = await supabase
       .from("ride_requests")
       .select("*")
@@ -119,12 +121,50 @@ function DriverHome() {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    setActive((act ?? null) as Request | null);
-    if (act?.trip_id) {
+
+    let activeTripId: string | null = act?.trip_id ?? null;
+    let synthetic: Request | null = (act ?? null) as Request | null;
+
+    // Fallback: admin-assigned trip (no matching ride_request)
+    if (!synthetic) {
+      const { data: t } = await supabase
+        .from("trips")
+        .select(
+          "id,passenger_id,pickup_address,pickup_lat,pickup_lng,dropoff_address,dropoff_lat,dropoff_lng,estimated_fare,status",
+        )
+        .eq("driver_id", driver.id)
+        .in("status", ["assigned", "driver_en_route_to_pickup", "arrived_at_pickup", "in_progress"])
+        .order("scheduled_pickup_time", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (t) {
+        activeTripId = t.id;
+        synthetic = {
+          id: `trip-${t.id}`,
+          passenger_id: t.passenger_id,
+          pickup_address: t.pickup_address,
+          pickup_lat: Number(t.pickup_lat ?? 0),
+          pickup_lng: Number(t.pickup_lng ?? 0),
+          dropoff_address: t.dropoff_address,
+          dropoff_lat: Number(t.dropoff_lat ?? 0),
+          dropoff_lng: Number(t.dropoff_lng ?? 0),
+          distance_km: null,
+          estimated_fare: t.estimated_fare,
+          estimated_minutes: null,
+          status: "accepted",
+          trip_id: t.id,
+          driver_id: driver.id,
+        };
+      }
+    }
+
+    setActive(synthetic);
+
+    if (activeTripId) {
       const { data: t } = await supabase
         .from("trips")
         .select("status, passenger_id")
-        .eq("id", act.trip_id)
+        .eq("id", activeTripId)
         .maybeSingle();
       setTripStatus(t?.status ?? "");
       if (t?.passenger_id) {
