@@ -426,7 +426,7 @@ function NewTripDialog({
               <SelectItem value="__unassigned">Unassigned</SelectItem>
               {drivers.map((d) => (
                 <SelectItem key={d.id} value={d.id}>
-                  Driver {d.id.slice(0, 6)} — {d.status}
+                  {d.name ?? "Driver"} — {d.status}
                 </SelectItem>
               ))}
             </SelectContent>
