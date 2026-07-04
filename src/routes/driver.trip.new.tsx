@@ -292,6 +292,42 @@ function NewNemtTripWizard() {
   const updateLeg = (idx: number, patch: Partial<LegForm>) =>
     setLegs((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
 
+  const detectOdometer = useServerFn(detectOdometerFromImage);
+  const [detectingOdometer, setDetectingOdometer] = useState<Record<string, boolean>>({});
+
+  async function handleOdometerPhoto(
+    legIndex: number,
+    field: "pickup_odometer" | "dropoff_odometer",
+    file: File | null,
+  ) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an odometer photo");
+      return;
+    }
+    if (file.size > 6 * 1024 * 1024) {
+      toast.error("Photo is too large. Use a smaller image.");
+      return;
+    }
+
+    const key = `${legIndex}-${field}`;
+    setDetectingOdometer((prev) => ({ ...prev, [key]: true }));
+    try {
+      const imageDataUrl = await readFileAsDataUrl(file);
+      const result = await detectOdometer({ data: { image_data_url: imageDataUrl } });
+      if (!result.odometer) {
+        toast.error("Could not read the odometer. Type the number manually.");
+        return;
+      }
+      updateLeg(legIndex, { [field]: result.odometer });
+      toast.success(`Odometer detected: ${result.odometer}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not detect odometer");
+    } finally {
+      setDetectingOdometer((prev) => ({ ...prev, [key]: false }));
+    }
+  }
+
   function saveSignature(riderId: string, url: string | null) {
     setRiderSlots((prev) =>
       prev.map((s) => (s.rider.id === riderId ? { ...s, signature_data_url: url } : s)),
@@ -463,6 +499,13 @@ function NewNemtTripWizard() {
         description="Digital version of the Colorado NEMT Trip Report — one form per rider is generated automatically."
       />
 
+      {assignedTrip && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
+          <div className="font-semibold text-foreground">Assigned ride loaded</div>
+          <div className="mt-1">Pickup and drop-off match the admin assignment{assignedPassengerName ? ` for ${assignedPassengerName}` : ""}.</div>
+        </div>
+      )}
+
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="grid w-full grid-cols-5 text-xs">
           <TabsTrigger value="vehicle">1. Vehicle</TabsTrigger>
@@ -504,7 +547,7 @@ function NewNemtTripWizard() {
             <Input value={escortName} onChange={(e) => setEscortName(e.target.value)} />
           </Field>
           <div className="flex justify-end">
-            <Button onClick={() => setTab("riders")}>Next</Button>
+            <Button onClick={() => goNext("riders", vehicleIssue)}>Next</Button>
           </div>
         </TabsContent>
 
@@ -601,7 +644,7 @@ function NewNemtTripWizard() {
 
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setTab("vehicle")}>Back</Button>
-            <Button onClick={() => setTab("legs")} disabled={riderSlots.length === 0}>Next</Button>
+            <Button onClick={() => goNext("legs", riderIssue)}>Next</Button>
           </div>
         </TabsContent>
 
@@ -623,8 +666,12 @@ function NewNemtTripWizard() {
                     onChange={(e) => updateLeg(i, { pickup_time: e.target.value })} />
                 </Field>
                 <Field label="Pickup odometer">
-                  <Input type="number" inputMode="decimal" value={l.pickup_odometer}
-                    onChange={(e) => updateLeg(i, { pickup_odometer: e.target.value })} />
+                  <OdometerInput
+                    value={l.pickup_odometer}
+                    onChange={(value) => updateLeg(i, { pickup_odometer: value })}
+                    detecting={!!detectingOdometer[`${i}-pickup_odometer`]}
+                    onPhoto={(file) => handleOdometerPhoto(i, "pickup_odometer", file)}
+                  />
                 </Field>
               </div>
               <Field label="Pickup address">
@@ -637,8 +684,12 @@ function NewNemtTripWizard() {
                     onChange={(e) => updateLeg(i, { dropoff_time: e.target.value })} />
                 </Field>
                 <Field label="Drop-off odometer">
-                  <Input type="number" inputMode="decimal" value={l.dropoff_odometer}
-                    onChange={(e) => updateLeg(i, { dropoff_odometer: e.target.value })} />
+                  <OdometerInput
+                    value={l.dropoff_odometer}
+                    onChange={(value) => updateLeg(i, { dropoff_odometer: value })}
+                    detecting={!!detectingOdometer[`${i}-dropoff_odometer`]}
+                    onPhoto={(file) => handleOdometerPhoto(i, "dropoff_odometer", file)}
+                  />
                 </Field>
               </div>
               <Field label="Drop-off address">
@@ -649,7 +700,7 @@ function NewNemtTripWizard() {
           ))}
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setTab("riders")}>Back</Button>
-            <Button onClick={() => setTab("sign")}>Next</Button>
+            <Button onClick={() => goNext("sign", legsIssue)}>Next</Button>
           </div>
         </TabsContent>
 
@@ -667,37 +718,17 @@ function NewNemtTripWizard() {
               <Input placeholder="Printed signer name" value={s.signer_name}
                 onChange={(e) => setRiderSlots((p) => p.map((x) =>
                   x.rider.id === s.rider.id ? { ...x, signer_name: e.target.value } : x))} />
-              <div className="rounded-lg border bg-white" style={{ touchAction: "none" }}>
-                <SignatureCanvas
-                  ref={(el) => { sigRefs.current[s.rider.id] = el; }}
-                  canvasProps={{
-                    width: 600,
-                    height: 160,
-                    className: "w-full h-40 rounded-lg touch-none",
-                    style: { touchAction: "none" },
-                  }}
-                  penColor="#0f172a"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline"
-                  onClick={() => {
-                    sigRefs.current[s.rider.id]?.clear();
-                    setRiderSlots((p) => p.map((x) =>
-                      x.rider.id === s.rider.id ? { ...x, signature_data_url: null } : x));
-                  }}>
-                  <Eraser className="mr-1 h-4 w-4" /> Clear
-                </Button>
-                <Button size="sm" onClick={() => captureSignature(s.rider.id)}>
-                  Capture
-                </Button>
-              </div>
+              <SignaturePad onChange={(url) => saveSignature(s.rider.id, url)} />
             </div>
           ))}
+          {signatureIssue && (
+            <div className="rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
+              {signatureIssue}
+            </div>
+          )}
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setTab("legs")}>Back</Button>
-            <Button onClick={() => setTab("review")}
-              disabled={riderSlots.some((s) => !s.signature_data_url)}>Next</Button>
+            <Button onClick={() => goNext("review", signatureIssue)}>Next</Button>
           </div>
         </TabsContent>
 
@@ -727,9 +758,14 @@ function NewNemtTripWizard() {
           {previewUrl && (
             <iframe src={previewUrl} className="h-[70vh] w-full rounded-xl border" title="preview" />
           )}
+          {(vehicleIssue || riderIssue || legsIssue || signatureIssue) && (
+            <div className="rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
+              {vehicleIssue || riderIssue || legsIssue || signatureIssue}
+            </div>
+          )}
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setTab("sign")}>Back</Button>
-            <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
+            <Button onClick={handleSubmit} disabled={submitting}>
               {submitting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
               Submit for billing review
             </Button>
