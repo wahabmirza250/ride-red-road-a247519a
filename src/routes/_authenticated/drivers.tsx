@@ -457,18 +457,29 @@ function EditDriverDialog({
           <Input value={form.vehicle_color} onChange={(e) => setForm({ ...form, vehicle_color: e.target.value })} />
         </Field>
       </div>
-      <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+      <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
         <Button
-          onClick={() => {
-            setSaving(true);
-            update.mutate();
-          }}
-          disabled={saving}
+          variant="outline"
+          className="border-destructive/40 text-destructive hover:bg-destructive/10"
+          onClick={handleDelete}
+          disabled={deleting}
         >
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save changes
+          {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+          Delete driver
         </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={() => {
+              setSaving(true);
+              update.mutate();
+            }}
+            disabled={saving}
+          >
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save changes
+          </Button>
+        </div>
       </DialogFooter>
     </DialogContent>
   );
