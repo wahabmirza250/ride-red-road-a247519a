@@ -400,10 +400,24 @@ function EditDriverDialog({
   });
 
   return (
-    <DialogContent className="max-w-lg">
+    <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Edit driver</DialogTitle>
       </DialogHeader>
+
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-muted p-3">
+        <Avatar path={avatarPath} name={`${form.first_name} ${form.last_name}`} size={56} />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold">Profile photo</div>
+          <div className="text-xs text-muted-foreground">JPG or PNG, up to 5MB.</div>
+        </div>
+        <label className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium hover:bg-accent">
+          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+          Upload
+          <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && uploadAvatar(e.target.files[0])} />
+        </label>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="First name">
           <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
