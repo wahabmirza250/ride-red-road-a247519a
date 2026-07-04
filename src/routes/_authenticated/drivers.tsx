@@ -47,7 +47,7 @@ type DriverRow = {
   total_trips: number;
 };
 
-type ProfileRow = { id: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null };
+type ProfileRow = { id: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null; avatar_url: string | null };
 
 function useDrivers() {
   return useQuery({
