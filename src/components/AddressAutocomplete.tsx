@@ -57,7 +57,7 @@ export function AddressAutocomplete({
           sessionToken: sessionRef.current,
         });
         const mapped: Suggestion[] = raw
-          .map((s) => s.placePrediction)
+          .map((s: google.maps.places.AutocompleteSuggestion) => s.placePrediction)
           .filter((p): p is google.maps.places.PlacePrediction => !!p)
           .map((p) => ({
             placeId: p.placeId,
