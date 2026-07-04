@@ -104,12 +104,15 @@ function DriversPage() {
             className="rounded-2xl border border-border bg-surface p-4 text-left shadow-soft transition hover:shadow-lift"
           >
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate text-base font-semibold">
-                  {d.profile?.first_name} {d.profile?.last_name}
-                </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {d.profile?.email}
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar path={d.profile?.avatar_url} name={`${d.profile?.first_name ?? ""} ${d.profile?.last_name ?? ""}`} size={40} />
+                <div className="min-w-0">
+                  <div className="truncate text-base font-semibold">
+                    {d.profile?.first_name} {d.profile?.last_name}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {d.profile?.email}
+                  </div>
                 </div>
               </div>
               <StatusPill status={d.status} />
