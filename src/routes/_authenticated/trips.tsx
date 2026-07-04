@@ -615,18 +615,33 @@ function TripDetailDialog({
           <div className="rounded-xl bg-surface-muted p-3 text-sm">{trip.notes}</div>
         </div>
       )}
-      <DialogFooter>
-        <a
-          href={`/track/${trip.id}`}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-full border border-border px-4 py-2 text-sm hover:bg-accent"
+      <DialogFooter className="gap-2 sm:justify-between">
+        <Button
+          variant="destructive"
+          onClick={handleDelete}
+          disabled={deleting}
+          className="rounded-full"
         >
-          Open passenger tracking
-        </a>
-        <Button variant="secondary" onClick={onClose}>
-          Close
+          {deleting ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="mr-2 h-4 w-4" />
+          )}
+          Delete trip
         </Button>
+        <div className="flex gap-2">
+          <a
+            href={`/track/${trip.id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-border px-4 py-2 text-sm hover:bg-accent"
+          >
+            Open passenger tracking
+          </a>
+          <Button variant="secondary" onClick={onClose}>
+            Close
+          </Button>
+        </div>
       </DialogFooter>
     </DialogContent>
   );
