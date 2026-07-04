@@ -332,7 +332,9 @@ function NewTripDialog({
   const [passengerId, setPassengerId] = useState("");
   const [driverId, setDriverId] = useState<string>("__unassigned");
   const [pickup, setPickup] = useState("");
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [dropoff, setDropoff] = useState("");
+  const [dropoffCoords, setDropoffCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [waypointsText, setWaypointsText] = useState("");
   const [scheduled, setScheduled] = useState(() => {
     const d = new Date();
