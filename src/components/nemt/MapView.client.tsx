@@ -40,16 +40,44 @@ function pillIcon(m: DriverMarker) {
   return L.divIcon({ html, className: "uber-pill", iconSize: [0, 0], iconAnchor: [0, 0] });
 }
 
+function FocusController({
+  focus,
+  markers,
+}: {
+  focus?: { lat: number; lng: number; zoom?: number } | null;
+  markers: DriverMarker[];
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (focus) {
+      map.flyTo([focus.lat, focus.lng], focus.zoom ?? 15, { duration: 0.8 });
+    }
+  }, [focus, map]);
+  useEffect(() => {
+    if (focus) return;
+    if (markers.length > 1) {
+      const bounds = L.latLngBounds(markers.map((m) => [m.lat, m.lng] as [number, number]));
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+    }
+    // else keep the initial center/zoom (city default)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markers.length]);
+  return null;
+}
+
 export function DriverFleetMap({
   center,
   markers,
+  focus,
 }: {
   center: [number, number];
   markers: DriverMarker[];
+  focus?: { lat: number; lng: number; zoom?: number } | null;
 }) {
   return (
     <MapContainer center={center} zoom={11} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
       <TileLayer attribution={OSM_ATTR} url={OSM_URL} />
+      <FocusController focus={focus} markers={markers} />
       {markers.map((m) => (
         <Marker key={m.id} position={[m.lat, m.lng]} icon={pillIcon(m)}>
           <Popup>
