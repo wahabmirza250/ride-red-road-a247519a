@@ -8,6 +8,9 @@ export const Route = createFileRoute("/_authenticated/live-ops")({
   component: LiveOps,
 });
 
+const DEFAULT_CENTER: [number, number] = [39.7392, -104.9903]; // Denver
+const DEFAULT_ZOOM = 11;
+
 type DriverRow = {
   id: string;
   user_id: string;
