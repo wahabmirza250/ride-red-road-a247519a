@@ -311,6 +311,10 @@ function TripsPage() {
             passengerName={passengerName(detail.passenger_id)}
             driverName={driverName(detail.driver_id)}
             onClose={() => setDetail(null)}
+            onDeleted={() => {
+              setDetail(null);
+              qc.invalidateQueries({ queryKey: ["trips"] });
+            }}
           />
         )}
       </Dialog>
