@@ -51,6 +51,153 @@ export const getMyDriverDefaults = createServerFn({ method: "GET" })
     return data;
   });
 
+export const getAssignedTripForNemt = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ trip_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    const { data: driver, error: driverError } = await supabase
+      .from("drivers")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (driverError) throw new Error(driverError.message);
+    if (!driver) throw new Error("Driver profile not found");
+
+    const { data: trip, error: tripError } = await supabase
+      .from("trips")
+      .select(
+        "id, passenger_id, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng, scheduled_pickup_time, status",
+      )
+      .eq("id", data.trip_id)
+      .eq("driver_id", driver.id)
+      .maybeSingle();
+    if (tripError) throw new Error(tripError.message);
+    if (!trip) throw new Error("Assigned trip not found");
+
+    const { data: passenger, error: passengerError } = await supabase
+      .from("passengers")
+      .select("id, first_name, last_name, phone, medicaid_id, date_of_birth, address")
+      .eq("id", trip.passenger_id)
+      .maybeSingle();
+    if (passengerError) throw new Error(passengerError.message);
+
+    let matchedRider = null;
+    if (passenger?.medicaid_id) {
+      const { data: riderByMedicaid, error } = await supabase
+        .from("riders")
+        .select("id, full_name, medicaid_id, dob, phone, address")
+        .eq("medicaid_id", passenger.medicaid_id)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      matchedRider = riderByMedicaid;
+    }
+
+    if (!matchedRider && passenger) {
+      const fullName = `${passenger.first_name} ${passenger.last_name}`.trim();
+      const { data: riderByName, error } = await supabase
+        .from("riders")
+        .select("id, full_name, medicaid_id, dob, phone, address")
+        .ilike("full_name", fullName)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      matchedRider = riderByName;
+    }
+
+    return {
+      trip: {
+        id: trip.id,
+        pickup_address: trip.pickup_address,
+        dropoff_address: trip.dropoff_address,
+        scheduled_pickup_time: trip.scheduled_pickup_time,
+        status: trip.status,
+      },
+      passenger: passenger
+        ? {
+            id: passenger.id,
+            full_name: `${passenger.first_name} ${passenger.last_name}`.trim(),
+            medicaid_id: passenger.medicaid_id,
+            dob: passenger.date_of_birth,
+            phone: passenger.phone,
+            address: passenger.address,
+          }
+        : null,
+      rider: matchedRider,
+    };
+  });
+
+export const detectOdometerFromImage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        image_data_url: z
+          .string()
+          .startsWith("data:image/")
+          .max(9_000_000, "Image is too large. Use a smaller photo."),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("Odometer auto-detect is not configured");
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text:
+                  'Read the vehicle odometer number in this photo. Return only JSON like {"odometer":"123456","confidence":0.92}. If unreadable, return {"odometer":null,"confidence":0}. Do not include units, commas, decimals, or extra text.',
+              },
+              { type: "image_url", image_url: { url: data.image_data_url } },
+            ],
+          },
+        ],
+        temperature: 0,
+        max_tokens: 80,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`Odometer auto-detect failed (${response.status})${body ? `: ${body.slice(0, 180)}` : ""}`);
+    }
+
+    const payload = await response.json();
+    const content = String(payload?.choices?.[0]?.message?.content ?? "");
+    const jsonText = content.match(/\{[\s\S]*\}/)?.[0] ?? "{}";
+    let parsed: { odometer?: unknown; confidence?: unknown } = {};
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      parsed = {};
+    }
+
+    const raw = typeof parsed.odometer === "string" || typeof parsed.odometer === "number"
+      ? String(parsed.odometer)
+      : "";
+    const digits = raw.replace(/[^0-9]/g, "");
+    const confidence = typeof parsed.confidence === "number" ? parsed.confidence : 0;
+
+    if (!digits || digits.length < 2) {
+      return { odometer: null, confidence: 0, raw: content.slice(0, 160) };
+    }
+
+    return { odometer: digits, confidence: Math.max(0, Math.min(1, confidence)), raw: content.slice(0, 160) };
+  });
+
 /* ---------- create a trip group (one PDF per rider) ---------- */
 
 const CreateSchema = z.object({

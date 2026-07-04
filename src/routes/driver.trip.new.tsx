@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import SignatureCanvas from "react-signature-canvas";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/nemt/PageHeader";
+import { SignaturePad } from "@/components/driver/SignaturePad";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,15 +24,20 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, UserPlus, X, Eraser, Loader2, Check } from "lucide-react";
+import { Search, UserPlus, X, Loader2, Check, Camera } from "lucide-react";
 import {
   createNemtTripGroup,
   attachRiderSignature,
   getMyDriverDefaults,
+  getAssignedTripForNemt,
+  detectOdometerFromImage,
 } from "@/lib/nemtTrip.functions";
 import { generateStateFormPdf } from "@/lib/medicaidPdf";
 
 export const Route = createFileRoute("/driver/trip/new")({
+  validateSearch: (search) => ({
+    tripId: typeof search.tripId === "string" ? search.tripId : undefined,
+  }),
   component: NewNemtTripWizard,
 });
 
@@ -64,6 +69,14 @@ type RiderSlot = {
   signer_name: string;
 };
 
+type AssignedTrip = {
+  id: string;
+  pickup_address: string;
+  dropoff_address: string;
+  scheduled_pickup_time: string;
+  status: string;
+};
+
 const VEHICLE_TYPES = [
   { value: "ground_ambulance", label: "Ground Ambulance" },
   { value: "wheelchair_van", label: "Wheelchair Van" },
@@ -89,9 +102,12 @@ function emptyLeg(index: 1 | 2): LegForm {
 }
 
 function NewNemtTripWizard() {
+  const { tripId } = Route.useSearch();
   const { user, isDriver } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState("vehicle");
+  const [assignedTrip, setAssignedTrip] = useState<AssignedTrip | null>(null);
+  const [assignedPassengerName, setAssignedPassengerName] = useState<string | null>(null);
 
   // Vehicle / trip meta
   const [tripKind, setTripKind] = useState<"one_way" | "round_trip" | "group_tour">("one_way");
@@ -119,6 +135,7 @@ function NewNemtTripWizard() {
   const [riderResults, setRiderResults] = useState<Rider[]>([]);
   const [addingRider, setAddingRider] = useState(false);
   const [newRider, setNewRider] = useState({ full_name: "", medicaid_id: "", dob: "", phone: "" });
+  const loadAssignedTrip = useServerFn(getAssignedTripForNemt);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +178,73 @@ function NewNemtTripWizard() {
     setRiderResults([]);
   }
 
+  useEffect(() => {
+    if (!tripId) return;
+    let cancelled = false;
+    loadAssignedTrip({ data: { trip_id: tripId } })
+      .then((prefill) => {
+        if (cancelled) return;
+        setAssignedTrip(prefill.trip as AssignedTrip);
+        setAssignedPassengerName(prefill.passenger?.full_name ?? null);
+
+        const scheduled = prefill.trip.scheduled_pickup_time
+          ? new Date(prefill.trip.scheduled_pickup_time)
+          : new Date();
+        const isValidDate = !Number.isNaN(scheduled.getTime());
+        const baseDate = isValidDate ? scheduled.toISOString().slice(0, 10) : today();
+        const baseTime = isValidDate ? scheduled.toTimeString().slice(0, 5) : nowHM();
+
+        setLegs((prev) => {
+          const first = prev[0] ?? emptyLeg(1);
+          const nextFirst: LegForm = {
+            ...first,
+            leg_date: first.leg_date || baseDate,
+            pickup_time: first.pickup_time || baseTime,
+            pickup_address: first.pickup_address || prefill.trip.pickup_address,
+            dropoff_address: first.dropoff_address || prefill.trip.dropoff_address,
+          };
+          if (tripKind === "round_trip") {
+            const second = prev[1] ?? emptyLeg(2);
+            return [
+              nextFirst,
+              {
+                ...second,
+                leg_date: second.leg_date || baseDate,
+                pickup_address: second.pickup_address || prefill.trip.dropoff_address,
+                dropoff_address: second.dropoff_address || prefill.trip.pickup_address,
+              },
+            ];
+          }
+          return [nextFirst];
+        });
+
+        if (prefill.rider) {
+          const rider = prefill.rider as Rider;
+          setRiderSlots((prev) => {
+            if (prev.some((slot) => slot.rider.id === rider.id)) return prev;
+            if (tripKind !== "group_tour" && prev.length >= 1) return prev;
+            return [
+              ...prev,
+              {
+                rider,
+                identity_verified: true,
+                signed_by_escort: false,
+                signature_data_url: null,
+                signer_name: rider.full_name,
+              },
+            ];
+          });
+        } else if (prefill.passenger) {
+          setRiderQuery(prefill.passenger.full_name ?? "");
+          toast.info("Assigned address loaded. Select or create the rider to continue.");
+        }
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not load assigned trip"));
+    return () => {
+      cancelled = true;
+    };
+  }, [loadAssignedTrip, tripId, tripKind]);
+
   async function createNewRider() {
     if (!newRider.full_name || !newRider.medicaid_id) {
       toast.error("Name and Medicaid ID required");
@@ -186,35 +270,68 @@ function NewNemtTripWizard() {
   const [legs, setLegs] = useState<LegForm[]>([emptyLeg(1)]);
   useEffect(() => {
     if (tripKind === "round_trip") {
-      setLegs((prev) => (prev.length === 2 ? prev : [prev[0], emptyLeg(2)]));
+      setLegs((prev) => {
+        if (prev.length === 2) return prev;
+        const first = prev[0] ?? emptyLeg(1);
+        const second = emptyLeg(2);
+        return [
+          first,
+          {
+            ...second,
+            leg_date: first.leg_date || second.leg_date,
+            pickup_address: assignedTrip?.dropoff_address || first.dropoff_address,
+            dropoff_address: assignedTrip?.pickup_address || first.pickup_address,
+          },
+        ];
+      });
     } else {
       setLegs((prev) => (prev.length === 1 ? prev : [prev[0]]));
     }
-  }, [tripKind]);
+  }, [assignedTrip, tripKind]);
 
   const updateLeg = (idx: number, patch: Partial<LegForm>) =>
     setLegs((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
 
-  // Signatures — canvases keyed by rider id
-  const sigRefs = useRef<Record<string, SignatureCanvas | null>>({});
+  const detectOdometer = useServerFn(detectOdometerFromImage);
+  const [detectingOdometer, setDetectingOdometer] = useState<Record<string, boolean>>({});
 
-  function captureSignature(riderId: string) {
-    const c = sigRefs.current[riderId];
-    if (!c || c.isEmpty()) {
-      toast.error("Please draw a signature first");
+  async function handleOdometerPhoto(
+    legIndex: number,
+    field: "pickup_odometer" | "dropoff_odometer",
+    file: File | null,
+  ) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an odometer photo");
       return;
     }
-    // getTrimmedCanvas is missing in some builds of react-signature-canvas —
-    // fall back to the raw canvas which always works.
-    const canvas =
-      typeof (c as unknown as { getTrimmedCanvas?: () => HTMLCanvasElement }).getTrimmedCanvas === "function"
-        ? (c as unknown as { getTrimmedCanvas: () => HTMLCanvasElement }).getTrimmedCanvas()
-        : c.getCanvas();
-    const url = canvas.toDataURL("image/png");
+    if (file.size > 6 * 1024 * 1024) {
+      toast.error("Photo is too large. Use a smaller image.");
+      return;
+    }
+
+    const key = `${legIndex}-${field}`;
+    setDetectingOdometer((prev) => ({ ...prev, [key]: true }));
+    try {
+      const imageDataUrl = await readFileAsDataUrl(file);
+      const result = await detectOdometer({ data: { image_data_url: imageDataUrl } });
+      if (!result.odometer) {
+        toast.error("Could not read the odometer. Type the number manually.");
+        return;
+      }
+      updateLeg(legIndex, { [field]: result.odometer });
+      toast.success(`Odometer detected: ${result.odometer}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not detect odometer");
+    } finally {
+      setDetectingOdometer((prev) => ({ ...prev, [key]: false }));
+    }
+  }
+
+  function saveSignature(riderId: string, url: string | null) {
     setRiderSlots((prev) =>
       prev.map((s) => (s.rider.id === riderId ? { ...s, signature_data_url: url } : s)),
     );
-    toast.success("Signature captured");
   }
 
   // Submit
@@ -222,20 +339,55 @@ function NewNemtTripWizard() {
   const attachSig = useServerFn(attachRiderSignature);
   const [submitting, setSubmitting] = useState(false);
 
-  const canSubmit = useMemo(() => {
-    if (!vehicleType || !plate) return false;
-    if (riderSlots.length === 0) return false;
-    if (riderSlots.some((s) => !s.signature_data_url)) return false;
+  const vehicleIssue = useMemo(() => {
+    if (!vehicleType) return "Select vehicle type";
+    if (!plate.trim()) return "Enter license plate";
+    return null;
+  }, [plate, vehicleType]);
+
+  const riderIssue = useMemo(() => {
+    if (riderSlots.length === 0) return "Add at least one rider";
+    return null;
+  }, [riderSlots.length]);
+
+  const legsIssue = useMemo(() => {
     for (const l of legs) {
-      if (!l.pickup_address || !l.dropoff_address) return false;
-      if (l.pickup_odometer === "" || l.dropoff_odometer === "") return false;
+      const legName = l.leg_index === 1 ? "outbound leg" : "return leg";
+      if (!l.leg_date) return `Enter date for ${legName}`;
+      if (!l.pickup_address.trim()) return `Enter pickup address for ${legName}`;
+      if (!l.dropoff_address.trim()) return `Enter drop-off address for ${legName}`;
+      if (l.pickup_odometer === "") return `Enter pickup odometer for ${legName}`;
+      if (l.dropoff_odometer === "") return `Enter drop-off odometer for ${legName}`;
+      if (!Number.isFinite(Number(l.pickup_odometer)) || Number(l.pickup_odometer) < 0) {
+        return `Check pickup odometer for ${legName}`;
+      }
+      if (!Number.isFinite(Number(l.dropoff_odometer)) || Number(l.dropoff_odometer) < 0) {
+        return `Check drop-off odometer for ${legName}`;
+      }
     }
-    return true;
-  }, [vehicleType, plate, riderSlots, legs]);
+    return null;
+  }, [legs]);
+
+  const signatureIssue = useMemo(() => {
+    const missingSignature = riderSlots.find((s) => !s.signature_data_url);
+    if (missingSignature) return `${missingSignature.rider.full_name} still needs a signature`;
+    const missingName = riderSlots.find((s) => !s.signer_name.trim());
+    if (missingName) return `Enter signer name for ${missingName.rider.full_name}`;
+    return null;
+  }, [riderSlots]);
+
+  function goNext(nextTab: string, issue: string | null) {
+    if (issue) {
+      toast.error(issue);
+      return;
+    }
+    setTab(nextTab);
+  }
 
   async function handleSubmit() {
     if (!user) return;
-    if (!canSubmit) return toast.error("Fill every step first");
+    const issue = vehicleIssue || riderIssue || legsIssue || signatureIssue;
+    if (issue) return toast.error(issue);
     setSubmitting(true);
     try {
       const res = await submitGroup({
@@ -345,6 +497,13 @@ function NewNemtTripWizard() {
         description="Digital version of the Colorado NEMT Trip Report — one form per rider is generated automatically."
       />
 
+      {assignedTrip && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
+          <div className="font-semibold text-foreground">Assigned ride loaded</div>
+          <div className="mt-1">Pickup and drop-off match the admin assignment{assignedPassengerName ? ` for ${assignedPassengerName}` : ""}.</div>
+        </div>
+      )}
+
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="grid w-full grid-cols-5 text-xs">
           <TabsTrigger value="vehicle">1. Vehicle</TabsTrigger>
@@ -386,7 +545,7 @@ function NewNemtTripWizard() {
             <Input value={escortName} onChange={(e) => setEscortName(e.target.value)} />
           </Field>
           <div className="flex justify-end">
-            <Button onClick={() => setTab("riders")}>Next</Button>
+            <Button onClick={() => goNext("riders", vehicleIssue)}>Next</Button>
           </div>
         </TabsContent>
 
@@ -483,7 +642,7 @@ function NewNemtTripWizard() {
 
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setTab("vehicle")}>Back</Button>
-            <Button onClick={() => setTab("legs")} disabled={riderSlots.length === 0}>Next</Button>
+            <Button onClick={() => goNext("legs", riderIssue)}>Next</Button>
           </div>
         </TabsContent>
 
@@ -505,8 +664,12 @@ function NewNemtTripWizard() {
                     onChange={(e) => updateLeg(i, { pickup_time: e.target.value })} />
                 </Field>
                 <Field label="Pickup odometer">
-                  <Input type="number" inputMode="decimal" value={l.pickup_odometer}
-                    onChange={(e) => updateLeg(i, { pickup_odometer: e.target.value })} />
+                  <OdometerInput
+                    value={l.pickup_odometer}
+                    onChange={(value) => updateLeg(i, { pickup_odometer: value })}
+                    detecting={!!detectingOdometer[`${i}-pickup_odometer`]}
+                    onPhoto={(file) => handleOdometerPhoto(i, "pickup_odometer", file)}
+                  />
                 </Field>
               </div>
               <Field label="Pickup address">
@@ -519,8 +682,12 @@ function NewNemtTripWizard() {
                     onChange={(e) => updateLeg(i, { dropoff_time: e.target.value })} />
                 </Field>
                 <Field label="Drop-off odometer">
-                  <Input type="number" inputMode="decimal" value={l.dropoff_odometer}
-                    onChange={(e) => updateLeg(i, { dropoff_odometer: e.target.value })} />
+                  <OdometerInput
+                    value={l.dropoff_odometer}
+                    onChange={(value) => updateLeg(i, { dropoff_odometer: value })}
+                    detecting={!!detectingOdometer[`${i}-dropoff_odometer`]}
+                    onPhoto={(file) => handleOdometerPhoto(i, "dropoff_odometer", file)}
+                  />
                 </Field>
               </div>
               <Field label="Drop-off address">
@@ -531,7 +698,7 @@ function NewNemtTripWizard() {
           ))}
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setTab("riders")}>Back</Button>
-            <Button onClick={() => setTab("sign")}>Next</Button>
+            <Button onClick={() => goNext("sign", legsIssue)}>Next</Button>
           </div>
         </TabsContent>
 
@@ -549,37 +716,17 @@ function NewNemtTripWizard() {
               <Input placeholder="Printed signer name" value={s.signer_name}
                 onChange={(e) => setRiderSlots((p) => p.map((x) =>
                   x.rider.id === s.rider.id ? { ...x, signer_name: e.target.value } : x))} />
-              <div className="rounded-lg border bg-white" style={{ touchAction: "none" }}>
-                <SignatureCanvas
-                  ref={(el) => { sigRefs.current[s.rider.id] = el; }}
-                  canvasProps={{
-                    width: 600,
-                    height: 160,
-                    className: "w-full h-40 rounded-lg touch-none",
-                    style: { touchAction: "none" },
-                  }}
-                  penColor="#0f172a"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline"
-                  onClick={() => {
-                    sigRefs.current[s.rider.id]?.clear();
-                    setRiderSlots((p) => p.map((x) =>
-                      x.rider.id === s.rider.id ? { ...x, signature_data_url: null } : x));
-                  }}>
-                  <Eraser className="mr-1 h-4 w-4" /> Clear
-                </Button>
-                <Button size="sm" onClick={() => captureSignature(s.rider.id)}>
-                  Capture
-                </Button>
-              </div>
+              <SignaturePad onChange={(url) => saveSignature(s.rider.id, url)} />
             </div>
           ))}
+          {signatureIssue && (
+            <div className="rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
+              {signatureIssue}
+            </div>
+          )}
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setTab("legs")}>Back</Button>
-            <Button onClick={() => setTab("review")}
-              disabled={riderSlots.some((s) => !s.signature_data_url)}>Next</Button>
+            <Button onClick={() => goNext("review", signatureIssue)}>Next</Button>
           </div>
         </TabsContent>
 
@@ -609,9 +756,14 @@ function NewNemtTripWizard() {
           {previewUrl && (
             <iframe src={previewUrl} className="h-[70vh] w-full rounded-xl border" title="preview" />
           )}
+          {(vehicleIssue || riderIssue || legsIssue || signatureIssue) && (
+            <div className="rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
+              {vehicleIssue || riderIssue || legsIssue || signatureIssue}
+            </div>
+          )}
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setTab("sign")}>Back</Button>
-            <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
+            <Button onClick={handleSubmit} disabled={submitting}>
               {submitting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
               Submit for billing review
             </Button>
@@ -629,4 +781,52 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <div className="mt-1">{children}</div>
     </div>
   );
+}
+
+function OdometerInput({
+  value,
+  onChange,
+  onPhoto,
+  detecting,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onPhoto: (file: File | null) => void;
+  detecting: boolean;
+}) {
+  return (
+    <div className="flex gap-2">
+      <Input
+        type="number"
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="123456"
+      />
+      <label className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-md border border-input bg-background text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
+        {detecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+        <span className="sr-only">Take odometer photo</span>
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="sr-only"
+          disabled={detecting}
+          onChange={(e) => {
+            onPhoto(e.target.files?.[0] ?? null);
+            e.target.value = "";
+          }}
+        />
+      </label>
+    </div>
+  );
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("Could not read photo"));
+    reader.readAsDataURL(file);
+  });
 }
