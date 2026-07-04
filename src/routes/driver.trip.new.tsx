@@ -201,10 +201,16 @@ function NewNemtTripWizard() {
   function captureSignature(riderId: string) {
     const c = sigRefs.current[riderId];
     if (!c || c.isEmpty()) {
-      toast.error("Please capture a signature");
+      toast.error("Please draw a signature first");
       return;
     }
-    const url = c.getTrimmedCanvas().toDataURL("image/png");
+    // getTrimmedCanvas is missing in some builds of react-signature-canvas —
+    // fall back to the raw canvas which always works.
+    const canvas =
+      typeof (c as unknown as { getTrimmedCanvas?: () => HTMLCanvasElement }).getTrimmedCanvas === "function"
+        ? (c as unknown as { getTrimmedCanvas: () => HTMLCanvasElement }).getTrimmedCanvas()
+        : c.getCanvas();
+    const url = canvas.toDataURL("image/png");
     setRiderSlots((prev) =>
       prev.map((s) => (s.rider.id === riderId ? { ...s, signature_data_url: url } : s)),
     );
