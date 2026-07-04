@@ -1,66 +1,61 @@
-## Goals
+## What you're asking for
 
-Fix the assign-to-driver flow, surface real driver names everywhere, allow deletion, ship an Uber-style pill map, add profile pictures, and fill in the driver app with more useful surfaces.
+1. **Driver app "Navigate" button** throws `ERR_BLOCKED_BY_RESPONSE`.
+2. **Dispatch address inputs** should autocomplete like Google Maps (type → suggestions).
+3. **Live Ops / admin main map**: below the map, list all drivers; clicking one **zooms** the map to that driver's exact location.
+4. Map should default to a **city-level view**, not a random driver's coordinates.
 
-## 1. Assigned trip not showing in driver app
+## Plan
 
-Root cause: admin "Auto‑assign" writes to `trips` only, but `driver.index.tsx` only reads from `ride_requests`. So a trip assigned from admin is invisible to the driver.
+### 1. Fix Navigate button (`src/routes/driver.index.tsx`)
 
-Fix in `src/routes/driver.index.tsx`:
-- Add a second query for `trips` where `driver_id = my driver.id` and `status IN ('assigned','driver_en_route_to_pickup','arrived_at_pickup','in_progress')`.
-- Treat this as the active trip when no `ride_requests`-based active trip exists. Reuse the existing pickup/dropoff/passenger/nav/complete UI, plus an explicit "Accept" for admin-assigned trips that flips status to `driver_en_route_to_pickup`.
-- Add a realtime subscription filter on `trips` for `driver_id=eq.<id>`.
+Root cause: the button is an `<a target="_blank">` opening `google.com/maps/dir/...` from inside the Lovable preview iframe. The preview sandbox strips the popup and the browser reports `ERR_BLOCKED_BY_RESPONSE` (Google refuses to render in an iframe via `X-Frame-Options: DENY`).
 
-## 2. Real driver names (with avatar) everywhere
+Fix:
+- Replace the anchor with a real `<Button onClick>` that calls `window.open(navUrl, "_blank", "noopener,noreferrer")`. Popups from a user gesture escape the sandbox correctly.
+- On mobile, prefer a native intent: try `geo:lat,lng?q=lat,lng(Label)` first (iOS/Android), fall back to the Google Maps web URL.
+- Add a small "Copy address" secondary button as a guaranteed fallback so the driver is never stuck.
 
-- In `src/routes/_authenticated/trips.tsx`, replace `driverName()`'s `Driver <id-slice>` with a lookup that joins `profiles` (first_name, last_name, avatar_url). Same in the driver `<Select>` options in `NewTripDialog`.
-- Update `useDrivers` result rendering in `drivers.tsx` to show avatar chip.
+### 2. Address autocomplete for dispatch (`src/routes/_authenticated/trips.tsx`)
 
-## 3. Delete driver
+- Enable the Google Maps Platform connector (Places API New).
+- Create `src/components/AddressAutocomplete.tsx`: a controlled input that debounces the user's keystrokes, calls `AutocompleteSuggestion.fetchAutocompleteSuggestions()` via the browser Maps JS lib (using `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY`), and shows a dropdown of matches. On select it fills the address and returns `{ address, lat, lng, placeId }` to the parent.
+- A tiny `src/lib/googleMapsLoader.ts` loads the Maps JS API once with `loading=async&libraries=places&callback=...`.
+- Replace the two plain `<Input>` fields in the "New trip" form (lines 437–442) with `<AddressAutocomplete>`. Store the resolved lat/lng alongside the address so trips get real coordinates (fixes downstream map/geocoding calls too).
+- Same component can later be reused in the passenger apply form.
 
-- Add server fn `deleteDriver({ driverId })` in `src/lib/admin.functions.ts` (admin-role guarded): delete rows in `drivers`, `user_roles`, then `supabaseAdmin.auth.admin.deleteUser(user_id)`.
-- Add a red "Delete driver" button in `EditDriverDialog` (drivers.tsx) with confirm.
+### 3. Driver list + click-to-zoom on Live Ops map (`src/routes/_authenticated/live-ops.tsx` + `src/components/nemt/MapView.client.tsx`)
 
-## 4. Driver profile picture
+- Extend `DriverFleetMap` to accept an optional `focus?: { lat; lng; zoom? }` prop. Inside, a small child component uses `useMap()` from `react-leaflet` and calls `map.flyTo([lat, lng], zoom ?? 15)` whenever `focus` changes.
+- In `live-ops.tsx`:
+  - Add a `focus` state, default `null`.
+  - Below the map, render a "Drivers" list showing avatar (already wired), name, status dot, last-known coords / "no GPS". Clicking a row that has coordinates sets `focus` to that driver's lat/lng; rows without GPS are disabled.
+  - Selected row gets a highlighted ring and the pill on the map animates via `flyTo`.
+- Also expose the same list on the "Active requests" side for symmetry — out of scope for this pass; only the drivers list is added.
 
-- Create storage bucket `avatars` (public read) via migration.
-- Add `avatar_url` column to `profiles` if missing.
-- In `drivers.tsx` EditDriverDialog and a new `/driver/profile` page: upload to `avatars/{user_id}.jpg`, save `avatar_url`.
-- Show avatar in driver top bar (`driver.tsx`), trips list, and drivers grid.
+### 4. Default map center on a city, not the first driver
 
-## 5. Uber-style pill map (admin Live Ops)
+- Add a `DEFAULT_CENTER` constant (Denver `[39.7392, -104.9903]` — already used as fallback) and a `DEFAULT_ZOOM = 11`.
+- Compute center as: `focus ?? (markers.length ? fitBounds(markers) : DEFAULT_CENTER)`. When no `focus` and multiple markers exist, use `map.fitBounds()` inside the same `useMap()` helper on first render; when zero markers, stay on the city.
+- Update `useClientMap.tsx` type to forward the new `focus` prop.
 
-Enhance `src/routes/_authenticated/live-ops.tsx` map to render driver pins as rounded black pills with the driver's first name + status dot (like the reference image). Uses existing Google Maps loader + `DriverFleetMap` in `MapView.client.tsx`. Custom `OverlayView`-style DOM pills with:
-- Black rounded-full background, white text, small avatar/star icon on the left.
-- Green dot for `available`, amber for `on_trip`, gray for `offline`.
-- Hover raises a shadow; click opens the driver detail drawer.
+### Technical notes
 
-Passenger `/passenger` also gets a small map preview using the same component.
+- All Places calls go through the browser key that ships with the Google Maps connector; no server function needed for autocomplete.
+- Geocoding the selected place uses the `location` field returned by Places API New (`X-Goog-FieldMask: places.location,places.formattedAddress,places.displayName`) — one gateway `POST /places/v1/places:searchText` per selection to resolve lat/lng, or read them directly from the suggestion detail call.
+- No DB migration needed. `trips` already has `pickup_lat/lng` and `dropoff_lat/lng`.
+- No changes to auth, RLS, or server functions.
 
-## 6. Fill in the driver app
+### Files touched
 
-Add to `driver.tsx` bottom nav / home:
-- **Today** stat strip on home: trips completed today, earnings today, online hours, rating. Read from `trips` + `drivers`.
-- **Profile** page (`/driver/profile`): avatar upload, name, phone, vehicle info (read-only), sign out.
-- **History** page (`/driver/history`): last 30 days of trips with fare + rating.
-- Home empty state: quick tiles for "Go online", "View earnings", "Messages", "Profile".
+- `src/routes/driver.index.tsx` — swap anchor for button + native intent + copy fallback
+- `src/routes/_authenticated/trips.tsx` — use `AddressAutocomplete` in New Trip form, persist lat/lng
+- `src/routes/_authenticated/live-ops.tsx` — driver list + focus state + default city center
+- `src/components/nemt/MapView.client.tsx` — `focus` prop, `flyTo` helper, `fitBounds` on first load
+- `src/components/nemt/useClientMap.tsx` — forward `focus` prop
+- `src/components/AddressAutocomplete.tsx` — **new**
+- `src/lib/googleMapsLoader.ts` — **new**
 
-## Technical notes
+### Connector
 
-- New migration: `avatars` bucket + `profiles.avatar_url` (nullable text). Public read policy, authenticated upload to own path.
-- `deleteDriver` server fn requires `has_role(auth.uid(),'admin')`; uses `supabaseAdmin` inside handler.
-- Pill markers render via `google.maps.OverlayView` subclass loaded inside `MapView.client.tsx` (client-only).
-- No schema change for trip assignment; only client-side query change fixes the invisibility bug.
-
-## Files touched
-
-- `src/routes/driver.index.tsx` — read assigned trips
-- `src/routes/driver.tsx` — avatar in header, add Profile tab
-- `src/routes/driver.profile.tsx` — new
-- `src/routes/driver.history.tsx` — new
-- `src/routes/_authenticated/trips.tsx` — real driver names
-- `src/routes/_authenticated/drivers.tsx` — avatar upload, delete button
-- `src/routes/_authenticated/live-ops.tsx` — pill markers
-- `src/components/nemt/MapView.client.tsx` — pill overlay
-- `src/lib/admin.functions.ts` — `deleteDriver`, `updateDriverAvatar`
-- `supabase/migrations/<new>.sql` — avatars bucket + `profiles.avatar_url`
+- Requires enabling the **Google Maps Platform** connector (managed key is fine on `*.lovable.app`). I'll trigger the connect prompt as the first build step.
