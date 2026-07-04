@@ -467,7 +467,7 @@ function DriverHome() {
             </Button>
             <Link
               to="/driver/trip/new"
-              search={{ tripId: active.trip_id ?? undefined }}
+              search={{ tripId: active.trip_id ?? undefined } as { tripId?: string }}
               className="inline-flex h-10 items-center justify-center rounded-full border border-input bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <PenLine className="mr-1 h-4 w-4" /> Trip report

@@ -376,8 +376,6 @@ function NewNemtTripWizard() {
     return null;
   }, [riderSlots]);
 
-  const canSubmit = !vehicleIssue && !riderIssue && !legsIssue && !signatureIssue;
-
   function goNext(nextTab: string, issue: string | null) {
     if (issue) {
       toast.error(issue);
