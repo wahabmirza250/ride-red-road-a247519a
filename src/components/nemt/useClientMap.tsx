@@ -44,7 +44,7 @@ function MapFallback() {
   );
 }
 
-export function DriverFleetMap(props: { center: [number, number]; markers: DriverMarker[] }) {
+export function DriverFleetMap(props: { center: [number, number]; markers: DriverMarker[]; focus?: { lat: number; lng: number; zoom?: number } | null }) {
   const mod = useMapModule();
   if (!mod) return <MapFallback />;
   const C = mod.DriverFleetMap;
