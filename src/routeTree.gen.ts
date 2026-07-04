@@ -42,6 +42,7 @@ import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
+import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
 import { Route as ApiPublicHfcCallbackRouteImport } from './routes/api/public/hfc-callback'
 import { Route as AuthenticatedPayrollDriverIdRouteImport } from './routes/_authenticated/payroll.$driverId'
 import { Route as AuthenticatedMedicaidTripsNewRouteImport } from './routes/_authenticated/medicaid-trips.new'
@@ -212,6 +213,11 @@ const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const DriverTripNewRoute = DriverTripNewRouteImport.update({
+  id: '/trip/new',
+  path: '/trip/new',
+  getParentRoute: () => DriverRoute,
+} as any)
 const ApiPublicHfcCallbackRoute = ApiPublicHfcCallbackRouteImport.update({
   id: '/api/public/hfc-callback',
   path: '/api/public/hfc-callback',
@@ -266,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
   '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
+  '/driver/trip/new': typeof DriverTripNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -301,6 +308,7 @@ export interface FileRoutesByTo {
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
   '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
+  '/driver/trip/new': typeof DriverTripNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -340,6 +348,7 @@ export interface FileRoutesById {
   '/_authenticated/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/_authenticated/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
   '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
+  '/driver/trip/new': typeof DriverTripNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -379,6 +388,7 @@ export interface FileRouteTypes {
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
     | '/api/public/hfc-callback'
+    | '/driver/trip/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -414,6 +424,7 @@ export interface FileRouteTypes {
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
     | '/api/public/hfc-callback'
+    | '/driver/trip/new'
   id:
     | '__root__'
     | '/'
@@ -452,6 +463,7 @@ export interface FileRouteTypes {
     | '/_authenticated/medicaid-trips/new'
     | '/_authenticated/payroll/$driverId'
     | '/api/public/hfc-callback'
+    | '/driver/trip/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -697,6 +709,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBillingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/driver/trip/new': {
+      id: '/driver/trip/new'
+      path: '/trip/new'
+      fullPath: '/driver/trip/new'
+      preLoaderRoute: typeof DriverTripNewRouteImport
+      parentRoute: typeof DriverRoute
+    }
     '/api/public/hfc-callback': {
       id: '/api/public/hfc-callback'
       path: '/api/public/hfc-callback'
@@ -785,6 +804,7 @@ interface DriverRouteChildren {
   DriverProfileRoute: typeof DriverProfileRoute
   DriverSigninRoute: typeof DriverSigninRoute
   DriverIndexRoute: typeof DriverIndexRoute
+  DriverTripNewRoute: typeof DriverTripNewRoute
 }
 
 const DriverRouteChildren: DriverRouteChildren = {
@@ -794,6 +814,7 @@ const DriverRouteChildren: DriverRouteChildren = {
   DriverProfileRoute: DriverProfileRoute,
   DriverSigninRoute: DriverSigninRoute,
   DriverIndexRoute: DriverIndexRoute,
+  DriverTripNewRoute: DriverTripNewRoute,
 }
 
 const DriverRouteWithChildren =
