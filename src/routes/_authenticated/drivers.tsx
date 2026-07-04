@@ -22,10 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, Star } from "lucide-react";
+import { Plus, Loader2, Star, Trash2, Camera } from "lucide-react";
 import { toast } from "sonner";
-import { createDriver } from "@/lib/admin.functions";
+import { createDriver, deleteDriver } from "@/lib/admin.functions";
 import { useServerFn } from "@tanstack/react-start";
+import { Avatar } from "@/components/Avatar";
 
 export const Route = createFileRoute("/_authenticated/drivers")({
   component: DriversPage,
