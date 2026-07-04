@@ -509,13 +509,27 @@ function TripDetailDialog({
   passengerName,
   driverName,
   onClose,
+  onDeleted,
 }: {
   trip: Trip;
   passengerName: string;
   driverName: string;
   onClose: () => void;
+  onDeleted: () => void;
 }) {
   const [photoUrls, setPhotoUrls] = useState<{ start?: string; end?: string }>({});
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!window.confirm(`Delete this trip permanently? This cannot be undone.`)) return;
+    setDeleting(true);
+    const { error } = await supabase.from("trips").delete().eq("id", trip.id);
+    setDeleting(false);
+    if (error) return toast.error(error.message);
+    toast.success("Trip deleted");
+    onDeleted();
+  }
+
 
   useState(() => {
     async function load() {
