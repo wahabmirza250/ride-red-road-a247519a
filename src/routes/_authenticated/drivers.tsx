@@ -57,7 +57,7 @@ function useDrivers() {
       if (error) throw error;
       const ids = (drivers ?? []).map((d) => d.user_id);
       const { data: profs } = ids.length
-        ? await supabase.from("profiles").select("id, first_name, last_name, email, phone").in("id", ids)
+        ? await supabase.from("profiles").select("id, first_name, last_name, email, phone, avatar_url").in("id", ids)
         : { data: [] as ProfileRow[] };
       const map = new Map<string, ProfileRow>();
       (profs ?? []).forEach((p) => map.set(p.id, p));
