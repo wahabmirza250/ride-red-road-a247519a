@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, Wand2, Search } from "lucide-react";
+import { Plus, Loader2, Wand2, Search, Trash2 } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
 import { haversineMiles } from "@/lib/geo";
