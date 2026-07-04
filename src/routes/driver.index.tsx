@@ -402,31 +402,17 @@ function DriverHome() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 pt-2">
-            <Button
-              variant="outline"
-              className="rounded-full"
-              onClick={() => {
-                if (!active) return;
-                const lat = tripStatus === "in_progress" ? active.dropoff_lat : active.pickup_lat;
-                const lng = tripStatus === "in_progress" ? active.dropoff_lng : active.pickup_lng;
-                const label = encodeURIComponent(
-                  (tripStatus === "in_progress" ? active.dropoff_address : active.pickup_address) ?? "Destination",
-                );
-                const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
-                // Native maps intent on mobile, Google Maps web on desktop; both opened
-                // via window.open(user-gesture) so preview iframe sandbox lets it through.
-                const url = isMobile
-                  ? `geo:${lat},${lng}?q=${lat},${lng}(${label})`
-                  : navUrl;
-                const w = window.open(url, "_blank", "noopener,noreferrer");
-                if (!w) {
-                  // Popup blocked — fall back to same-tab nav on the top window.
-                  window.top?.location.assign(navUrl);
-                }
-              }}
+            {/* Use a real anchor so the browser opens Google Maps in a new tab
+                even inside sandboxed preview iframes. Never navigate window.top
+                to google.com — Google blocks framing (ERR_BLOCKED_BY_RESPONSE). */}
+            <a
+              href={navUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-10 items-center justify-center rounded-full border border-border bg-background px-4 text-sm font-medium hover:bg-accent"
             >
               <Navigation className="mr-1 h-4 w-4" /> Navigate
-            </Button>
+            </a>
             {tripStatus === "assigned" && (
               <Button className="rounded-full" onClick={() => setStatus("arrived_at_pickup")}>
                 <Car className="mr-1 h-4 w-4" /> Arrived
