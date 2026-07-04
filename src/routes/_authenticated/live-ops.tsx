@@ -78,7 +78,7 @@ function LiveOps() {
           : d.is_online
             ? "available"
             : "offline",
-      label: d.status,
+      label: d.name ?? "Driver",
     }));
 
   const center: [number, number] =
