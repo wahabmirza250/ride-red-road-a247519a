@@ -549,10 +549,15 @@ function NewNemtTripWizard() {
               <Input placeholder="Printed signer name" value={s.signer_name}
                 onChange={(e) => setRiderSlots((p) => p.map((x) =>
                   x.rider.id === s.rider.id ? { ...x, signer_name: e.target.value } : x))} />
-              <div className="rounded-lg border bg-white">
+              <div className="rounded-lg border bg-white" style={{ touchAction: "none" }}>
                 <SignatureCanvas
                   ref={(el) => { sigRefs.current[s.rider.id] = el; }}
-                  canvasProps={{ className: "w-full h-40 rounded-lg" }}
+                  canvasProps={{
+                    width: 600,
+                    height: 160,
+                    className: "w-full h-40 rounded-lg touch-none",
+                    style: { touchAction: "none" },
+                  }}
                   penColor="#0f172a"
                 />
               </div>
