@@ -39,6 +39,7 @@ type Driver = {
   status: string;
   current_lat: number | null;
   current_lng: number | null;
+  name?: string;
 };
 
 type Trip = {
@@ -114,7 +115,16 @@ function TripsPage() {
       const { data } = await supabase
         .from("drivers")
         .select("id, user_id, status, current_lat, current_lng");
-      return (data ?? []) as Driver[];
+      const rows = (data ?? []) as Driver[];
+      const ids = rows.map((d) => d.user_id);
+      const { data: profs } = ids.length
+        ? await supabase.from("profiles").select("id, first_name, last_name").in("id", ids)
+        : { data: [] as { id: string; first_name: string | null; last_name: string | null }[] };
+      const nameById = new Map<string, string>();
+      (profs ?? []).forEach((p) =>
+        nameById.set(p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Driver"),
+      );
+      return rows.map((d) => ({ ...d, name: nameById.get(d.user_id) ?? "Driver" }));
     },
   });
 
@@ -126,8 +136,7 @@ function TripsPage() {
   const driverName = (id: string | null) => {
     if (!id) return "Unassigned";
     const d = drivers.data?.find((x) => x.id === id);
-    if (!d) return "—";
-    return `Driver ${d.id.slice(0, 6)}`;
+    return d?.name ?? "—";
   };
 
   const qc = useQueryClient();
@@ -417,7 +426,7 @@ function NewTripDialog({
               <SelectItem value="__unassigned">Unassigned</SelectItem>
               {drivers.map((d) => (
                 <SelectItem key={d.id} value={d.id}>
-                  Driver {d.id.slice(0, 6)} — {d.status}
+                  {d.name ?? "Driver"} — {d.status}
                 </SelectItem>
               ))}
             </SelectContent>

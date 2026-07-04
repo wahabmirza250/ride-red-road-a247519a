@@ -1,11 +1,9 @@
-// This module touches `window` (leaflet). Must ONLY be dynamically imported
-// from useEffect. Never top-level import from a route/component.
+// Google-Maps-style leaflet map with Uber-style pill markers.
 import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Marker } from "react-leaflet";
 import L from "leaflet";
 import type { ReactNode } from "react";
 
-// Fix default marker icon (Leaflet + Vite bundling)
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -14,7 +12,7 @@ L.Icon.Default.mergeOptions({
 });
 
 const OSM_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
 export type DriverMarker = {
   id: string;
@@ -24,6 +22,24 @@ export type DriverMarker = {
   label?: string;
 };
 
+function pillIcon(m: DriverMarker) {
+  const dot =
+    m.status === "available" ? "#22c55e" : m.status === "on_trip" ? "#f59e0b" : "#9ca3af";
+  const name = (m.label || "Driver").replace(/</g, "&lt;");
+  const html = `
+    <div style="transform:translate(-50%,-100%);display:inline-flex;align-items:center;gap:6px;
+                background:#0a0a0a;color:#fff;padding:4px 10px 4px 8px;border-radius:9999px;
+                box-shadow:0 6px 14px rgba(0,0,0,.25);font:600 12px/1.2 system-ui,sans-serif;
+                white-space:nowrap;position:relative;">
+      <span style="width:8px;height:8px;border-radius:9999px;background:${dot};box-shadow:0 0 0 2px rgba(255,255,255,.15);"></span>
+      <span>${name}</span>
+      <span style="position:absolute;left:50%;bottom:-5px;transform:translateX(-50%);
+                   width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
+                   border-top:6px solid #0a0a0a;"></span>
+    </div>`;
+  return L.divIcon({ html, className: "uber-pill", iconSize: [0, 0], iconAnchor: [0, 0] });
+}
+
 export function DriverFleetMap({
   center,
   markers,
@@ -31,25 +47,18 @@ export function DriverFleetMap({
   center: [number, number];
   markers: DriverMarker[];
 }) {
-  const color = (s: DriverMarker["status"]) =>
-    s === "available" ? "#16a34a" : s === "on_trip" ? "#2563eb" : "#9ca3af";
   return (
-    <MapContainer center={center} zoom={7} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
+    <MapContainer center={center} zoom={11} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
       <TileLayer attribution={OSM_ATTR} url={OSM_URL} />
       {markers.map((m) => (
-        <CircleMarker
-          key={m.id}
-          center={[m.lat, m.lng]}
-          radius={9}
-          pathOptions={{ color: color(m.status), fillColor: color(m.status), fillOpacity: 0.85, weight: 2 }}
-        >
+        <Marker key={m.id} position={[m.lat, m.lng]} icon={pillIcon(m)}>
           <Popup>
             <div className="text-sm">
-              <div className="font-semibold">{m.label ?? m.id.slice(0, 8)}</div>
-              <div className="text-muted-foreground">{m.status}</div>
+              <div className="font-semibold">{m.label ?? "Driver"}</div>
+              <div className="text-muted-foreground">{m.status.replace(/_/g, " ")}</div>
             </div>
           </Popup>
-        </CircleMarker>
+        </Marker>
       ))}
     </MapContainer>
   );
@@ -127,7 +136,6 @@ export function TrackMap({
   );
 }
 
-// Passthrough so we can also render arbitrary map children if needed
 export function BaseMap({ center, zoom, children }: { center: [number, number]; zoom: number; children?: ReactNode }) {
   return (
     <MapContainer center={center} zoom={zoom} style={{ height: "100%", width: "100%" }}>

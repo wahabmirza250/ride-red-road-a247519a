@@ -21,7 +21,9 @@ import { Route as PassengerNewsRouteImport } from './routes/passenger.news'
 import { Route as PassengerGamesRouteImport } from './routes/passenger.games'
 import { Route as PassengerApplyRouteImport } from './routes/passenger.apply'
 import { Route as DriverSigninRouteImport } from './routes/driver.signin'
+import { Route as DriverProfileRouteImport } from './routes/driver.profile'
 import { Route as DriverMessagesRouteImport } from './routes/driver.messages'
+import { Route as DriverHistoryRouteImport } from './routes/driver.history'
 import { Route as DriverEarningsRouteImport } from './routes/driver.earnings'
 import { Route as AuthenticatedTripsRouteImport } from './routes/_authenticated/trips'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
@@ -101,9 +103,19 @@ const DriverSigninRoute = DriverSigninRouteImport.update({
   path: '/signin',
   getParentRoute: () => DriverRoute,
 } as any)
+const DriverProfileRoute = DriverProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => DriverRoute,
+} as any)
 const DriverMessagesRoute = DriverMessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
+  getParentRoute: () => DriverRoute,
+} as any)
+const DriverHistoryRoute = DriverHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
   getParentRoute: () => DriverRoute,
 } as any)
 const DriverEarningsRoute = DriverEarningsRouteImport.update({
@@ -228,7 +240,9 @@ export interface FileRoutesByFullPath {
   '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRoute
   '/driver/earnings': typeof DriverEarningsRoute
+  '/driver/history': typeof DriverHistoryRoute
   '/driver/messages': typeof DriverMessagesRoute
+  '/driver/profile': typeof DriverProfileRoute
   '/driver/signin': typeof DriverSigninRoute
   '/passenger/apply': typeof PassengerApplyRoute
   '/passenger/games': typeof PassengerGamesRoute
@@ -259,7 +273,9 @@ export interface FileRoutesByTo {
   '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRoute
   '/driver/earnings': typeof DriverEarningsRoute
+  '/driver/history': typeof DriverHistoryRoute
   '/driver/messages': typeof DriverMessagesRoute
+  '/driver/profile': typeof DriverProfileRoute
   '/driver/signin': typeof DriverSigninRoute
   '/passenger/apply': typeof PassengerApplyRoute
   '/passenger/games': typeof PassengerGamesRoute
@@ -294,7 +310,9 @@ export interface FileRoutesById {
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/trips': typeof AuthenticatedTripsRoute
   '/driver/earnings': typeof DriverEarningsRoute
+  '/driver/history': typeof DriverHistoryRoute
   '/driver/messages': typeof DriverMessagesRoute
+  '/driver/profile': typeof DriverProfileRoute
   '/driver/signin': typeof DriverSigninRoute
   '/passenger/apply': typeof PassengerApplyRoute
   '/passenger/games': typeof PassengerGamesRoute
@@ -329,7 +347,9 @@ export interface FileRouteTypes {
     | '/team'
     | '/trips'
     | '/driver/earnings'
+    | '/driver/history'
     | '/driver/messages'
+    | '/driver/profile'
     | '/driver/signin'
     | '/passenger/apply'
     | '/passenger/games'
@@ -360,7 +380,9 @@ export interface FileRouteTypes {
     | '/team'
     | '/trips'
     | '/driver/earnings'
+    | '/driver/history'
     | '/driver/messages'
+    | '/driver/profile'
     | '/driver/signin'
     | '/passenger/apply'
     | '/passenger/games'
@@ -394,7 +416,9 @@ export interface FileRouteTypes {
     | '/_authenticated/team'
     | '/_authenticated/trips'
     | '/driver/earnings'
+    | '/driver/history'
     | '/driver/messages'
+    | '/driver/profile'
     | '/driver/signin'
     | '/passenger/apply'
     | '/passenger/games'
@@ -501,11 +525,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DriverSigninRouteImport
       parentRoute: typeof DriverRoute
     }
+    '/driver/profile': {
+      id: '/driver/profile'
+      path: '/profile'
+      fullPath: '/driver/profile'
+      preLoaderRoute: typeof DriverProfileRouteImport
+      parentRoute: typeof DriverRoute
+    }
     '/driver/messages': {
       id: '/driver/messages'
       path: '/messages'
       fullPath: '/driver/messages'
       preLoaderRoute: typeof DriverMessagesRouteImport
+      parentRoute: typeof DriverRoute
+    }
+    '/driver/history': {
+      id: '/driver/history'
+      path: '/history'
+      fullPath: '/driver/history'
+      preLoaderRoute: typeof DriverHistoryRouteImport
       parentRoute: typeof DriverRoute
     }
     '/driver/earnings': {
@@ -703,14 +741,18 @@ const AuthenticatedRouteRouteWithChildren =
 
 interface DriverRouteChildren {
   DriverEarningsRoute: typeof DriverEarningsRoute
+  DriverHistoryRoute: typeof DriverHistoryRoute
   DriverMessagesRoute: typeof DriverMessagesRoute
+  DriverProfileRoute: typeof DriverProfileRoute
   DriverSigninRoute: typeof DriverSigninRoute
   DriverIndexRoute: typeof DriverIndexRoute
 }
 
 const DriverRouteChildren: DriverRouteChildren = {
   DriverEarningsRoute: DriverEarningsRoute,
+  DriverHistoryRoute: DriverHistoryRoute,
   DriverMessagesRoute: DriverMessagesRoute,
+  DriverProfileRoute: DriverProfileRoute,
   DriverSigninRoute: DriverSigninRoute,
   DriverIndexRoute: DriverIndexRoute,
 }

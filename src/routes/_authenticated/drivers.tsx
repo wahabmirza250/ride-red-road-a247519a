@@ -22,10 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, Star } from "lucide-react";
+import { Plus, Loader2, Star, Trash2, Camera } from "lucide-react";
 import { toast } from "sonner";
-import { createDriver } from "@/lib/admin.functions";
+import { createDriver, deleteDriver } from "@/lib/admin.functions";
 import { useServerFn } from "@tanstack/react-start";
+import { Avatar } from "@/components/Avatar";
 
 export const Route = createFileRoute("/_authenticated/drivers")({
   component: DriversPage,
@@ -46,7 +47,7 @@ type DriverRow = {
   total_trips: number;
 };
 
-type ProfileRow = { id: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null };
+type ProfileRow = { id: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null; avatar_url: string | null };
 
 function useDrivers() {
   return useQuery({
@@ -56,7 +57,7 @@ function useDrivers() {
       if (error) throw error;
       const ids = (drivers ?? []).map((d) => d.user_id);
       const { data: profs } = ids.length
-        ? await supabase.from("profiles").select("id, first_name, last_name, email, phone").in("id", ids)
+        ? await supabase.from("profiles").select("id, first_name, last_name, email, phone, avatar_url").in("id", ids)
         : { data: [] as ProfileRow[] };
       const map = new Map<string, ProfileRow>();
       (profs ?? []).forEach((p) => map.set(p.id, p));
@@ -103,12 +104,15 @@ function DriversPage() {
             className="rounded-2xl border border-border bg-surface p-4 text-left shadow-soft transition hover:shadow-lift"
           >
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate text-base font-semibold">
-                  {d.profile?.first_name} {d.profile?.last_name}
-                </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {d.profile?.email}
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar path={d.profile?.avatar_url} name={`${d.profile?.first_name ?? ""} ${d.profile?.last_name ?? ""}`} size={40} />
+                <div className="min-w-0">
+                  <div className="truncate text-base font-semibold">
+                    {d.profile?.first_name} {d.profile?.last_name}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {d.profile?.email}
+                  </div>
                 </div>
               </div>
               <StatusPill status={d.status} />
@@ -323,6 +327,43 @@ function EditDriverDialog({
     status: driver.status,
   });
   const [saving, setSaving] = useState(false);
+  const [avatarPath, setAvatarPath] = useState<string | null>(driver.profile?.avatar_url ?? null);
+  const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const del = useServerFn(deleteDriver);
+
+  async function uploadAvatar(file: File) {
+    setUploading(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${driver.user_id}/avatar-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("avatars")
+      .upload(path, file, { contentType: file.type, upsert: true });
+    if (error) {
+      setUploading(false);
+      return toast.error(error.message);
+    }
+    await supabase.from("profiles").update({ avatar_url: path }).eq("id", driver.user_id);
+    setAvatarPath(path);
+    setUploading(false);
+    toast.success("Photo updated");
+    qc.invalidateQueries({ queryKey: ["drivers"] });
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Delete ${driver.profile?.first_name ?? "this driver"}? This removes their login and cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await del({ data: { driver_id: driver.id } });
+      toast.success("Driver deleted");
+      qc.invalidateQueries({ queryKey: ["drivers"] });
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const update = useMutation({
     mutationFn: async () => {
@@ -359,10 +400,24 @@ function EditDriverDialog({
   });
 
   return (
-    <DialogContent className="max-w-lg">
+    <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Edit driver</DialogTitle>
       </DialogHeader>
+
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-muted p-3">
+        <Avatar path={avatarPath} name={`${form.first_name} ${form.last_name}`} size={56} />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold">Profile photo</div>
+          <div className="text-xs text-muted-foreground">JPG or PNG, up to 5MB.</div>
+        </div>
+        <label className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium hover:bg-accent">
+          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+          Upload
+          <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && uploadAvatar(e.target.files[0])} />
+        </label>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="First name">
           <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
@@ -402,18 +457,29 @@ function EditDriverDialog({
           <Input value={form.vehicle_color} onChange={(e) => setForm({ ...form, vehicle_color: e.target.value })} />
         </Field>
       </div>
-      <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+      <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
         <Button
-          onClick={() => {
-            setSaving(true);
-            update.mutate();
-          }}
-          disabled={saving}
+          variant="outline"
+          className="border-destructive/40 text-destructive hover:bg-destructive/10"
+          onClick={handleDelete}
+          disabled={deleting}
         >
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save changes
+          {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+          Delete driver
         </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={() => {
+              setSaving(true);
+              update.mutate();
+            }}
+            disabled={saving}
+          >
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save changes
+          </Button>
+        </div>
       </DialogFooter>
     </DialogContent>
   );
