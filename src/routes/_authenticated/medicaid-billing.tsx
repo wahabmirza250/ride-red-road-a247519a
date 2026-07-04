@@ -20,6 +20,8 @@ import { Loader2, FileDown, Check, X, Send } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
 import { generateStateFormPdf } from "@/lib/medicaidPdf";
+import { useServerFn } from "@tanstack/react-start";
+import { submitTripToPortal } from "@/lib/portalSubmit.functions";
 
 export const Route = createFileRoute("/_authenticated/medicaid-billing")({
   component: MedicaidBillingPage,
