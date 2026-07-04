@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import {
   Dialog,
   DialogContent,
@@ -331,7 +332,9 @@ function NewTripDialog({
   const [passengerId, setPassengerId] = useState("");
   const [driverId, setDriverId] = useState<string>("__unassigned");
   const [pickup, setPickup] = useState("");
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [dropoff, setDropoff] = useState("");
+  const [dropoffCoords, setDropoffCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [waypointsText, setWaypointsText] = useState("");
   const [scheduled, setScheduled] = useState(() => {
     const d = new Date();
@@ -365,6 +368,10 @@ function NewTripDialog({
       status: driverId === "__unassigned" ? "scheduled" : "assigned",
       pickup_address: pickup,
       dropoff_address: dropoff,
+      pickup_lat: pickupCoords?.lat ?? null,
+      pickup_lng: pickupCoords?.lng ?? null,
+      dropoff_lat: dropoffCoords?.lat ?? null,
+      dropoff_lng: dropoffCoords?.lng ?? null,
       waypoints: wp,
       scheduled_pickup_time: new Date(scheduled).toISOString(),
       assignment_type: "manual",
@@ -435,11 +442,33 @@ function NewTripDialog({
 
         <div className="space-y-1.5">
           <Label>Pickup address</Label>
-          <Input value={pickup} onChange={(e) => setPickup(e.target.value)} />
+          <AddressAutocomplete
+            value={pickup}
+            onChange={(v) => {
+              setPickup(v);
+              setPickupCoords(null);
+            }}
+            onResolve={(p) => {
+              setPickup(p.address);
+              setPickupCoords({ lat: p.lat, lng: p.lng });
+            }}
+            placeholder="Start typing pickup address…"
+          />
         </div>
         <div className="space-y-1.5">
           <Label>Dropoff address</Label>
-          <Input value={dropoff} onChange={(e) => setDropoff(e.target.value)} />
+          <AddressAutocomplete
+            value={dropoff}
+            onChange={(v) => {
+              setDropoff(v);
+              setDropoffCoords(null);
+            }}
+            onResolve={(p) => {
+              setDropoff(p.address);
+              setDropoffCoords({ lat: p.lat, lng: p.lng });
+            }}
+            placeholder="Start typing dropoff address…"
+          />
         </div>
         <div className="space-y-1.5">
           <Label>Waypoints (one per line, optional)</Label>

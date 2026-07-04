@@ -11,7 +11,7 @@ export type GpsPoint = { lat: number; lng: number; t?: string | null };
 export type StopDot = { lat: number; lng: number; label?: string };
 
 type MapModule = {
-  DriverFleetMap: React.ComponentType<{ center: [number, number]; markers: DriverMarker[] }>;
+  DriverFleetMap: React.ComponentType<{ center: [number, number]; markers: DriverMarker[]; focus?: { lat: number; lng: number; zoom?: number } | null }>;
   RouteMap: React.ComponentType<{ center: [number, number]; path: GpsPoint[]; stops: StopDot[] }>;
   TrackMap: React.ComponentType<{
     center: [number, number];
@@ -44,7 +44,7 @@ function MapFallback() {
   );
 }
 
-export function DriverFleetMap(props: { center: [number, number]; markers: DriverMarker[] }) {
+export function DriverFleetMap(props: { center: [number, number]; markers: DriverMarker[]; focus?: { lat: number; lng: number; zoom?: number } | null }) {
   const mod = useMapModule();
   if (!mod) return <MapFallback />;
   const C = mod.DriverFleetMap;
