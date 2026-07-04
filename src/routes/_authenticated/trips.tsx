@@ -442,11 +442,33 @@ function NewTripDialog({
 
         <div className="space-y-1.5">
           <Label>Pickup address</Label>
-          <Input value={pickup} onChange={(e) => setPickup(e.target.value)} />
+          <AddressAutocomplete
+            value={pickup}
+            onChange={(v) => {
+              setPickup(v);
+              setPickupCoords(null);
+            }}
+            onResolve={(p) => {
+              setPickup(p.address);
+              setPickupCoords({ lat: p.lat, lng: p.lng });
+            }}
+            placeholder="Start typing pickup address…"
+          />
         </div>
         <div className="space-y-1.5">
           <Label>Dropoff address</Label>
-          <Input value={dropoff} onChange={(e) => setDropoff(e.target.value)} />
+          <AddressAutocomplete
+            value={dropoff}
+            onChange={(v) => {
+              setDropoff(v);
+              setDropoffCoords(null);
+            }}
+            onResolve={(p) => {
+              setDropoff(p.address);
+              setDropoffCoords({ lat: p.lat, lng: p.lng });
+            }}
+            placeholder="Start typing dropoff address…"
+          />
         </div>
         <div className="space-y-1.5">
           <Label>Waypoints (one per line, optional)</Label>
