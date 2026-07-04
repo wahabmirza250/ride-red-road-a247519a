@@ -15,6 +15,7 @@ type DriverRow = {
   status: string;
   current_lat: number | null;
   current_lng: number | null;
+  name?: string;
 };
 type Req = {
   id: string;
@@ -39,7 +40,16 @@ function LiveOps() {
         .order("created_at", { ascending: false })
         .limit(50),
     ]);
-    setDrivers((d ?? []) as DriverRow[]);
+    const rows = (d ?? []) as DriverRow[];
+    const ids = rows.map((x) => x.user_id);
+    const { data: profs } = ids.length
+      ? await supabase.from("profiles").select("id, first_name, last_name").in("id", ids)
+      : { data: [] as { id: string; first_name: string | null; last_name: string | null }[] };
+    const map = new Map<string, string>();
+    (profs ?? []).forEach((p) =>
+      map.set(p.id, (p.first_name ?? "").trim() || `${p.last_name ?? "Driver"}`),
+    );
+    setDrivers(rows.map((x) => ({ ...x, name: map.get(x.user_id) ?? "Driver" })));
     setReqs((r ?? []) as Req[]);
   }, []);
 
