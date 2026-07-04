@@ -556,49 +556,67 @@ export type Database = {
       passengers: {
         Row: {
           address: string | null
+          approx_city: string | null
+          approx_region: string | null
           county: string | null
           created_at: string
           date_of_birth: string | null
+          device_id: string | null
           email: string | null
           first_name: string
           id: string
           is_active: boolean
+          last_ip: string | null
           last_name: string
-          medicaid_id: string
+          last_seen_at: string | null
+          medicaid_id: string | null
           notes: string | null
           phone: string | null
+          ssn_last4: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
           address?: string | null
+          approx_city?: string | null
+          approx_region?: string | null
           county?: string | null
           created_at?: string
           date_of_birth?: string | null
+          device_id?: string | null
           email?: string | null
           first_name: string
           id?: string
           is_active?: boolean
+          last_ip?: string | null
           last_name: string
-          medicaid_id: string
+          last_seen_at?: string | null
+          medicaid_id?: string | null
           notes?: string | null
           phone?: string | null
+          ssn_last4?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           address?: string | null
+          approx_city?: string | null
+          approx_region?: string | null
           county?: string | null
           created_at?: string
           date_of_birth?: string | null
+          device_id?: string | null
           email?: string | null
           first_name?: string
           id?: string
           is_active?: boolean
+          last_ip?: string | null
           last_name?: string
-          medicaid_id?: string
+          last_seen_at?: string | null
+          medicaid_id?: string | null
           notes?: string | null
           phone?: string | null
+          ssn_last4?: string | null
           updated_at?: string
           user_id?: string | null
         }
