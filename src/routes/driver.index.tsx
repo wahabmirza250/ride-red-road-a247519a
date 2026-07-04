@@ -388,10 +388,30 @@ function DriverHome() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 pt-2">
-            <Button asChild variant="outline" className="rounded-full">
-              <a href={navUrl} target="_blank" rel="noreferrer">
-                <Navigation className="mr-1 h-4 w-4" /> Navigate
-              </a>
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => {
+                if (!active) return;
+                const lat = tripStatus === "in_progress" ? active.dropoff_lat : active.pickup_lat;
+                const lng = tripStatus === "in_progress" ? active.dropoff_lng : active.pickup_lng;
+                const label = encodeURIComponent(
+                  (tripStatus === "in_progress" ? active.dropoff_address : active.pickup_address) ?? "Destination",
+                );
+                const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+                // Native maps intent on mobile, Google Maps web on desktop; both opened
+                // via window.open(user-gesture) so preview iframe sandbox lets it through.
+                const url = isMobile
+                  ? `geo:${lat},${lng}?q=${lat},${lng}(${label})`
+                  : navUrl;
+                const w = window.open(url, "_blank", "noopener,noreferrer");
+                if (!w) {
+                  // Popup blocked — fall back to same-tab nav on the top window.
+                  window.top?.location.assign(navUrl);
+                }
+              }}
+            >
+              <Navigation className="mr-1 h-4 w-4" /> Navigate
             </Button>
             {tripStatus === "assigned" && (
               <Button className="rounded-full" onClick={() => setStatus("arrived_at_pickup")}>
