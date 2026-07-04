@@ -40,7 +40,16 @@ function DriverProfile() {
       .select("first_name,last_name,phone,email,avatar_url")
       .eq("id", user.id)
       .maybeSingle()
-      .then(({ data }) => data && setProfile(data));
+      .then(({ data }) => {
+        if (!data) return;
+        setProfile({
+          first_name: data.first_name ?? "",
+          last_name: data.last_name ?? "",
+          phone: data.phone ?? "",
+          email: data.email ?? "",
+          avatar_url: data.avatar_url ?? null,
+        });
+      });
     supabase
       .from("drivers")
       .select("vehicle_make,vehicle_model,vehicle_year,vehicle_plate,rating,total_trips")
