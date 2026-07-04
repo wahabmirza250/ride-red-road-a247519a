@@ -410,6 +410,13 @@ export type Database = {
           odometer_start: number
           pickup_address: string
           pickup_at: string
+          portal_confirmation: string | null
+          portal_error: string | null
+          portal_evidence_prefix: string | null
+          portal_mfa_prompt: string | null
+          portal_run_id: string | null
+          portal_status: string | null
+          portal_submitted_at: string | null
           review_notes: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -433,6 +440,13 @@ export type Database = {
           odometer_start: number
           pickup_address: string
           pickup_at: string
+          portal_confirmation?: string | null
+          portal_error?: string | null
+          portal_evidence_prefix?: string | null
+          portal_mfa_prompt?: string | null
+          portal_run_id?: string | null
+          portal_status?: string | null
+          portal_submitted_at?: string | null
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -456,6 +470,13 @@ export type Database = {
           odometer_start?: number
           pickup_address?: string
           pickup_at?: string
+          portal_confirmation?: string | null
+          portal_error?: string | null
+          portal_evidence_prefix?: string | null
+          portal_mfa_prompt?: string | null
+          portal_run_id?: string | null
+          portal_status?: string | null
+          portal_submitted_at?: string | null
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
