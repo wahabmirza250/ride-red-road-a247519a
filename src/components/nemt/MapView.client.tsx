@@ -1,8 +1,8 @@
 // Google-Maps-style leaflet map with Uber-style pill markers.
 import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Marker } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
