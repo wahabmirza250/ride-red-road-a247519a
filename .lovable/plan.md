@@ -1,66 +1,66 @@
+## Goals
 
-# Separate Driver + Passenger apps with live chat
+Fix the assign-to-driver flow, surface real driver names everywhere, allow deletion, ship an Uber-style pill map, add profile pictures, and fill in the driver app with more useful surfaces.
 
-Turn the current single site into three distinctly-branded apps sharing one backend, and add real-time chat between admin, drivers, and passengers.
+## 1. Assigned trip not showing in driver app
 
-## 1. Three branded surfaces, three links
+Root cause: admin "Auto‑assign" writes to `trips` only, but `driver.index.tsx` only reads from `ride_requests`. So a trip assigned from admin is invisible to the driver.
 
-| App | Link to share | Sign-in page | Who can register |
-|---|---|---|---|
-| Admin | `/admin` | `/admin/signin` | Only from dashboard |
-| Driver | `/driver` | `/driver/signin` | Admin creates them |
-| Passenger | `/rider` | `/rider/signup` + `/rider/signin` | Anyone (self sign-up) |
+Fix in `src/routes/driver.index.tsx`:
+- Add a second query for `trips` where `driver_id = my driver.id` and `status IN ('assigned','driver_en_route_to_pickup','arrived_at_pickup','in_progress')`.
+- Treat this as the active trip when no `ride_requests`-based active trip exists. Reuse the existing pickup/dropoff/passenger/nav/complete UI, plus an explicit "Accept" for admin-assigned trips that flips status to `driver_en_route_to_pickup`.
+- Add a realtime subscription filter on `trips` for `driver_id=eq.<id>`.
 
-Each app gets its own logo/name/color accent so a driver opening `/driver` sees a driver-branded product, not the admin dashboard.
+## 2. Real driver names (with avatar) everywhere
 
-- Visiting `/driver` while signed out → driver sign-in page (not the shared `/auth`).
-- Visiting `/rider` while signed out → passenger sign-in/sign-up.
-- If a passenger tries the driver link, they're told "This link is for drivers" with a button to the passenger app (and vice versa).
-- Signed-in users always land in their own app; wrong-role visits get bounced to the right one.
+- In `src/routes/_authenticated/trips.tsx`, replace `driverName()`'s `Driver <id-slice>` with a lookup that joins `profiles` (first_name, last_name, avatar_url). Same in the driver `<Select>` options in `NewTripDialog`.
+- Update `useDrivers` result rendering in `drivers.tsx` to show avatar chip.
 
-## 2. Passenger self sign-up
+## 3. Delete driver
 
-New public `/rider/signup` page: name, phone, email, password → creates auth user + `passengers` row automatically, then drops them into the passenger app. No admin action needed.
+- Add server fn `deleteDriver({ driverId })` in `src/lib/admin.functions.ts` (admin-role guarded): delete rows in `drivers`, `user_roles`, then `supabaseAdmin.auth.admin.deleteUser(user_id)`.
+- Add a red "Delete driver" button in `EditDriverDialog` (drivers.tsx) with confirm.
 
-## 3. Driver accounts stay admin-created
+## 4. Driver profile picture
 
-Admin `Drivers` page gets a "Create driver login" button: enter email + temporary password → server function creates the auth user, `drivers` row, and `driver` role in one shot. You share the `/driver` link + credentials.
+- Create storage bucket `avatars` (public read) via migration.
+- Add `avatar_url` column to `profiles` if missing.
+- In `drivers.tsx` EditDriverDialog and a new `/driver/profile` page: upload to `avatars/{user_id}.jpg`, save `avatar_url`.
+- Show avatar in driver top bar (`driver.tsx`), trips list, and drivers grid.
 
-## 4. Live chat system (the big one)
+## 5. Uber-style pill map (admin Live Ops)
 
-New `conversations` + `messages` tables (Realtime enabled) with three conversation kinds:
-- **Driver ↔ Admin** — always available
-- **Passenger ↔ Admin** — always available
-- **Driver ↔ Passenger** — auto-created when a trip goes active, auto-closed when trip completes (like Uber in-trip chat)
+Enhance `src/routes/_authenticated/live-ops.tsx` map to render driver pins as rounded black pills with the driver's first name + status dot (like the reference image). Uses existing Google Maps loader + `DriverFleetMap` in `MapView.client.tsx`. Custom `OverlayView`-style DOM pills with:
+- Black rounded-full background, white text, small avatar/star icon on the left.
+- Green dot for `available`, amber for `on_trip`, gray for `offline`.
+- Hover raises a shadow; click opens the driver detail drawer.
 
-Where chat lives:
-- **Driver app**: "Messages" tab — one thread with dispatch, plus per-active-trip thread with the passenger.
-- **Passenger app**: "Messages" tab — one thread with support, plus per-active-trip thread with the driver.
-- **Admin dashboard**: new `/messages` inbox — all conversations in one list, unread counts, search by name, live updates, reply from one place.
+Passenger `/passenger` also gets a small map preview using the same component.
 
-Chat features: text messages, read receipts, unread badge in each app's nav, sound/toast on new message when app is open, RLS so each side only sees their own threads.
+## 6. Fill in the driver app
 
-## 5. Publish + PWA polish
+Add to `driver.tsx` bottom nav / home:
+- **Today** stat strip on home: trips completed today, earnings today, online hours, rating. Read from `trips` + `drivers`.
+- **Profile** page (`/driver/profile`): avatar upload, name, phone, vehicle info (read-only), sign out.
+- **History** page (`/driver/history`): last 30 days of trips with fare + rating.
+- Home empty state: quick tiles for "Go online", "View earnings", "Messages", "Profile".
 
-- Publish the site so the three links actually work on phones.
-- Update PWA manifest so installing from `/driver` shows "RedArt Driver" and from `/rider` shows "RedArt Rider" (separate app icons on the home screen).
-- Keep the existing "Install app" prompt.
+## Technical notes
 
-## Out of scope (say if you want any of these)
+- New migration: `avatars` bucket + `profiles.avatar_url` (nullable text). Public read policy, authenticated upload to own path.
+- `deleteDriver` server fn requires `has_role(auth.uid(),'admin')`; uses `supabaseAdmin` inside handler.
+- Pill markers render via `google.maps.OverlayView` subclass loaded inside `MapView.client.tsx` (client-only).
+- No schema change for trip assignment; only client-side query change fixes the invisibility bug.
 
-- Native App Store / Play Store builds
-- Voice / video calls in chat
-- File / photo attachments in chat (text only for v1)
-- Custom domain (do that in Project Settings after publish)
-- Changing any existing booking / tracking / earnings logic
+## Files touched
 
----
-
-## Technical notes (safe to skip)
-
-- **Routing**: split `/driver` and `/rider` out of the shared `_authenticated` gate so each has its own auth flow. Add `driver/signin.tsx`, `rider/signin.tsx`, `rider/signup.tsx` as public routes; child routes stay protected by role checks.
-- **DB migration** (`conversations`, `messages`, `conversation_participants`): RLS policies scoped via `has_role` + participant membership; GRANTs to `authenticated` and `service_role`; add both tables to `supabase_realtime` publication.
-- **Auto-thread on trip**: trigger on `trips` — when status becomes `in_progress`, insert a driver↔passenger conversation; when `completed`, mark it closed (history stays visible).
-- **Admin-creates-driver**: `createServerFn` with `requireSupabaseAuth` + `has_role('admin')` check, then dynamic `import('@/integrations/supabase/client.server')` to call Auth Admin API.
-- **PWA per-app**: two manifest files (`/driver/manifest.webmanifest`, `/rider/manifest.webmanifest`) referenced from each app's route `head()`, distinct `name`, `short_name`, `theme_color`, icons.
-- **Chat UI**: install AI Elements `conversation`, `message`, `prompt-input` primitives and reuse them for the human-to-human chat surface (message list + composer).
+- `src/routes/driver.index.tsx` — read assigned trips
+- `src/routes/driver.tsx` — avatar in header, add Profile tab
+- `src/routes/driver.profile.tsx` — new
+- `src/routes/driver.history.tsx` — new
+- `src/routes/_authenticated/trips.tsx` — real driver names
+- `src/routes/_authenticated/drivers.tsx` — avatar upload, delete button
+- `src/routes/_authenticated/live-ops.tsx` — pill markers
+- `src/components/nemt/MapView.client.tsx` — pill overlay
+- `src/lib/admin.functions.ts` — `deleteDriver`, `updateDriverAvatar`
+- `supabase/migrations/<new>.sql` — avatars bucket + `profiles.avatar_url`
