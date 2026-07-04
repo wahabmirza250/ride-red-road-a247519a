@@ -1,3 +1,4 @@
+/// <reference types="google.maps" />
 // Loads the Google Maps JS API once, with Places lib, using loading=async.
 // Safe to call from multiple components — subsequent calls return the same promise.
 
