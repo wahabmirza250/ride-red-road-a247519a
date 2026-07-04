@@ -20,6 +20,8 @@ import { Loader2, FileDown, Check, X, Send } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
 import { generateStateFormPdf } from "@/lib/medicaidPdf";
+import { useServerFn } from "@tanstack/react-start";
+import { submitTripToPortal } from "@/lib/portalSubmit.functions";
 
 export const Route = createFileRoute("/_authenticated/medicaid-billing")({
   component: MedicaidBillingPage,
@@ -117,6 +119,16 @@ function MedicaidBillingPage() {
       setConfirmation("");
     },
     onError: (e: any) => toast.error(e.message),
+  });
+
+  const submitPortalFn = useServerFn(submitTripToPortal);
+  const submitToPortal = useMutation({
+    mutationFn: async ({ id }: { id: string }) => submitPortalFn({ data: { tripId: id } }),
+    onSuccess: () => {
+      toast.success("Runner started — watch the portal status update live.");
+      qc.invalidateQueries({ queryKey: ["medicaid_billing"] });
+    },
+    onError: (e: any) => toast.error(e.message ?? "Runner call failed"),
   });
 
   async function downloadPdf(trip: any) {
@@ -262,32 +274,62 @@ function MedicaidBillingPage() {
                 </div>
 
                 {selected.status === "approved" && (
-                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
-                    <div className="text-xs font-medium">
-                      Submit to Colorado state
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Download the PDF, upload it on the state portal, then paste
-                      the confirmation number here.
-                    </p>
-                    <div className="mt-2 flex gap-2">
-                      <Input
-                        placeholder="Confirmation #"
-                        value={confirmation}
-                        onChange={(e) => setConfirmation(e.target.value)}
-                      />
+                  <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                    <div>
+                      <div className="text-xs font-semibold">Auto-submit to Colorado state portal</div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Our runner logs into the Health First Colorado provider portal
+                        with the admin credentials, uploads this signed PDF, and captures
+                        the confirmation number. Portal status:{" "}
+                        <b>{selected.portal_status ?? "not_sent"}</b>
+                        {selected.portal_error && (
+                          <span className="text-destructive"> — {selected.portal_error}</span>
+                        )}
+                      </p>
                       <Button
                         size="sm"
-                        onClick={() =>
-                          markSubmitted.mutate({
-                            id: selected.id,
-                            conf: confirmation,
-                          })
+                        className="mt-2"
+                        onClick={() => submitToPortal.mutate({ id: selected.id })}
+                        disabled={
+                          submitToPortal.isPending ||
+                          selected.portal_status === "submitting" ||
+                          selected.portal_status === "submitted"
                         }
-                        disabled={!confirmation || markSubmitted.isPending}
                       >
-                        <Send className="mr-1 h-4 w-4" /> Mark submitted
+                        <Send className="mr-1 h-4 w-4" />
+                        {selected.portal_status === "submitting"
+                          ? "Runner working…"
+                          : "Send to portal"}
                       </Button>
+                      {selected.portal_mfa_prompt && (
+                        <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
+                          MFA required: {selected.portal_mfa_prompt}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t pt-3">
+                      <div className="text-xs font-semibold">Or record a manual submission</div>
+                      <div className="mt-2 flex gap-2">
+                        <Input
+                          placeholder="Confirmation #"
+                          value={confirmation}
+                          onChange={(e) => setConfirmation(e.target.value)}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            markSubmitted.mutate({
+                              id: selected.id,
+                              conf: confirmation,
+                            })
+                          }
+                          disabled={!confirmation || markSubmitted.isPending}
+                        >
+                          Mark submitted
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}

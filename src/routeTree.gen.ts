@@ -42,6 +42,7 @@ import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
+import { Route as ApiPublicHfcCallbackRouteImport } from './routes/api/public/hfc-callback'
 import { Route as AuthenticatedPayrollDriverIdRouteImport } from './routes/_authenticated/payroll.$driverId'
 import { Route as AuthenticatedMedicaidTripsNewRouteImport } from './routes/_authenticated/medicaid-trips.new'
 
@@ -211,6 +212,11 @@ const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicHfcCallbackRoute = ApiPublicHfcCallbackRouteImport.update({
+  id: '/api/public/hfc-callback',
+  path: '/api/public/hfc-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedPayrollDriverIdRoute =
   AuthenticatedPayrollDriverIdRouteImport.update({
     id: '/payroll/$driverId',
@@ -259,6 +265,7 @@ export interface FileRoutesByFullPath {
   '/passenger/': typeof PassengerIndexRoute
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
+  '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -293,6 +300,7 @@ export interface FileRoutesByTo {
   '/passenger': typeof PassengerIndexRoute
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
+  '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -331,6 +339,7 @@ export interface FileRoutesById {
   '/passenger/': typeof PassengerIndexRoute
   '/_authenticated/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/_authenticated/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
+  '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -369,6 +378,7 @@ export interface FileRouteTypes {
     | '/passenger/'
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
+    | '/api/public/hfc-callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -403,6 +413,7 @@ export interface FileRouteTypes {
     | '/passenger'
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
+    | '/api/public/hfc-callback'
   id:
     | '__root__'
     | '/'
@@ -440,6 +451,7 @@ export interface FileRouteTypes {
     | '/passenger/'
     | '/_authenticated/medicaid-trips/new'
     | '/_authenticated/payroll/$driverId'
+    | '/api/public/hfc-callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -449,6 +461,7 @@ export interface RootRouteChildren {
   DriverRoute: typeof DriverRouteWithChildren
   PassengerRoute: typeof PassengerRouteWithChildren
   TrackTripIdRoute: typeof TrackTripIdRoute
+  ApiPublicHfcCallbackRoute: typeof ApiPublicHfcCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -684,6 +697,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBillingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/hfc-callback': {
+      id: '/api/public/hfc-callback'
+      path: '/api/public/hfc-callback'
+      fullPath: '/api/public/hfc-callback'
+      preLoaderRoute: typeof ApiPublicHfcCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/payroll/$driverId': {
       id: '/_authenticated/payroll/$driverId'
       path: '/payroll/$driverId'
@@ -806,6 +826,7 @@ const rootRouteChildren: RootRouteChildren = {
   DriverRoute: DriverRouteWithChildren,
   PassengerRoute: PassengerRouteWithChildren,
   TrackTripIdRoute: TrackTripIdRoute,
+  ApiPublicHfcCallbackRoute: ApiPublicHfcCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
