@@ -147,6 +147,17 @@ function MedicaidBillingPage() {
 
   async function downloadPdf(trip: any) {
     try {
+      // Prefer the PDF that was stored at submit time
+      if (trip.state_pdf_path) {
+        const { data: signed, error } = await supabase.storage
+          .from("state-pdfs")
+          .createSignedUrl(trip.state_pdf_path, 300);
+        if (error) throw error;
+        if (signed?.signedUrl) {
+          window.open(signed.signedUrl, "_blank", "noopener,noreferrer");
+          return;
+        }
+      }
       // Load legs (fallback to legacy single-leg fields if none)
       const { data: legs } = await supabase
         .from("medicaid_trip_legs")
