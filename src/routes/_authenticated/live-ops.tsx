@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseBrowser";
 import { DriverFleetMap, type DriverMarker } from "@/components/nemt/useClientMap";
 import { fmtMoney } from "@/lib/rideMath";
@@ -63,7 +64,26 @@ function LiveOps() {
       .channel("live-ops")
       .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "ride_requests" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "trips" }, load)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "trips" },
+        (payload) => {
+          const oldStatus = (payload.old as { status?: string } | null)?.status;
+          const newStatus = (payload.new as { status?: string } | null)?.status;
+          if (newStatus && oldStatus !== newStatus) {
+            const label: Record<string, string> = {
+              driver_en_route_to_pickup: "Driver started pickup",
+              arrived_at_pickup: "Driver arrived at pickup",
+              in_progress: "Trip in progress",
+              completed: "Trip completed",
+              cancelled: "Trip cancelled",
+            };
+            const msg = label[newStatus];
+            if (msg) toast(msg);
+          }
+          load();
+        },
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
