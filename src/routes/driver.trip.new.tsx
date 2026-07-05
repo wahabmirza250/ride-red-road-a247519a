@@ -225,7 +225,7 @@ function NewNemtTripWizard() {
   function addRiderSlot(r: Rider) {
     if (riderSlots.some((s) => s.rider.id === r.id)) return;
     if (tripKind !== "group_tour" && riderSlots.length >= 1) {
-      toast.info("Switch to Group Tour to add more than one rider");
+      toast.info("Switch to Group Tour to add more than one passenger");
       return;
     }
     setRiderSlots((prev) => [
@@ -300,7 +300,7 @@ function NewNemtTripWizard() {
           });
         } else if (prefill.passenger) {
           setRiderQuery(prefill.passenger.full_name ?? "");
-          toast.info("Assigned address loaded. Select or create the rider to continue.");
+          toast.info("Assigned address loaded. Select or create the passenger to continue.");
         }
       })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Could not load assigned trip"));
@@ -417,7 +417,7 @@ function NewNemtTripWizard() {
   }, [plate, vehicleType]);
 
   const riderIssue = useMemo(() => {
-    if (riderSlots.length === 0) return "Add at least one rider";
+    if (riderSlots.length === 0) return "Add at least one passenger";
     return null;
   }, [riderSlots.length]);
 
@@ -560,7 +560,7 @@ function NewNemtTripWizard() {
       toast.success(
         riderSlots.length === 1
           ? "Trip submitted for review"
-          : `${riderSlots.length} rider forms submitted for review`,
+          : `${riderSlots.length} passenger forms submitted for review`,
       );
       setCompletedPdfs(generated);
     } catch (e: any) {
@@ -622,7 +622,7 @@ function NewNemtTripWizard() {
         />
         <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-            <Check className="h-4 w-4" /> One PDF per rider generated
+            <Check className="h-4 w-4" /> One PDF per passenger generated
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             Billing will review and then auto-submit to the Colorado provider portal.
@@ -677,7 +677,7 @@ function NewNemtTripWizard() {
     <div className="mx-auto max-w-3xl space-y-4 p-4 pb-24">
       <PageHeader
         title="Complete NEMT trip"
-        description="Digital version of the Colorado NEMT Trip Report — one form per rider is generated automatically."
+        description="Digital version of the Colorado NEMT Trip Report — one form per passenger is generated automatically."
       />
 
       {assignedTrip && (
@@ -690,7 +690,7 @@ function NewNemtTripWizard() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="grid w-full grid-cols-5 text-xs">
           <TabsTrigger value="vehicle">1. Vehicle</TabsTrigger>
-          <TabsTrigger value="riders">2. Riders</TabsTrigger>
+          <TabsTrigger value="riders">2. Passengers</TabsTrigger>
           <TabsTrigger value="legs">3. Legs</TabsTrigger>
           <TabsTrigger value="sign">4. Signatures</TabsTrigger>
           <TabsTrigger value="review">5. Review</TabsTrigger>
@@ -704,7 +704,7 @@ function NewNemtTripWizard() {
               <SelectContent>
                 <SelectItem value="one_way">One way</SelectItem>
                 <SelectItem value="round_trip">Round trip</SelectItem>
-                <SelectItem value="group_tour">Group tour (multiple riders)</SelectItem>
+                <SelectItem value="group_tour">Group tour (multiple passengers)</SelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -735,7 +735,7 @@ function NewNemtTripWizard() {
         {/* ---------- STEP 2 ---------- */}
         <TabsContent value="riders" className="space-y-4 pt-4">
           <div className="rounded-xl border p-3">
-            <Label className="text-sm font-semibold">Add rider</Label>
+            <Label className="text-sm font-semibold">Add passenger</Label>
             <div className="mt-2 flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -773,7 +773,7 @@ function NewNemtTripWizard() {
                 {!newRider.medicaid_id.trim() && (
                   <div className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 p-2 text-xs">
                     <div className="mb-2 font-medium text-amber-700 dark:text-amber-400">
-                      No Medicaid ID? Provide DOB + last 4 of SSN for billing.
+                      No Medicaid ID? Enter last 4 of SSN (DOB optional).
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Input type="date" placeholder="DOB" value={newRider.dob}
@@ -796,7 +796,7 @@ function NewNemtTripWizard() {
                 )}
                 <Input placeholder="Phone" value={newRider.phone}
                   onChange={(e) => setNewRider({ ...newRider, phone: e.target.value })} />
-                <Button size="sm" onClick={createNewRider}>Save rider</Button>
+                <Button size="sm" onClick={createNewRider}>Save passenger</Button>
               </div>
             )}
           </div>
@@ -840,7 +840,7 @@ function NewNemtTripWizard() {
             ))}
             {riderSlots.length === 0 && (
               <div className="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
-                Add at least one rider.
+                Add at least one passenger.
               </div>
             )}
           </div>
