@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Plus, Loader2, KeyRound } from "lucide-react";
+import { Plus, Loader2, KeyRound, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,27 +15,61 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  getBillingSettings,
   listPortalCredentials,
+  setDefaultBillingPortal,
   upsertPortalCredential,
 } from "@/lib/billing.functions";
+import { PORTALS, getPortal } from "@/lib/portals";
 import { formatDateTime } from "@/lib/format";
 
 export function PortalCredentialsCard() {
   const list = useServerFn(listPortalCredentials);
+  const settingsFn = useServerFn(getBillingSettings);
+  const setDefaultFn = useServerFn(setDefaultBillingPortal);
+  const qc = useQueryClient();
+
   const creds = useQuery({
     queryKey: ["portal_credentials"],
     queryFn: () => list(),
   });
+  const settings = useQuery({
+    queryKey: ["billing_settings"],
+    queryFn: () => settingsFn(),
+  });
+
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+
+  const setDefault = useMutation({
+    mutationFn: (portal_id: string) => setDefaultFn({ data: { portal_id } }),
+    onSuccess: () => {
+      toast.success("Default portal updated");
+      qc.invalidateQueries({ queryKey: ["billing_settings"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const savedPortalIds = useMemo(
+    () => new Set((creds.data ?? []).map((c: any) => c.portal_id)),
+    [creds.data],
+  );
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold">State portal credentials</h2>
+          <h2 className="text-base font-semibold">Billing portal</h2>
           <p className="text-xs text-muted-foreground">
-            Encrypted in Supabase Vault. Only the automation runner can decrypt.
+            Pick the state portal to bill through, then save its login.
+            Passwords are encrypted at rest and never returned to the browser.
           </p>
         </div>
         <Dialog
@@ -64,41 +98,83 @@ export function PortalCredentialsCard() {
         </Dialog>
       </div>
 
+      {/* Default portal selector */}
+      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-border bg-surface-muted/40 p-3 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Star className="h-4 w-4 text-amber-500" /> Default portal for this
+          account
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Select
+            value={settings.data?.default_portal_id ?? ""}
+            onValueChange={(v) => setDefault.mutate(v)}
+            disabled={setDefault.isPending || settings.isLoading}
+          >
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Select a portal…" />
+            </SelectTrigger>
+            <SelectContent>
+              {PORTALS.map((p) => (
+                <SelectItem
+                  key={p.id}
+                  value={p.id}
+                  disabled={!savedPortalIds.has(p.id)}
+                >
+                  {p.name} · {p.state}
+                  {!savedPortalIds.has(p.id) ? " (no login saved)" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {creds.isLoading ? (
         <div className="flex justify-center py-6">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
       ) : (
         <div className="space-y-2">
-          {(creds.data ?? []).map((c: any) => (
-            <button
-              key={c.id}
-              onClick={() => {
-                setEditing(c);
-                setOpen(true);
-              }}
-              className="flex w-full items-center justify-between rounded-xl border border-border px-3 py-2 text-left hover:border-primary/40"
-            >
-              <div>
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
-                  {c.portal_name}
-                  <span className="text-xs font-normal text-muted-foreground">
-                    · {c.state}
-                  </span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {c.login_email} · password ••••{c.password_last4 ?? "····"}
-                </div>
-                {c.last_used_at && (
-                  <div className="text-[10px] text-muted-foreground">
-                    Last used {formatDateTime(c.last_used_at)}
+          {(creds.data ?? []).map((c: any) => {
+            const def = getPortal(c.portal_id);
+            const isDefault =
+              settings.data?.default_portal_id === c.portal_id;
+            return (
+              <button
+                key={c.id}
+                onClick={() => {
+                  setEditing(c);
+                  setOpen(true);
+                }}
+                className="flex w-full items-center justify-between rounded-xl border border-border px-3 py-2 text-left hover:border-primary/40"
+              >
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+                    {def?.name ?? c.portal_name}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      · {def?.state ?? c.state}
+                    </span>
+                    {isDefault && (
+                      <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                        default
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
-              <span className="text-xs text-muted-foreground">Edit</span>
-            </button>
-          ))}
+                  <div className="text-xs text-muted-foreground">
+                    {c.login_email} · password ••••
+                    {c.password_last4 ?? "····"}
+                  </div>
+                  {c.last_used_at && (
+                    <div className="text-[10px] text-muted-foreground">
+                      Last used {formatDateTime(c.last_used_at)}
+                    </div>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground">Edit</span>
+              </button>
+            );
+          })}
           {creds.data?.length === 0 && (
             <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
               No portal credentials saved yet.
@@ -119,18 +195,28 @@ function CredentialDialog({
 }) {
   const upsertFn = useServerFn(upsertPortalCredential);
   const qc = useQueryClient();
-  const [f, setF] = useState({
-    portal_name: initial?.portal_name ?? "Colorado Health First",
-    state: initial?.state ?? "CO",
-    login_email: initial?.login_email ?? "",
-    login_password: "",
-  });
+  const initialPortal = initial?.portal_id ?? PORTALS[0].id;
+  const [portalId, setPortalId] = useState<string>(initialPortal);
+  const [loginEmail, setLoginEmail] = useState<string>(initial?.login_email ?? "");
+  const [loginPassword, setLoginPassword] = useState<string>("");
+
+  const def = getPortal(portalId);
 
   const save = useMutation({
-    mutationFn: () => upsertFn({ data: f }),
+    mutationFn: () =>
+      upsertFn({
+        data: {
+          portal_id: portalId,
+          portal_name: def?.name ?? portalId,
+          state: def?.state ?? "",
+          login_email: loginEmail,
+          login_password: loginPassword,
+        },
+      }),
     onSuccess: () => {
       toast.success("Saved");
       qc.invalidateQueries({ queryKey: ["portal_credentials"] });
+      qc.invalidateQueries({ queryKey: ["billing_settings"] });
       onClose();
     },
     onError: (e: any) => toast.error(e.message),
@@ -143,36 +229,42 @@ function CredentialDialog({
           {initial ? "Update credential" : "Add credential"}
         </DialogTitle>
       </DialogHeader>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>Portal name</Label>
-          <Input
-            value={f.portal_name}
-            onChange={(e) => setF({ ...f, portal_name: e.target.value })}
-          />
+      <div className="grid gap-3">
+        <div className="space-y-1.5">
+          <Label>Portal</Label>
+          <Select
+            value={portalId}
+            onValueChange={setPortalId}
+            disabled={!!initial}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PORTALS.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name} · {p.state}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1.5">
-          <Label>State</Label>
-          <Input
-            value={f.state}
-            onChange={(e) => setF({ ...f, state: e.target.value.toUpperCase() })}
-            maxLength={2}
-          />
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
           <Label>Login email</Label>
           <Input
             type="email"
-            value={f.login_email}
-            onChange={(e) => setF({ ...f, login_email: e.target.value })}
+            value={loginEmail}
+            onChange={(e) => setLoginEmail(e.target.value)}
           />
         </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>{initial ? "New password (leave blank to keep)" : "Password"}</Label>
+        <div className="space-y-1.5">
+          <Label>
+            {initial ? "New password (leave blank to keep)" : "Password"}
+          </Label>
           <Input
             type="password"
-            value={f.login_password}
-            onChange={(e) => setF({ ...f, login_password: e.target.value })}
+            value={loginPassword}
+            onChange={(e) => setLoginPassword(e.target.value)}
             placeholder={initial ? "••••••••" : ""}
           />
         </div>
@@ -185,10 +277,9 @@ function CredentialDialog({
           onClick={() => save.mutate()}
           disabled={
             save.isPending ||
-            !f.portal_name ||
-            !f.state ||
-            !f.login_email ||
-            (!initial && !f.login_password)
+            !portalId ||
+            !loginEmail ||
+            (!initial && !loginPassword)
           }
         >
           {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
