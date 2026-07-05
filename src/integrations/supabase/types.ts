@@ -495,6 +495,7 @@ export type Database = {
           signature_name: string | null
           signature_path: string | null
           signed_by_escort: boolean | null
+          state_pdf_generated_at: string | null
           state_pdf_path: string | null
           status: Database["public"]["Enums"]["medicaid_trip_status"]
           submitted_at: string | null
@@ -533,6 +534,7 @@ export type Database = {
           signature_name?: string | null
           signature_path?: string | null
           signed_by_escort?: boolean | null
+          state_pdf_generated_at?: string | null
           state_pdf_path?: string | null
           status?: Database["public"]["Enums"]["medicaid_trip_status"]
           submitted_at?: string | null
@@ -571,6 +573,7 @@ export type Database = {
           signature_name?: string | null
           signature_path?: string | null
           signed_by_escort?: boolean | null
+          state_pdf_generated_at?: string | null
           state_pdf_path?: string | null
           status?: Database["public"]["Enums"]["medicaid_trip_status"]
           submitted_at?: string | null

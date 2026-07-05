@@ -25,6 +25,7 @@ const SubmitSchema = z.object({
     miles: z.number(),
   }),
   signature_url: z.string().url().nullable(),
+  pdf_url: z.string().url(),
   evidence_prefix: z.string(),
 });
 export type SubmitPayload = z.infer<typeof SubmitSchema>;

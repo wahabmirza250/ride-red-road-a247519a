@@ -37,6 +37,7 @@ function MedicaidBillingPage() {
   const [reviewNotes, setReviewNotes] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [sigUrl, setSigUrl] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   const trips = useQuery({
     queryKey: ["medicaid_billing", status],
@@ -68,16 +69,29 @@ function MedicaidBillingPage() {
     };
   }, [qc]);
 
-  // Load signature URL
+  // Load signature & stored state PDF URLs
   useEffect(() => {
-    if (!selected?.signature_path) {
+    if (!selected) {
       setSigUrl(null);
+      setPdfUrl(null);
       return;
     }
-    supabase.storage
-      .from("signatures")
-      .createSignedUrl(selected.signature_path, 300)
-      .then(({ data }) => setSigUrl(data?.signedUrl ?? null));
+    if (selected.signature_path) {
+      supabase.storage
+        .from("signatures")
+        .createSignedUrl(selected.signature_path, 300)
+        .then(({ data }) => setSigUrl(data?.signedUrl ?? null));
+    } else {
+      setSigUrl(null);
+    }
+    if (selected.state_pdf_path) {
+      supabase.storage
+        .from("state-pdfs")
+        .createSignedUrl(selected.state_pdf_path, 900)
+        .then(({ data }) => setPdfUrl(data?.signedUrl ?? null));
+    } else {
+      setPdfUrl(null);
+    }
   }, [selected]);
 
   const review = useMutation({
@@ -133,6 +147,17 @@ function MedicaidBillingPage() {
 
   async function downloadPdf(trip: any) {
     try {
+      // Prefer the PDF that was stored at submit time
+      if (trip.state_pdf_path) {
+        const { data: signed, error } = await supabase.storage
+          .from("state-pdfs")
+          .createSignedUrl(trip.state_pdf_path, 300);
+        if (error) throw error;
+        if (signed?.signedUrl) {
+          window.open(signed.signedUrl, "_blank", "noopener,noreferrer");
+          return;
+        }
+      }
       // Load legs (fallback to legacy single-leg fields if none)
       const { data: legs } = await supabase
         .from("medicaid_trip_legs")
@@ -292,6 +317,23 @@ function MedicaidBillingPage() {
                       alt="Signature"
                       className="mt-1 h-32 rounded-lg border bg-white"
                     />
+                  </div>
+                )}
+
+                {pdfUrl ? (
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground">
+                      Filled state trip log
+                    </div>
+                    <iframe
+                      src={pdfUrl}
+                      title="State trip log"
+                      className="mt-1 h-[520px] w-full rounded-lg border bg-white"
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
+                    No stored PDF for this trip yet — use Download to regenerate on the fly.
                   </div>
                 )}
 

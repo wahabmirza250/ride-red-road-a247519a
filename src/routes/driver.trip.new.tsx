@@ -28,6 +28,7 @@ import { Search, UserPlus, X, Loader2, Check, Camera } from "lucide-react";
 import {
   createNemtTripGroup,
   attachRiderSignature,
+  attachStatePdf,
   getMyDriverDefaults,
   getAssignedTripForNemt,
   detectOdometerFromImage,
@@ -337,7 +338,11 @@ function NewNemtTripWizard() {
   // Submit
   const submitGroup = useServerFn(createNemtTripGroup);
   const attachSig = useServerFn(attachRiderSignature);
+  const attachPdf = useServerFn(attachStatePdf);
   const [submitting, setSubmitting] = useState(false);
+  const [completedPdfs, setCompletedPdfs] = useState<
+    { rider_name: string; url: string; filename: string }[] | null
+  >(null);
 
   const vehicleIssue = useMemo(() => {
     if (!vehicleType) return "Select vehicle type";
@@ -415,23 +420,75 @@ function NewNemtTripWizard() {
         },
       });
 
-      // Upload each rider signature and attach it to its matching trip row
+      // For each rider: upload signature, generate the filled state PDF,
+      // upload it to state-pdfs, and attach both to the trip row.
+      const generated: { rider_name: string; url: string; filename: string }[] = [];
+      const legsPayload = legs.map((l) => ({
+        leg_index: l.leg_index,
+        leg_date: l.leg_date,
+        pickup_time: l.pickup_time || null,
+        pickup_odometer: Number(l.pickup_odometer),
+        pickup_address: l.pickup_address,
+        dropoff_time: l.dropoff_time || null,
+        dropoff_odometer: Number(l.dropoff_odometer),
+        dropoff_address: l.dropoff_address,
+      }));
+
       for (let i = 0; i < riderSlots.length; i++) {
         const slot = riderSlots[i];
         const tripId = res.trip_ids[i];
+
+        // 1. Signature upload
         const png = await (await fetch(slot.signature_data_url!)).blob();
-        const path = `${user.id}/${tripId}.png`;
-        const up = await supabase.storage
+        const sigPath = `${user.id}/${tripId}.png`;
+        const sigUp = await supabase.storage
           .from("signatures")
-          .upload(path, png, { upsert: true, contentType: "image/png" });
-        if (up.error) throw up.error;
+          .upload(sigPath, png, { upsert: true, contentType: "image/png" });
+        if (sigUp.error) throw sigUp.error;
         await attachSig({
           data: {
             trip_id: tripId,
-            signature_path: path,
+            signature_path: sigPath,
             signature_name: slot.signer_name,
           },
         });
+
+        // 2. Generate the filled Colorado NEMT Trip Log PDF
+        const pdfBytes = await generateStateFormPdf({
+          rider: slot.rider,
+          driverName: user.email ?? "",
+          vehiclePlate: plate,
+          vehicleVin: vin || null,
+          vehicleType,
+          escortName: escortName || null,
+          identityVerified: slot.identity_verified,
+          tripKind,
+          legs: legsPayload,
+          signatureName: slot.signer_name,
+          signatureUrl: slot.signature_data_url,
+          signedByEscort: slot.signed_by_escort,
+        });
+
+        // 3. Upload PDF to state-pdfs bucket
+        const pdfPath = `${user.id}/${tripId}.pdf`;
+        const pdfBlob = new Blob([pdfBytes as BlobPart], { type: "application/pdf" });
+        const pdfUp = await supabase.storage
+          .from("state-pdfs")
+          .upload(pdfPath, pdfBlob, { upsert: true, contentType: "application/pdf" });
+        if (pdfUp.error) throw pdfUp.error;
+        await attachPdf({ data: { trip_id: tripId, state_pdf_path: pdfPath } });
+
+        // 4. Signed URL for driver confirmation view
+        const { data: signed } = await supabase.storage
+          .from("state-pdfs")
+          .createSignedUrl(pdfPath, 60 * 15);
+        if (signed?.signedUrl) {
+          generated.push({
+            rider_name: slot.rider.full_name,
+            url: signed.signedUrl,
+            filename: `nemt-${slot.rider.full_name.replace(/\s+/g, "_")}-${tripId.slice(0, 8)}.pdf`,
+          });
+        }
       }
 
       toast.success(
@@ -439,7 +496,7 @@ function NewNemtTripWizard() {
           ? "Trip submitted for review"
           : `${riderSlots.length} rider forms submitted for review`,
       );
-      navigate({ to: "/driver/history" });
+      setCompletedPdfs(generated);
     } catch (e: any) {
       toast.error(e.message ?? "Submission failed");
     } finally {
@@ -486,6 +543,66 @@ function NewNemtTripWizard() {
     return (
       <div className="mx-auto max-w-lg p-6 text-sm text-muted-foreground">
         This wizard is for drivers.
+      </div>
+    );
+  }
+
+  if (completedPdfs) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 p-4 pb-24">
+        <PageHeader
+          title="Trip submitted"
+          description="Your filled state trip log is stored and queued for billing review."
+        />
+        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+            <Check className="h-4 w-4" /> One PDF per rider generated
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Billing will review and then auto-submit to the Colorado provider portal.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          {completedPdfs.length === 0 && (
+            <div className="text-sm text-muted-foreground">No PDFs generated.</div>
+          )}
+          {completedPdfs.map((p) => (
+            <div
+              key={p.url}
+              className="flex items-center justify-between gap-3 rounded-xl border bg-surface p-3"
+            >
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium">{p.rider_name}</div>
+                <div className="truncate text-xs text-muted-foreground">{p.filename}</div>
+              </div>
+              <div className="flex gap-2">
+                <a
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                >
+                  View PDF
+                </a>
+                <a
+                  href={p.url}
+                  download={p.filename}
+                  className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                >
+                  Download
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => navigate({ to: "/driver/history" })}>
+            History
+          </Button>
+          <Button onClick={() => navigate({ to: "/driver" })}>Done</Button>
+        </div>
       </div>
     );
   }
