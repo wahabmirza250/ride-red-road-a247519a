@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { createAdmin, listAdmins } from "@/lib/admin.functions";
+import { PortalCredentialsCard } from "@/components/billing/PortalCredentialsCard";
 
 export const Route = createFileRoute("/_authenticated/team")({
   component: TeamPage,
