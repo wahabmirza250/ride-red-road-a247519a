@@ -69,16 +69,29 @@ function MedicaidBillingPage() {
     };
   }, [qc]);
 
-  // Load signature URL
+  // Load signature & stored state PDF URLs
   useEffect(() => {
-    if (!selected?.signature_path) {
+    if (!selected) {
       setSigUrl(null);
+      setPdfUrl(null);
       return;
     }
-    supabase.storage
-      .from("signatures")
-      .createSignedUrl(selected.signature_path, 300)
-      .then(({ data }) => setSigUrl(data?.signedUrl ?? null));
+    if (selected.signature_path) {
+      supabase.storage
+        .from("signatures")
+        .createSignedUrl(selected.signature_path, 300)
+        .then(({ data }) => setSigUrl(data?.signedUrl ?? null));
+    } else {
+      setSigUrl(null);
+    }
+    if (selected.state_pdf_path) {
+      supabase.storage
+        .from("state-pdfs")
+        .createSignedUrl(selected.state_pdf_path, 900)
+        .then(({ data }) => setPdfUrl(data?.signedUrl ?? null));
+    } else {
+      setPdfUrl(null);
+    }
   }, [selected]);
 
   const review = useMutation({
