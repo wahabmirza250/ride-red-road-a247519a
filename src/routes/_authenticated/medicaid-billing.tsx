@@ -37,6 +37,7 @@ function MedicaidBillingPage() {
   const [reviewNotes, setReviewNotes] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [sigUrl, setSigUrl] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   const trips = useQuery({
     queryKey: ["medicaid_billing", status],
