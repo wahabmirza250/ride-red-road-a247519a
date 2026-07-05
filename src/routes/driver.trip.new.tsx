@@ -420,23 +420,75 @@ function NewNemtTripWizard() {
         },
       });
 
-      // Upload each rider signature and attach it to its matching trip row
+      // For each rider: upload signature, generate the filled state PDF,
+      // upload it to state-pdfs, and attach both to the trip row.
+      const generated: { rider_name: string; url: string; filename: string }[] = [];
+      const legsPayload = legs.map((l) => ({
+        leg_index: l.leg_index,
+        leg_date: l.leg_date,
+        pickup_time: l.pickup_time || null,
+        pickup_odometer: Number(l.pickup_odometer),
+        pickup_address: l.pickup_address,
+        dropoff_time: l.dropoff_time || null,
+        dropoff_odometer: Number(l.dropoff_odometer),
+        dropoff_address: l.dropoff_address,
+      }));
+
       for (let i = 0; i < riderSlots.length; i++) {
         const slot = riderSlots[i];
         const tripId = res.trip_ids[i];
+
+        // 1. Signature upload
         const png = await (await fetch(slot.signature_data_url!)).blob();
-        const path = `${user.id}/${tripId}.png`;
-        const up = await supabase.storage
+        const sigPath = `${user.id}/${tripId}.png`;
+        const sigUp = await supabase.storage
           .from("signatures")
-          .upload(path, png, { upsert: true, contentType: "image/png" });
-        if (up.error) throw up.error;
+          .upload(sigPath, png, { upsert: true, contentType: "image/png" });
+        if (sigUp.error) throw sigUp.error;
         await attachSig({
           data: {
             trip_id: tripId,
-            signature_path: path,
+            signature_path: sigPath,
             signature_name: slot.signer_name,
           },
         });
+
+        // 2. Generate the filled Colorado NEMT Trip Log PDF
+        const pdfBytes = await generateStateFormPdf({
+          rider: slot.rider,
+          driverName: user.email ?? "",
+          vehiclePlate: plate,
+          vehicleVin: vin || null,
+          vehicleType,
+          escortName: escortName || null,
+          identityVerified: slot.identity_verified,
+          tripKind,
+          legs: legsPayload,
+          signatureName: slot.signer_name,
+          signatureUrl: slot.signature_data_url,
+          signedByEscort: slot.signed_by_escort,
+        });
+
+        // 3. Upload PDF to state-pdfs bucket
+        const pdfPath = `${user.id}/${tripId}.pdf`;
+        const pdfBlob = new Blob([pdfBytes as BlobPart], { type: "application/pdf" });
+        const pdfUp = await supabase.storage
+          .from("state-pdfs")
+          .upload(pdfPath, pdfBlob, { upsert: true, contentType: "application/pdf" });
+        if (pdfUp.error) throw pdfUp.error;
+        await attachPdf({ data: { trip_id: tripId, state_pdf_path: pdfPath } });
+
+        // 4. Signed URL for driver confirmation view
+        const { data: signed } = await supabase.storage
+          .from("state-pdfs")
+          .createSignedUrl(pdfPath, 60 * 15);
+        if (signed?.signedUrl) {
+          generated.push({
+            rider_name: slot.rider.full_name,
+            url: signed.signedUrl,
+            filename: `nemt-${slot.rider.full_name.replace(/\s+/g, "_")}-${tripId.slice(0, 8)}.pdf`,
+          });
+        }
       }
 
       toast.success(
@@ -444,7 +496,7 @@ function NewNemtTripWizard() {
           ? "Trip submitted for review"
           : `${riderSlots.length} rider forms submitted for review`,
       );
-      navigate({ to: "/driver/history" });
+      setCompletedPdfs(generated);
     } catch (e: any) {
       toast.error(e.message ?? "Submission failed");
     } finally {
