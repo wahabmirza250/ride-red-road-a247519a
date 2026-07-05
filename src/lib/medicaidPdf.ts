@@ -33,6 +33,12 @@ export type FormArgs = {
   signedByEscort?: boolean;
 };
 
+type GeneratePdfOptions = {
+  templateBaseUrl?: string;
+};
+
+type PdfRect = { x: number; y: number; width: number; height: number };
+
 /**
  * Fills the official Colorado HCPF Non-Emergent Medical Transportation Trip
  * Log (April 2025) using its AcroForm fields, stamps the captured signature
@@ -43,8 +49,12 @@ export type FormArgs = {
  * fillable template — the state's spelling/casing (e.g. "AM" vs "am") is
  * preserved because those strings are the field's export values.
  */
-export async function generateStateFormPdf(a: FormArgs): Promise<Uint8Array> {
-  const templateBytes = await fetch(templateAsset.url).then((r) => {
+export async function generateStateFormPdf(
+  a: FormArgs,
+  options: GeneratePdfOptions = {},
+): Promise<Uint8Array> {
+  const templateUrl = resolveTemplateUrl(options.templateBaseUrl);
+  const templateBytes = await fetch(templateUrl).then((r) => {
     if (!r.ok) throw new Error(`Failed to load template PDF: ${r.status}`);
     return r.arrayBuffer();
   });
@@ -149,32 +159,27 @@ export async function generateStateFormPdf(a: FormArgs): Promise<Uint8Array> {
 
   /* ---------- Signature: stamp PNG inside the widget's rectangle ---------- */
   if (a.signatureUrl) {
+    const bytes = await fetch(a.signatureUrl).then((r) => {
+      if (!r.ok) throw new Error(`Failed to load saved signature: ${r.status}`);
+      return r.arrayBuffer();
+    });
+    let img;
+    try {
+      img = await pdf.embedPng(bytes);
+    } catch {
+      img = await pdf.embedJpg(bytes);
+    }
+
+    let stamped = false;
     try {
       const sigField = form.getField("Members Signature");
       const widgets = sigField.acroField.getWidgets();
-      const bytes = await fetch(a.signatureUrl).then((r) => r.arrayBuffer());
-      let img;
-      try {
-        img = await pdf.embedPng(bytes);
-      } catch {
-        img = await pdf.embedJpg(bytes);
-      }
       for (const widget of widgets) {
         const rect = widget.getRectangle();
         const pageRef = widget.P();
         const page = pdf.getPages().find((pg) => pg.ref === pageRef) ?? pdf.getPage(0);
-        // Fit image inside the widget rect, preserving aspect ratio.
-        const maxW = rect.width;
-        const maxH = rect.height;
-        const scale = Math.min(maxW / img.width, maxH / img.height);
-        const drawW = img.width * scale;
-        const drawH = img.height * scale;
-        page.drawImage(img, {
-          x: rect.x + (maxW - drawW) / 2,
-          y: rect.y + (maxH - drawH) / 2,
-          width: drawW,
-          height: drawH,
-        });
+        drawSignatureImage(page, img, rect);
+        stamped = true;
         if (a.signedByEscort) {
           page.drawText("(signed by escort)", {
             x: rect.x,
@@ -191,7 +196,16 @@ export async function generateStateFormPdf(a: FormArgs): Promise<Uint8Array> {
         /* older pdf-lib versions expose removeField only in newer builds */
       }
     } catch {
-      /* signature field absent — image simply isn't stamped */
+      // If the state changes the signature field type/name, keep using the
+      // known location from the April 2025 template rather than producing a
+      // completed PDF with no signature.
+      const page = pdf.getPage(0);
+      drawSignatureImage(page, img, { x: 145.56, y: 150.24, width: 17.16, height: 289.32 });
+      stamped = true;
+    }
+
+    if (!stamped) {
+      throw new Error("Could not place the saved signature on the PDF");
     }
   }
 
@@ -203,6 +217,62 @@ export async function generateStateFormPdf(a: FormArgs): Promise<Uint8Array> {
   }
 
   return await pdf.save();
+}
+
+function resolveTemplateUrl(templateBaseUrl?: string): string {
+  if (/^https?:\/\//i.test(templateAsset.url)) return templateAsset.url;
+  if (templateBaseUrl) return new URL(templateAsset.url, templateBaseUrl).toString();
+  if (typeof window !== "undefined") return new URL(templateAsset.url, window.location.origin).toString();
+  return templateAsset.url;
+}
+
+function drawSignatureImage(page: any, img: any, rect: PdfRect) {
+  const rotation = ((page.getRotation().angle % 360) + 360) % 360;
+
+  // The Colorado template is a landscape page stored as a portrait PDF rotated
+  // 90°. Its signature widget is therefore tall/narrow in raw PDF coordinates,
+  // but horizontal on screen. Swap the fit dimensions so the drawn signature
+  // fills the visible signature line instead of becoming a tiny mark.
+  if (rotation === 90 || rotation === 270) {
+    const fieldW = Math.max(1, rect.height - 2);
+    const fieldH = Math.max(1, rect.width - 2);
+    const { width: visualW, height: visualH } = signatureFit(img.width, img.height, fieldW, fieldH);
+    const rawW = visualH;
+    const rawH = visualW;
+    page.drawImage(img, {
+      x: rect.x + (rect.width - rawW) / 2,
+      y: rect.y + (rect.height - rawH) / 2,
+      width: rawW,
+      height: rawH,
+    });
+    return;
+  }
+
+  const { width, height } = signatureFit(img.width, img.height, rect.width - 2, rect.height - 2);
+  page.drawImage(img, {
+    x: rect.x + (rect.width - width) / 2,
+    y: rect.y + (rect.height - height) / 2,
+    width,
+    height,
+  });
+}
+
+function signatureFit(imgW: number, imgH: number, maxW: number, maxH: number) {
+  const safeW = Math.max(1, maxW);
+  const safeH = Math.max(1, maxH);
+  const aspect = imgW > 0 && imgH > 0 ? imgW / imgH : 4;
+  let width = Math.min(safeW, safeH * aspect);
+  let height = width / aspect;
+
+  // Signature-pad PNGs include the whole signing canvas. If we preserve that
+  // full canvas ratio in a very long state-form line, the actual handwriting can
+  // look missing. Stretch only within the signature line so the mark is visible.
+  if (width < safeW * 0.72) {
+    width = safeW * 0.9;
+    height = safeH * 0.9;
+  }
+
+  return { width, height };
 }
 
 function fmtDate(iso?: string | null): string {
