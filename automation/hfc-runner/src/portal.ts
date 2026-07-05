@@ -67,15 +67,28 @@ export async function submitToPortal(p: SubmitPayload): Promise<{
     await page.fill('input[name="odometerEnd"]', String(p.trip.odometer_end));
     await page.fill('input[name="miles"]', String(p.trip.miles));
 
+    // Attach the pre-filled state PDF (required by the portal). Falls back to
+    // signature-only if the portal exposes a separate signature file input.
+    const pdfBuf = Buffer.from(await (await fetch(p.pdf_url)).arrayBuffer());
+    const pdfInput = page
+      .locator('input[type="file"][name*="trip"], input[type="file"][name*="pdf"], input[type="file"][accept*="pdf"], input[type="file"]')
+      .first();
+    if (await pdfInput.count()) {
+      await pdfInput.setInputFiles({
+        name: "nemt-trip-log.pdf",
+        mimeType: "application/pdf",
+        buffer: pdfBuf,
+      });
+    }
+
     if (p.signature_url) {
-      // Download signature and attach if the portal accepts it
-      const buf = Buffer.from(await (await fetch(p.signature_url)).arrayBuffer());
-      const fileInput = page.locator('input[type="file"][name*="signature"], input[type="file"]').first();
-      if (await fileInput.count()) {
-        await fileInput.setInputFiles({
+      const sigBuf = Buffer.from(await (await fetch(p.signature_url)).arrayBuffer());
+      const sigInput = page.locator('input[type="file"][name*="signature"]').first();
+      if (await sigInput.count()) {
+        await sigInput.setInputFiles({
           name: "signature.png",
           mimeType: "image/png",
-          buffer: buf,
+          buffer: sigBuf,
         });
       }
     }
