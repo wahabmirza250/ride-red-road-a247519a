@@ -1,0 +1,1 @@
+ALTER TABLE public.medicaid_trips ADD COLUMN IF NOT EXISTS state_pdf_generated_at timestamptz;
