@@ -185,7 +185,7 @@ export function BillingDetailSheet({
             {detail.data?.signature_url && (
               <div>
                 <Label>Passenger signature</Label>
-                <img
+                <BlobImage
                   src={detail.data.signature_url}
                   alt="Signature"
                   className="mt-1 h-32 rounded-lg border bg-white"
@@ -194,24 +194,7 @@ export function BillingDetailSheet({
             )}
 
             {detail.data?.pdf_url ? (
-              <div>
-                <Label>State trip log PDF</Label>
-                <iframe
-                  src={detail.data.pdf_url}
-                  title="State trip log"
-                  className="mt-1 h-[520px] w-full rounded-lg border bg-white"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() =>
-                    window.open(detail.data!.pdf_url!, "_blank", "noopener,noreferrer")
-                  }
-                >
-                  <FileDown className="mr-1 h-4 w-4" /> Download PDF
-                </Button>
-              </div>
+              <PdfViewer url={detail.data.pdf_url} />
             ) : (
               <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
                 No stored PDF for this trip yet.
