@@ -463,7 +463,7 @@ function NewNemtTripWizard() {
         // 2. Generate the filled Colorado NEMT Trip Log PDF
         const pdfBytes = await generateStateFormPdf({
           rider: slot.rider,
-          driverName: user.email ?? "",
+          driverName: driverFullName || user.email || "",
           vehiclePlate: plate,
           vehicleVin: vin || null,
           vehicleType,
