@@ -309,6 +309,23 @@ function MedicaidBillingPage() {
                   </div>
                 )}
 
+                {pdfUrl ? (
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground">
+                      Filled state trip log
+                    </div>
+                    <iframe
+                      src={pdfUrl}
+                      title="State trip log"
+                      className="mt-1 h-[520px] w-full rounded-lg border bg-white"
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
+                    No stored PDF for this trip yet — use Download to regenerate on the fly.
+                  </div>
+                )}
+
                 <div>
                   <div className="text-xs font-medium text-muted-foreground">
                     Review notes
