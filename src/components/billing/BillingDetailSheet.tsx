@@ -19,6 +19,7 @@ import {
   getBillingRecord,
   markApproved,
   markRejected,
+  regenerateBillingPdf,
   requestFix,
   submitBillingRecords,
 } from "@/lib/billing.functions";
@@ -38,6 +39,7 @@ export function BillingDetailSheet({
   const submitFn = useServerFn(submitBillingRecords);
   const markApprovedFn = useServerFn(markApproved);
   const markRejectedFn = useServerFn(markRejected);
+  const regeneratePdfFn = useServerFn(regenerateBillingPdf);
 
   const [fixNotes, setFixNotes] = useState("");
   const [rejectReason, setRejectReason] = useState("");
@@ -107,6 +109,15 @@ export function BillingDetailSheet({
       toast.success("Marked rejected by state");
       invalidate();
       onClose();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const regeneratePdf = useMutation({
+    mutationFn: () => regeneratePdfFn({ data: { id: id! } }),
+    onSuccess: () => {
+      toast.success("PDF regenerated with signature");
+      invalidate();
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -194,10 +205,27 @@ export function BillingDetailSheet({
             )}
 
             {detail.data?.pdf_url ? (
-              <PdfViewer url={detail.data.pdf_url} />
+              <PdfViewer
+                url={detail.data.pdf_url}
+                onRegenerate={() => regeneratePdf.mutate()}
+                regenerating={regeneratePdf.isPending}
+                canRegenerate={!!detail.data?.signature_url}
+              />
             ) : (
               <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
                 No stored PDF for this trip yet.
+                {detail.data?.signature_url && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 w-full"
+                    onClick={() => regeneratePdf.mutate()}
+                    disabled={regeneratePdf.isPending}
+                  >
+                    {regeneratePdf.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                    Regenerate PDF with signature
+                  </Button>
+                )}
               </div>
             )}
 
@@ -395,7 +423,17 @@ function BlobImage({
   return <img src={blobUrl} alt={alt} className={className} />;
 }
 
-function PdfViewer({ url }: { url: string }) {
+function PdfViewer({
+  url,
+  onRegenerate,
+  regenerating,
+  canRegenerate,
+}: {
+  url: string;
+  onRegenerate?: () => void;
+  regenerating?: boolean;
+  canRegenerate?: boolean;
+}) {
   const { blobUrl, error } = useBlobUrl(url, "application/pdf");
 
   async function openInNewTab() {
@@ -466,6 +504,12 @@ function PdfViewer({ url }: { url: string }) {
         <Button variant="outline" size="sm" onClick={download}>
           <FileDown className="mr-1 h-4 w-4" /> Download PDF
         </Button>
+        {canRegenerate && onRegenerate && (
+          <Button variant="outline" size="sm" onClick={onRegenerate} disabled={regenerating}>
+            {regenerating && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+            Regenerate signed PDF
+          </Button>
+        )}
       </div>
     </div>
   );
