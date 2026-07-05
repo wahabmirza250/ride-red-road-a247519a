@@ -13,6 +13,8 @@
 @theme inline {
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display",
     "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-handwriting: "Just Another Hand", cursive;
+
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
