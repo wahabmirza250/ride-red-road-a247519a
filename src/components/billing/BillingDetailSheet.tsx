@@ -131,7 +131,21 @@ export function BillingDetailSheet({
           </div>
         ) : (
           <div className="mt-4 space-y-4 text-sm">
-            {rec.submission_error && (
+            {rec.requires_human_step && (
+              <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="text-xs">
+                  <div className="font-medium">
+                    This portal needs a manual step to submit
+                  </div>
+                  <div>
+                    {rec.submission_error ??
+                      "The portal presented a CAPTCHA or two-factor challenge. Complete it manually in the portal, then hit Retry."}
+                  </div>
+                </div>
+              </div>
+            )}
+            {rec.submission_error && !rec.requires_human_step && (
               <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-destructive">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div className="text-xs">
