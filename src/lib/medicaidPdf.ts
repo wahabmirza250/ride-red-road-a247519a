@@ -158,16 +158,22 @@ export async function generateStateFormPdf(
   }
 
   /* ---------- Signature: stamp PNG inside the widget's rectangle ---------- */
-  if (a.signatureUrl) {
-    const bytes = await fetch(a.signatureUrl).then((r) => {
-      if (!r.ok) throw new Error(`Failed to load saved signature: ${r.status}`);
-      return r.arrayBuffer();
-    });
-    let img;
-    try {
-      img = await pdf.embedPng(bytes);
-    } catch {
-      img = await pdf.embedJpg(bytes);
+  if (a.signatureUrl || a.signatureName) {
+    let img: any = null;
+    if (a.signatureUrl) {
+      try {
+        const bytes = await fetch(a.signatureUrl).then((r) => {
+          if (!r.ok) throw new Error(`Failed to load saved signature: ${r.status}`);
+          return r.arrayBuffer();
+        });
+        try {
+          img = await pdf.embedPng(bytes);
+        } catch {
+          img = await pdf.embedJpg(bytes);
+        }
+      } catch (error) {
+        if (!a.signatureName) throw error;
+      }
     }
 
     let stamped = false;
@@ -178,7 +184,8 @@ export async function generateStateFormPdf(
         const rect = widget.getRectangle();
         const pageRef = widget.P();
         const page = pdf.getPages().find((pg) => pg.ref === pageRef) ?? pdf.getPage(0);
-        drawSignatureImage(page, img, rect);
+        if (img) drawSignatureImage(page, img, rect);
+        drawHumanizedSignature(page, rect, a.signatureName);
         stamped = true;
         if (a.signedByEscort) {
           page.drawText("(signed by escort)", {
@@ -200,7 +207,9 @@ export async function generateStateFormPdf(
       // known location from the April 2025 template rather than producing a
       // completed PDF with no signature.
       const page = pdf.getPage(0);
-      drawSignatureImage(page, img, { x: 145.56, y: 150.24, width: 17.16, height: 289.32 });
+      const fallbackRect = { x: 145.56, y: 150.24, width: 17.16, height: 289.32 };
+      if (img) drawSignatureImage(page, img, fallbackRect);
+      drawHumanizedSignature(page, fallbackRect, a.signatureName);
       stamped = true;
     }
 
@@ -235,14 +244,14 @@ function drawSignatureImage(page: any, img: any, rect: PdfRect) {
   // but horizontal on screen. Draw the signature rotated with the page so the
   // handwriting lands along the visible line instead of becoming a vertical mark.
   if (rotation === 90 || rotation === 270) {
-    const lineW = Math.max(1, rect.height - margin * 2);
-    const lineH = Math.max(1, rect.width - margin * 2);
+    const lineW = Math.max(1, rect.height - 26);
+    const lineH = Math.min(22, Math.max(18, rect.width * 1.18));
     const { width, height } = signatureFit(img.width, img.height, lineW, lineH);
     const y = rect.y + (rect.height - width) / 2;
 
     if (rotation === 90) {
       page.drawImage(img, {
-        x: rect.x + rect.width - margin,
+        x: rect.x + rect.width + 2,
         y,
         width,
         height,
@@ -250,7 +259,7 @@ function drawSignatureImage(page: any, img: any, rect: PdfRect) {
       });
     } else {
       page.drawImage(img, {
-        x: rect.x + margin,
+        x: rect.x - 2,
         y: y + width,
         width,
         height,
@@ -269,6 +278,75 @@ function drawSignatureImage(page: any, img: any, rect: PdfRect) {
   });
 }
 
+function drawHumanizedSignature(page: any, rect: PdfRect, name?: string | null) {
+  const cleanName = name?.trim();
+  if (!cleanName) return;
+
+  const rotation = ((page.getRotation().angle % 360) + 360) % 360;
+  if (rotation !== 90 && rotation !== 270) return;
+
+  const seed = hashString(cleanName);
+  const usableW = Math.max(120, rect.height - 54);
+  const startY = rect.y + (rect.height - usableW) / 2;
+  const baseX = rotation === 90 ? rect.x + rect.width + 2.5 : rect.x - 2.5;
+  const direction = rotation === 90 ? 1 : -1;
+  const parts = cleanName.split(/\s+/).filter(Boolean).slice(0, 3);
+  const letters = Math.min(18, Math.max(8, cleanName.replace(/\s+/g, "").length));
+
+  let cursor = 0;
+  for (let i = 0; i < letters; i++) {
+    const charCode = cleanName.charCodeAt(i % cleanName.length) || 65;
+    const next = ((i + 1) / letters) * usableW;
+    const mid = cursor + (next - cursor) * 0.5;
+    const lift = 2.5 + ((charCode + seed + i * 17) % 8) * 0.72;
+    const dip = ((charCode + seed + i * 11) % 5) * 0.42;
+    const thickness = 0.75 + ((charCode + i) % 3) * 0.12;
+
+    page.drawLine({
+      start: { x: baseX - direction * dip, y: startY + cursor },
+      end: { x: baseX - direction * lift, y: startY + mid },
+      thickness,
+      color: rgb(0.02, 0.02, 0.02),
+      opacity: 0.94,
+    });
+    page.drawLine({
+      start: { x: baseX - direction * lift, y: startY + mid },
+      end: { x: baseX + direction * 0.8, y: startY + next },
+      thickness,
+      color: rgb(0.02, 0.02, 0.02),
+      opacity: 0.94,
+    });
+
+    if ((charCode + i + seed) % 4 === 0) {
+      const loopY = startY + mid;
+      const loopH = Math.min(9, (next - cursor) * 0.45);
+      const loopX = baseX - direction * (lift + 1.8);
+      page.drawEllipse({
+        x: loopX,
+        y: loopY,
+        xScale: 2.2,
+        yScale: loopH / 2,
+        borderWidth: 0.7,
+        borderColor: rgb(0.02, 0.02, 0.02),
+        opacity: 0.9,
+      });
+    }
+    cursor = next;
+  }
+
+  if (parts.length > 1) {
+    const flourishStart = startY + usableW * 0.15;
+    const flourishEnd = startY + usableW * 0.92;
+    page.drawLine({
+      start: { x: baseX + direction * 2.2, y: flourishStart },
+      end: { x: baseX + direction * 1.2, y: flourishEnd },
+      thickness: 0.55,
+      color: rgb(0.02, 0.02, 0.02),
+      opacity: 0.55,
+    });
+  }
+}
+
 function signatureFit(imgW: number, imgH: number, maxW: number, maxH: number) {
   const safeW = Math.max(1, maxW);
   const safeH = Math.max(1, maxH);
@@ -279,12 +357,20 @@ function signatureFit(imgW: number, imgH: number, maxW: number, maxH: number) {
   // Signature-pad PNGs include the whole signing canvas. If we preserve that
   // full canvas ratio in a very long state-form line, the actual handwriting can
   // look missing. Stretch only within the signature line so the mark is visible.
-  if (width < safeW * 0.82) {
-    width = safeW * 0.9;
-    height = safeH * 0.86;
+  if (width < safeW * 0.86 || height < safeH * 0.72) {
+    width = safeW * 0.92;
+    height = safeH * 0.9;
   }
 
   return { width, height };
+}
+
+function hashString(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
 }
 
 function fmtDate(iso?: string | null): string {
