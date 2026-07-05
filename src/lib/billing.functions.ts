@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { generateStateFormPdf } from "@/lib/medicaidPdf";
+import { generateStateFormPdf, type Leg } from "@/lib/medicaidPdf";
 
 /** Utility: verify admin, throw on failure */
 async function assertAdmin(supabase: any, userId: string) {
@@ -257,14 +257,14 @@ function getRequestOrigin(): string {
   return host ? `${proto}://${host}` : "http://localhost:8080";
 }
 
-function normalizeTripLegs(trip: any) {
+function normalizeTripLegs(trip: any): Leg[] {
   const rows = Array.isArray(trip.medicaid_trip_legs)
     ? [...trip.medicaid_trip_legs].sort((a, b) => Number(a.leg_index) - Number(b.leg_index))
     : [];
 
   if (rows.length) {
     return rows.map((l: any) => ({
-      leg_index: Number(l.leg_index) === 2 ? 2 : 1,
+      leg_index: (Number(l.leg_index) === 2 ? 2 : 1) as 1 | 2,
       leg_date: String(l.leg_date ?? "").slice(0, 10),
       pickup_time: l.pickup_time ? String(l.pickup_time).slice(0, 5) : null,
       pickup_odometer: Number(l.pickup_odometer ?? 0),
