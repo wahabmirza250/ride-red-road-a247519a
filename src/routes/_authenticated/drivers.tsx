@@ -211,11 +211,11 @@ function NewDriverDialog({ onClose }: { onClose: () => void }) {
     try {
       await create({
         data: {
-          email: form.email,
+          email,
           password: form.password,
-          first_name: form.first_name,
-          last_name: form.last_name,
-          phone: form.phone,
+          first_name: form.first_name.trim(),
+          last_name: form.last_name.trim(),
+          phone: form.phone.trim(),
           license_number: form.license_number || null,
           vehicle_make: form.vehicle_make || null,
           vehicle_model: form.vehicle_model || null,
