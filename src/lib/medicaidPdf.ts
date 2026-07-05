@@ -114,14 +114,17 @@ export async function generateStateFormPdf(
     taxi: "taxi",
     ambulatory: "Mobility/Ambulatory vehicle",
   };
-  setRadio("type of vehicle", vehicleMap[a.vehicleType ?? ""]);
+  if (a.vehicleType && vehicleMap[a.vehicleType]) {
+    setRadio("type of vehicle", vehicleMap[a.vehicleType]);
+  }
 
-  // The state form only offers one way / round trip. Group-tour is treated as
-  // round-trip for the paper output.
-  setRadio(
-    "type of trip",
-    a.tripKind === "one_way" ? "one way" : "round trip",
-  );
+  // Trip kind is optional; only stamp the radio when explicitly provided.
+  if (a.tripKind === "one_way") {
+    setRadio("type of trip", "one way");
+  } else if (a.tripKind === "round_trip" || a.tripKind === "group_tour") {
+    setRadio("type of trip", "round trip");
+  }
+
 
   /* ---------- Legs ---------- */
   const fmt = fmtDate;
