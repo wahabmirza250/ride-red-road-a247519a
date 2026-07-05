@@ -469,9 +469,13 @@ export type Database = {
       }
       medicaid_trips: {
         Row: {
+          arrived_dropoff_at: string | null
+          arrived_pickup_at: string | null
           created_at: string
           driver_id: string
           dropoff_address: string
+          dropoff_lat: number | null
+          dropoff_lng: number | null
           escort_name: string | null
           group_id: string | null
           id: string
@@ -481,6 +485,9 @@ export type Database = {
           odometer_start: number
           pickup_address: string
           pickup_at: string
+          pickup_lat: number | null
+          pickup_lng: number | null
+          pickup_started_at: string | null
           portal_confirmation: string | null
           portal_error: string | null
           portal_evidence_prefix: string | null
@@ -491,6 +498,7 @@ export type Database = {
           review_notes: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          ride_started_at: string | null
           rider_id: string
           signature_name: string | null
           signature_path: string | null
@@ -508,9 +516,13 @@ export type Database = {
           vehicle_vin: string | null
         }
         Insert: {
+          arrived_dropoff_at?: string | null
+          arrived_pickup_at?: string | null
           created_at?: string
           driver_id: string
           dropoff_address: string
+          dropoff_lat?: number | null
+          dropoff_lng?: number | null
           escort_name?: string | null
           group_id?: string | null
           id?: string
@@ -520,6 +532,9 @@ export type Database = {
           odometer_start: number
           pickup_address: string
           pickup_at: string
+          pickup_lat?: number | null
+          pickup_lng?: number | null
+          pickup_started_at?: string | null
           portal_confirmation?: string | null
           portal_error?: string | null
           portal_evidence_prefix?: string | null
@@ -530,6 +545,7 @@ export type Database = {
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          ride_started_at?: string | null
           rider_id: string
           signature_name?: string | null
           signature_path?: string | null
@@ -547,9 +563,13 @@ export type Database = {
           vehicle_vin?: string | null
         }
         Update: {
+          arrived_dropoff_at?: string | null
+          arrived_pickup_at?: string | null
           created_at?: string
           driver_id?: string
           dropoff_address?: string
+          dropoff_lat?: number | null
+          dropoff_lng?: number | null
           escort_name?: string | null
           group_id?: string | null
           id?: string
@@ -559,6 +579,9 @@ export type Database = {
           odometer_start?: number
           pickup_address?: string
           pickup_at?: string
+          pickup_lat?: number | null
+          pickup_lng?: number | null
+          pickup_started_at?: string | null
           portal_confirmation?: string | null
           portal_error?: string | null
           portal_evidence_prefix?: string | null
@@ -569,6 +592,7 @@ export type Database = {
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          ride_started_at?: string | null
           rider_id?: string
           signature_name?: string | null
           signature_path?: string | null
@@ -905,6 +929,7 @@ export type Database = {
           dob: string | null
           full_name: string
           id: string
+          last_4_ssn: string | null
           medicaid_id: string
           notes: string | null
           phone: string | null
@@ -917,6 +942,7 @@ export type Database = {
           dob?: string | null
           full_name: string
           id?: string
+          last_4_ssn?: string | null
           medicaid_id: string
           notes?: string | null
           phone?: string | null
@@ -929,6 +955,7 @@ export type Database = {
           dob?: string | null
           full_name?: string
           id?: string
+          last_4_ssn?: string | null
           medicaid_id?: string
           notes?: string | null
           phone?: string | null
