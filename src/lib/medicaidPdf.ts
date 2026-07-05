@@ -290,61 +290,54 @@ function drawHumanizedSignature(page: any, rect: PdfRect, name?: string | null) 
   const startY = rect.y + (rect.height - usableW) / 2;
   const baseX = rotation === 90 ? rect.x + rect.width + 2.5 : rect.x - 2.5;
   const direction = rotation === 90 ? 1 : -1;
-  const parts = cleanName.split(/\s+/).filter(Boolean).slice(0, 3);
-  const letters = Math.min(18, Math.max(8, cleanName.replace(/\s+/g, "").length));
+  const segments = 72;
+  const points: { x: number; y: number }[] = [];
 
-  let cursor = 0;
-  for (let i = 0; i < letters; i++) {
-    const charCode = cleanName.charCodeAt(i % cleanName.length) || 65;
-    const next = ((i + 1) / letters) * usableW;
-    const mid = cursor + (next - cursor) * 0.5;
-    const lift = 2.5 + ((charCode + seed + i * 17) % 8) * 0.72;
-    const dip = ((charCode + seed + i * 11) % 5) * 0.42;
-    const thickness = 0.75 + ((charCode + i) % 3) * 0.12;
-
-    page.drawLine({
-      start: { x: baseX - direction * dip, y: startY + cursor },
-      end: { x: baseX - direction * lift, y: startY + mid },
-      thickness,
-      color: rgb(0.02, 0.02, 0.02),
-      opacity: 0.94,
-    });
-    page.drawLine({
-      start: { x: baseX - direction * lift, y: startY + mid },
-      end: { x: baseX + direction * 0.8, y: startY + next },
-      thickness,
-      color: rgb(0.02, 0.02, 0.02),
-      opacity: 0.94,
-    });
-
-    if ((charCode + i + seed) % 4 === 0) {
-      const loopY = startY + mid;
-      const loopH = Math.min(9, (next - cursor) * 0.45);
-      const loopX = baseX - direction * (lift + 1.8);
-      page.drawEllipse({
-        x: loopX,
-        y: loopY,
-        xScale: 2.2,
-        yScale: loopH / 2,
-        borderWidth: 0.7,
-        borderColor: rgb(0.02, 0.02, 0.02),
-        opacity: 0.9,
-      });
-    }
-    cursor = next;
-  }
-
-  if (parts.length > 1) {
-    const flourishStart = startY + usableW * 0.15;
-    const flourishEnd = startY + usableW * 0.92;
-    page.drawLine({
-      start: { x: baseX + direction * 2.2, y: flourishStart },
-      end: { x: baseX + direction * 1.2, y: flourishEnd },
-      thickness: 0.55,
-      color: rgb(0.02, 0.02, 0.02),
-      opacity: 0.55,
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const y = startY + t * usableW;
+    const wave =
+      Math.sin(t * Math.PI * (5.6 + (seed % 5) * 0.18)) * 3.4 +
+      Math.sin(t * Math.PI * (13.5 + (seed % 7) * 0.11)) * 1.7;
+    const initialLift = t < 0.16 ? Math.sin((t / 0.16) * Math.PI) * 5.8 : 0;
+    const middleLift = t > 0.38 && t < 0.68 ? Math.sin(((t - 0.38) / 0.3) * Math.PI) * 3.5 : 0;
+    const finishLift = t > 0.82 ? Math.sin(((t - 0.82) / 0.18) * Math.PI) * 4.6 : 0;
+    points.push({
+      x: baseX - direction * (wave + initialLift + middleLift + finishLift),
+      y,
     });
   }
+
+  for (let i = 1; i < points.length; i++) {
+    page.drawLine({
+      start: points[i - 1],
+      end: points[i],
+      thickness: i % 5 === 0 ? 0.7 : 0.86,
+      color: rgb(0.02, 0.02, 0.02),
+      opacity: 0.92,
+    });
+  }
+
+  for (const t of [0.18, 0.46, 0.64]) {
+    const y = startY + usableW * t;
+    page.drawEllipse({
+      x: baseX - direction * (3.8 + ((seed * t) % 2)),
+      y,
+      xScale: 2.2,
+      yScale: 4.4,
+      borderWidth: 0.62,
+      borderColor: rgb(0.02, 0.02, 0.02),
+      opacity: 0.82,
+    });
+  }
+
+  page.drawLine({
+    start: { x: baseX + direction * 2, y: startY + usableW * 0.08 },
+    end: { x: baseX + direction * 1, y: startY + usableW * 0.94 },
+    thickness: 0.48,
+    color: rgb(0.02, 0.02, 0.02),
+    opacity: 0.45,
+  });
 }
 
 function signatureFit(imgW: number, imgH: number, maxW: number, maxH: number) {
