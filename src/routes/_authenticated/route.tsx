@@ -5,7 +5,7 @@ import {
   Route as RouteIcon,
   Users,
   UserRound,
-  Receipt,
+  
   MessageSquare,
   BarChart3,
   AlertTriangle,
