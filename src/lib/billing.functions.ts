@@ -37,7 +37,8 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       .from("billing_records")
       .select(
         `id, trip_id, status, reviewed_at, fix_notes, rejection_reason,
-         submitted_at, state_confirmation_number, submission_error, updated_at,
+         submitted_at, state_confirmation_number, submission_error,
+         requires_human_step, updated_at,
          medicaid_trips!inner(
            id, pickup_at, pickup_address, dropoff_address, driver_id,
            riders(full_name, medicaid_id)
