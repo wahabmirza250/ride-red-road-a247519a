@@ -60,7 +60,7 @@ function BillingPage() {
   const records = useQuery({
     queryKey: ["billing", status],
     queryFn: async () => {
-      let q = supabase.from("billing_records").select("*").order("created_at", { ascending: false });
+      let q = supabase.from("trip_billing_records").select("*").order("created_at", { ascending: false });
       if (status !== "all") q = q.eq("status", status as "pending" | "submitted" | "paid" | "rejected");
       const { data, error } = await q;
       if (error) throw error;
@@ -86,7 +86,7 @@ function BillingPage() {
 
   const createFor = useMutation({
     mutationFn: async (tripId: string) => {
-      const { error } = await supabase.from("billing_records").insert({ trip_id: tripId });
+      const { error } = await supabase.from("trip_billing_records").insert({ trip_id: tripId });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -189,7 +189,7 @@ function EditBillingDialog({ record, onClose }: { record: Billing; onClose: () =
     };
     if (f.status === "submitted" && !record.submitted_at) patch.submitted_at = new Date().toISOString();
     if (f.status === "paid" && !record.paid_at) patch.paid_at = new Date().toISOString();
-    const { error } = await supabase.from("billing_records").update(patch).eq("id", record.id);
+    const { error } = await supabase.from("trip_billing_records").update(patch).eq("id", record.id);
     // mirror status onto the trip too
     await supabase.from("trips").update({ billing_status: f.status }).eq("id", record.trip_id);
     setSaving(false);

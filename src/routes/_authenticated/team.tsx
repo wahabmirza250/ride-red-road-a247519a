@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { createAdmin, listAdmins } from "@/lib/admin.functions";
+import { PortalCredentialsCard } from "@/components/billing/PortalCredentialsCard";
 
 export const Route = createFileRoute("/_authenticated/team")({
   component: TeamPage,
@@ -126,6 +127,8 @@ function TeamPage() {
           issue an email + password. The driver then signs in at <code className="rounded bg-muted px-1">/driver/signin</code>.
         </p>
       </div>
+
+      <PortalCredentialsCard />
 
     </div>
   );

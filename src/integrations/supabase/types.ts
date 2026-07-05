@@ -14,55 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
+      billing_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_type: string
+          billing_record_id: string
+          created_at: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_type?: string
+          billing_record_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_type?: string
+          billing_record_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_audit_log_billing_record_id_fkey"
+            columns: ["billing_record_id"]
+            isOneToOne: false
+            referencedRelation: "billing_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_records: {
         Row: {
-          amount: number
           created_at: string
-          diagnosis_code: string | null
+          fix_notes: string | null
           id: string
-          paid_at: string | null
-          rate_per_unit: number
-          service_code: string | null
-          status: Database["public"]["Enums"]["billing_status"]
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          state_confirmation_number: string | null
+          status: string
+          submission_error: string | null
           submitted_at: string | null
+          trip_form_id: string | null
           trip_id: string
-          units: number
           updated_at: string
         }
         Insert: {
-          amount?: number
           created_at?: string
-          diagnosis_code?: string | null
+          fix_notes?: string | null
           id?: string
-          paid_at?: string | null
-          rate_per_unit?: number
-          service_code?: string | null
-          status?: Database["public"]["Enums"]["billing_status"]
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          state_confirmation_number?: string | null
+          status?: string
+          submission_error?: string | null
           submitted_at?: string | null
+          trip_form_id?: string | null
           trip_id: string
-          units?: number
           updated_at?: string
         }
         Update: {
-          amount?: number
           created_at?: string
-          diagnosis_code?: string | null
+          fix_notes?: string | null
           id?: string
-          paid_at?: string | null
-          rate_per_unit?: number
-          service_code?: string | null
-          status?: Database["public"]["Enums"]["billing_status"]
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          state_confirmation_number?: string | null
+          status?: string
+          submission_error?: string | null
           submitted_at?: string | null
+          trip_form_id?: string | null
           trip_id?: string
-          units?: number
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "billing_records_trip_id_fkey"
+            foreignKeyName: "billing_records_trip_id_fkey1"
             columns: ["trip_id"]
             isOneToOne: true
-            referencedRelation: "trips"
+            referencedRelation: "medicaid_trips"
             referencedColumns: ["id"]
           },
         ]
@@ -1043,6 +1084,95 @@ export type Database = {
           },
         ]
       }
+      state_portal_credentials: {
+        Row: {
+          created_at: string
+          id: string
+          last_used_at: string | null
+          login_email: string
+          password_last4: string | null
+          password_secret_id: string | null
+          portal_name: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          login_email: string
+          password_last4?: string | null
+          password_secret_id?: string | null
+          portal_name: string
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          login_email?: string
+          password_last4?: string | null
+          password_secret_id?: string | null
+          portal_name?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      trip_billing_records: {
+        Row: {
+          amount: number
+          created_at: string
+          diagnosis_code: string | null
+          id: string
+          paid_at: string | null
+          rate_per_unit: number
+          service_code: string | null
+          status: Database["public"]["Enums"]["billing_status"]
+          submitted_at: string | null
+          trip_id: string
+          units: number
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          diagnosis_code?: string | null
+          id?: string
+          paid_at?: string | null
+          rate_per_unit?: number
+          service_code?: string | null
+          status?: Database["public"]["Enums"]["billing_status"]
+          submitted_at?: string | null
+          trip_id: string
+          units?: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          diagnosis_code?: string | null
+          id?: string
+          paid_at?: string | null
+          rate_per_unit?: number
+          service_code?: string | null
+          status?: Database["public"]["Enums"]["billing_status"]
+          submitted_at?: string | null
+          trip_id?: string
+          units?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_records_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: true
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trips: {
         Row: {
           actual_dropoff_time: string | null
@@ -1223,6 +1353,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      upsert_portal_credential: {
+        Args: {
+          _login_email: string
+          _login_password: string
+          _portal_name: string
+          _state: string
+        }
+        Returns: string
       }
     }
     Enums: {

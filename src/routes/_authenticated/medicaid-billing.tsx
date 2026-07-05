@@ -1,67 +1,64 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
+import { Loader2, Send, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, FileDown, Check, X, Send } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
-import { toast } from "sonner";
-import { generateStateFormPdf } from "@/lib/medicaidPdf";
-import { useServerFn } from "@tanstack/react-start";
-import { submitTripToPortal } from "@/lib/portalSubmit.functions";
+import {
+  listBillingRecords,
+  submitBillingRecords,
+} from "@/lib/billing.functions";
+import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
 
 export const Route = createFileRoute("/_authenticated/medicaid-billing")({
   component: MedicaidBillingPage,
 });
 
-const STATUSES = ["pending_review", "approved", "submitted", "rejected", "needs_fix"] as const;
+const TABS = [
+  { key: "pending_review", label: "Pending Review" },
+  { key: "pending_submit", label: "Pending Submit" },
+  { key: "submitting", label: "Submitting" },
+  { key: "submitted", label: "Submitted" },
+  { key: "approved", label: "Approved" },
+  { key: "rejected", label: "Rejected" },
+  { key: "needs_fix", label: "Needs Fix" },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
 
 function MedicaidBillingPage() {
   const { isAdmin } = useAuth();
   const qc = useQueryClient();
-  const [status, setStatus] = useState<(typeof STATUSES)[number]>("pending_review");
-  const [selected, setSelected] = useState<any>(null);
-  const [reviewNotes, setReviewNotes] = useState("");
-  const [confirmation, setConfirmation] = useState("");
-  const [sigUrl, setSigUrl] = useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabKey>("pending_review");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
 
-  const trips = useQuery({
-    queryKey: ["medicaid_billing", status],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("medicaid_trips")
-        .select(
-          "*, riders(full_name, medicaid_id, dob, phone, address), profiles!medicaid_trips_driver_id_fkey(first_name, last_name)",
-        )
-        .eq("status", status)
-        .order("pickup_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+  const listFn = useServerFn(listBillingRecords);
+  const rows = useQuery({
+    queryKey: ["billing_list", tab],
+    queryFn: () => listFn({ data: { status: tab } }),
+    enabled: isAdmin,
   });
 
-  // Realtime
+  // Realtime — invalidate on any billing_records change
   useEffect(() => {
     const ch = supabase
-      .channel("medicaid_trips_live")
+      .channel("billing_records_live")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "medicaid_trips" },
-        () => qc.invalidateQueries({ queryKey: ["medicaid_billing"] }),
+        { event: "*", schema: "public", table: "billing_records" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["billing_list"] });
+          qc.invalidateQueries({ queryKey: ["billing_detail"] });
+        },
       )
       .subscribe();
     return () => {
@@ -69,154 +66,29 @@ function MedicaidBillingPage() {
     };
   }, [qc]);
 
-  // Load signature & stored state PDF URLs
+  // Reset selection when the tab changes
   useEffect(() => {
-    if (!selected) {
-      setSigUrl(null);
-      setPdfUrl(null);
-      return;
-    }
-    if (selected.signature_path) {
-      supabase.storage
-        .from("signatures")
-        .createSignedUrl(selected.signature_path, 300)
-        .then(({ data }) => setSigUrl(data?.signedUrl ?? null));
-    } else {
-      setSigUrl(null);
-    }
-    if (selected.state_pdf_path) {
-      supabase.storage
-        .from("state-pdfs")
-        .createSignedUrl(selected.state_pdf_path, 900)
-        .then(({ data }) => setPdfUrl(data?.signedUrl ?? null));
-    } else {
-      setPdfUrl(null);
-    }
-  }, [selected]);
+    setChecked(new Set());
+  }, [tab]);
 
-  const review = useMutation({
-    mutationFn: async (payload: { id: string; status: string; notes?: string }) => {
-      const { error } = await supabase
-        .from("medicaid_trips")
-        .update({
-          status: payload.status as any,
-          review_notes: payload.notes ?? null,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", payload.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Updated");
-      qc.invalidateQueries({ queryKey: ["medicaid_billing"] });
-      setSelected(null);
+  const submitFn = useServerFn(submitBillingRecords);
+  const submitMany = useMutation({
+    mutationFn: (ids: string[]) => submitFn({ data: { ids } }),
+    onSuccess: (r: any) => {
+      const okCount = r?.results?.filter((x: any) => x.ok).length ?? 0;
+      const failCount = (r?.results?.length ?? 0) - okCount;
+      if (okCount) toast.success(`Submitting ${okCount} trip(s)…`);
+      if (failCount) toast.error(`${failCount} failed to start`);
+      setChecked(new Set());
+      qc.invalidateQueries({ queryKey: ["billing_list"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
 
-  const markSubmitted = useMutation({
-    mutationFn: async ({ id, conf }: { id: string; conf: string }) => {
-      const { error } = await supabase
-        .from("medicaid_trips")
-        .update({
-          status: "submitted" as any,
-          submitted_confirmation: conf,
-          submitted_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Marked as submitted to state");
-      qc.invalidateQueries({ queryKey: ["medicaid_billing"] });
-      setSelected(null);
-      setConfirmation("");
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
-
-  const submitPortalFn = useServerFn(submitTripToPortal);
-  const submitToPortal = useMutation({
-    mutationFn: async ({ id }: { id: string }) => submitPortalFn({ data: { tripId: id } }),
-    onSuccess: () => {
-      toast.success("Runner started — watch the portal status update live.");
-      qc.invalidateQueries({ queryKey: ["medicaid_billing"] });
-    },
-    onError: (e: any) => toast.error(e.message ?? "Runner call failed"),
-  });
-
-  async function downloadPdf(trip: any) {
-    try {
-      // Prefer the PDF that was stored at submit time
-      if (trip.state_pdf_path) {
-        const { data: signed, error } = await supabase.storage
-          .from("state-pdfs")
-          .createSignedUrl(trip.state_pdf_path, 300);
-        if (error) throw error;
-        if (signed?.signedUrl) {
-          window.open(signed.signedUrl, "_blank", "noopener,noreferrer");
-          return;
-        }
-      }
-      // Load legs (fallback to legacy single-leg fields if none)
-      const { data: legs } = await supabase
-        .from("medicaid_trip_legs")
-        .select("*")
-        .eq("medicaid_trip_id", trip.id)
-        .order("leg_index", { ascending: true });
-
-      const legList =
-        legs && legs.length > 0
-          ? legs.map((l: any) => ({
-              leg_index: l.leg_index as 1 | 2,
-              leg_date: l.leg_date,
-              pickup_time: l.pickup_time,
-              pickup_odometer: Number(l.pickup_odometer ?? 0),
-              pickup_address: l.pickup_address,
-              dropoff_time: l.dropoff_time,
-              dropoff_odometer: Number(l.dropoff_odometer ?? 0),
-              dropoff_address: l.dropoff_address,
-            }))
-          : [
-              {
-                leg_index: 1 as const,
-                leg_date: (trip.pickup_at ?? "").slice(0, 10),
-                pickup_time: (trip.pickup_at ?? "").slice(11, 16) || null,
-                pickup_odometer: Number(trip.odometer_start ?? 0),
-                pickup_address: trip.pickup_address,
-                dropoff_time: null,
-                dropoff_odometer: Number(trip.odometer_end ?? 0),
-                dropoff_address: trip.dropoff_address,
-              },
-            ];
-
-      const pdfBytes = await generateStateFormPdf({
-        rider: trip.riders,
-        driverName: trip.profiles
-          ? `${trip.profiles.first_name ?? ""} ${trip.profiles.last_name ?? ""}`.trim()
-          : "",
-        vehiclePlate: trip.vehicle_plate,
-        vehicleVin: trip.vehicle_vin,
-        vehicleType: trip.vehicle_type,
-        escortName: trip.escort_name,
-        identityVerified: trip.identity_verified ?? true,
-        tripKind: trip.trip_kind,
-        legs: legList,
-        signatureName: trip.signature_name,
-        signatureUrl: sigUrl,
-        signedByEscort: trip.signed_by_escort ?? false,
-      });
-      const blob = new Blob([pdfBytes as BlobPart], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `medicaid-trip-${trip.id.slice(0, 8)}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e: any) {
-      toast.error(e.message ?? "PDF failed");
-    }
-  }
+  const idsOnPage = useMemo(
+    () => (rows.data ?? []).map((r: any) => r.id),
+    [rows.data],
+  );
 
   if (!isAdmin) {
     return (
@@ -228,259 +100,142 @@ function MedicaidBillingPage() {
     <div className="space-y-6">
       <PageHeader
         title="Medicaid Billing"
-        description="Review driver-submitted trips, export the state form, and record submission"
+        description="Review driver-submitted trips, submit them to the state portal, and track results."
       />
 
-      <Tabs value={status} onValueChange={(v) => setStatus(v as any)}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <TabsList className="flex-wrap">
-          {STATUSES.map((s) => (
-            <TabsTrigger key={s} value={s}>
-              {s.replace("_", " ")}
+          {TABS.map((t) => (
+            <TabsTrigger key={t.key} value={t.key}>
+              {t.label}
             </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
 
-      {trips.isLoading ? (
+      {tab === "pending_submit" && (rows.data?.length ?? 0) > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface p-3">
+          <Checkbox
+            checked={checked.size === idsOnPage.length && idsOnPage.length > 0}
+            onCheckedChange={(v) =>
+              setChecked(new Set(v ? idsOnPage : []))
+            }
+          />
+          <span className="text-xs text-muted-foreground">
+            {checked.size} selected
+          </span>
+          <div className="ml-auto flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={checked.size === 0 || submitMany.isPending}
+              onClick={() => submitMany.mutate(Array.from(checked))}
+            >
+              <Send className="mr-1 h-4 w-4" /> Submit selected
+            </Button>
+            <Button
+              size="sm"
+              disabled={idsOnPage.length === 0 || submitMany.isPending}
+              onClick={() => submitMany.mutate(idsOnPage)}
+            >
+              {submitMany.isPending && (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              )}
+              <Send className="mr-1 h-4 w-4" /> Submit all
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {rows.isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      ) : !trips.data?.length ? (
+      ) : !rows.data?.length ? (
         <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
           No trips in this queue.
         </div>
       ) : (
-        <div className="grid gap-3">
-          {trips.data.map((t: any) => (
-            <button
-              key={t.id}
-              onClick={() => {
-                setSelected(t);
-                setReviewNotes(t.review_notes ?? "");
-              }}
-              className="rounded-2xl border border-border bg-surface p-4 text-left shadow-soft hover:border-primary/40"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold">
-                    {t.riders?.full_name}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      · {t.riders?.medicaid_id}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    Driver: {t.profiles?.first_name} {t.profiles?.last_name} ·{" "}
-                    {formatDateTime(t.pickup_at)} · {t.miles} mi
-                  </div>
-                </div>
-                <StatusPill status={t.status} />
-              </div>
-            </button>
-          ))}
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">
+          <table className="w-full text-sm">
+            <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                {tab === "pending_submit" && (
+                  <th className="w-10 px-3 py-3"></th>
+                )}
+                <th className="px-4 py-3 text-left">Passenger</th>
+                <th className="px-4 py-3 text-left">Driver</th>
+                <th className="px-4 py-3 text-left">Trip date</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.data.map((r: any) => (
+                <tr
+                  key={r.id}
+                  className="cursor-pointer hover:bg-accent/60"
+                  onClick={() => setSelectedId(r.id)}
+                >
+                  {tab === "pending_submit" && (
+                    <td
+                      className="px-3 py-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Checkbox
+                        checked={checked.has(r.id)}
+                        onCheckedChange={(v) => {
+                          const next = new Set(checked);
+                          if (v) next.add(r.id);
+                          else next.delete(r.id);
+                          setChecked(next);
+                        }}
+                      />
+                    </td>
+                  )}
+                  <td className="px-4 py-3">
+                    <div className="font-medium">{r.passenger_name ?? "—"}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {r.medicaid_id}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">{r.driver_name}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {formatDateTime(r.pickup_at)}
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.status === "submitting" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
+                        <Loader2 className="h-3 w-3 animate-spin" /> submitting
+                      </span>
+                    ) : (
+                      <StatusPill status={r.status} />
+                    )}
+                    {r.submission_error && (
+                      <div className="mt-1 flex items-center gap-1 text-xs text-destructive">
+                        <AlertCircle className="h-3 w-3" />
+                        <span className="truncate">{r.submission_error}</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {r.state_confirmation_number && (
+                      <span className="text-xs text-muted-foreground">
+                        #{r.state_confirmation_number}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          {selected && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Trip review</DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-4 text-sm">
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Rider" value={selected.riders?.full_name} />
-                  <Field label="Medicaid ID" value={selected.riders?.medicaid_id} />
-                  <Field label="DOB" value={selected.riders?.dob} />
-                  <Field label="Phone" value={selected.riders?.phone} />
-                  <Field
-                    label="Driver"
-                    value={`${selected.profiles?.first_name ?? ""} ${selected.profiles?.last_name ?? ""}`}
-                  />
-                  <Field label="Pickup" value={formatDateTime(selected.pickup_at)} />
-                  <Field label="Odometer start" value={selected.odometer_start} />
-                  <Field label="Odometer end" value={selected.odometer_end} />
-                  <Field label="Miles" value={selected.miles} />
-                  <Field label="Status" value={selected.status} />
-                </div>
-                <Field label="Pickup address" value={selected.pickup_address} />
-                <Field label="Drop-off address" value={selected.dropoff_address} />
-
-                {sigUrl && (
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground">
-                      Rider signature ({selected.signature_name})
-                    </div>
-                    <img
-                      src={sigUrl}
-                      alt="Signature"
-                      className="mt-1 h-32 rounded-lg border bg-white"
-                    />
-                  </div>
-                )}
-
-                {pdfUrl ? (
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground">
-                      Filled state trip log
-                    </div>
-                    <iframe
-                      src={pdfUrl}
-                      title="State trip log"
-                      className="mt-1 h-[520px] w-full rounded-lg border bg-white"
-                    />
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
-                    No stored PDF for this trip yet — use Download to regenerate on the fly.
-                  </div>
-                )}
-
-                <div>
-                  <div className="text-xs font-medium text-muted-foreground">
-                    Review notes
-                  </div>
-                  <Textarea
-                    rows={2}
-                    value={reviewNotes}
-                    onChange={(e) => setReviewNotes(e.target.value)}
-                    placeholder="Optional notes for the driver"
-                  />
-                </div>
-
-                {selected.status === "approved" && (
-                  <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
-                    <div>
-                      <div className="text-xs font-semibold">Auto-submit to Colorado state portal</div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Our runner logs into the Health First Colorado provider portal
-                        with the admin credentials, uploads this signed PDF, and captures
-                        the confirmation number. Portal status:{" "}
-                        <b>{selected.portal_status ?? "not_sent"}</b>
-                        {selected.portal_error && (
-                          <span className="text-destructive"> — {selected.portal_error}</span>
-                        )}
-                      </p>
-                      <Button
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => submitToPortal.mutate({ id: selected.id })}
-                        disabled={
-                          submitToPortal.isPending ||
-                          selected.portal_status === "submitting" ||
-                          selected.portal_status === "submitted"
-                        }
-                      >
-                        <Send className="mr-1 h-4 w-4" />
-                        {selected.portal_status === "submitting"
-                          ? "Runner working…"
-                          : "Send to portal"}
-                      </Button>
-                      {selected.portal_mfa_prompt && (
-                        <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
-                          MFA required: {selected.portal_mfa_prompt}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="border-t pt-3">
-                      <div className="text-xs font-semibold">Or record a manual submission</div>
-                      <div className="mt-2 flex gap-2">
-                        <Input
-                          placeholder="Confirmation #"
-                          value={confirmation}
-                          onChange={(e) => setConfirmation(e.target.value)}
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            markSubmitted.mutate({
-                              id: selected.id,
-                              conf: confirmation,
-                            })
-                          }
-                          disabled={!confirmation || markSubmitted.isPending}
-                        >
-                          Mark submitted
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {selected.submitted_confirmation && (
-                  <Field
-                    label="Submitted"
-                    value={`${selected.submitted_confirmation} · ${formatDateTime(selected.submitted_at)}`}
-                  />
-                )}
-              </div>
-
-              <DialogFooter className="flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => downloadPdf(selected)}
-                >
-                  <FileDown className="mr-1 h-4 w-4" /> Download PDF
-                </Button>
-                {selected.status !== "approved" && selected.status !== "submitted" && (
-                  <Button
-                    onClick={() =>
-                      review.mutate({
-                        id: selected.id,
-                        status: "approved",
-                        notes: reviewNotes,
-                      })
-                    }
-                    disabled={review.isPending}
-                  >
-                    <Check className="mr-1 h-4 w-4" /> Approve
-                  </Button>
-                )}
-                {selected.status !== "needs_fix" && selected.status !== "submitted" && (
-                  <Button
-                    variant="secondary"
-                    onClick={() =>
-                      review.mutate({
-                        id: selected.id,
-                        status: "needs_fix",
-                        notes: reviewNotes,
-                      })
-                    }
-                  >
-                    Request fix
-                  </Button>
-                )}
-                {selected.status !== "rejected" && selected.status !== "submitted" && (
-                  <Button
-                    variant="destructive"
-                    onClick={() =>
-                      review.mutate({
-                        id: selected.id,
-                        status: "rejected",
-                        notes: reviewNotes,
-                      })
-                    }
-                  >
-                    <X className="mr-1 h-4 w-4" /> Reject
-                  </Button>
-                )}
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: any }) {
-  return (
-    <div>
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
-      <div className="text-sm">{value ?? "—"}</div>
+      <BillingDetailSheet
+        id={selectedId}
+        onClose={() => setSelectedId(null)}
+      />
     </div>
   );
 }
