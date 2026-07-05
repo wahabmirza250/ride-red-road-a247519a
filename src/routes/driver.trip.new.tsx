@@ -116,6 +116,7 @@ function NewNemtTripWizard() {
   const [plate, setPlate] = useState("");
   const [vin, setVin] = useState("");
   const [escortName, setEscortName] = useState("");
+  const [driverFullName, setDriverFullName] = useState("");
 
   // Load driver defaults once
   const loadDefaults = useServerFn(getMyDriverDefaults);
@@ -126,6 +127,7 @@ function NewNemtTripWizard() {
         if (d.default_vehicle_type) setVehicleType(d.default_vehicle_type);
         if (d.default_plate) setPlate(d.default_plate);
         if (d.default_vin) setVin(d.default_vin);
+        if (d.driver_full_name) setDriverFullName(d.driver_full_name);
       })
       .catch(() => {});
   }, [loadDefaults]);
