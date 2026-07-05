@@ -258,7 +258,15 @@ function MedicaidBillingPage() {
                     ) : (
                       <StatusPill status={r.status} />
                     )}
-                    {r.submission_error && (
+                    {r.requires_human_step && (
+                      <div className="mt-1 flex items-center gap-1 text-xs text-amber-600">
+                        <HandMetal className="h-3 w-3" />
+                        <span className="truncate">
+                          This portal needs a manual step to submit
+                        </span>
+                      </div>
+                    )}
+                    {r.submission_error && !r.requires_human_step && (
                       <div className="mt-1 flex items-center gap-1 text-xs text-destructive">
                         <AlertCircle className="h-3 w-3" />
                         <span className="truncate">{r.submission_error}</span>
