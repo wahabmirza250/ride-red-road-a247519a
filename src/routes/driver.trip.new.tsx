@@ -338,7 +338,11 @@ function NewNemtTripWizard() {
   // Submit
   const submitGroup = useServerFn(createNemtTripGroup);
   const attachSig = useServerFn(attachRiderSignature);
+  const attachPdf = useServerFn(attachStatePdf);
   const [submitting, setSubmitting] = useState(false);
+  const [completedPdfs, setCompletedPdfs] = useState<
+    { rider_name: string; url: string; filename: string }[] | null
+  >(null);
 
   const vehicleIssue = useMemo(() => {
     if (!vehicleType) return "Select vehicle type";
