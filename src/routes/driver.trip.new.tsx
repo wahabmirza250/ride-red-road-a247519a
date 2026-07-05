@@ -28,6 +28,7 @@ import { Search, UserPlus, X, Loader2, Check, Camera } from "lucide-react";
 import {
   createNemtTripGroup,
   attachRiderSignature,
+  attachStatePdf,
   getMyDriverDefaults,
   getAssignedTripForNemt,
   detectOdometerFromImage,
