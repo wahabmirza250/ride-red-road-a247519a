@@ -312,11 +312,9 @@ function NewNemtTripWizard() {
   async function createNewRider() {
     if (!newRider.full_name.trim()) return toast.error("Full name required");
     const hasMedicaid = !!newRider.medicaid_id.trim();
-    if (!hasMedicaid) {
-      // Fallback identity required for billing
-      if (!newRider.dob) return toast.error("Either Medicaid ID or DOB + last 4 of SSN is required");
-      if (!/^\d{4}$/.test(newRider.last_4_ssn))
-        return toast.error("Enter last 4 digits of SSN (4 numbers) or provide a Medicaid ID");
+    const hasSsn = /^\d{4}$/.test(newRider.last_4_ssn);
+    if (!hasMedicaid && !hasSsn) {
+      return toast.error("Enter a Medicaid ID or last 4 digits of SSN");
     }
     const { data, error } = await supabase
       .from("riders")
@@ -325,7 +323,7 @@ function NewNemtTripWizard() {
         medicaid_id: newRider.medicaid_id.trim() || `SSN-${newRider.last_4_ssn}`,
         dob: newRider.dob || null,
         phone: newRider.phone || null,
-        last_4_ssn: hasMedicaid ? null : newRider.last_4_ssn,
+        last_4_ssn: hasMedicaid ? null : newRider.last_4_ssn || null,
       })
       .select()
       .single();
