@@ -643,21 +643,20 @@ function NewNemtTripWizard() {
                 <div className="truncate text-xs text-muted-foreground">{p.filename}</div>
               </div>
               <div className="flex gap-2">
-                <a
-                  href={p.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => openPdfInNewTab(p.url, p.filename)}
                   className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent"
                 >
                   View PDF
-                </a>
-                <a
-                  href={p.url}
-                  download={p.filename}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadPdf(p.url, p.filename)}
                   className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent"
                 >
                   Download
-                </a>
+                </button>
               </div>
             </div>
           ))}
