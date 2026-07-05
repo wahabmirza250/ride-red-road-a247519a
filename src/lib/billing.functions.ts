@@ -77,6 +77,7 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       submitted_at: r.submitted_at,
       state_confirmation_number: r.state_confirmation_number,
       submission_error: r.submission_error,
+      requires_human_step: r.requires_human_step,
       updated_at: r.updated_at,
       passenger_name: r.medicaid_trips?.riders?.full_name ?? null,
       medicaid_id: r.medicaid_trips?.riders?.medicaid_id ?? null,
