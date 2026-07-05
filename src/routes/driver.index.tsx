@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,7 @@ import {
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { useLocationBroadcast } from "@/lib/useGeolocation";
+import { openNavigation as openMapsNav } from "@/lib/mapsDeepLink";
 import { fmtMoney } from "@/lib/rideMath";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -242,7 +243,9 @@ function DriverHome() {
     void loadRequests();
   }
 
-  async function setStatus(next: "arrived_at_pickup" | "in_progress" | "completed") {
+  async function setStatus(
+    next: "driver_en_route_to_pickup" | "arrived_at_pickup" | "in_progress" | "completed",
+  ) {
     if (!active?.trip_id) return;
     const patch: {
       status: typeof next;
@@ -253,6 +256,8 @@ function DriverHome() {
     if (next === "completed") patch.actual_dropoff_time = new Date().toISOString();
     const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
     if (error) return toast.error(error.message);
+    if (next === "driver_en_route_to_pickup") toast.success("Dispatcher notified — pickup started");
+    if (next === "arrived_at_pickup") toast.success("Marked arrived at pickup");
     if (next === "completed") {
       await supabase
         .from("ride_requests")
@@ -351,32 +356,14 @@ function DriverHome() {
     toast.success(`Switched to ${pax.first_name} ${pax.last_name}`);
   }
 
-  const navUrl = useMemo(() => {
-    if (!active) return "";
+  function openNavigation() {
+    if (!active) return;
     const goingToDropoff = tripStatus === "in_progress";
-    const lat = Number(goingToDropoff ? active.dropoff_lat : active.pickup_lat);
-    const lng = Number(goingToDropoff ? active.dropoff_lng : active.pickup_lng);
-    const address = goingToDropoff ? active.dropoff_address : active.pickup_address;
-    const destination = Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0
-      ? `${lat},${lng}`
-      : address;
-    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-  }, [active, tripStatus]);
-
-  async function openNavigation() {
-    if (!navUrl) return;
-    const opened = window.open(navUrl, "_blank");
-    if (opened) {
-      opened.opener = null;
-      opened.focus();
-      return;
-    }
-    try {
-      await navigator.clipboard?.writeText(navUrl);
-      toast.info("Google Maps link copied");
-    } catch {
-      toast.error("Allow pop-ups to open Google Maps");
-    }
+    openMapsNav({
+      lat: goingToDropoff ? active.dropoff_lat : active.pickup_lat,
+      lng: goingToDropoff ? active.dropoff_lng : active.pickup_lng,
+      address: goingToDropoff ? active.dropoff_address : active.pickup_address,
+    });
   }
 
   if (!driver) {
@@ -482,8 +469,19 @@ function DriverHome() {
               Cancel
             </Button>
             {tripStatus === "assigned" && (
+              <Button
+                className="rounded-full bg-primary"
+                onClick={() => {
+                  setStatus("driver_en_route_to_pickup");
+                  openNavigation();
+                }}
+              >
+                <Navigation className="mr-1 h-4 w-4" /> Start Pickup
+              </Button>
+            )}
+            {tripStatus === "driver_en_route_to_pickup" && (
               <Button className="rounded-full" onClick={() => setStatus("arrived_at_pickup")}>
-                <Car className="mr-1 h-4 w-4" /> Arrived
+                <Car className="mr-1 h-4 w-4" /> I've Arrived
               </Button>
             )}
             {tripStatus === "arrived_at_pickup" && (
