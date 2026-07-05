@@ -135,7 +135,7 @@ function NewNemtTripWizard() {
   const [riderQuery, setRiderQuery] = useState("");
   const [riderResults, setRiderResults] = useState<Rider[]>([]);
   const [addingRider, setAddingRider] = useState(false);
-  const [newRider, setNewRider] = useState({ full_name: "", medicaid_id: "", dob: "", phone: "" });
+  const [newRider, setNewRider] = useState({ full_name: "", medicaid_id: "", dob: "", phone: "", last_4_ssn: "" });
   const loadAssignedTrip = useServerFn(getAssignedTripForNemt);
 
   useEffect(() => {
@@ -247,24 +247,29 @@ function NewNemtTripWizard() {
   }, [loadAssignedTrip, tripId, tripKind]);
 
   async function createNewRider() {
-    if (!newRider.full_name || !newRider.medicaid_id) {
-      toast.error("Name and Medicaid ID required");
-      return;
+    if (!newRider.full_name.trim()) return toast.error("Full name required");
+    const hasMedicaid = !!newRider.medicaid_id.trim();
+    if (!hasMedicaid) {
+      // Fallback identity required for billing
+      if (!newRider.dob) return toast.error("Either Medicaid ID or DOB + last 4 of SSN is required");
+      if (!/^\d{4}$/.test(newRider.last_4_ssn))
+        return toast.error("Enter last 4 digits of SSN (4 numbers) or provide a Medicaid ID");
     }
     const { data, error } = await supabase
       .from("riders")
       .insert({
         full_name: newRider.full_name.trim(),
-        medicaid_id: newRider.medicaid_id.trim(),
+        medicaid_id: newRider.medicaid_id.trim() || `SSN-${newRider.last_4_ssn}`,
         dob: newRider.dob || null,
         phone: newRider.phone || null,
+        last_4_ssn: hasMedicaid ? null : newRider.last_4_ssn,
       })
       .select()
       .single();
     if (error) return toast.error(error.message);
     addRiderSlot(data as Rider);
     setAddingRider(false);
-    setNewRider({ full_name: "", medicaid_id: "", dob: "", phone: "" });
+    setNewRider({ full_name: "", medicaid_id: "", dob: "", phone: "", last_4_ssn: "" });
   }
 
   // Legs
@@ -702,10 +707,32 @@ function NewNemtTripWizard() {
               <div className="mt-3 space-y-2">
                 <Input placeholder="Full legal name" value={newRider.full_name}
                   onChange={(e) => setNewRider({ ...newRider, full_name: e.target.value })} />
-                <Input placeholder="Health First Colorado ID" value={newRider.medicaid_id}
+                <Input placeholder="Health First Colorado ID (preferred)" value={newRider.medicaid_id}
                   onChange={(e) => setNewRider({ ...newRider, medicaid_id: e.target.value })} />
-                <Input type="date" placeholder="DOB" value={newRider.dob}
-                  onChange={(e) => setNewRider({ ...newRider, dob: e.target.value })} />
+                {!newRider.medicaid_id.trim() && (
+                  <div className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 p-2 text-xs">
+                    <div className="mb-2 font-medium text-amber-700 dark:text-amber-400">
+                      No Medicaid ID? Provide DOB + last 4 of SSN for billing.
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input type="date" placeholder="DOB" value={newRider.dob}
+                        onChange={(e) => setNewRider({ ...newRider, dob: e.target.value })} />
+                      <Input
+                        inputMode="numeric"
+                        maxLength={4}
+                        placeholder="Last 4 SSN"
+                        value={newRider.last_4_ssn}
+                        onChange={(e) =>
+                          setNewRider({ ...newRider, last_4_ssn: e.target.value.replace(/\D/g, "").slice(0, 4) })
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+                {newRider.medicaid_id.trim() && (
+                  <Input type="date" placeholder="DOB" value={newRider.dob}
+                    onChange={(e) => setNewRider({ ...newRider, dob: e.target.value })} />
+                )}
                 <Input placeholder="Phone" value={newRider.phone}
                   onChange={(e) => setNewRider({ ...newRider, phone: e.target.value })} />
                 <Button size="sm" onClick={createNewRider}>Save rider</Button>
