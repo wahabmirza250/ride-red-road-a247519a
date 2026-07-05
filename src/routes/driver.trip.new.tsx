@@ -189,7 +189,7 @@ function NewNemtTripWizard() {
     };
   }, [riderQuery]);
 
-  async function selectSearchResult(r: Rider & { __source?: "passenger" }) {
+  async function selectSearchResult(r: Rider & { __source?: "passenger"; last_4_ssn?: string | null }) {
     // Passengers-table hits aren't real rider rows yet — materialize one.
     if (r.__source === "passenger") {
       const medicaid = r.medicaid_id?.trim();
