@@ -158,22 +158,16 @@ export async function generateStateFormPdf(
   }
 
   /* ---------- Signature: stamp PNG inside the widget's rectangle ---------- */
-  if (a.signatureUrl || a.signatureName) {
-    let img: any = null;
-    if (a.signatureUrl) {
-      try {
-        const bytes = await fetch(a.signatureUrl).then((r) => {
-          if (!r.ok) throw new Error(`Failed to load saved signature: ${r.status}`);
-          return r.arrayBuffer();
-        });
-        try {
-          img = await pdf.embedPng(bytes);
-        } catch {
-          img = await pdf.embedJpg(bytes);
-        }
-      } catch (error) {
-        if (!a.signatureName) throw error;
-      }
+  if (a.signatureUrl) {
+    const bytes = await fetch(a.signatureUrl).then((r) => {
+      if (!r.ok) throw new Error(`Failed to load saved signature: ${r.status}`);
+      return r.arrayBuffer();
+    });
+    let img;
+    try {
+      img = await pdf.embedPng(bytes);
+    } catch {
+      img = await pdf.embedJpg(bytes);
     }
 
     let stamped = false;
@@ -184,8 +178,7 @@ export async function generateStateFormPdf(
         const rect = widget.getRectangle();
         const pageRef = widget.P();
         const page = pdf.getPages().find((pg) => pg.ref === pageRef) ?? pdf.getPage(0);
-        if (img) drawSignatureImage(page, img, rect);
-        drawHumanizedSignature(page, rect, a.signatureName);
+        drawSignatureImage(page, img, rect);
         stamped = true;
         if (a.signedByEscort) {
           page.drawText("(signed by escort)", {
@@ -208,8 +201,7 @@ export async function generateStateFormPdf(
       // completed PDF with no signature.
       const page = pdf.getPage(0);
       const fallbackRect = { x: 145.56, y: 150.24, width: 17.16, height: 289.32 };
-      if (img) drawSignatureImage(page, img, fallbackRect);
-      drawHumanizedSignature(page, fallbackRect, a.signatureName);
+      drawSignatureImage(page, img, fallbackRect);
       stamped = true;
     }
 
@@ -237,7 +229,6 @@ function resolveTemplateUrl(templateBaseUrl?: string): string {
 
 function drawSignatureImage(page: any, img: any, rect: PdfRect) {
   const rotation = ((page.getRotation().angle % 360) + 360) % 360;
-  const margin = 1;
 
   // The Colorado template is a landscape page stored as a portrait PDF rotated
   // 90°. Its signature widget is therefore tall/narrow in raw PDF coordinates,
@@ -245,13 +236,13 @@ function drawSignatureImage(page: any, img: any, rect: PdfRect) {
   // handwriting lands along the visible line instead of becoming a vertical mark.
   if (rotation === 90 || rotation === 270) {
     const lineW = Math.max(1, rect.height - 26);
-    const lineH = Math.min(22, Math.max(18, rect.width * 1.18));
+    const lineH = Math.min(14, Math.max(11, rect.width * 0.78));
     const { width, height } = signatureFit(img.width, img.height, lineW, lineH);
     const y = rect.y + (rect.height - width) / 2;
 
     if (rotation === 90) {
       page.drawImage(img, {
-        x: rect.x + rect.width + 2,
+        x: rect.x + rect.width + 5,
         y,
         width,
         height,
@@ -259,7 +250,7 @@ function drawSignatureImage(page: any, img: any, rect: PdfRect) {
       });
     } else {
       page.drawImage(img, {
-        x: rect.x - 2,
+        x: rect.x - 5,
         y: y + width,
         width,
         height,
@@ -275,68 +266,6 @@ function drawSignatureImage(page: any, img: any, rect: PdfRect) {
     y: rect.y + (rect.height - height) / 2,
     width,
     height,
-  });
-}
-
-function drawHumanizedSignature(page: any, rect: PdfRect, name?: string | null) {
-  const cleanName = name?.trim();
-  if (!cleanName) return;
-
-  const rotation = ((page.getRotation().angle % 360) + 360) % 360;
-  if (rotation !== 90 && rotation !== 270) return;
-
-  const seed = hashString(cleanName);
-  const usableW = Math.max(120, rect.height - 54);
-  const startY = rect.y + (rect.height - usableW) / 2;
-  const baseX = rotation === 90 ? rect.x + rect.width + 2.5 : rect.x - 2.5;
-  const direction = rotation === 90 ? 1 : -1;
-  const segments = 72;
-  const points: { x: number; y: number }[] = [];
-
-  for (let i = 0; i <= segments; i++) {
-    const t = i / segments;
-    const y = startY + t * usableW;
-    const wave =
-      Math.sin(t * Math.PI * (5.6 + (seed % 5) * 0.18)) * 3.4 +
-      Math.sin(t * Math.PI * (13.5 + (seed % 7) * 0.11)) * 1.7;
-    const initialLift = t < 0.16 ? Math.sin((t / 0.16) * Math.PI) * 5.8 : 0;
-    const middleLift = t > 0.38 && t < 0.68 ? Math.sin(((t - 0.38) / 0.3) * Math.PI) * 3.5 : 0;
-    const finishLift = t > 0.82 ? Math.sin(((t - 0.82) / 0.18) * Math.PI) * 4.6 : 0;
-    points.push({
-      x: baseX - direction * (wave + initialLift + middleLift + finishLift),
-      y,
-    });
-  }
-
-  for (let i = 1; i < points.length; i++) {
-    page.drawLine({
-      start: points[i - 1],
-      end: points[i],
-      thickness: i % 5 === 0 ? 0.7 : 0.86,
-      color: rgb(0.02, 0.02, 0.02),
-      opacity: 0.92,
-    });
-  }
-
-  for (const t of [0.18, 0.46, 0.64]) {
-    const y = startY + usableW * t;
-    page.drawEllipse({
-      x: baseX - direction * (3.8 + ((seed * t) % 2)),
-      y,
-      xScale: 2.2,
-      yScale: 4.4,
-      borderWidth: 0.62,
-      borderColor: rgb(0.02, 0.02, 0.02),
-      opacity: 0.82,
-    });
-  }
-
-  page.drawLine({
-    start: { x: baseX + direction * 2, y: startY + usableW * 0.08 },
-    end: { x: baseX + direction * 1, y: startY + usableW * 0.94 },
-    thickness: 0.48,
-    color: rgb(0.02, 0.02, 0.02),
-    opacity: 0.45,
   });
 }
 
@@ -356,14 +285,6 @@ function signatureFit(imgW: number, imgH: number, maxW: number, maxH: number) {
   }
 
   return { width, height };
-}
-
-function hashString(value: string) {
-  let hash = 0;
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash * 31 + value.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
 }
 
 function fmtDate(iso?: string | null): string {
