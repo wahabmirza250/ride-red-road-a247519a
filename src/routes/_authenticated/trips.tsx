@@ -659,7 +659,7 @@ function TripDetailDialog({
       <DialogFooter className="gap-2 sm:justify-between">
         <Button
           variant="destructive"
-          onClick={handleDelete}
+          onClick={() => setConfirmOpen(true)}
           disabled={deleting}
           className="rounded-full"
         >
@@ -668,7 +668,7 @@ function TripDetailDialog({
           ) : (
             <Trash2 className="mr-2 h-4 w-4" />
           )}
-          Delete trip
+          Cancel & delete trip
         </Button>
         <div className="flex gap-2">
           <a
@@ -684,6 +684,32 @@ function TripDetailDialog({
           </Button>
         </div>
       </DialogFooter>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this trip?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the trip{trip.driver_id ? " and removes it from the assigned driver's app in real time" : ""}.
+              Any linked billing record will be cascaded and the cancellation logged to the audit trail.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Keep trip</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Yes, cancel trip
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DialogContent>
   );
 }
