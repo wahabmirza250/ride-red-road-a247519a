@@ -547,6 +547,66 @@ function NewNemtTripWizard() {
     );
   }
 
+  if (completedPdfs) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 p-4 pb-24">
+        <PageHeader
+          title="Trip submitted"
+          description="Your filled state trip log is stored and queued for billing review."
+        />
+        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+            <Check className="h-4 w-4" /> One PDF per rider generated
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Billing will review and then auto-submit to the Colorado provider portal.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          {completedPdfs.length === 0 && (
+            <div className="text-sm text-muted-foreground">No PDFs generated.</div>
+          )}
+          {completedPdfs.map((p) => (
+            <div
+              key={p.url}
+              className="flex items-center justify-between gap-3 rounded-xl border bg-surface p-3"
+            >
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium">{p.rider_name}</div>
+                <div className="truncate text-xs text-muted-foreground">{p.filename}</div>
+              </div>
+              <div className="flex gap-2">
+                <a
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                >
+                  View PDF
+                </a>
+                <a
+                  href={p.url}
+                  download={p.filename}
+                  className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                >
+                  Download
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => navigate({ to: "/driver/history" })}>
+            History
+          </Button>
+          <Button onClick={() => navigate({ to: "/driver" })}>Done</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-4 pb-24">
       <PageHeader
