@@ -247,11 +247,16 @@ export async function generateStateFormPdf(
 }
 
 function resolveTemplateUrl(templateBaseUrl?: string): string {
-  if (/^https?:\/\//i.test(templateAsset.url)) return templateAsset.url;
-  if (templateBaseUrl) return new URL(templateAsset.url, templateBaseUrl).toString();
-  if (typeof window !== "undefined") return new URL(templateAsset.url, window.location.origin).toString();
-  return templateAsset.url;
+  return resolveAssetUrl(templateAsset.url, templateBaseUrl);
 }
+
+function resolveAssetUrl(url: string, baseUrl?: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  if (baseUrl) return new URL(url, baseUrl).toString();
+  if (typeof window !== "undefined") return new URL(url, window.location.origin).toString();
+  return url;
+}
+
 
 function drawSignatureImage(page: any, img: any, rect: PdfRect) {
   const rotation = ((page.getRotation().angle % 360) + 360) % 360;
