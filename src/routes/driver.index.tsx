@@ -356,32 +356,14 @@ function DriverHome() {
     toast.success(`Switched to ${pax.first_name} ${pax.last_name}`);
   }
 
-  const navUrl = useMemo(() => {
-    if (!active) return "";
+  function openNavigation() {
+    if (!active) return;
     const goingToDropoff = tripStatus === "in_progress";
-    const lat = Number(goingToDropoff ? active.dropoff_lat : active.pickup_lat);
-    const lng = Number(goingToDropoff ? active.dropoff_lng : active.pickup_lng);
-    const address = goingToDropoff ? active.dropoff_address : active.pickup_address;
-    const destination = Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0
-      ? `${lat},${lng}`
-      : address;
-    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-  }, [active, tripStatus]);
-
-  async function openNavigation() {
-    if (!navUrl) return;
-    const opened = window.open(navUrl, "_blank");
-    if (opened) {
-      opened.opener = null;
-      opened.focus();
-      return;
-    }
-    try {
-      await navigator.clipboard?.writeText(navUrl);
-      toast.info("Google Maps link copied");
-    } catch {
-      toast.error("Allow pop-ups to open Google Maps");
-    }
+    openMapsNav({
+      lat: goingToDropoff ? active.dropoff_lat : active.pickup_lat,
+      lng: goingToDropoff ? active.dropoff_lng : active.pickup_lng,
+      address: goingToDropoff ? active.dropoff_address : active.pickup_address,
+    });
   }
 
   if (!driver) {
