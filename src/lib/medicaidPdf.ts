@@ -62,7 +62,15 @@ export async function generateStateFormPdf(
     return r.arrayBuffer();
   });
   const pdf = await PDFDocument.load(templateBytes);
+  pdf.registerFontkit(fontkit);
+  const handwritingFont = await pdf.embedFont(
+    await fetch(resolveAssetUrl(handwritingFontAsset.url, options.templateBaseUrl)).then((r) => {
+      if (!r.ok) throw new Error(`Failed to load handwriting font: ${r.status}`);
+      return r.arrayBuffer();
+    }),
+  );
   const form = pdf.getForm();
+
 
   const setText = (name: string, value: string | number | null | undefined) => {
     if (value === null || value === undefined || value === "") return;
