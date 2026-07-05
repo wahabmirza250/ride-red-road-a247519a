@@ -1,5 +1,8 @@
-import { degrees, PDFDocument, rgb } from "pdf-lib";
+import { degrees, PDFDocument, PDFTextField, rgb } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import templateAsset from "@/assets/nemt_trip_report_template.pdf.asset.json";
+import handwritingFontAsset from "@/assets/JustAnotherHand-Regular.ttf.asset.json";
+
 
 export type Leg = {
   leg_index: 1 | 2;
