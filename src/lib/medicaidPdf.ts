@@ -237,26 +237,27 @@ function drawSignatureImage(page: any, img: any, rect: PdfRect) {
   // handwriting lands along the visible line instead of becoming a vertical mark.
   if (rotation === 90 || rotation === 270) {
     const lineW = Math.max(1, rect.height - inset * 2);
-    const lineH = Math.max(1, rect.width - inset * 2);
+    const lineH = Math.max(1, rect.width * 1.45);
     const { width, height } = signatureFit(img.width, img.height, lineW, lineH);
+    const centeredAlongLine = rect.y + (rect.height - width) / 2;
 
     if (rotation === 90) {
       // With a 90° draw rotation, the rendered image occupies raw bounds:
-      // x - height ... x, and y ... y + width. Position from those bounds so
-      // the proportional image is centered inside the signature field /Rect.
+      // x - height ... x, and y ... y + width. The x value is the rendered
+      // bottom edge, so pin it to the field baseline instead of centering it.
       page.drawImage(img, {
-        x: rect.x + (rect.width + height) / 2,
-        y: rect.y + (rect.height - width) / 2,
+        x: rect.x + rect.width + 3,
+        y: centeredAlongLine,
         width,
         height,
         rotate: degrees(90),
       });
     } else {
       // With a 270° draw rotation, the rendered image occupies raw bounds:
-      // x ... x + height, and y - width ... y.
+      // x ... x + height, and y - width ... y. The right edge is the baseline.
       page.drawImage(img, {
-        x: rect.x + (rect.width - height) / 2,
-        y: rect.y + (rect.height + width) / 2,
+        x: rect.x - 3 - height,
+        y: centeredAlongLine + width,
         width,
         height,
         rotate: degrees(270),
@@ -273,7 +274,7 @@ function drawSignatureImage(page: any, img: any, rect: PdfRect) {
   );
   page.drawImage(img, {
     x: rect.x + (rect.width - width) / 2,
-    y: rect.y + (rect.height - height) / 2,
+    y: rect.y + inset,
     width,
     height,
   });
