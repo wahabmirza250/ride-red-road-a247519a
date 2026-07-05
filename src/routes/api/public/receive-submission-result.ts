@@ -10,6 +10,7 @@ const Body = z.object({
   success: z.boolean(),
   state_confirmation_number: z.string().nullable().optional(),
   error_message: z.string().nullable().optional(),
+  requires_human_step: z.boolean().optional(),
 });
 
 export const Route = createFileRoute("/api/public/receive-submission-result")({
