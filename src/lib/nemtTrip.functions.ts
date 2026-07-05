@@ -42,13 +42,31 @@ export const getMyDriverDefaults = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data, error } = await supabase
-      .from("drivers")
-      .select("id, default_vehicle_type, default_plate, default_vin")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    return data;
+    const [{ data: driver, error: driverError }, { data: profile, error: profileError }] =
+      await Promise.all([
+        supabase
+          .from("drivers")
+          .select("id, default_vehicle_type, default_plate, default_vin")
+          .eq("user_id", userId)
+          .maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("first_name, last_name, email")
+          .eq("id", userId)
+          .maybeSingle(),
+      ]);
+    if (driverError) throw new Error(driverError.message);
+    if (profileError) throw new Error(profileError.message);
+    const full_name = profile
+      ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || profile.email || ""
+      : "";
+    return {
+      id: driver?.id ?? null,
+      default_vehicle_type: driver?.default_vehicle_type ?? null,
+      default_plate: driver?.default_plate ?? null,
+      default_vin: driver?.default_vin ?? null,
+      driver_full_name: full_name,
+    };
   });
 
 export const getAssignedTripForNemt = createServerFn({ method: "GET" })
