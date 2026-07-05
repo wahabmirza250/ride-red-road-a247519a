@@ -613,6 +613,53 @@ function NewNemtTripWizard() {
     );
   }
 
+  async function fetchPdfBlob(url: string): Promise<string> {
+    // Fetch as blob so ad-blockers that filter direct storage host URLs
+    // (ERR_BLOCKED_BY_CLIENT on *.supabase.co) don't intercept the navigation.
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Download failed (${res.status})`);
+    const blob = await res.blob();
+    return URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+  }
+
+  async function openPdfInNewTab(url: string, filename: string) {
+    // Open the tab synchronously so it isn't treated as a popup, then
+    // point it at the blob URL once the fetch resolves.
+    const win = window.open("", "_blank");
+    try {
+      const blobUrl = await fetchPdfBlob(url);
+      if (win) {
+        win.location.href = blobUrl;
+      } else {
+        // Popup blocked — fall back to a direct download.
+        downloadFromBlobUrl(blobUrl, filename);
+      }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (e) {
+      win?.close();
+      toast.error(e instanceof Error ? e.message : "Could not open PDF");
+    }
+  }
+
+  async function downloadPdf(url: string, filename: string) {
+    try {
+      const blobUrl = await fetchPdfBlob(url);
+      downloadFromBlobUrl(blobUrl, filename);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not download PDF");
+    }
+  }
+
+  function downloadFromBlobUrl(blobUrl: string, filename: string) {
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   if (completedPdfs) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 p-4 pb-24">
@@ -643,21 +690,20 @@ function NewNemtTripWizard() {
                 <div className="truncate text-xs text-muted-foreground">{p.filename}</div>
               </div>
               <div className="flex gap-2">
-                <a
-                  href={p.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => openPdfInNewTab(p.url, p.filename)}
                   className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent"
                 >
                   View PDF
-                </a>
-                <a
-                  href={p.url}
-                  download={p.filename}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadPdf(p.url, p.filename)}
                   className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent"
                 >
                   Download
-                </a>
+                </button>
               </div>
             </div>
           ))}
