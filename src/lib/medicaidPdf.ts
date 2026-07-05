@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, rgb } from "pdf-lib";
 import templateAsset from "@/assets/nemt_trip_report_template.pdf.asset.json";
 
 export type Leg = {
@@ -34,10 +34,14 @@ export type FormArgs = {
 };
 
 /**
- * Overlays trip data on top of the official Colorado NEMT Trip Report
- * template (April 2025). One PDF per rider. Coordinates are calibrated
- * against the shipped template; adjust the numeric constants below if
- * the state releases an updated form.
+ * Fills the official Colorado HCPF Non-Emergent Medical Transportation Trip
+ * Log (April 2025) using its AcroForm fields, stamps the captured signature
+ * PNG over the Members Signature widget, and flattens the form so the
+ * downloaded PDF renders identically to the state's paper form.
+ *
+ * Field names and radio export values are taken verbatim from the shipped
+ * fillable template — the state's spelling/casing (e.g. "AM" vs "am") is
+ * preserved because those strings are the field's export values.
  */
 export async function generateStateFormPdf(a: FormArgs): Promise<Uint8Array> {
   const templateBytes = await fetch(templateAsset.url).then((r) => {
@@ -45,89 +49,109 @@ export async function generateStateFormPdf(a: FormArgs): Promise<Uint8Array> {
     return r.arrayBuffer();
   });
   const pdf = await PDFDocument.load(templateBytes);
-  const page = pdf.getPage(0);
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const { height } = page.getSize();
+  const form = pdf.getForm();
 
-  const T = (yFromTop: number) => height - yFromTop;
+  const setText = (name: string, value: string | number | null | undefined) => {
+    if (value === null || value === undefined || value === "") return;
+    try {
+      form.getTextField(name).setText(String(value));
+    } catch {
+      /* field absent in a future template revision — safe to skip */
+    }
+  };
 
-  const put = (
-    text: string | number | null | undefined,
-    x: number,
-    yTop: number,
-    size = 9,
-    isBold = false,
-  ) => {
-    if (text === null || text === undefined || text === "") return;
-    page.drawText(String(text), {
-      x,
-      y: T(yTop) - size + 2,
-      size,
-      font: isBold ? bold : font,
-      color: rgb(0, 0, 0),
-    });
+  const setRadio = (name: string, value: string | null | undefined) => {
+    if (!value) return;
+    try {
+      form.getRadioGroup(name).select(value);
+    } catch {
+      /* option/field missing — skip rather than crash the export */
+    }
   };
-  const check = (x: number, yTop: number) => {
-    page.drawText("X", { x, y: T(yTop) - 8, size: 10, font: bold, color: rgb(0, 0, 0) });
-  };
+
+  const leg1 = a.legs.find((l) => l.leg_index === 1) ?? a.legs[0] ?? null;
+  const leg2 = a.legs.find((l) => l.leg_index === 2) ?? null;
 
   /* ---------- Member section ---------- */
-  put(a.rider?.full_name ?? "", 130, 165, 10, true);
-  put(a.rider?.medicaid_id ?? "", 470, 165, 10, true);
-  if (a.identityVerified) check(178, 200);
-  else check(215, 200);
-
-  const leg1 = a.legs.find((l) => l.leg_index === 1) ?? a.legs[0];
-  const leg2 = a.legs.find((l) => l.leg_index === 2);
-
-  put(a.signatureName ?? a.rider?.full_name ?? "", 130, 240);
-  put(leg1 ? new Date(leg1.leg_date).toLocaleDateString() : "", 400, 240);
-  put(a.escortName ?? "", 400, 262);
-
-  /* ---------- Driver / Vehicle ---------- */
-  put(a.driverName, 130, 320, 10, true);
-  put(
-    [a.vehiclePlate, a.vehicleVin && `VIN ${a.vehicleVin}`].filter(Boolean).join(" · "),
-    400,
-    320,
+  setText("Members Name", a.rider?.full_name ?? "");
+  setText("Member Health First Colorado ID", a.rider?.medicaid_id ?? "");
+  setRadio(
+    "driver verify member identity",
+    a.identityVerified === false ? "no" : "yes",
+  );
+  setText(
+    "Trip Date",
+    leg1?.leg_date ? new Date(leg1.leg_date).toLocaleDateString() : "",
+  );
+  setText(
+    "Member facility or escort may sign to confirm that trip occurred  Escort Name if applicable",
+    a.escortName ?? "",
   );
 
-  const vtMap: Record<string, number> = {
-    ground_ambulance: 130,
-    wheelchair_van: 220,
-    stretcher_van: 305,
-    taxi: 385,
-    ambulatory: 430,
-  };
-  const vx = vtMap[a.vehicleType ?? ""];
-  if (vx) check(vx, 353);
+  /* ---------- Driver / Vehicle ---------- */
+  setText("Drivers Name", a.driverName);
+  setText(
+    "Vehicle License Plate or VIN",
+    [a.vehiclePlate, a.vehicleVin && `VIN ${a.vehicleVin}`]
+      .filter(Boolean)
+      .join(" · "),
+  );
 
-  if (a.tripKind === "one_way") check(200, 385);
-  else check(275, 385); // round_trip or group_tour treated as round for the form
+  const vehicleMap: Record<string, string> = {
+    ground_ambulance: "ground ambulance",
+    wheelchair_van: "wheelchair van",
+    stretcher_van: "stretcher van",
+    taxi: "taxi",
+    ambulatory: "Mobility/Ambulatory vehicle",
+  };
+  setRadio("type of vehicle", vehicleMap[a.vehicleType ?? ""]);
+
+  // The state form only offers one way / round trip. Group-tour is treated as
+  // round-trip for the paper output.
+  setRadio(
+    "type of trip",
+    a.tripKind === "one_way" ? "one way" : "round trip",
+  );
 
   /* ---------- Legs ---------- */
-  const drawLeg = (
-    leg: Leg | undefined,
-    dateY: number,
-    pickupY: number,
-    dropoffY: number,
-  ) => {
-    if (!leg) return;
-    put(new Date(leg.leg_date).toLocaleDateString(), 90, dateY);
-    put(fmtTime(leg.pickup_time), 110, pickupY);
-    put(String(leg.pickup_odometer), 280, dateY);
-    put(leg.pickup_address, 380, dateY, 8);
-    put(fmtTime(leg.dropoff_time), 110, dropoffY);
-    put(String(leg.dropoff_odometer), 280, dropoffY, 9);
-    put(leg.dropoff_address, 380, dropoffY, 8);
-  };
-  drawLeg(leg1, 425, 450, 480);
-  drawLeg(leg2, 545, 570, 600);
+  const fmt = fmtDate;
+  const tm = splitTime;
 
-  /* ---------- Signature image ---------- */
+  if (leg1) {
+    setText("Date", fmt(leg1.leg_date));
+    const p1 = tm(leg1.pickup_time);
+    setText("Pickup TIme", p1.hm);
+    setRadio("pick up time", p1.ampm);
+    setText("Pickup Odometer Reading", leg1.pickup_odometer);
+    setText("Pickup Street Address City State Zip", leg1.pickup_address);
+
+    const d1 = tm(leg1.dropoff_time);
+    setText("Actual DropOff Time  AM  PM", d1.hm);
+    setRadio("dropoff time", d1.ampm === "AM" ? "am" : "pm");
+    setText("Destination Odometer Reading", leg1.dropoff_odometer);
+    setText("Dropoff Destination Street Address City State Zip", leg1.dropoff_address);
+  }
+
+  if (leg2) {
+    setText("Date_2", fmt(leg2.leg_date));
+    const p2 = tm(leg2.pickup_time);
+    setText("pickup time 2", p2.hm);
+    setRadio("second pickup time", p2.ampm === "AM" ? "am" : "pm");
+    setText("Pickup Odometer Reading_2", leg2.pickup_odometer);
+    setText("Pickup Street Address City State Zip_2", leg2.pickup_address);
+
+    const d2 = tm(leg2.dropoff_time);
+    setText("Actual DropOff Time  AM  PM_2", d2.hm);
+    setRadio("second dropoff time", d2.ampm === "AM" ? "am" : "pm");
+    setText("Destination Odometer Reading_2", leg2.dropoff_odometer);
+    setText("Dropoff Destination Street Address City State Zip_2", leg2.dropoff_address);
+  }
+
+  /* ---------- Signature: stamp PNG inside the widget's rectangle ---------- */
   if (a.signatureUrl) {
     try {
+      const sigField = form.getField("Members Signature");
+      const widgets = sigField.acroField.getWidgets();
       const bytes = await fetch(a.signatureUrl).then((r) => r.arrayBuffer());
       let img;
       try {
@@ -135,37 +159,66 @@ export async function generateStateFormPdf(a: FormArgs): Promise<Uint8Array> {
       } catch {
         img = await pdf.embedJpg(bytes);
       }
-      const targetW = 160;
-      const scale = targetW / img.width;
-      const targetH = img.height * scale;
-      page.drawImage(img, {
-        x: 130,
-        y: T(245) - targetH,
-        width: targetW,
-        height: targetH,
-      });
-      if (a.signedByEscort) put("(signed by escort)", 300, 245, 7);
+      for (const widget of widgets) {
+        const rect = widget.getRectangle();
+        const pageRef = widget.P();
+        const page = pdf.getPages().find((pg) => pg.ref === pageRef) ?? pdf.getPage(0);
+        // Fit image inside the widget rect, preserving aspect ratio.
+        const maxW = rect.width;
+        const maxH = rect.height;
+        const scale = Math.min(maxW / img.width, maxH / img.height);
+        const drawW = img.width * scale;
+        const drawH = img.height * scale;
+        page.drawImage(img, {
+          x: rect.x + (maxW - drawW) / 2,
+          y: rect.y + (maxH - drawH) / 2,
+          width: drawW,
+          height: drawH,
+        });
+        if (a.signedByEscort) {
+          page.drawText("(signed by escort)", {
+            x: rect.x,
+            y: rect.y - 8,
+            size: 7,
+            color: rgb(0.3, 0.3, 0.3),
+          });
+        }
+      }
+      // Remove the signature widget so the stamped image is the only visible mark.
+      try {
+        form.removeField(sigField);
+      } catch {
+        /* older pdf-lib versions expose removeField only in newer builds */
+      }
     } catch {
-      /* signature optional */
+      /* signature field absent — image simply isn't stamped */
     }
   }
 
-  page.drawText(
-    `Auto-filled by RedArt NEMT · ${new Date().toISOString()}`,
-    { x: 40, y: 30, size: 7, font, color: rgb(0.45, 0.45, 0.45) },
-  );
+  /* ---------- Flatten so the output matches the state's paper form ---------- */
+  try {
+    form.flatten();
+  } catch {
+    /* flatten can fail on exotic field types — leave form editable rather than throw */
+  }
 
   return await pdf.save();
 }
 
-function fmtTime(t?: string | null): string {
-  if (!t) return "";
-  // HH:MM 24h → h:MM AM/PM
+function fmtDate(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString();
+}
+
+function splitTime(t?: string | null): { hm: string; ampm: "AM" | "PM" } {
+  if (!t) return { hm: "", ampm: "AM" };
   const [hStr, mStr] = t.split(":");
   const h = Number(hStr);
   const m = mStr ?? "00";
-  if (Number.isNaN(h)) return t;
-  const ampm = h >= 12 ? "PM" : "AM";
+  if (Number.isNaN(h)) return { hm: t, ampm: "AM" };
+  const ampm: "AM" | "PM" = h >= 12 ? "PM" : "AM";
   const h12 = ((h + 11) % 12) + 1;
-  return `${h12}:${m} ${ampm}`;
+  return { hm: `${h12}:${m}`, ampm };
 }
