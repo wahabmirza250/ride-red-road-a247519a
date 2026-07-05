@@ -752,16 +752,26 @@ function NewNemtTripWizard() {
             </div>
             {riderResults.length > 0 && (
               <div className="mt-2 rounded-lg border">
-                {riderResults.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => addRiderSlot(r)}
-                    className="flex w-full items-center justify-between border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-accent"
-                  >
-                    <span>{r.full_name}</span>
-                    <span className="text-xs text-muted-foreground">{r.medicaid_id}</span>
-                  </button>
-                ))}
+                {riderResults.map((r) => {
+                  const source = (r as Rider & { __source?: "passenger" }).__source;
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => selectSearchResult(r as Rider & { __source?: "passenger"; last_4_ssn?: string | null })}
+                      className="flex w-full items-center justify-between border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-accent"
+                    >
+                      <span className="flex items-center gap-2">
+                        {r.full_name}
+                        {source === "passenger" && (
+                          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                            From passengers
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{r.medicaid_id || "—"}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
             {addingRider && (
