@@ -389,7 +389,6 @@ export const setDefaultBillingPortal = createServerFn({ method: "POST" })
     await assertAdmin(supabase, userId);
     const { error } = await supabase.rpc("set_default_billing_portal", {
       _portal_id: data.portal_id,
-      _company_id: null,
     });
     if (error) throw new Error(error.message);
     return { ok: true };
