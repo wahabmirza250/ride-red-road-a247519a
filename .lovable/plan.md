@@ -1,119 +1,57 @@
-# Medicaid Billing Rework Plan
+## Goal
 
-Rebuild `/medicaid-billing` around a 6-stage review pipeline with an audit trail, encrypted state-portal credentials, and an automated submit-to-state pipeline that calls out to an external automation service (RPA/Playwright worker) and gets a webhook callback.
+When a driver completes the Trip Report in the dashboard, the PDF returned (and stored to Medicaid Billing) must be the **exact Colorado HCPF "Non-Emergent Medical Transportation Trip Log" form**, with every field the driver filled in populated in the correct box — not a coordinate-guessed overlay, and not a generic summary.
 
-The existing app already has: `medicaid_trips` (with `status`, PDF path, signature path), the HFC runner scaffolding, and a `medicaid-billing.tsx` page. We keep the trip data on `medicaid_trips` and add a **`billing_records`** row per trip that owns the review/submit lifecycle. This preserves existing flow (driver submits → trip appears for review) while decoupling billing state from trip state.
+## Why the current output looks off
 
-## 1. Database (single migration)
+Today `src/lib/medicaidPdf.ts` opens a **flattened** copy of the template and draws text at hard-coded x/y coordinates. Small font/scale differences shift text, checkboxes are approximated with an "X" glyph, and the signature stamp can drift. That's the "problem" you're seeing.
 
-### `billing_records` (new)
-- `trip_id` uuid FK → `medicaid_trips.id` UNIQUE
-- `trip_form_id` uuid nullable (future-proof reference to a distinct form record; today = trip_id)
-- `status` text CHECK IN (`pending_review`, `pending_submit`, `submitting`, `submitted`, `approved`, `rejected`, `needs_fix`) default `pending_review`
-- `reviewed_by` uuid → `auth.users.id`, `reviewed_at` timestamptz
-- `fix_notes` text, `rejection_reason` text
-- `submitted_at` timestamptz, `state_confirmation_number` text
-- `submission_error` text
-- `created_at`, `updated_at` (trigger)
+The newly uploaded PDF (`Non-Emergent_Medical_Transportation_Trip_Log_042025_Accessible-5.pdf`) is the **fillable** version of the same form — it ships 28 real AcroForm fields with exact names. Filling those fields is deterministic and always renders in the right place.
 
-GRANT SELECT/INSERT/UPDATE to `authenticated`; ALL to `service_role`. RLS: admins can do everything (`has_role(auth.uid(),'admin')`); drivers can SELECT their own via join to `medicaid_trips.driver_id = auth.uid()`.
+## What will change
 
-Trigger: when a `medicaid_trips` row transitions into `pending_review`, auto-insert the matching `billing_records` row (idempotent).
+1. **Replace the template asset** with the fillable April-2025 PDF (uploaded).
+2. **Rewrite `src/lib/medicaidPdf.ts`** to fill AcroForm fields via `pdf-lib` (already a dependency) instead of coordinate drawing.
+3. **Stamp the captured signature PNG** into the "Members Signature" widget's rectangle, then remove that signature field so the image is the visible signature.
+4. **Flatten the form** at the end so the downloaded / printed PDF is locked and matches the state's expected paper output exactly.
+5. Keep the existing storage + Medicaid Billing wiring unchanged — same `state-pdfs/{driver}/{trip}.pdf` path, same `attachStatePdf` call, same billing retrieval flow.
 
-### `billing_audit_log` (new)
-- `billing_record_id` FK
-- `action` text (`approved`, `needs_fix`, `submit_requested`, `submitting`, `submitted`, `submit_failed`, `marked_approved`, `marked_rejected`, `credentials_updated`)
-- `actor_id` uuid, `actor_type` text (`admin`|`driver`|`system`)
-- `notes` text
-- `created_at`
+## Field mapping (driver form → PDF field)
 
-Admins SELECT/INSERT; service_role ALL. Realtime enabled.
+Text fields (`/Tx`)
+- Members Name ← rider full name
+- Member Health First Colorado ID ← rider medicaid_id
+- Trip Date ← leg 1 date
+- "Member facility or escort may sign… Escort Name if applicable" ← escort name (blank if none)
+- Drivers Name ← driver's full name from profile
+- Vehicle License Plate or VIN ← plate (+ "VIN …" if provided)
+- Leg 1: Date, Pickup TIme, Pickup Odometer Reading, Pickup Street Address City State Zip, Actual DropOff Time AM PM, Destination Odometer Reading, Dropoff Destination Street Address City State Zip
+- Leg 2: same fields with `_2` / `pickup time 2` suffixes (only filled when round-trip)
 
-### `state_portal_credentials` (new)
-- `portal_name` text, `state` text, `login_email` text
-- `login_password_encrypted` bytea (encrypted with pgsodium/vault secret)
-- `last_used_at` timestamptz
+Radio groups (`/Btn`) — exact export values discovered from the PDF
+- `type of trip` → `one way` | `round trip`
+- `type of vehicle` → `ground ambulance` | `wheelchair van` | `stretcher van` | `taxi` | `Mobility/Ambulatory vehicle`
+- `driver verify member identity` → `yes` | `no`
+- `pick up time` / `dropoff time` (leg 1) → `AM` | `pm`
+- `second pickup time` / `second dropoff time` (leg 2) → `am` | `pm`
 
-Admin-only RLS. Password never returned to the client raw — a security-definer RPC `get_portal_credentials_masked()` returns `login_email` and a masked password (`•••• last4`) for the UI. Only the edge function reads the plaintext via service role + `vault.decrypted_secrets`.
+Signature (`/Sig`)
+- `Members Signature` — read the widget's `/Rect`, draw the captured PNG scaled to fit inside it, then delete the field. If the trip was signed by an escort, append " (signed by escort)" as small text under the signature.
 
-### Realtime
-Add `billing_records` and `billing_audit_log` to `supabase_realtime` publication.
+## Files touched
 
-## 2. Edge Functions
+- **Add** the fillable template as a Lovable asset: `src/assets/nemt_trip_report_template.pdf.asset.json` (replaces current pointer, same import path so no other code changes).
+- **Rewrite** `src/lib/medicaidPdf.ts` — AcroForm fill + signature stamp + flatten. Same exported `generateStateFormPdf(args)` signature, so `src/routes/driver.trip.new.tsx` and any other caller keep working with no edits.
 
-Only external I/O lives here — internal reads stay in TanStack server fns.
+## Out of scope
 
-### `submit-to-state-portal` (POST, JWT-verified, admin only)
-Input: `{ billing_record_ids: string[] }`.
-- Verify caller is admin (`has_role`).
-- For each id: set status → `submitting`, log audit `submitting`.
-- Load trip + rider + signed URLs for PDF + signature (15 min).
-- POST to `AUTOMATION_SERVICE_URL/submit` with `x-api-key: AUTOMATION_SERVICE_API_KEY`, HMAC-signed body containing trip payload, PDF URL, signature URL, and `callback_url = SITE_URL/api/public/receive-submission-result`.
-- On network/HTTP failure: status → `pending_submit`, save `submission_error`, log `submit_failed`.
-- Return per-id result.
+- No DB schema changes.
+- No changes to Medicaid Billing UI, storage bucket, or the submit-to-portal path — Billing already pulls `state_pdf_path`; the file at that path just becomes a much cleaner render.
+- No changes to the driver dashboard form fields or the autocomplete/passenger-profile flow — those are already wired.
 
-### `/api/public/receive-submission-result` (TanStack server route, unauthenticated + HMAC-verified)
-Input: `{ billing_record_id, success, state_confirmation_number?, error_message? }`.
-- Verify HMAC signature header against `AUTOMATION_SERVICE_HMAC_SECRET` (timing-safe).
-- Success → status `submitted`, save confirmation number & `submitted_at`, log `submitted`.
-- Failure → status `pending_submit`, save `submission_error`, log `submit_failed`.
-- Idempotent on `billing_record_id`.
+## Technical notes
 
-Secrets to add via `add_secret`: `AUTOMATION_SERVICE_URL`, `AUTOMATION_SERVICE_API_KEY`, `AUTOMATION_SERVICE_HMAC_SECRET`.
-
-## 3. TanStack Server Functions (`src/lib/billing.functions.ts`)
-
-All `requireSupabaseAuth` + admin check:
-- `listBillingRecords({ status })` — joins trip + rider + driver profile.
-- `getBillingRecord({ id })` — full detail incl. signed URLs for PDF & signature.
-- `approveBillingRecord({ id })` — `pending_review` → `pending_submit`, audit `approved`.
-- `requestFix({ id, notes })` — status → `needs_fix`, save notes, audit `needs_fix`, insert notification/message row to driver.
-- `submitBillingRecords({ ids })` — calls the edge function above; returns results.
-- `markApproved({ id })` / `markRejected({ id, reason })` — post-submission manual state response, audit accordingly.
-- `listAuditLog({ id })`.
-- `upsertPortalCredentials({ portal_name, state, login_email, login_password })` — encrypts via `vault.create_secret` (or pgsodium), stores reference, audit `credentials_updated`.
-- `listPortalCredentialsMasked()`.
-
-## 4. UI
-
-### `/medicaid-billing` page
-Rework tabs to: **Pending Review | Pending Submit | Submitted | Approved | Rejected | Needs Fix**. Each tab = table (passenger, driver, trip date, status badge, `submitting` shows spinner). Row click → side sheet detail.
-
-Detail sheet:
-- Passenger identity (name, Medicaid ID, DOB, last-4 SSN)
-- Pickup/dropoff time+address, odometer start/end, driver, mileage
-- Signature image, inline `<iframe>` PDF preview, Download PDF
-- Audit trail list
-- Actions vary per tab:
-  - Pending Review: **Approve**, **Needs Fix** (textarea for notes)
-  - Pending Submit: **Submit**; page shows **Submit All** + multi-select checkboxes; **Retry** on `pending_submit` rows with `submission_error` (shown as banner)
-  - Submitted: **Mark Approved**, **Mark Rejected** (reason)
-  - Rejected: read-only + reason
-  - Needs Fix: read-only + notes; awaiting driver
-
-Realtime subscription on `billing_records` invalidates the list/detail so status flips (`submitting` → `submitted`) appear live.
-
-### Settings — State Portal Credentials card
-On `/team` (Team & apps): card listing portals with masked password, Edit dialog to update (writes via `upsertPortalCredentials`), admin-only.
-
-## 5. Files
-
-**New**
-- `supabase/migrations/<ts>_billing_pipeline.sql`
-- `supabase/functions/submit-to-state-portal/index.ts`
-- `src/routes/api/public/receive-submission-result.ts`
-- `src/lib/billing.functions.ts`
-- `src/components/billing/BillingDetailSheet.tsx`
-- `src/components/billing/PortalCredentialsCard.tsx`
-
-**Rewrite**
-- `src/routes/_authenticated/medicaid-billing.tsx` (6 tabs, multi-select, realtime)
-
-**Edit**
-- `src/routes/_authenticated/team.tsx` — mount `PortalCredentialsCard`
-
-## Questions before I build
-
-1. **Automation service** — do you already have an external URL for the RPA/automation worker (Playwright bot that logs into the state portal)? If not, I'll wire the edge function + webhook but leave the URL/API-key/HMAC-secret to be added later via secrets, and I'll add a "Runner not configured" banner instead of failing silently.
-2. **State portal credentials encryption** — OK to use Supabase Vault (`vault.create_secret`) with the plaintext only readable by the edge function via service role? UI will only ever show a masked value + last-used timestamp.
-3. **"Needs Fix" driver notification** — in-app toast + entry in existing driver messages/inbox, matching the realtime pattern already used on live-ops?
+- `pdf-lib`'s `PDFForm` supports `getTextField`, `getRadioGroup().select()`, and per-field `enableReadOnly()` before `flatten()`. All work in the browser bundle already used by the driver app.
+- Radio option strings are case-sensitive and must match the export values above verbatim (that's why AM vs am/pm looks inconsistent — it's what the state's PDF ships).
+- Legs missing on a one-way trip simply leave the `_2` fields untouched (blank on the flattened output, matching how a paper form is left blank).
+- Any field that isn't present on a future template revision is guarded with a try/catch so a template swap can never crash the export.
