@@ -741,7 +741,7 @@ function NewNemtTripWizard() {
                 <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="pl-8"
-                  placeholder="Search name or Medicaid ID"
+                  placeholder="Search passenger by name, Medicaid ID or phone"
                   value={riderQuery}
                   onChange={(e) => setRiderQuery(e.target.value)}
                 />
