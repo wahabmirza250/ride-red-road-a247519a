@@ -18,6 +18,7 @@ import {
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { useLocationBroadcast } from "@/lib/useGeolocation";
+import { openNavigation as openMapsNav } from "@/lib/mapsDeepLink";
 import { fmtMoney } from "@/lib/rideMath";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -242,7 +243,9 @@ function DriverHome() {
     void loadRequests();
   }
 
-  async function setStatus(next: "arrived_at_pickup" | "in_progress" | "completed") {
+  async function setStatus(
+    next: "driver_en_route_to_pickup" | "arrived_at_pickup" | "in_progress" | "completed",
+  ) {
     if (!active?.trip_id) return;
     const patch: {
       status: typeof next;
@@ -253,6 +256,8 @@ function DriverHome() {
     if (next === "completed") patch.actual_dropoff_time = new Date().toISOString();
     const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
     if (error) return toast.error(error.message);
+    if (next === "driver_en_route_to_pickup") toast.success("Dispatcher notified — pickup started");
+    if (next === "arrived_at_pickup") toast.success("Marked arrived at pickup");
     if (next === "completed") {
       await supabase
         .from("ride_requests")
