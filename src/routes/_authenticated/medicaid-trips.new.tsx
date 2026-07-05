@@ -129,7 +129,7 @@ function NewMedicaidTripPage() {
     try {
       const tripId = crypto.randomUUID();
       // upload signature
-      const dataUrl = sigRef.current!.getCanvas().toDataURL("image/png");
+      const dataUrl = sigRef.current!.getTrimmedCanvas().toDataURL("image/png");
       const blob = await (await fetch(dataUrl)).blob();
       const path = `${user!.id}/${tripId}.png`;
       const { error: upErr } = await supabase.storage
