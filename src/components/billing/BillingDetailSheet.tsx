@@ -326,3 +326,147 @@ function Label({ children }: { children: React.ReactNode }) {
     <div className="text-xs font-medium text-muted-foreground">{children}</div>
   );
 }
+
+/**
+ * Fetch a Supabase-signed URL as a blob so ad-blockers/privacy shields
+ * (which frequently drop direct requests to *.supabase.co with
+ * ERR_BLOCKED_BY_CLIENT) can't intercept the render. We hand React a
+ * `blob:` URL, which is never on any blocklist.
+ */
+function useBlobUrl(url: string | null | undefined, mime?: string) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!url) {
+      setBlobUrl(null);
+      setError(null);
+      return;
+    }
+    let cancelled = false;
+    let createdUrl: string | null = null;
+    setError(null);
+    setBlobUrl(null);
+    fetch(url)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Load failed (${res.status})`);
+        const blob = await res.blob();
+        return mime ? new Blob([blob], { type: mime }) : blob;
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        createdUrl = URL.createObjectURL(blob);
+        setBlobUrl(createdUrl);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
+      });
+    return () => {
+      cancelled = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [url, mime]);
+
+  return { blobUrl, error };
+}
+
+function BlobImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  const { blobUrl, error } = useBlobUrl(src);
+  if (error)
+    return (
+      <div className={`${className ?? ""} flex items-center justify-center text-xs text-destructive`}>
+        {error}
+      </div>
+    );
+  if (!blobUrl)
+    return (
+      <div className={`${className ?? ""} flex items-center justify-center`}>
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  return <img src={blobUrl} alt={alt} className={className} />;
+}
+
+function PdfViewer({ url }: { url: string }) {
+  const { blobUrl, error } = useBlobUrl(url, "application/pdf");
+
+  async function openInNewTab() {
+    const win = window.open("", "_blank");
+    if (blobUrl) {
+      if (win) win.location.href = blobUrl;
+      return;
+    }
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Load failed (${res.status})`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(
+        new Blob([blob], { type: "application/pdf" }),
+      );
+      if (win) win.location.href = objectUrl;
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch (e) {
+      win?.close();
+      toast.error(e instanceof Error ? e.message : "Could not open PDF");
+    }
+  }
+
+  async function download() {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Load failed (${res.status})`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(
+        new Blob([blob], { type: "application/pdf" }),
+      );
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = "state-trip-log.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not download PDF");
+    }
+  }
+
+  return (
+    <div>
+      <Label>State trip log PDF</Label>
+      {error ? (
+        <div className="mt-1 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+          Couldn&apos;t load the PDF ({error}). This is usually a browser
+          ad-blocker or privacy extension blocking Supabase storage — try
+          &quot;Open in new tab&quot; or disable the blocker for this site.
+        </div>
+      ) : !blobUrl ? (
+        <div className="mt-1 flex h-[520px] w-full items-center justify-center rounded-lg border bg-white">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <iframe
+          src={blobUrl}
+          title="State trip log"
+          className="mt-1 h-[520px] w-full rounded-lg border bg-white"
+        />
+      )}
+      <div className="mt-2 flex gap-2">
+        <Button variant="outline" size="sm" onClick={openInNewTab}>
+          Open in new tab
+        </Button>
+        <Button variant="outline" size="sm" onClick={download}>
+          <FileDown className="mr-1 h-4 w-4" /> Download PDF
+        </Button>
+      </div>
+    </div>
+  );
+}
