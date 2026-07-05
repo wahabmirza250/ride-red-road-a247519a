@@ -50,6 +50,15 @@ function MedicaidBillingPage() {
     enabled: isAdmin,
   });
 
+  const settingsFn = useServerFn(getBillingSettings);
+  const settings = useQuery({
+    queryKey: ["billing_settings"],
+    queryFn: () => settingsFn(),
+    enabled: isAdmin,
+  });
+  const defaultPortal = getPortal(settings.data?.default_portal_id);
+  const runnerConfigured = settings.data?.runner_configured ?? true;
+
   // Realtime — invalidate on any billing_records change
   useEffect(() => {
     const ch = supabase
