@@ -43,6 +43,7 @@ import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
+import { Route as ApiPublicReceiveSubmissionResultRouteImport } from './routes/api/public/receive-submission-result'
 import { Route as ApiPublicHfcCallbackRouteImport } from './routes/api/public/hfc-callback'
 import { Route as AuthenticatedPayrollDriverIdRouteImport } from './routes/_authenticated/payroll.$driverId'
 import { Route as AuthenticatedMedicaidTripsNewRouteImport } from './routes/_authenticated/medicaid-trips.new'
@@ -218,6 +219,12 @@ const DriverTripNewRoute = DriverTripNewRouteImport.update({
   path: '/trip/new',
   getParentRoute: () => DriverRoute,
 } as any)
+const ApiPublicReceiveSubmissionResultRoute =
+  ApiPublicReceiveSubmissionResultRouteImport.update({
+    id: '/api/public/receive-submission-result',
+    path: '/api/public/receive-submission-result',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHfcCallbackRoute = ApiPublicHfcCallbackRouteImport.update({
   id: '/api/public/hfc-callback',
   path: '/api/public/hfc-callback',
@@ -272,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
   '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
+  '/api/public/receive-submission-result': typeof ApiPublicReceiveSubmissionResultRoute
   '/driver/trip/new': typeof DriverTripNewRoute
 }
 export interface FileRoutesByTo {
@@ -308,6 +316,7 @@ export interface FileRoutesByTo {
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
   '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
+  '/api/public/receive-submission-result': typeof ApiPublicReceiveSubmissionResultRoute
   '/driver/trip/new': typeof DriverTripNewRoute
 }
 export interface FileRoutesById {
@@ -348,6 +357,7 @@ export interface FileRoutesById {
   '/_authenticated/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/_authenticated/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
   '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
+  '/api/public/receive-submission-result': typeof ApiPublicReceiveSubmissionResultRoute
   '/driver/trip/new': typeof DriverTripNewRoute
 }
 export interface FileRouteTypes {
@@ -388,6 +398,7 @@ export interface FileRouteTypes {
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
     | '/api/public/hfc-callback'
+    | '/api/public/receive-submission-result'
     | '/driver/trip/new'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -424,6 +435,7 @@ export interface FileRouteTypes {
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
     | '/api/public/hfc-callback'
+    | '/api/public/receive-submission-result'
     | '/driver/trip/new'
   id:
     | '__root__'
@@ -463,6 +475,7 @@ export interface FileRouteTypes {
     | '/_authenticated/medicaid-trips/new'
     | '/_authenticated/payroll/$driverId'
     | '/api/public/hfc-callback'
+    | '/api/public/receive-submission-result'
     | '/driver/trip/new'
   fileRoutesById: FileRoutesById
 }
@@ -474,6 +487,7 @@ export interface RootRouteChildren {
   PassengerRoute: typeof PassengerRouteWithChildren
   TrackTripIdRoute: typeof TrackTripIdRoute
   ApiPublicHfcCallbackRoute: typeof ApiPublicHfcCallbackRoute
+  ApiPublicReceiveSubmissionResultRoute: typeof ApiPublicReceiveSubmissionResultRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -716,6 +730,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DriverTripNewRouteImport
       parentRoute: typeof DriverRoute
     }
+    '/api/public/receive-submission-result': {
+      id: '/api/public/receive-submission-result'
+      path: '/api/public/receive-submission-result'
+      fullPath: '/api/public/receive-submission-result'
+      preLoaderRoute: typeof ApiPublicReceiveSubmissionResultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hfc-callback': {
       id: '/api/public/hfc-callback'
       path: '/api/public/hfc-callback'
@@ -848,6 +869,7 @@ const rootRouteChildren: RootRouteChildren = {
   PassengerRoute: PassengerRouteWithChildren,
   TrackTripIdRoute: TrackTripIdRoute,
   ApiPublicHfcCallbackRoute: ApiPublicHfcCallbackRoute,
+  ApiPublicReceiveSubmissionResultRoute: ApiPublicReceiveSubmissionResultRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
