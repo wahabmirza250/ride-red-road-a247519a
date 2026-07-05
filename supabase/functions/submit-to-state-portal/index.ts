@@ -151,6 +151,58 @@ Deno.serve(async (req) => {
       continue;
     }
 
+    // Resolve the portal for this trip's company (defaults to workspace-wide setting)
+    const tripCompanyId: string | null =
+      (rec.medicaid_trips as any)?.company_id ?? null;
+
+    const { data: settingsRow } = await admin
+      .from("billing_settings")
+      .select("default_portal_id")
+      .is("company_id", null)
+      .maybeSingle();
+    const portal_id: string | null = settingsRow?.default_portal_id ?? null;
+
+    if (!portal_id) {
+      const msg =
+        "No default billing portal configured. Set one in Settings → Billing Portal.";
+      await admin
+        .from("billing_records")
+        .update({ status: "pending_submit", submission_error: msg })
+        .eq("id", id);
+      await admin.from("billing_audit_log").insert({
+        billing_record_id: id,
+        action: "submit_failed",
+        actor_id: userId,
+        actor_type: "system",
+        notes: msg,
+      });
+      results.push({ id, ok: false, error: msg });
+      continue;
+    }
+
+    // Look up decrypted portal credentials
+    const { data: credRows, error: credErr } = await admin.rpc(
+      "get_portal_credential_for_submission",
+      { _portal_id: portal_id, _company_id: tripCompanyId ?? undefined },
+    );
+    const cred = Array.isArray(credRows) ? credRows[0] : null;
+    if (credErr || !cred || !cred.login_password) {
+      const msg = `No credentials saved for portal "${portal_id}". Add them in Settings → Billing Portal.`;
+      await admin
+        .from("billing_records")
+        .update({ status: "pending_submit", submission_error: msg })
+        .eq("id", id);
+      await admin.from("billing_audit_log").insert({
+        billing_record_id: id,
+        action: "submit_failed",
+        actor_id: userId,
+        actor_type: "system",
+        notes: msg,
+      });
+      results.push({ id, ok: false, error: msg });
+      continue;
+    }
+
     // Signed URLs for PDF + signature
     const trip: any = rec.medicaid_trips;
     let pdf_url: string | null = null;
@@ -170,6 +222,11 @@ Deno.serve(async (req) => {
 
     const body = JSON.stringify({
       billing_record_id: id,
+      portal_id,
+      credentials: {
+        email: cred.login_email,
+        password: cred.login_password,
+      },
       callback_url: `${SITE_URL.replace(/\/$/, "")}/api/public/receive-submission-result`,
       trip: {
         id: trip?.id,
