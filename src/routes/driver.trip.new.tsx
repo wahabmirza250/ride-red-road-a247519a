@@ -147,19 +147,78 @@ function NewNemtTripWizard() {
       return;
     }
     const t = setTimeout(async () => {
-      const q = `%${riderQuery.trim()}%`;
-      const { data } = await supabase
-        .from("riders")
-        .select("*")
-        .or(`full_name.ilike.${q},medicaid_id.ilike.${q}`)
-        .limit(6);
-      if (!cancelled) setRiderResults((data as Rider[]) ?? []);
+      const raw = riderQuery.trim();
+      const q = `%${raw}%`;
+      const [ridersRes, passengersRes] = await Promise.all([
+        supabase
+          .from("riders")
+          .select("*")
+          .or(`full_name.ilike.${q},medicaid_id.ilike.${q}`)
+          .limit(6),
+        supabase
+          .from("passengers")
+          .select("id,first_name,last_name,medicaid_id,date_of_birth,phone,ssn_last4")
+          .or(
+            `first_name.ilike.${q},last_name.ilike.${q},medicaid_id.ilike.${q},phone.ilike.${q}`,
+          )
+          .limit(6),
+      ]);
+      const fromRiders = (ridersRes.data as Rider[]) ?? [];
+      const fromPassengers = ((passengersRes.data as any[]) ?? []).map((p) => ({
+        id: `passenger:${p.id}`,
+        full_name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Unnamed passenger",
+        medicaid_id: p.medicaid_id ?? "",
+        dob: p.date_of_birth ?? null,
+        phone: p.phone ?? null,
+        last_4_ssn: p.ssn_last4 ?? null,
+        __source: "passenger" as const,
+      })) as (Rider & { __source?: "passenger" })[];
+      // De-dupe passengers already present in riders (by medicaid_id)
+      const knownMedicaid = new Set(fromRiders.map((r) => r.medicaid_id).filter(Boolean));
+      const merged = [
+        ...fromRiders,
+        ...fromPassengers.filter((p) => !p.medicaid_id || !knownMedicaid.has(p.medicaid_id)),
+      ].slice(0, 8);
+      if (!cancelled) setRiderResults(merged);
     }, 200);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
   }, [riderQuery]);
+
+  async function selectSearchResult(r: Rider & { __source?: "passenger" }) {
+    // Passengers-table hits aren't real rider rows yet — materialize one.
+    if (r.__source === "passenger") {
+      const medicaid = r.medicaid_id?.trim();
+      if (medicaid) {
+        const { data: existing } = await supabase
+          .from("riders")
+          .select("*")
+          .eq("medicaid_id", medicaid)
+          .maybeSingle();
+        if (existing) {
+          addRiderSlot(existing as Rider);
+          return;
+        }
+      }
+      const { data, error } = await supabase
+        .from("riders")
+        .insert({
+          full_name: r.full_name,
+          medicaid_id: medicaid || `SSN-${r.last_4_ssn ?? "0000"}`,
+          dob: r.dob || null,
+          phone: r.phone || null,
+          last_4_ssn: medicaid ? null : r.last_4_ssn ?? null,
+        })
+        .select()
+        .single();
+      if (error) return toast.error(error.message);
+      addRiderSlot(data as Rider);
+      return;
+    }
+    addRiderSlot(r);
+  }
 
   function addRiderSlot(r: Rider) {
     if (riderSlots.some((s) => s.rider.id === r.id)) return;
