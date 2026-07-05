@@ -176,27 +176,46 @@ function NewDriverDialog({ onClose }: { onClose: () => void }) {
   const [submitting, setSubmitting] = useState(false);
 
   async function submit() {
-    if (!form.email || !form.password) {
+    const email = form.email.trim().toLowerCase();
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!email || !form.password) {
       toast.error("Email and password are required — these are the driver's login");
+      return;
+    }
+    if (!emailRe.test(email)) {
+      toast.error("Enter a valid email address (e.g. driver@example.com)");
       return;
     }
     if (form.password.length < 6) {
       toast.error("Password must be at least 6 characters");
       return;
     }
-    if (!form.first_name || !form.last_name) {
-      toast.error("First and last name are required");
+    if (!/^[A-Za-z][A-Za-z '\-]{1,}$/.test(form.first_name.trim()) ||
+        !/^[A-Za-z][A-Za-z '\-]{1,}$/.test(form.last_name.trim())) {
+      toast.error("First and last name must be at least 2 letters (letters, spaces, hyphens only)");
       return;
+    }
+    if (form.phone && !/^[+\d][\d\s()\-]{6,}$/.test(form.phone.trim())) {
+      toast.error("Phone number looks invalid");
+      return;
+    }
+    if (form.vehicle_year) {
+      const y = Number(form.vehicle_year);
+      const currentYear = new Date().getFullYear();
+      if (!Number.isInteger(y) || y < 1980 || y > currentYear + 1) {
+        toast.error(`Vehicle year must be between 1980 and ${currentYear + 1}`);
+        return;
+      }
     }
     setSubmitting(true);
     try {
       await create({
         data: {
-          email: form.email,
+          email,
           password: form.password,
-          first_name: form.first_name,
-          last_name: form.last_name,
-          phone: form.phone,
+          first_name: form.first_name.trim(),
+          last_name: form.last_name.trim(),
+          phone: form.phone.trim(),
           license_number: form.license_number || null,
           vehicle_make: form.vehicle_make || null,
           vehicle_model: form.vehicle_model || null,
