@@ -85,6 +85,7 @@ export const submitTripToPortal = createServerFn({ method: "POST" })
         miles: trip.miles,
       },
       signature_url: signatureUrl,
+      pdf_url: pdfUrl,
       evidence_prefix: `${trip.id}/${runId}`,
       issued_at: new Date().toISOString(),
     };
