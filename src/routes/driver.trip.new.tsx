@@ -147,13 +147,41 @@ function NewNemtTripWizard() {
       return;
     }
     const t = setTimeout(async () => {
-      const q = `%${riderQuery.trim()}%`;
-      const { data } = await supabase
-        .from("riders")
-        .select("*")
-        .or(`full_name.ilike.${q},medicaid_id.ilike.${q}`)
-        .limit(6);
-      if (!cancelled) setRiderResults((data as Rider[]) ?? []);
+      const raw = riderQuery.trim();
+      const q = `%${raw}%`;
+      const [ridersRes, passengersRes] = await Promise.all([
+        supabase
+          .from("riders")
+          .select("*")
+          .or(`full_name.ilike.${q},medicaid_id.ilike.${q}`)
+          .limit(6),
+        supabase
+          .from("passengers")
+          .select("id,first_name,last_name,medicaid_id,date_of_birth,phone,ssn_last4")
+          .or(
+            `first_name.ilike.${q},last_name.ilike.${q},medicaid_id.ilike.${q},phone.ilike.${q}`,
+          )
+          .limit(6),
+      ]);
+      const fromRiders = (ridersRes.data as Rider[]) ?? [];
+      const fromPassengers: (Rider & { __source: "passenger"; last_4_ssn?: string | null })[] =
+        ((passengersRes.data as any[]) ?? []).map((p) => ({
+          id: `passenger:${p.id}`,
+          full_name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Unnamed passenger",
+          medicaid_id: p.medicaid_id ?? "",
+          dob: p.date_of_birth ?? null,
+          phone: p.phone ?? null,
+          address: null,
+          last_4_ssn: p.ssn_last4 ?? null,
+          __source: "passenger" as const,
+        }));
+      // De-dupe passengers already present in riders (by medicaid_id)
+      const knownMedicaid = new Set(fromRiders.map((r) => r.medicaid_id).filter(Boolean));
+      const merged = [
+        ...fromRiders,
+        ...fromPassengers.filter((p) => !p.medicaid_id || !knownMedicaid.has(p.medicaid_id)),
+      ].slice(0, 8);
+      if (!cancelled) setRiderResults(merged);
     }, 200);
     return () => {
       cancelled = true;
@@ -161,10 +189,43 @@ function NewNemtTripWizard() {
     };
   }, [riderQuery]);
 
+  async function selectSearchResult(r: Rider & { __source?: "passenger"; last_4_ssn?: string | null }) {
+    // Passengers-table hits aren't real rider rows yet — materialize one.
+    if (r.__source === "passenger") {
+      const medicaid = r.medicaid_id?.trim();
+      if (medicaid) {
+        const { data: existing } = await supabase
+          .from("riders")
+          .select("*")
+          .eq("medicaid_id", medicaid)
+          .maybeSingle();
+        if (existing) {
+          addRiderSlot(existing as Rider);
+          return;
+        }
+      }
+      const { data, error } = await supabase
+        .from("riders")
+        .insert({
+          full_name: r.full_name,
+          medicaid_id: medicaid || `SSN-${r.last_4_ssn ?? "0000"}`,
+          dob: r.dob || null,
+          phone: r.phone || null,
+          last_4_ssn: medicaid ? null : r.last_4_ssn ?? null,
+        })
+        .select()
+        .single();
+      if (error) return toast.error(error.message);
+      addRiderSlot(data as Rider);
+      return;
+    }
+    addRiderSlot(r);
+  }
+
   function addRiderSlot(r: Rider) {
     if (riderSlots.some((s) => s.rider.id === r.id)) return;
     if (tripKind !== "group_tour" && riderSlots.length >= 1) {
-      toast.info("Switch to Group Tour to add more than one rider");
+      toast.info("Switch to Group Tour to add more than one passenger");
       return;
     }
     setRiderSlots((prev) => [
@@ -239,7 +300,7 @@ function NewNemtTripWizard() {
           });
         } else if (prefill.passenger) {
           setRiderQuery(prefill.passenger.full_name ?? "");
-          toast.info("Assigned address loaded. Select or create the rider to continue.");
+          toast.info("Assigned address loaded. Select or create the passenger to continue.");
         }
       })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Could not load assigned trip"));
@@ -251,11 +312,9 @@ function NewNemtTripWizard() {
   async function createNewRider() {
     if (!newRider.full_name.trim()) return toast.error("Full name required");
     const hasMedicaid = !!newRider.medicaid_id.trim();
-    if (!hasMedicaid) {
-      // Fallback identity required for billing
-      if (!newRider.dob) return toast.error("Either Medicaid ID or DOB + last 4 of SSN is required");
-      if (!/^\d{4}$/.test(newRider.last_4_ssn))
-        return toast.error("Enter last 4 digits of SSN (4 numbers) or provide a Medicaid ID");
+    const hasSsn = /^\d{4}$/.test(newRider.last_4_ssn);
+    if (!hasMedicaid && !hasSsn) {
+      return toast.error("Enter a Medicaid ID or last 4 digits of SSN");
     }
     const { data, error } = await supabase
       .from("riders")
@@ -264,7 +323,7 @@ function NewNemtTripWizard() {
         medicaid_id: newRider.medicaid_id.trim() || `SSN-${newRider.last_4_ssn}`,
         dob: newRider.dob || null,
         phone: newRider.phone || null,
-        last_4_ssn: hasMedicaid ? null : newRider.last_4_ssn,
+        last_4_ssn: hasMedicaid ? null : newRider.last_4_ssn || null,
       })
       .select()
       .single();
@@ -358,7 +417,7 @@ function NewNemtTripWizard() {
   }, [plate, vehicleType]);
 
   const riderIssue = useMemo(() => {
-    if (riderSlots.length === 0) return "Add at least one rider";
+    if (riderSlots.length === 0) return "Add at least one passenger";
     return null;
   }, [riderSlots.length]);
 
@@ -501,7 +560,7 @@ function NewNemtTripWizard() {
       toast.success(
         riderSlots.length === 1
           ? "Trip submitted for review"
-          : `${riderSlots.length} rider forms submitted for review`,
+          : `${riderSlots.length} passenger forms submitted for review`,
       );
       setCompletedPdfs(generated);
     } catch (e: any) {
@@ -563,7 +622,7 @@ function NewNemtTripWizard() {
         />
         <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-            <Check className="h-4 w-4" /> One PDF per rider generated
+            <Check className="h-4 w-4" /> One PDF per passenger generated
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             Billing will review and then auto-submit to the Colorado provider portal.
@@ -618,7 +677,7 @@ function NewNemtTripWizard() {
     <div className="mx-auto max-w-3xl space-y-4 p-4 pb-24">
       <PageHeader
         title="Complete NEMT trip"
-        description="Digital version of the Colorado NEMT Trip Report — one form per rider is generated automatically."
+        description="Digital version of the Colorado NEMT Trip Report — one form per passenger is generated automatically."
       />
 
       {assignedTrip && (
@@ -631,7 +690,7 @@ function NewNemtTripWizard() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="grid w-full grid-cols-5 text-xs">
           <TabsTrigger value="vehicle">1. Vehicle</TabsTrigger>
-          <TabsTrigger value="riders">2. Riders</TabsTrigger>
+          <TabsTrigger value="riders">2. Passengers</TabsTrigger>
           <TabsTrigger value="legs">3. Legs</TabsTrigger>
           <TabsTrigger value="sign">4. Signatures</TabsTrigger>
           <TabsTrigger value="review">5. Review</TabsTrigger>
@@ -645,7 +704,7 @@ function NewNemtTripWizard() {
               <SelectContent>
                 <SelectItem value="one_way">One way</SelectItem>
                 <SelectItem value="round_trip">Round trip</SelectItem>
-                <SelectItem value="group_tour">Group tour (multiple riders)</SelectItem>
+                <SelectItem value="group_tour">Group tour (multiple passengers)</SelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -676,13 +735,13 @@ function NewNemtTripWizard() {
         {/* ---------- STEP 2 ---------- */}
         <TabsContent value="riders" className="space-y-4 pt-4">
           <div className="rounded-xl border p-3">
-            <Label className="text-sm font-semibold">Add rider</Label>
+            <Label className="text-sm font-semibold">Add passenger</Label>
             <div className="mt-2 flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="pl-8"
-                  placeholder="Search name or Medicaid ID"
+                  placeholder="Search passenger by name, Medicaid ID or phone"
                   value={riderQuery}
                   onChange={(e) => setRiderQuery(e.target.value)}
                 />
@@ -693,16 +752,26 @@ function NewNemtTripWizard() {
             </div>
             {riderResults.length > 0 && (
               <div className="mt-2 rounded-lg border">
-                {riderResults.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => addRiderSlot(r)}
-                    className="flex w-full items-center justify-between border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-accent"
-                  >
-                    <span>{r.full_name}</span>
-                    <span className="text-xs text-muted-foreground">{r.medicaid_id}</span>
-                  </button>
-                ))}
+                {riderResults.map((r) => {
+                  const source = (r as Rider & { __source?: "passenger" }).__source;
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => selectSearchResult(r as Rider & { __source?: "passenger"; last_4_ssn?: string | null })}
+                      className="flex w-full items-center justify-between border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-accent"
+                    >
+                      <span className="flex items-center gap-2">
+                        {r.full_name}
+                        {source === "passenger" && (
+                          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                            From passengers
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{r.medicaid_id || "—"}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
             {addingRider && (
@@ -714,7 +783,7 @@ function NewNemtTripWizard() {
                 {!newRider.medicaid_id.trim() && (
                   <div className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 p-2 text-xs">
                     <div className="mb-2 font-medium text-amber-700 dark:text-amber-400">
-                      No Medicaid ID? Provide DOB + last 4 of SSN for billing.
+                      No Medicaid ID? Enter last 4 of SSN (DOB optional).
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Input type="date" placeholder="DOB" value={newRider.dob}
@@ -737,7 +806,7 @@ function NewNemtTripWizard() {
                 )}
                 <Input placeholder="Phone" value={newRider.phone}
                   onChange={(e) => setNewRider({ ...newRider, phone: e.target.value })} />
-                <Button size="sm" onClick={createNewRider}>Save rider</Button>
+                <Button size="sm" onClick={createNewRider}>Save passenger</Button>
               </div>
             )}
           </div>
@@ -781,7 +850,7 @@ function NewNemtTripWizard() {
             ))}
             {riderSlots.length === 0 && (
               <div className="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
-                Add at least one rider.
+                Add at least one passenger.
               </div>
             )}
           </div>
