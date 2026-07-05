@@ -469,8 +469,19 @@ function DriverHome() {
               Cancel
             </Button>
             {tripStatus === "assigned" && (
+              <Button
+                className="rounded-full bg-primary"
+                onClick={() => {
+                  setStatus("driver_en_route_to_pickup");
+                  openNavigation();
+                }}
+              >
+                <Navigation className="mr-1 h-4 w-4" /> Start Pickup
+              </Button>
+            )}
+            {tripStatus === "driver_en_route_to_pickup" && (
               <Button className="rounded-full" onClick={() => setStatus("arrived_at_pickup")}>
-                <Car className="mr-1 h-4 w-4" /> Arrived
+                <Car className="mr-1 h-4 w-4" /> I've Arrived
               </Button>
             )}
             {tripStatus === "arrived_at_pickup" && (
