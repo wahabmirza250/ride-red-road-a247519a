@@ -37,7 +37,8 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       .from("billing_records")
       .select(
         `id, trip_id, status, reviewed_at, fix_notes, rejection_reason,
-         submitted_at, state_confirmation_number, submission_error, updated_at,
+         submitted_at, state_confirmation_number, submission_error,
+         requires_human_step, updated_at,
          medicaid_trips!inner(
            id, pickup_at, pickup_address, dropoff_address, driver_id,
            riders(full_name, medicaid_id)
@@ -76,6 +77,7 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       submitted_at: r.submitted_at,
       state_confirmation_number: r.state_confirmation_number,
       submission_error: r.submission_error,
+      requires_human_step: r.requires_human_step,
       updated_at: r.updated_at,
       passenger_name: r.medicaid_trips?.riders?.full_name ?? null,
       medicaid_id: r.medicaid_trips?.riders?.medicaid_id ?? null,
@@ -318,7 +320,9 @@ export const listPortalCredentials = createServerFn({ method: "GET" })
     await assertAdmin(supabase, userId);
     const { data, error } = await supabase
       .from("state_portal_credentials")
-      .select("id, portal_name, state, login_email, password_last4, last_used_at, updated_at")
+      .select(
+        "id, portal_id, portal_name, state, login_email, password_last4, last_used_at, updated_at, company_id",
+      )
       .order("portal_name");
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -329,10 +333,12 @@ export const upsertPortalCredential = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
+        portal_id: z.string().min(1),
         portal_name: z.string().min(1),
         state: z.string().min(2),
         login_email: z.string().email(),
         login_password: z.string().min(1),
+        company_id: z.string().uuid().nullable().optional(),
       })
       .parse(d),
   )
@@ -340,11 +346,52 @@ export const upsertPortalCredential = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
     const { data: id, error } = await supabase.rpc("upsert_portal_credential", {
+      _portal_id: data.portal_id,
       _portal_name: data.portal_name,
       _state: data.state,
       _login_email: data.login_email,
       _login_password: data.login_password,
+      _company_id: (data.company_id ?? undefined) as string | undefined,
     });
     if (error) throw new Error(error.message);
     return { id };
+  });
+
+/* ---------- BILLING SETTINGS ---------- */
+
+export const getBillingSettings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data, error } = await supabase
+      .from("billing_settings")
+      .select("id, company_id, default_portal_id")
+      .is("company_id", null)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const runner_configured = Boolean(
+      process.env.AUTOMATION_SERVICE_URL &&
+        process.env.AUTOMATION_SERVICE_API_KEY &&
+        process.env.AUTOMATION_SERVICE_HMAC_SECRET,
+    );
+    return {
+      default_portal_id: data?.default_portal_id ?? null,
+      runner_configured,
+    };
+  });
+
+export const setDefaultBillingPortal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ portal_id: z.string().min(1) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { error } = await supabase.rpc("set_default_billing_portal", {
+      _portal_id: data.portal_id,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });

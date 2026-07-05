@@ -10,6 +10,7 @@ const Body = z.object({
   success: z.boolean(),
   state_confirmation_number: z.string().nullable().optional(),
   error_message: z.string().nullable().optional(),
+  requires_human_step: z.boolean().optional(),
 });
 
 export const Route = createFileRoute("/api/public/receive-submission-result")({
@@ -44,9 +45,11 @@ export const Route = createFileRoute("/api/public/receive-submission-result")({
             .from("billing_records")
             .update({
               status: "submitted",
-              state_confirmation_number: parsed.state_confirmation_number ?? null,
+              state_confirmation_number:
+                parsed.state_confirmation_number ?? null,
               submitted_at: new Date().toISOString(),
               submission_error: null,
+              requires_human_step: false,
             })
             .eq("id", parsed.billing_record_id);
           if (error) return new Response(error.message, { status: 500 });
@@ -59,18 +62,20 @@ export const Route = createFileRoute("/api/public/receive-submission-result")({
           });
         } else {
           const msg = parsed.error_message ?? "Submission failed";
+          const needsHuman = parsed.requires_human_step === true;
           const { error } = await supabaseAdmin
             .from("billing_records")
             .update({
               status: "pending_submit",
               submission_error: msg,
+              requires_human_step: needsHuman,
             })
             .eq("id", parsed.billing_record_id);
           if (error) return new Response(error.message, { status: 500 });
 
           await supabaseAdmin.from("billing_audit_log").insert({
             billing_record_id: parsed.billing_record_id,
-            action: "submit_failed",
+            action: needsHuman ? "requires_human_step" : "submit_failed",
             actor_type: "system",
             notes: msg,
           });

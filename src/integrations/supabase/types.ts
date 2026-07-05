@@ -58,6 +58,7 @@ export type Database = {
           fix_notes: string | null
           id: string
           rejection_reason: string | null
+          requires_human_step: boolean
           reviewed_at: string | null
           reviewed_by: string | null
           state_confirmation_number: string | null
@@ -73,6 +74,7 @@ export type Database = {
           fix_notes?: string | null
           id?: string
           rejection_reason?: string | null
+          requires_human_step?: boolean
           reviewed_at?: string | null
           reviewed_by?: string | null
           state_confirmation_number?: string | null
@@ -88,6 +90,7 @@ export type Database = {
           fix_notes?: string | null
           id?: string
           rejection_reason?: string | null
+          requires_human_step?: boolean
           reviewed_at?: string | null
           reviewed_by?: string | null
           state_confirmation_number?: string | null
@@ -107,6 +110,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      billing_settings: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          default_portal_id: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          default_portal_id?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          default_portal_id?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       chat_conversations: {
         Row: {
@@ -1086,34 +1113,40 @@ export type Database = {
       }
       state_portal_credentials: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           last_used_at: string | null
           login_email: string
           password_last4: string | null
           password_secret_id: string | null
+          portal_id: string
           portal_name: string
           state: string
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           last_used_at?: string | null
           login_email: string
           password_last4?: string | null
           password_secret_id?: string | null
+          portal_id: string
           portal_name: string
           state: string
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           last_used_at?: string | null
           login_email?: string
           password_last4?: string | null
           password_secret_id?: string | null
+          portal_id?: string
           portal_name?: string
           state?: string
           updated_at?: string
@@ -1347,6 +1380,16 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      get_portal_credential_for_submission: {
+        Args: { _company_id?: string; _portal_id: string }
+        Returns: {
+          login_email: string
+          login_password: string
+          portal_id: string
+          portal_name: string
+          state: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1354,15 +1397,31 @@ export type Database = {
         }
         Returns: boolean
       }
-      upsert_portal_credential: {
-        Args: {
-          _login_email: string
-          _login_password: string
-          _portal_name: string
-          _state: string
-        }
-        Returns: string
+      set_default_billing_portal: {
+        Args: { _company_id?: string; _portal_id: string }
+        Returns: undefined
       }
+      upsert_portal_credential:
+        | {
+            Args: {
+              _company_id?: string
+              _login_email: string
+              _login_password: string
+              _portal_id: string
+              _portal_name: string
+              _state: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _login_email: string
+              _login_password: string
+              _portal_name: string
+              _state: string
+            }
+            Returns: string
+          }
     }
     Enums: {
       app_role: "admin" | "driver" | "passenger"

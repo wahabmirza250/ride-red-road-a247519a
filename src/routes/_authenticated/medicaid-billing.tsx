@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Loader2, Send, AlertCircle } from "lucide-react";
+import { Loader2, Send, AlertCircle, AlertTriangle, HandMetal } from "lucide-react";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDateTime } from "@/lib/format";
 import {
+  getBillingSettings,
   listBillingRecords,
   submitBillingRecords,
 } from "@/lib/billing.functions";
+import { getPortal } from "@/lib/portals";
 import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
 
 export const Route = createFileRoute("/_authenticated/medicaid-billing")({
@@ -47,6 +49,15 @@ function MedicaidBillingPage() {
     queryFn: () => listFn({ data: { status: tab } }),
     enabled: isAdmin,
   });
+
+  const settingsFn = useServerFn(getBillingSettings);
+  const settings = useQuery({
+    queryKey: ["billing_settings"],
+    queryFn: () => settingsFn(),
+    enabled: isAdmin,
+  });
+  const defaultPortal = getPortal(settings.data?.default_portal_id);
+  const runnerConfigured = settings.data?.runner_configured ?? true;
 
   // Realtime — invalidate on any billing_records change
   useEffect(() => {
@@ -102,6 +113,42 @@ function MedicaidBillingPage() {
         title="Medicaid Billing"
         description="Review driver-submitted trips, submit them to the state portal, and track results."
       />
+
+      {!runnerConfigured && (
+        <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <div className="font-medium">Runner not configured</div>
+            <div className="text-xs">
+              Submissions will stay in <em>Pending Submit</em> until the
+              automation service secrets (<code>AUTOMATION_SERVICE_URL</code>,{" "}
+              <code>AUTOMATION_SERVICE_API_KEY</code>,{" "}
+              <code>AUTOMATION_SERVICE_HMAC_SECRET</code>) are set.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {runnerConfigured && !defaultPortal && (
+        <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <div className="font-medium">No default billing portal selected</div>
+            <div className="text-xs">
+              Go to <strong>Team &amp; apps → Billing portal</strong> to choose
+              which state portal these trips submit to.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {defaultPortal && (
+        <div className="text-xs text-muted-foreground">
+          Billing through <strong>{defaultPortal.name}</strong> ·{" "}
+          {defaultPortal.state}
+        </div>
+      )}
+
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <TabsList className="flex-wrap">
@@ -211,7 +258,15 @@ function MedicaidBillingPage() {
                     ) : (
                       <StatusPill status={r.status} />
                     )}
-                    {r.submission_error && (
+                    {r.requires_human_step && (
+                      <div className="mt-1 flex items-center gap-1 text-xs text-amber-600">
+                        <HandMetal className="h-3 w-3" />
+                        <span className="truncate">
+                          This portal needs a manual step to submit
+                        </span>
+                      </div>
+                    )}
+                    {r.submission_error && !r.requires_human_step && (
                       <div className="mt-1 flex items-center gap-1 text-xs text-destructive">
                         <AlertCircle className="h-3 w-3" />
                         <span className="truncate">{r.submission_error}</span>
