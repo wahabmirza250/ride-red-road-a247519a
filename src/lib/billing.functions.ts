@@ -318,7 +318,9 @@ export const listPortalCredentials = createServerFn({ method: "GET" })
     await assertAdmin(supabase, userId);
     const { data, error } = await supabase
       .from("state_portal_credentials")
-      .select("id, portal_name, state, login_email, password_last4, last_used_at, updated_at")
+      .select(
+        "id, portal_id, portal_name, state, login_email, password_last4, last_used_at, updated_at, company_id",
+      )
       .order("portal_name");
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -329,10 +331,12 @@ export const upsertPortalCredential = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
+        portal_id: z.string().min(1),
         portal_name: z.string().min(1),
         state: z.string().min(2),
         login_email: z.string().email(),
         login_password: z.string().min(1),
+        company_id: z.string().uuid().nullable().optional(),
       })
       .parse(d),
   )
@@ -340,11 +344,53 @@ export const upsertPortalCredential = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
     const { data: id, error } = await supabase.rpc("upsert_portal_credential", {
+      _portal_id: data.portal_id,
       _portal_name: data.portal_name,
       _state: data.state,
       _login_email: data.login_email,
       _login_password: data.login_password,
+      _company_id: data.company_id ?? null,
     });
     if (error) throw new Error(error.message);
     return { id };
+  });
+
+/* ---------- BILLING SETTINGS ---------- */
+
+export const getBillingSettings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data, error } = await supabase
+      .from("billing_settings")
+      .select("id, company_id, default_portal_id")
+      .is("company_id", null)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const runner_configured = Boolean(
+      process.env.AUTOMATION_SERVICE_URL &&
+        process.env.AUTOMATION_SERVICE_API_KEY &&
+        process.env.AUTOMATION_SERVICE_HMAC_SECRET,
+    );
+    return {
+      default_portal_id: data?.default_portal_id ?? null,
+      runner_configured,
+    };
+  });
+
+export const setDefaultBillingPortal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ portal_id: z.string().min(1) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { error } = await supabase.rpc("set_default_billing_portal", {
+      _portal_id: data.portal_id,
+      _company_id: null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
