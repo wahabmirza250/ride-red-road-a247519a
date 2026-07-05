@@ -1,5 +1,8 @@
-import { degrees, PDFDocument, rgb } from "pdf-lib";
+import { degrees, PDFDocument, PDFTextField, rgb } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import templateAsset from "@/assets/nemt_trip_report_template.pdf.asset.json";
+import handwritingFontAsset from "@/assets/JustAnotherHand-Regular.ttf.asset.json";
+
 
 export type Leg = {
   leg_index: 1 | 2;
@@ -59,7 +62,15 @@ export async function generateStateFormPdf(
     return r.arrayBuffer();
   });
   const pdf = await PDFDocument.load(templateBytes);
+  pdf.registerFontkit(fontkit);
+  const handwritingFont = await pdf.embedFont(
+    await fetch(resolveAssetUrl(handwritingFontAsset.url, options.templateBaseUrl)).then((r) => {
+      if (!r.ok) throw new Error(`Failed to load handwriting font: ${r.status}`);
+      return r.arrayBuffer();
+    }),
+  );
   const form = pdf.getForm();
+
 
   const setText = (name: string, value: string | number | null | undefined) => {
     if (value === null || value === undefined || value === "") return;
@@ -213,22 +224,39 @@ export async function generateStateFormPdf(
     }
   }
 
-  /* ---------- Flatten so the output matches the state's paper form ---------- */
+  /* ---------- Apply handwriting font to filled text, then flatten ---------- */
+  try {
+    for (const field of form.getFields()) {
+      if (field instanceof PDFTextField) {
+        field.setFontSize(14);
+        field.updateAppearances(handwritingFont);
+      }
+    }
+  } catch {
+    /* If appearance regeneration fails, keep default font rather than throw. */
+  }
+
   try {
     form.flatten();
   } catch {
     /* flatten can fail on exotic field types — leave form editable rather than throw */
   }
 
+
   return await pdf.save();
 }
 
 function resolveTemplateUrl(templateBaseUrl?: string): string {
-  if (/^https?:\/\//i.test(templateAsset.url)) return templateAsset.url;
-  if (templateBaseUrl) return new URL(templateAsset.url, templateBaseUrl).toString();
-  if (typeof window !== "undefined") return new URL(templateAsset.url, window.location.origin).toString();
-  return templateAsset.url;
+  return resolveAssetUrl(templateAsset.url, templateBaseUrl);
 }
+
+function resolveAssetUrl(url: string, baseUrl?: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  if (baseUrl) return new URL(url, baseUrl).toString();
+  if (typeof window !== "undefined") return new URL(url, window.location.origin).toString();
+  return url;
+}
+
 
 function drawSignatureImage(page: any, img: any, rect: PdfRect) {
   const rotation = ((page.getRotation().angle % 360) + 360) % 360;
