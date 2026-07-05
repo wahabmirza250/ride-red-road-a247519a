@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { generateStateFormPdf } from "@/lib/medicaidPdf";
 
 /** Utility: verify admin, throw on failure */
 async function assertAdmin(supabase: any, userId: string) {
@@ -102,7 +104,7 @@ export const getBillingRecord = createServerFn({ method: "POST" })
     const { data: rec, error } = await supabase
       .from("billing_records")
       .select(
-        `*, medicaid_trips(*, riders(full_name, medicaid_id, dob, last_4_ssn, phone, address))`,
+        `*, medicaid_trips(*, riders(full_name, medicaid_id, dob, last_4_ssn, phone, address), medicaid_trip_legs(*))`,
       )
       .eq("id", data.id)
       .single();
@@ -144,6 +146,90 @@ export const getBillingRecord = createServerFn({ method: "POST" })
     return { record: rec, trip, driver_name, signature_url, pdf_url, audit: audit ?? [] };
   });
 
+export const regenerateBillingPdf = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const { data: rec, error } = await supabase
+      .from("billing_records")
+      .select(
+        `id, trip_id, medicaid_trips(*, riders(full_name, medicaid_id, dob, phone, address), medicaid_trip_legs(*))`,
+      )
+      .eq("id", data.id)
+      .single();
+    if (error) throw new Error(error.message);
+
+    const trip = rec.medicaid_trips as any;
+    if (!trip) throw new Error("Trip not found");
+    if (!trip.signature_path) throw new Error("No saved passenger signature found for this trip");
+
+    const { data: sig, error: sigErr } = await supabase.storage
+      .from("signatures")
+      .createSignedUrl(trip.signature_path, 60 * 15);
+    if (sigErr) throw new Error(sigErr.message);
+    if (!sig?.signedUrl) throw new Error("Could not load saved passenger signature");
+
+    let driverName = "";
+    if (trip.driver_id) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name, last_name, email")
+        .eq("id", trip.driver_id)
+        .maybeSingle();
+      driverName = profile
+        ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || profile.email || ""
+        : "";
+    }
+
+    const legs = normalizeTripLegs(trip);
+    const pdfBytes = await generateStateFormPdf(
+      {
+        rider: trip.riders ?? null,
+        driverName,
+        vehiclePlate: trip.vehicle_plate ?? null,
+        vehicleVin: trip.vehicle_vin ?? null,
+        vehicleType: trip.vehicle_type ?? null,
+        escortName: trip.escort_name ?? null,
+        identityVerified: trip.identity_verified !== false,
+        tripKind: trip.trip_kind ?? "one_way",
+        legs,
+        signatureName: trip.signature_name ?? trip.riders?.full_name ?? null,
+        signatureUrl: sig.signedUrl,
+        signedByEscort: trip.signed_by_escort ?? false,
+      },
+      { templateBaseUrl: getRequestOrigin() },
+    );
+
+    const pdfPath = trip.state_pdf_path || `${trip.driver_id}/${trip.id}.pdf`;
+    const { error: uploadError } = await supabase.storage
+      .from("state-pdfs")
+      .upload(pdfPath, new Blob([pdfBytes as BlobPart], { type: "application/pdf" }), {
+        upsert: true,
+        contentType: "application/pdf",
+      });
+    if (uploadError) throw new Error(uploadError.message);
+
+    const { error: updateError } = await supabase
+      .from("medicaid_trips")
+      .update({
+        state_pdf_path: pdfPath,
+        state_pdf_generated_at: new Date().toISOString(),
+      })
+      .eq("id", trip.id);
+    if (updateError) throw new Error(updateError.message);
+
+    await logAudit(supabase, data.id, userId, "regenerated_pdf", "PDF regenerated with saved passenger signature");
+
+    const { data: pdf } = await supabase.storage
+      .from("state-pdfs")
+      .createSignedUrl(pdfPath, 60 * 15);
+
+    return { ok: true, pdf_url: pdf?.signedUrl ?? null };
+  });
+
 /* ---------- REVIEW ACTIONS ---------- */
 
 async function logAudit(
@@ -161,6 +247,54 @@ async function logAudit(
     actor_type,
     notes: notes ?? null,
   });
+}
+
+function getRequestOrigin(): string {
+  const origin = getRequestHeader("origin");
+  if (origin) return origin;
+  const host = getRequestHeader("x-forwarded-host") ?? getRequestHeader("host");
+  const proto = getRequestHeader("x-forwarded-proto") ?? "https";
+  return host ? `${proto}://${host}` : "http://localhost:8080";
+}
+
+function normalizeTripLegs(trip: any) {
+  const rows = Array.isArray(trip.medicaid_trip_legs)
+    ? [...trip.medicaid_trip_legs].sort((a, b) => Number(a.leg_index) - Number(b.leg_index))
+    : [];
+
+  if (rows.length) {
+    return rows.map((l: any) => ({
+      leg_index: Number(l.leg_index) === 2 ? 2 : 1,
+      leg_date: String(l.leg_date ?? "").slice(0, 10),
+      pickup_time: l.pickup_time ? String(l.pickup_time).slice(0, 5) : null,
+      pickup_odometer: Number(l.pickup_odometer ?? 0),
+      pickup_address: l.pickup_address ?? "",
+      dropoff_time: l.dropoff_time ? String(l.dropoff_time).slice(0, 5) : null,
+      dropoff_odometer: Number(l.dropoff_odometer ?? 0),
+      dropoff_address: l.dropoff_address ?? "",
+    }));
+  }
+
+  const pickupAt = trip.pickup_at ? new Date(trip.pickup_at) : new Date();
+  const date = Number.isNaN(pickupAt.getTime())
+    ? new Date().toISOString().slice(0, 10)
+    : pickupAt.toISOString().slice(0, 10);
+  const time = Number.isNaN(pickupAt.getTime())
+    ? null
+    : pickupAt.toTimeString().slice(0, 5);
+
+  return [
+    {
+      leg_index: 1 as const,
+      leg_date: date,
+      pickup_time: time,
+      pickup_odometer: Number(trip.odometer_start ?? 0),
+      pickup_address: trip.pickup_address ?? "",
+      dropoff_time: null,
+      dropoff_odometer: Number(trip.odometer_end ?? 0),
+      dropoff_address: trip.dropoff_address ?? "",
+    },
+  ];
 }
 
 export const approveBillingRecord = createServerFn({ method: "POST" })
