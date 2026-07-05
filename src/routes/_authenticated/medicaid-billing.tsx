@@ -114,6 +114,42 @@ function MedicaidBillingPage() {
         description="Review driver-submitted trips, submit them to the state portal, and track results."
       />
 
+      {!runnerConfigured && (
+        <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <div className="font-medium">Runner not configured</div>
+            <div className="text-xs">
+              Submissions will stay in <em>Pending Submit</em> until the
+              automation service secrets (<code>AUTOMATION_SERVICE_URL</code>,{" "}
+              <code>AUTOMATION_SERVICE_API_KEY</code>,{" "}
+              <code>AUTOMATION_SERVICE_HMAC_SECRET</code>) are set.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {runnerConfigured && !defaultPortal && (
+        <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <div className="font-medium">No default billing portal selected</div>
+            <div className="text-xs">
+              Go to <strong>Team &amp; apps → Billing portal</strong> to choose
+              which state portal these trips submit to.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {defaultPortal && (
+        <div className="text-xs text-muted-foreground">
+          Billing through <strong>{defaultPortal.name}</strong> ·{" "}
+          {defaultPortal.state}
+        </div>
+      )}
+
+
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <TabsList className="flex-wrap">
           {TABS.map((t) => (
