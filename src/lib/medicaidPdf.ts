@@ -1,4 +1,4 @@
-import { PDFDocument, rgb } from "pdf-lib";
+import { degrees, PDFDocument, rgb } from "pdf-lib";
 import templateAsset from "@/assets/nemt_trip_report_template.pdf.asset.json";
 
 export type Leg = {
@@ -228,23 +228,35 @@ function resolveTemplateUrl(templateBaseUrl?: string): string {
 
 function drawSignatureImage(page: any, img: any, rect: PdfRect) {
   const rotation = ((page.getRotation().angle % 360) + 360) % 360;
+  const margin = 1;
 
   // The Colorado template is a landscape page stored as a portrait PDF rotated
   // 90°. Its signature widget is therefore tall/narrow in raw PDF coordinates,
-  // but horizontal on screen. Swap the fit dimensions so the drawn signature
-  // fills the visible signature line instead of becoming a tiny mark.
+  // but horizontal on screen. Draw the signature rotated with the page so the
+  // handwriting lands along the visible line instead of becoming a vertical mark.
   if (rotation === 90 || rotation === 270) {
-    const fieldW = Math.max(1, rect.height - 2);
-    const fieldH = Math.max(1, rect.width - 2);
-    const { width: visualW, height: visualH } = signatureFit(img.width, img.height, fieldW, fieldH);
-    const rawW = visualH;
-    const rawH = visualW;
-    page.drawImage(img, {
-      x: rect.x + (rect.width - rawW) / 2,
-      y: rect.y + (rect.height - rawH) / 2,
-      width: rawW,
-      height: rawH,
-    });
+    const lineW = Math.max(1, rect.height - margin * 2);
+    const lineH = Math.max(1, rect.width - margin * 2);
+    const { width, height } = signatureFit(img.width, img.height, lineW, lineH);
+    const y = rect.y + (rect.height - width) / 2;
+
+    if (rotation === 90) {
+      page.drawImage(img, {
+        x: rect.x + rect.width - margin,
+        y,
+        width,
+        height,
+        rotate: degrees(90),
+      });
+    } else {
+      page.drawImage(img, {
+        x: rect.x + margin,
+        y: y + width,
+        width,
+        height,
+        rotate: degrees(270),
+      });
+    }
     return;
   }
 
@@ -267,9 +279,9 @@ function signatureFit(imgW: number, imgH: number, maxW: number, maxH: number) {
   // Signature-pad PNGs include the whole signing canvas. If we preserve that
   // full canvas ratio in a very long state-form line, the actual handwriting can
   // look missing. Stretch only within the signature line so the mark is visible.
-  if (width < safeW * 0.72) {
+  if (width < safeW * 0.82) {
     width = safeW * 0.9;
-    height = safeH * 0.9;
+    height = safeH * 0.86;
   }
 
   return { width, height };

@@ -49,8 +49,9 @@ export function SignaturePad({ onChange }: Props) {
   function up() {
     if (!drawing.current) return;
     drawing.current = false;
-    setEmpty(false);
-    onChange(canvasRef.current!.toDataURL("image/png"));
+    const dataUrl = exportTrimmedSignature();
+    setEmpty(!dataUrl);
+    onChange(dataUrl);
   }
   function clear() {
     const c = canvasRef.current!;
@@ -58,6 +59,50 @@ export function SignaturePad({ onChange }: Props) {
     ctx.clearRect(0, 0, c.width, c.height);
     setEmpty(true);
     onChange(null);
+  }
+
+  function exportTrimmedSignature() {
+    const c = canvasRef.current;
+    const ctx = c?.getContext("2d");
+    if (!c || !ctx) return null;
+
+    const pixels = ctx.getImageData(0, 0, c.width, c.height);
+    let left = c.width;
+    let right = 0;
+    let top = c.height;
+    let bottom = 0;
+
+    for (let y = 0; y < c.height; y++) {
+      for (let x = 0; x < c.width; x++) {
+        const alpha = pixels.data[(y * c.width + x) * 4 + 3];
+        if (alpha > 8) {
+          left = Math.min(left, x);
+          right = Math.max(right, x);
+          top = Math.min(top, y);
+          bottom = Math.max(bottom, y);
+        }
+      }
+    }
+
+    if (right <= left || bottom <= top) return null;
+
+    const dpr = window.devicePixelRatio || 1;
+    const padding = Math.ceil(12 * dpr);
+    left = Math.max(0, left - padding);
+    right = Math.min(c.width - 1, right + padding);
+    top = Math.max(0, top - padding);
+    bottom = Math.min(c.height - 1, bottom + padding);
+
+    const cropWidth = right - left + 1;
+    const cropHeight = bottom - top + 1;
+    const output = document.createElement("canvas");
+    output.width = cropWidth;
+    output.height = cropHeight;
+    output
+      .getContext("2d")
+      ?.drawImage(c, left, top, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+    return output.toDataURL("image/png");
   }
 
   return (
