@@ -337,6 +337,53 @@ export const attachRiderSignature = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/* ---------- attach generated state PDF ---------- */
+
+export const attachStatePdf = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        trip_id: z.string().uuid(),
+        state_pdf_path: z.string().min(1),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("medicaid_trips")
+      .update({
+        state_pdf_path: data.state_pdf_path,
+        state_pdf_generated_at: new Date().toISOString(),
+      })
+      .eq("id", data.trip_id)
+      .eq("driver_id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/* ---------- signed URL for stored state PDF (admin or owning driver) ---------- */
+
+export const getStatePdfUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ trip_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: trip, error } = await supabase
+      .from("medicaid_trips")
+      .select("state_pdf_path")
+      .eq("id", data.trip_id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!trip?.state_pdf_path) return { url: null as string | null };
+    const { data: signed, error: signErr } = await supabase.storage
+      .from("state-pdfs")
+      .createSignedUrl(trip.state_pdf_path, 60 * 15);
+    if (signErr) throw new Error(signErr.message);
+    return { url: signed?.signedUrl ?? null };
+  });
+
 /* ---------- load a group (for review / admin) ---------- */
 
 export const getNemtGroup = createServerFn({ method: "GET" })
