@@ -128,6 +128,8 @@ function TeamPage() {
         </p>
       </div>
 
+      <PortalCredentialsCard />
+
     </div>
   );
 }
