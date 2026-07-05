@@ -353,22 +353,48 @@ export const requestFix = createServerFn({ method: "POST" })
 
     await logAudit(supabase, data.id, userId, "needs_fix", data.notes);
 
-    // Send driver an in-app message
-    const driverUserId = (rec.medicaid_trips as any)?.driver_id;
-    if (driverUserId) {
+    // Send driver an in-app chat message via the dispatch (driver_admin) thread
+    const driverRowId = (rec.medicaid_trips as any)?.driver_id as string | undefined;
+    if (driverRowId) {
       const { data: driver } = await supabase
         .from("drivers")
-        .select("id")
-        .eq("user_id", driverUserId)
+        .select("user_id")
+        .eq("id", driverRowId)
         .maybeSingle();
-      if (driver?.id) {
-        await supabase.from("messages").insert({
-          driver_id: driver.id,
-          sender_id: userId,
-          sender_role: "admin",
-          receiver_id: driverUserId,
-          body: `Trip needs fix: ${data.notes}`,
-        });
+      const driverUserId = driver?.user_id;
+      if (driverUserId) {
+        // Find or create the driver_admin conversation
+        let conversationId: string | null = null;
+        const { data: existingConv } = await supabase
+          .from("chat_conversations")
+          .select("id")
+          .eq("kind", "driver_admin")
+          .eq("driver_user_id", driverUserId)
+          .maybeSingle();
+        if (existingConv?.id) {
+          conversationId = existingConv.id;
+        } else {
+          const { data: createdConv, error: convErr } = await supabase
+            .from("chat_conversations")
+            .insert({
+              kind: "driver_admin",
+              driver_user_id: driverUserId,
+              is_closed: false,
+            })
+            .select("id")
+            .single();
+          if (convErr) throw new Error(convErr.message);
+          conversationId = createdConv.id;
+        }
+
+        if (conversationId) {
+          const { error: msgErr } = await supabase.from("chat_messages").insert({
+            conversation_id: conversationId,
+            sender_id: userId,
+            body: `Trip needs fix: ${data.notes}`,
+          });
+          if (msgErr) throw new Error(msgErr.message);
+        }
       }
     }
 
