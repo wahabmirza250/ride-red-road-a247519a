@@ -40,7 +40,7 @@ function useDashboardStats() {
           .select("id", { count: "exact", head: true })
           .in("status", ["available", "on_trip"]),
         supabase
-          .from("billing_records")
+          .from("trip_billing_records")
           .select("amount")
           .eq("status", "pending"),
         supabase
