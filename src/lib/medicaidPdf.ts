@@ -224,12 +224,24 @@ export async function generateStateFormPdf(
     }
   }
 
-  /* ---------- Flatten so the output matches the state's paper form ---------- */
+  /* ---------- Apply handwriting font to filled text, then flatten ---------- */
+  try {
+    for (const field of form.getFields()) {
+      if (field instanceof PDFTextField) {
+        field.setFontSize(14);
+        field.updateAppearances(handwritingFont);
+      }
+    }
+  } catch {
+    /* If appearance regeneration fails, keep default font rather than throw. */
+  }
+
   try {
     form.flatten();
   } catch {
     /* flatten can fail on exotic field types — leave form editable rather than throw */
   }
+
 
   return await pdf.save();
 }
