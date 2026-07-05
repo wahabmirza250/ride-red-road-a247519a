@@ -41,7 +41,6 @@ import { Route as AuthenticatedIncidentsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/games'
 import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
 import { Route as ApiPublicReceiveSubmissionResultRouteImport } from './routes/api/public/receive-submission-result'
 import { Route as ApiPublicHfcCallbackRouteImport } from './routes/api/public/hfc-callback'
@@ -209,11 +208,6 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const DriverTripNewRoute = DriverTripNewRouteImport.update({
   id: '/trip/new',
   path: '/trip/new',
@@ -248,7 +242,6 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/driver': typeof DriverRouteWithChildren
   '/passenger': typeof PassengerRouteWithChildren
-  '/billing': typeof AuthenticatedBillingRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/drivers': typeof AuthenticatedDriversRoute
   '/games': typeof AuthenticatedGamesRoute
@@ -285,7 +278,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/billing': typeof AuthenticatedBillingRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/drivers': typeof AuthenticatedDriversRoute
   '/games': typeof AuthenticatedGamesRoute
@@ -326,7 +318,6 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/driver': typeof DriverRouteWithChildren
   '/passenger': typeof PassengerRouteWithChildren
-  '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/drivers': typeof AuthenticatedDriversRoute
   '/_authenticated/games': typeof AuthenticatedGamesRoute
@@ -367,7 +358,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/driver'
     | '/passenger'
-    | '/billing'
     | '/dashboard'
     | '/drivers'
     | '/games'
@@ -404,7 +394,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/billing'
     | '/dashboard'
     | '/drivers'
     | '/games'
@@ -444,7 +433,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/driver'
     | '/passenger'
-    | '/_authenticated/billing'
     | '/_authenticated/dashboard'
     | '/_authenticated/drivers'
     | '/_authenticated/games'
@@ -716,13 +704,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/billing': {
-      id: '/_authenticated/billing'
-      path: '/billing'
-      fullPath: '/billing'
-      preLoaderRoute: typeof AuthenticatedBillingRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/driver/trip/new': {
       id: '/driver/trip/new'
       path: '/trip/new'
@@ -776,7 +757,6 @@ const AuthenticatedMedicaidTripsRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedBillingRoute: typeof AuthenticatedBillingRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDriversRoute: typeof AuthenticatedDriversRoute
   AuthenticatedGamesRoute: typeof AuthenticatedGamesRoute
@@ -796,7 +776,6 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedBillingRoute: AuthenticatedBillingRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDriversRoute: AuthenticatedDriversRoute,
   AuthenticatedGamesRoute: AuthenticatedGamesRoute,

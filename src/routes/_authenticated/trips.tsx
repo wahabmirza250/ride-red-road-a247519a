@@ -18,6 +18,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useAuth } from "@/lib/auth";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -519,15 +530,45 @@ function TripDetailDialog({
 }) {
   const [photoUrls, setPhotoUrls] = useState<{ start?: string; end?: string }>({});
   const [deleting, setDeleting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const { user } = useAuth();
 
   async function handleDelete() {
-    if (!window.confirm(`Delete this trip permanently? This cannot be undone.`)) return;
     setDeleting(true);
-    const { error } = await supabase.from("trips").delete().eq("id", trip.id);
-    setDeleting(false);
-    if (error) return toast.error(error.message);
-    toast.success("Trip deleted");
-    onDeleted();
+    try {
+      // Cascade: remove legacy billing rows tied to this trip.
+      await supabase.from("trip_billing_records").delete().eq("trip_id", trip.id);
+
+      // If a medicaid billing_records row is somehow linked to this trip.id,
+      // log the cancellation before it cascades away with the trip.
+      const { data: br } = await supabase
+        .from("billing_records")
+        .select("id")
+        .eq("trip_id", trip.id)
+        .maybeSingle();
+      if (br?.id) {
+        await supabase.from("billing_audit_log").insert({
+          billing_record_id: br.id,
+          action: "trip_cancelled",
+          actor_id: user?.id ?? null,
+          actor_type: "admin",
+          notes: `Admin cancelled trip ${trip.id} (pickup ${trip.pickup_address})`,
+        });
+      }
+
+      // Also clear any driver-facing ride_request pointing at this trip.
+      await supabase.from("ride_requests").delete().eq("trip_id", trip.id);
+
+      const { error } = await supabase.from("trips").delete().eq("id", trip.id);
+      if (error) throw error;
+      toast.success("Trip cancelled and deleted");
+      setConfirmOpen(false);
+      onDeleted();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete trip");
+    } finally {
+      setDeleting(false);
+    }
   }
 
 
@@ -618,7 +659,7 @@ function TripDetailDialog({
       <DialogFooter className="gap-2 sm:justify-between">
         <Button
           variant="destructive"
-          onClick={handleDelete}
+          onClick={() => setConfirmOpen(true)}
           disabled={deleting}
           className="rounded-full"
         >
@@ -627,7 +668,7 @@ function TripDetailDialog({
           ) : (
             <Trash2 className="mr-2 h-4 w-4" />
           )}
-          Delete trip
+          Cancel & delete trip
         </Button>
         <div className="flex gap-2">
           <a
@@ -643,6 +684,32 @@ function TripDetailDialog({
           </Button>
         </div>
       </DialogFooter>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this trip?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the trip{trip.driver_id ? " and removes it from the assigned driver's app in real time" : ""}.
+              Any linked billing record will be cascaded and the cancellation logged to the audit trail.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Keep trip</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Yes, cancel trip
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DialogContent>
   );
 }

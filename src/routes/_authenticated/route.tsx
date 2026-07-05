@@ -5,7 +5,7 @@ import {
   Route as RouteIcon,
   Users,
   UserRound,
-  Receipt,
+  
   MessageSquare,
   BarChart3,
   AlertTriangle,
@@ -42,7 +42,6 @@ const ADMIN_NAV = [
   { to: "/drivers", label: "Drivers", icon: Users },
   { to: "/passengers", label: "Passengers", icon: UserRound },
   { to: "/team", label: "Team & apps", icon: Shield },
-  { to: "/billing", label: "Billing", icon: Receipt },
   { to: "/messages", label: "Messages", icon: MessageSquare },
   { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/incidents", label: "Incidents", icon: AlertTriangle },
