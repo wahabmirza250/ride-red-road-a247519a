@@ -164,15 +164,17 @@ function NewNemtTripWizard() {
           .limit(6),
       ]);
       const fromRiders = (ridersRes.data as Rider[]) ?? [];
-      const fromPassengers = ((passengersRes.data as any[]) ?? []).map((p) => ({
-        id: `passenger:${p.id}`,
-        full_name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Unnamed passenger",
-        medicaid_id: p.medicaid_id ?? "",
-        dob: p.date_of_birth ?? null,
-        phone: p.phone ?? null,
-        last_4_ssn: p.ssn_last4 ?? null,
-        __source: "passenger" as const,
-      })) as (Rider & { __source?: "passenger" })[];
+      const fromPassengers: (Rider & { __source: "passenger"; last_4_ssn?: string | null })[] =
+        ((passengersRes.data as any[]) ?? []).map((p) => ({
+          id: `passenger:${p.id}`,
+          full_name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Unnamed passenger",
+          medicaid_id: p.medicaid_id ?? "",
+          dob: p.date_of_birth ?? null,
+          phone: p.phone ?? null,
+          address: null,
+          last_4_ssn: p.ssn_last4 ?? null,
+          __source: "passenger" as const,
+        }));
       // De-dupe passengers already present in riders (by medicaid_id)
       const knownMedicaid = new Set(fromRiders.map((r) => r.medicaid_id).filter(Boolean));
       const merged = [
