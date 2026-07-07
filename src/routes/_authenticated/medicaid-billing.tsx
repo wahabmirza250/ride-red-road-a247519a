@@ -274,6 +274,41 @@ function MedicaidBillingPage() {
                       </div>
                     )}
                   </td>
+                  <td
+                    className="px-4 py-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {r.pdf_url ? (
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            openPdfInNewTab(
+                              r.pdf_url,
+                              `trip-${(r.passenger_name ?? "rider").replace(/\s+/g, "_")}.pdf`,
+                            )
+                          }
+                        >
+                          <Eye className="mr-1 h-3.5 w-3.5" /> View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            downloadPdf(
+                              r.pdf_url,
+                              `trip-${(r.passenger_name ?? "rider").replace(/\s+/g, "_")}.pdf`,
+                            )
+                          }
+                        >
+                          <FileDown className="mr-1 h-3.5 w-3.5" /> PDF
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     {r.state_confirmation_number && (
                       <span className="text-xs text-muted-foreground">
