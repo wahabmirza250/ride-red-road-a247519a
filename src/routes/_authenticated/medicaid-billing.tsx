@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Loader2, Send, AlertCircle, AlertTriangle, HandMetal } from "lucide-react";
+import { Loader2, Send, AlertCircle, AlertTriangle, HandMetal, Eye, FileDown } from "lucide-react";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { Button } from "@/components/ui/button";
