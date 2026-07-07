@@ -1015,7 +1015,43 @@ function NewNemtTripWizard() {
             ))}
           </div>
           {previewUrl && (
-            <iframe src={previewUrl} className="h-[70vh] w-full rounded-xl border" title="preview" />
+            <div className="space-y-2">
+              <div className="hidden sm:block">
+                <object
+                  data={previewUrl}
+                  type="application/pdf"
+                  className="h-[70vh] w-full rounded-xl border"
+                >
+                  <div className="p-4 text-xs text-muted-foreground">
+                    Your browser can&apos;t display the PDF inline. Use the
+                    buttons below to open or download it.
+                  </div>
+                </object>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(previewUrl, "_blank")}
+                >
+                  Open in new tab
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = previewUrl;
+                    a.download = "trip-preview.pdf";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                  }}
+                >
+                  Download PDF
+                </Button>
+              </div>
+            </div>
           )}
           {(vehicleIssue || riderIssue || legsIssue || signatureIssue) && (
             <div className="rounded-xl border border-dashed p-3 text-xs text-muted-foreground">

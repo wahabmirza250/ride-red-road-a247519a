@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Loader2, Send, AlertCircle, AlertTriangle, HandMetal } from "lucide-react";
+import { Loader2, Send, AlertCircle, AlertTriangle, HandMetal, Eye, FileDown } from "lucide-react";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -214,6 +214,7 @@ function MedicaidBillingPage() {
                 <th className="px-4 py-3 text-left">Driver</th>
                 <th className="px-4 py-3 text-left">Trip date</th>
                 <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">PDF</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -273,6 +274,41 @@ function MedicaidBillingPage() {
                       </div>
                     )}
                   </td>
+                  <td
+                    className="px-4 py-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {r.pdf_url ? (
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            openPdfInNewTab(
+                              r.pdf_url,
+                              `trip-${(r.passenger_name ?? "rider").replace(/\s+/g, "_")}.pdf`,
+                            )
+                          }
+                        >
+                          <Eye className="mr-1 h-3.5 w-3.5" /> View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            downloadPdf(
+                              r.pdf_url,
+                              `trip-${(r.passenger_name ?? "rider").replace(/\s+/g, "_")}.pdf`,
+                            )
+                          }
+                        >
+                          <FileDown className="mr-1 h-3.5 w-3.5" /> PDF
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     {r.state_confirmation_number && (
                       <span className="text-xs text-muted-foreground">
@@ -294,3 +330,47 @@ function MedicaidBillingPage() {
     </div>
   );
 }
+
+async function fetchPdfBlobUrl(url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Load failed (${res.status})`);
+  const blob = await res.blob();
+  return URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+}
+
+async function openPdfInNewTab(url: string, filename: string) {
+  const win = window.open("", "_blank");
+  try {
+    const blobUrl = await fetchPdfBlobUrl(url);
+    if (win) {
+      win.location.href = blobUrl;
+    } else {
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  } catch (e) {
+    win?.close();
+    toast.error(e instanceof Error ? e.message : "Could not open PDF");
+  }
+}
+
+async function downloadPdf(url: string, filename: string) {
+  try {
+    const blobUrl = await fetchPdfBlobUrl(url);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : "Could not download PDF");
+  }
+}
+
