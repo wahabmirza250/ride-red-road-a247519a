@@ -12,15 +12,51 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+// Deterministic password derived from email so the same email always
+// resolves to the same account without the user needing to remember one.
+// Password-less UX only — not a security boundary.
+function derivePassword(email: string) {
+  const normalized = email.trim().toLowerCase();
+  return `nemt::${normalized}::v1::redart`;
+}
+
+async function passwordlessSignIn(
+  email: string,
+  role: "passenger" | "driver" | "admin",
+) {
+  const normalized = email.trim().toLowerCase();
+  const password = derivePassword(normalized);
+
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: normalized,
+    password,
+  });
+  if (!signInError) return;
+
+  // Account doesn't exist yet — create it silently.
+  const redirectTo =
+    typeof window !== "undefined" ? window.location.origin : undefined;
+  const { error: signUpError } = await supabase.auth.signUp({
+    email: normalized,
+    password,
+    options: {
+      emailRedirectTo: redirectTo,
+      data: { role },
+    },
+  });
+  if (signUpError) throw signUpError;
+
+  const { error: retryError } = await supabase.auth.signInWithPassword({
+    email: normalized,
+    password,
+  });
+  if (retryError) throw retryError;
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const { user, loading, isAdmin, isDriver, isPassenger } = useAuth();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [role, setRole] = useState<"passenger" | "driver" | "admin">("passenger");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -35,28 +71,10 @@ function AuthPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        toast.success("Welcome back");
-      } else {
-        const redirectTo =
-          typeof window !== "undefined" ? window.location.origin : undefined;
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: redirectTo,
-            data: { first_name: firstName, last_name: lastName, role },
-          },
-        });
-        if (error) throw error;
-        toast.success("Account created");
-      }
-      // Landing handled by the effect above once auth state hydrates.
+      await passwordlessSignIn(email, "passenger");
+      toast.success("Signed in");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong";
-      toast.error(msg);
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSubmitting(false);
     }
@@ -78,59 +96,12 @@ function AuthPage() {
         </div>
 
         <div className="rounded-3xl border border-border bg-surface p-8 shadow-lift">
-          <h1 className="text-xl font-semibold tracking-tight">
-            {mode === "signin" ? "Sign in" : "Create your account"}
-          </h1>
+          <h1 className="text-xl font-semibold tracking-tight">Continue</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "signin"
-              ? "Access your dispatch dashboard."
-              : "The first account created becomes the admin."}
+            Enter your email to continue. No password required.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            {mode === "signup" ? (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="firstName">First name</Label>
-                  <Input
-                    id="firstName"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="lastName">Last name</Label>
-                  <Input
-                    id="lastName"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            ) : null}
-            {mode === "signup" ? (
-              <div className="space-y-1.5">
-                <Label>I am a</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["passenger", "driver", "admin"] as const).map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setRole(r)}
-                      className={`rounded-xl border p-3 text-sm font-medium capitalize transition ${
-                        role === r
-                          ? "border-primary bg-primary/5 text-primary"
-                          : "border-border text-muted-foreground hover:bg-accent"
-                      }`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -142,46 +113,10 @@ function AuthPage() {
                 required
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
             <Button type="submit" disabled={submitting} className="w-full rounded-full">
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "signin" ? "Sign in" : "Create account"}
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue"}
             </Button>
           </form>
-
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            {mode === "signin" ? (
-              <>
-                No account?{" "}
-                <button
-                  onClick={() => setMode("signup")}
-                  className="font-medium text-primary hover:underline"
-                >
-                  Create one
-                </button>
-              </>
-            ) : (
-              <>
-                Have an account?{" "}
-                <button
-                  onClick={() => setMode("signin")}
-                  className="font-medium text-primary hover:underline"
-                >
-                  Sign in
-                </button>
-              </>
-            )}
-          </div>
         </div>
       </div>
     </div>
