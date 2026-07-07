@@ -42,7 +42,7 @@ export const listBillingRecords = createServerFn({ method: "POST" })
          submitted_at, state_confirmation_number, submission_error,
          requires_human_step, updated_at,
          medicaid_trips!inner(
-           id, pickup_at, pickup_address, dropoff_address, driver_id,
+           id, pickup_at, pickup_address, dropoff_address, driver_id, state_pdf_path,
            riders(full_name, medicaid_id)
          )`,
       )
@@ -69,7 +69,19 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       );
     }
 
-    return (rows ?? []).map((r: any) => ({
+    // Sign PDF URLs in parallel (15 min TTL, same as detail view)
+    const pdfUrls = await Promise.all(
+      (rows ?? []).map(async (r: any) => {
+        const path = r.medicaid_trips?.state_pdf_path;
+        if (!path) return null;
+        const { data: signed } = await supabase.storage
+          .from("state-pdfs")
+          .createSignedUrl(path, 60 * 15);
+        return signed?.signedUrl ?? null;
+      }),
+    );
+
+    return (rows ?? []).map((r: any, i: number) => ({
       id: r.id,
       trip_id: r.trip_id,
       status: r.status,
@@ -89,8 +101,10 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       pickup_at: r.medicaid_trips?.pickup_at,
       pickup_address: r.medicaid_trips?.pickup_address,
       dropoff_address: r.medicaid_trips?.dropoff_address,
+      pdf_url: pdfUrls[i],
     }));
   });
+
 
 /* ---------- DETAIL ---------- */
 
