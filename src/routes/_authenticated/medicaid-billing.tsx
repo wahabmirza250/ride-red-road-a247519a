@@ -214,6 +214,7 @@ function MedicaidBillingPage() {
                 <th className="px-4 py-3 text-left">Driver</th>
                 <th className="px-4 py-3 text-left">Trip date</th>
                 <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">PDF</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
