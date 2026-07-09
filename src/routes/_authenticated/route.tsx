@@ -5,7 +5,6 @@ import {
   Route as RouteIcon,
   Users,
   UserRound,
-  
   MessageSquare,
   BarChart3,
   AlertTriangle,
@@ -21,6 +20,7 @@ import {
   Radio,
   Megaphone,
   Shield,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
@@ -28,6 +28,8 @@ import { useDriverLocationPing } from "@/lib/useDriverLocationPing";
 import { cn } from "@/lib/utils";
 import { initials } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/admin/NotificationBell";
+import { ensurePushSubscribed } from "@/lib/push";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
