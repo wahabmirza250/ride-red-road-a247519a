@@ -75,6 +75,15 @@ function AuthenticatedLayout() {
     }
   }, [loading, user, navigate]);
 
+  // Admins get browser push for new ride requests and events.
+  useEffect(() => {
+    if (user && useAuth) {
+      // will no-op if permission denied or already prompted
+      ensurePushSubscribed().catch(() => {});
+    }
+  }, [user]);
+
+
   if (loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
