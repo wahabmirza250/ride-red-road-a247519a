@@ -1,11 +1,13 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Home, PlusCircle, Newspaper, Gamepad2, UserCircle2, LogOut } from "lucide-react";
+import { Home, PlusCircle, Newspaper, Sparkles, UserCircle2, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import { trackVisitor } from "@/lib/passengerPublic.functions";
+import { useAuth } from "@/lib/auth";
+import { ensurePushSubscribed } from "@/lib/push";
 
 export const Route = createFileRoute("/passenger")({
   ssr: false,
@@ -15,8 +17,8 @@ export const Route = createFileRoute("/passenger")({
 const TABS = [
   { to: "/passenger", label: "Rides", icon: Home },
   { to: "/passenger/apply", label: "Book", icon: PlusCircle },
+  { to: "/passenger/events", label: "Events", icon: Sparkles },
   { to: "/passenger/news", label: "News", icon: Newspaper },
-  { to: "/passenger/games", label: "Games", icon: Gamepad2 },
   { to: "/passenger/profile", label: "Profile", icon: UserCircle2 },
 ] as const;
 
