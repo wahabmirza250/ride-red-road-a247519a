@@ -13,44 +13,11 @@ export const Route = createFileRoute("/driver/signin")({
   component: DriverSignIn,
 });
 
-function derivePassword(email: string) {
-  const normalized = email.trim().toLowerCase();
-  return `nemt::${normalized}::v1::redart`;
-}
-
-async function passwordlessSignIn(email: string) {
-  const normalized = email.trim().toLowerCase();
-  const password = derivePassword(normalized);
-
-  const { error: signInError } = await supabase.auth.signInWithPassword({
-    email: normalized,
-    password,
-  });
-  if (!signInError) return;
-
-  const redirectTo =
-    typeof window !== "undefined" ? window.location.origin : undefined;
-  const { error: signUpError } = await supabase.auth.signUp({
-    email: normalized,
-    password,
-    options: {
-      emailRedirectTo: redirectTo,
-      data: { role: "driver" },
-    },
-  });
-  if (signUpError) throw signUpError;
-
-  const { error: retryError } = await supabase.auth.signInWithPassword({
-    email: normalized,
-    password,
-  });
-  if (retryError) throw retryError;
-}
-
 function DriverSignIn() {
   const nav = useNavigate();
   const { user, loading, isDriver, isAdmin } = useAuth();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -63,7 +30,11 @@ function DriverSignIn() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await passwordlessSignIn(email);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (error) throw error;
       toast.success("Welcome");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sign in failed");
@@ -88,7 +59,9 @@ function DriverSignIn() {
 
         <div className="rounded-3xl border border-border/60 bg-surface/70 p-8 shadow-lift backdrop-blur-xl">
           <h1 className="text-xl font-semibold tracking-tight">Driver sign in</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Just your email — no password needed.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Use the credentials your dispatcher gave you.
+          </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div className="space-y-1.5">
@@ -103,12 +76,28 @@ function DriverSignIn() {
                 className="h-11 rounded-xl"
               />
             </div>
-            <Button type="submit" disabled={submitting} className="group h-11 w-full rounded-full text-base">
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 rounded-xl"
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="group h-11 w-full rounded-full text-base"
+            >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  Continue
+                  Sign in
                   <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
