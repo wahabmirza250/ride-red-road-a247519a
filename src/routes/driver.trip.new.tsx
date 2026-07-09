@@ -624,24 +624,8 @@ function NewNemtTripWizard() {
     return URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
   }
 
-  async function openPdfInNewTab(url: string, filename: string) {
-    // Open the tab synchronously so it isn't treated as a popup, then
-    // point it at the blob URL once the fetch resolves.
-    const win = window.open("", "_blank");
-    try {
-      const blobUrl = await fetchPdfBlob(url);
-      if (win) {
-        win.location.href = blobUrl;
-      } else {
-        // Popup blocked — fall back to a direct download.
-        downloadFromBlobUrl(blobUrl, filename);
-      }
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
-    } catch (e) {
-      win?.close();
-      toast.error(e instanceof Error ? e.message : "Could not open PDF");
-    }
-  }
+
+
 
   async function downloadPdf(url: string, filename: string) {
     try {
