@@ -20,6 +20,7 @@ import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
 import { Route as PassengerProfileRouteImport } from './routes/passenger.profile'
 import { Route as PassengerNewsRouteImport } from './routes/passenger.news'
 import { Route as PassengerGamesRouteImport } from './routes/passenger.games'
+import { Route as PassengerEventsRouteImport } from './routes/passenger.events'
 import { Route as PassengerApplyRouteImport } from './routes/passenger.apply'
 import { Route as DriverSigninRouteImport } from './routes/driver.signin'
 import { Route as DriverProfileRouteImport } from './routes/driver.profile'
@@ -39,6 +40,7 @@ import { Route as AuthenticatedMedicaidBillingRouteImport } from './routes/_auth
 import { Route as AuthenticatedLiveOpsRouteImport } from './routes/_authenticated/live-ops'
 import { Route as AuthenticatedIncidentsRouteImport } from './routes/_authenticated/incidents'
 import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/games'
+import { Route as AuthenticatedEventsRouteImport } from './routes/_authenticated/events'
 import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
@@ -99,6 +101,11 @@ const PassengerNewsRoute = PassengerNewsRouteImport.update({
 const PassengerGamesRoute = PassengerGamesRouteImport.update({
   id: '/games',
   path: '/games',
+  getParentRoute: () => PassengerRoute,
+} as any)
+const PassengerEventsRoute = PassengerEventsRouteImport.update({
+  id: '/events',
+  path: '/events',
   getParentRoute: () => PassengerRoute,
 } as any)
 const PassengerApplyRoute = PassengerApplyRouteImport.update({
@@ -198,6 +205,11 @@ const AuthenticatedGamesRoute = AuthenticatedGamesRouteImport.update({
   path: '/games',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedEventsRoute = AuthenticatedEventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDriversRoute = AuthenticatedDriversRouteImport.update({
   id: '/drivers',
   path: '/drivers',
@@ -244,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/passenger': typeof PassengerRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/drivers': typeof AuthenticatedDriversRoute
+  '/events': typeof AuthenticatedEventsRoute
   '/games': typeof AuthenticatedGamesRoute
   '/incidents': typeof AuthenticatedIncidentsRoute
   '/live-ops': typeof AuthenticatedLiveOpsRoute
@@ -263,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/driver/profile': typeof DriverProfileRoute
   '/driver/signin': typeof DriverSigninRoute
   '/passenger/apply': typeof PassengerApplyRoute
+  '/passenger/events': typeof PassengerEventsRoute
   '/passenger/games': typeof PassengerGamesRoute
   '/passenger/news': typeof PassengerNewsRoute
   '/passenger/profile': typeof PassengerProfileRoute
@@ -280,6 +294,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/drivers': typeof AuthenticatedDriversRoute
+  '/events': typeof AuthenticatedEventsRoute
   '/games': typeof AuthenticatedGamesRoute
   '/incidents': typeof AuthenticatedIncidentsRoute
   '/live-ops': typeof AuthenticatedLiveOpsRoute
@@ -299,6 +314,7 @@ export interface FileRoutesByTo {
   '/driver/profile': typeof DriverProfileRoute
   '/driver/signin': typeof DriverSigninRoute
   '/passenger/apply': typeof PassengerApplyRoute
+  '/passenger/events': typeof PassengerEventsRoute
   '/passenger/games': typeof PassengerGamesRoute
   '/passenger/news': typeof PassengerNewsRoute
   '/passenger/profile': typeof PassengerProfileRoute
@@ -320,6 +336,7 @@ export interface FileRoutesById {
   '/passenger': typeof PassengerRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/drivers': typeof AuthenticatedDriversRoute
+  '/_authenticated/events': typeof AuthenticatedEventsRoute
   '/_authenticated/games': typeof AuthenticatedGamesRoute
   '/_authenticated/incidents': typeof AuthenticatedIncidentsRoute
   '/_authenticated/live-ops': typeof AuthenticatedLiveOpsRoute
@@ -339,6 +356,7 @@ export interface FileRoutesById {
   '/driver/profile': typeof DriverProfileRoute
   '/driver/signin': typeof DriverSigninRoute
   '/passenger/apply': typeof PassengerApplyRoute
+  '/passenger/events': typeof PassengerEventsRoute
   '/passenger/games': typeof PassengerGamesRoute
   '/passenger/news': typeof PassengerNewsRoute
   '/passenger/profile': typeof PassengerProfileRoute
@@ -360,6 +378,7 @@ export interface FileRouteTypes {
     | '/passenger'
     | '/dashboard'
     | '/drivers'
+    | '/events'
     | '/games'
     | '/incidents'
     | '/live-ops'
@@ -379,6 +398,7 @@ export interface FileRouteTypes {
     | '/driver/profile'
     | '/driver/signin'
     | '/passenger/apply'
+    | '/passenger/events'
     | '/passenger/games'
     | '/passenger/news'
     | '/passenger/profile'
@@ -396,6 +416,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/drivers'
+    | '/events'
     | '/games'
     | '/incidents'
     | '/live-ops'
@@ -415,6 +436,7 @@ export interface FileRouteTypes {
     | '/driver/profile'
     | '/driver/signin'
     | '/passenger/apply'
+    | '/passenger/events'
     | '/passenger/games'
     | '/passenger/news'
     | '/passenger/profile'
@@ -435,6 +457,7 @@ export interface FileRouteTypes {
     | '/passenger'
     | '/_authenticated/dashboard'
     | '/_authenticated/drivers'
+    | '/_authenticated/events'
     | '/_authenticated/games'
     | '/_authenticated/incidents'
     | '/_authenticated/live-ops'
@@ -454,6 +477,7 @@ export interface FileRouteTypes {
     | '/driver/profile'
     | '/driver/signin'
     | '/passenger/apply'
+    | '/passenger/events'
     | '/passenger/games'
     | '/passenger/news'
     | '/passenger/profile'
@@ -555,6 +579,13 @@ declare module '@tanstack/react-router' {
       path: '/games'
       fullPath: '/passenger/games'
       preLoaderRoute: typeof PassengerGamesRouteImport
+      parentRoute: typeof PassengerRoute
+    }
+    '/passenger/events': {
+      id: '/passenger/events'
+      path: '/events'
+      fullPath: '/passenger/events'
+      preLoaderRoute: typeof PassengerEventsRouteImport
       parentRoute: typeof PassengerRoute
     }
     '/passenger/apply': {
@@ -690,6 +721,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGamesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/events': {
+      id: '/_authenticated/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof AuthenticatedEventsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/drivers': {
       id: '/_authenticated/drivers'
       path: '/drivers'
@@ -759,6 +797,7 @@ const AuthenticatedMedicaidTripsRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDriversRoute: typeof AuthenticatedDriversRoute
+  AuthenticatedEventsRoute: typeof AuthenticatedEventsRoute
   AuthenticatedGamesRoute: typeof AuthenticatedGamesRoute
   AuthenticatedIncidentsRoute: typeof AuthenticatedIncidentsRoute
   AuthenticatedLiveOpsRoute: typeof AuthenticatedLiveOpsRoute
@@ -778,6 +817,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDriversRoute: AuthenticatedDriversRoute,
+  AuthenticatedEventsRoute: AuthenticatedEventsRoute,
   AuthenticatedGamesRoute: AuthenticatedGamesRoute,
   AuthenticatedIncidentsRoute: AuthenticatedIncidentsRoute,
   AuthenticatedLiveOpsRoute: AuthenticatedLiveOpsRoute,
@@ -822,6 +862,7 @@ const DriverRouteWithChildren =
 
 interface PassengerRouteChildren {
   PassengerApplyRoute: typeof PassengerApplyRoute
+  PassengerEventsRoute: typeof PassengerEventsRoute
   PassengerGamesRoute: typeof PassengerGamesRoute
   PassengerNewsRoute: typeof PassengerNewsRoute
   PassengerProfileRoute: typeof PassengerProfileRoute
@@ -830,6 +871,7 @@ interface PassengerRouteChildren {
 
 const PassengerRouteChildren: PassengerRouteChildren = {
   PassengerApplyRoute: PassengerApplyRoute,
+  PassengerEventsRoute: PassengerEventsRoute,
   PassengerGamesRoute: PassengerGamesRoute,
   PassengerNewsRoute: PassengerNewsRoute,
   PassengerProfileRoute: PassengerProfileRoute,

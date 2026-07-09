@@ -55,7 +55,7 @@ export async function ensurePushSubscribed(opts?: { force?: boolean }): Promise<
     try {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer as ArrayBuffer,
       });
     } catch (e) {
       console.warn("[push] subscribe failed", e);
