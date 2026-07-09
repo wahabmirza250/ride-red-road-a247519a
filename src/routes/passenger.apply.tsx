@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Send, MapPin, Clock, Phone, User, FileText, CheckCircle2 } from "lucide-react";
+import { Loader2, Send, MapPin, Clock, Phone, User, FileText, CheckCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,22 +10,34 @@ import { Textarea } from "@/components/ui/textarea";
 import { submitRideRequest } from "@/lib/passengerPublic.functions";
 
 export const Route = createFileRoute("/passenger/apply")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    dropoff: typeof search.dropoff === "string" ? search.dropoff : undefined,
+    pickup: typeof search.pickup === "string" ? search.pickup : undefined,
+    eventTitle: typeof search.eventTitle === "string" ? search.eventTitle : undefined,
+  }),
   component: ApplyForRide,
 });
 
 function ApplyForRide() {
   const submit = useServerFn(submitRideRequest);
+  const search = Route.useSearch();
   const [f, setF] = useState({
     contact_name: "",
     contact_phone: "",
     contact_medicaid: "",
-    pickup_address: "",
-    dropoff_address: "",
+    pickup_address: search.pickup ?? "",
+    dropoff_address: search.dropoff ?? "",
     requested_pickup_time: "",
-    notes: "",
+    notes: search.eventTitle ? `Going to: ${search.eventTitle}` : "",
   });
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const phone = window.localStorage.getItem("passenger_phone") ?? "";
+    if (phone) setF((p) => ({ ...p, contact_phone: p.contact_phone || phone }));
+  }, []);
 
   function upd<K extends keyof typeof f>(k: K, v: string) {
     setF((p) => ({ ...p, [k]: v }));
