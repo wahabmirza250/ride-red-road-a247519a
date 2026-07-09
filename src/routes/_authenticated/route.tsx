@@ -202,6 +202,7 @@ function AuthenticatedLayout() {
             <span className="text-sm font-semibold">RedArt Dispatch</span>
           </div>
           <div className="flex items-center gap-1">
+            {isAdmin && <NotificationBell />}
             <button
               onClick={toggleTheme}
               className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
