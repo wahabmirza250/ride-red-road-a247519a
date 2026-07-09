@@ -1,57 +1,66 @@
-## Goal
+## What you'll get
 
-When a driver completes the Trip Report in the dashboard, the PDF returned (and stored to Medicaid Billing) must be the **exact Colorado HCPF "Non-Emergent Medical Transportation Trip Log" form**, with every field the driver filled in populated in the correct box — not a coordinate-guessed overlay, and not a generic summary.
+### 1. Email + password login (back on)
+- Restore the real sign-in screen (email + password), remove the "email only" bypass.
+- Passengers can self‑signup (email + password) from the passenger app.
+- Drivers can NOT self-signup — admin creates them.
+- Admin can create accounts from the dashboard (drivers or passengers) with an email + password you set. No email verification required (auto‑confirm stays on).
 
-## Why the current output looks off
+### 2. Passenger profile system
+- The existing `/passenger/profile` form is already there — I'll wire it to the logged‑in account (not just the device) so the profile follows the user across devices, and pre-fill from signup.
+- Ride booking pre-fills from the profile.
 
-Today `src/lib/medicaidPdf.ts` opens a **flattened** copy of the template and draws text at hard-coded x/y coordinates. Small font/scale differences shift text, checkboxes are approximated with an "X" glyph, and the signature stamp can drift. That's the "problem" you're seeing.
+### 3. Events (party / free food / etc.)
+- New admin page **/dashboard → Events**: title, description, date/time, location (address + map pin), optional image, "active" toggle.
+- Passenger app gets a new **Events** tab (replaces or joins the News tab) showing active events with image, details, and a big **Book a ride** button that opens the booking form with the event location pre-filled.
+- When admin publishes an event, every passenger who has enabled notifications gets a push: *"Free food today at 6pm — tap to book a ride."*
 
-The newly uploaded PDF (`Non-Emergent_Medical_Transportation_Trip_Log_042025_Accessible-5.pdf`) is the **fillable** version of the same form — it ships 28 real AcroForm fields with exact names. Filling those fields is deterministic and always renders in the right place.
+### 4. Strong notifications
+**To passengers** (in‑app + browser push, PWA):
+- New event published
 
-## What will change
+**To admin** (in‑app + browser push, works with dashboard tab closed):
+- New ride request from a passenger (loud sound + red banner)
+- New passenger signs up
+- Driver goes online/offline
+- Driver accepts a trip
 
-1. **Replace the template asset** with the fillable April-2025 PDF (uploaded).
-2. **Rewrite `src/lib/medicaidPdf.ts`** to fill AcroForm fields via `pdf-lib` (already a dependency) instead of coordinate drawing.
-3. **Stamp the captured signature PNG** into the "Members Signature" widget's rectangle, then remove that signature field so the image is the visible signature.
-4. **Flatten the form** at the end so the downloaded / printed PDF is locked and matches the state's expected paper output exactly.
-5. Keep the existing storage + Medicaid Billing wiring unchanged — same `state-pdfs/{driver}/{trip}.pdf` path, same `attachStatePdf` call, same billing retrieval flow.
+All admin notifications also show in a bell‑icon feed in the dashboard header with unread count and a distinct alert sound for new ride requests.
 
-## Field mapping (driver form → PDF field)
+## Technical section
 
-Text fields (`/Tx`)
-- Members Name ← rider full name
-- Member Health First Colorado ID ← rider medicaid_id
-- Trip Date ← leg 1 date
-- "Member facility or escort may sign… Escort Name if applicable" ← escort name (blank if none)
-- Drivers Name ← driver's full name from profile
-- Vehicle License Plate or VIN ← plate (+ "VIN …" if provided)
-- Leg 1: Date, Pickup TIme, Pickup Odometer Reading, Pickup Street Address City State Zip, Actual DropOff Time AM PM, Destination Odometer Reading, Dropoff Destination Street Address City State Zip
-- Leg 2: same fields with `_2` / `pickup time 2` suffixes (only filled when round-trip)
+**Auth**
+- `src/routes/auth.tsx`: restore email+password form (sign in + sign up tabs). Remove `derivePassword` bypass.
+- `src/routes/driver.signin.tsx`: email+password only, no signup link.
+- New `/dashboard/team` action "Create user" → server fn `adminCreateUser` using `supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { role } })`, plus role grant in `user_roles`. Admin‑role checked via `has_role`.
 
-Radio groups (`/Btn`) — exact export values discovered from the PDF
-- `type of trip` → `one way` | `round trip`
-- `type of vehicle` → `ground ambulance` | `wheelchair van` | `stretcher van` | `taxi` | `Mobility/Ambulatory vehicle`
-- `driver verify member identity` → `yes` | `no`
-- `pick up time` / `dropoff time` (leg 1) → `AM` | `pm`
-- `second pickup time` / `second dropoff time` (leg 2) → `am` | `pm`
+**DB migration**
+- `events` table: `id, title, description, starts_at, ends_at, location_address, location_lat, location_lng, image_url, is_active, created_by, created_at, updated_at`. RLS: anyone authenticated can `SELECT` active; admin can insert/update/delete. GRANTs to `authenticated` + `service_role`.
+- `push_subscriptions` table: `id, user_id, endpoint, p256dh, auth, user_agent, created_at`. RLS: user owns rows; admin can read all (to fan out). Unique on `endpoint`.
+- `admin_notifications` table: `id, kind, title, body, data jsonb, read, created_at`. RLS admin‑only. Realtime enabled.
+- Enable realtime for `events`, `admin_notifications`, `ride_requests`, `drivers` (status column) — used for live bell feed.
 
-Signature (`/Sig`)
-- `Members Signature` — read the widget's `/Rect`, draw the captured PNG scaled to fit inside it, then delete the field. If the trip was signed by an escort, append " (signed by escort)" as small text under the signature.
+**Web Push (PWA)**
+- Add `web-push` on server side, generate VAPID keys via `generate_secret` (public + private) — public key exposed as `VITE_VAPID_PUBLIC_KEY`.
+- New service worker `public/push-sw.js` (separate from any existing SW) that handles `push` events and shows notifications.
+- Client helper `src/lib/push.ts`: register SW, `Notification.requestPermission()`, `pushManager.subscribe({ applicationServerKey })`, store subscription via `saveSubscription` server fn.
+- Server fn `sendPushToUsers(userIds, payload)` reads subscriptions and calls `web-push.sendNotification` for each.
+- Passenger app prompts for permission on first visit after signup; admin dashboard prompts on first load.
 
-## Files touched
+**Event fan‑out**
+- Server fn `publishEvent` → insert + call `sendPushToUsers(all_passenger_user_ids, {title, body, url:'/passenger/events'})`.
 
-- **Add** the fillable template as a Lovable asset: `src/assets/nemt_trip_report_template.pdf.asset.json` (replaces current pointer, same import path so no other code changes).
-- **Rewrite** `src/lib/medicaidPdf.ts` — AcroForm fill + signature stamp + flatten. Same exported `generateStateFormPdf(args)` signature, so `src/routes/driver.trip.new.tsx` and any other caller keep working with no edits.
+**Admin realtime alerts**
+- Dashboard root component subscribes to `ride_requests` (INSERT), `profiles` (INSERT for new signups), `drivers` (UPDATE on status), and inserts a row into `admin_notifications`. A bell dropdown reads latest 20 with unread count. Ride‑request inserts play a loud sound (embedded base64 mp3) and show a red toast; also trigger `sendPushToUsers(admin_user_ids, …)` via a DB trigger‑backed server fn call (server fn invoked from the same INSERT handler on the client that placed the request, so no cron needed).
 
-## Out of scope
+**Files touched (approx)**
+- Edit: `src/routes/auth.tsx`, `src/routes/driver.signin.tsx`, `src/routes/_authenticated/team.tsx` (add "Create user"), `src/routes/_authenticated/dashboard.tsx` (bell + realtime), `src/routes/passenger.tsx` (nav + push prompt), `src/routes/passenger.apply.tsx` (accept `?eventId=`), `src/routes/__root.tsx` (register push SW).
+- Create: `src/routes/_authenticated/events.tsx`, `src/routes/passenger.events.tsx`, `src/lib/events.functions.ts`, `src/lib/push.functions.ts`, `src/lib/push.ts`, `src/lib/adminNotifications.functions.ts`, `src/components/admin/NotificationBell.tsx`, `public/push-sw.js`.
+- Migration for `events`, `push_subscriptions`, `admin_notifications` + realtime.
+- Secrets via `generate_secret`: `VAPID_PRIVATE_KEY`; publishable `VITE_VAPID_PUBLIC_KEY` committed.
 
-- No DB schema changes.
-- No changes to Medicaid Billing UI, storage bucket, or the submit-to-portal path — Billing already pulls `state_pdf_path`; the file at that path just becomes a much cleaner render.
-- No changes to the driver dashboard form fields or the autocomplete/passenger-profile flow — those are already wired.
+## Scope confirm
 
-## Technical notes
+This is ~10–14 files + 1 migration + 1 npm package (`web-push`). No SMS, no Twilio, no email provider needed. I'll ship it end‑to‑end in the next step.
 
-- `pdf-lib`'s `PDFForm` supports `getTextField`, `getRadioGroup().select()`, and per-field `enableReadOnly()` before `flatten()`. All work in the browser bundle already used by the driver app.
-- Radio option strings are case-sensitive and must match the export values above verbatim (that's why AM vs am/pm looks inconsistent — it's what the state's PDF ships).
-- Legs missing on a one-way trip simply leave the `_2` fields untouched (blank on the flattened output, matching how a paper form is left blank).
-- Any field that isn't present on a future template revision is guarded with a try/catch so a template swap can never crash the export.
+Ready to build?
