@@ -5,7 +5,6 @@ import {
   Route as RouteIcon,
   Users,
   UserRound,
-  
   MessageSquare,
   BarChart3,
   AlertTriangle,
@@ -21,6 +20,7 @@ import {
   Radio,
   Megaphone,
   Shield,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
@@ -28,6 +28,8 @@ import { useDriverLocationPing } from "@/lib/useDriverLocationPing";
 import { cn } from "@/lib/utils";
 import { initials } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/admin/NotificationBell";
+import { ensurePushSubscribed } from "@/lib/push";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -41,6 +43,7 @@ const ADMIN_NAV = [
   { to: "/medicaid-billing", label: "Medicaid Billing", icon: FileSignature },
   { to: "/drivers", label: "Drivers", icon: Users },
   { to: "/passengers", label: "Passengers", icon: UserRound },
+  { to: "/events", label: "Events", icon: Sparkles },
   { to: "/team", label: "Team & apps", icon: Shield },
   { to: "/messages", label: "Messages", icon: MessageSquare },
   { to: "/reports", label: "Reports", icon: BarChart3 },
@@ -71,6 +74,15 @@ function AuthenticatedLayout() {
       navigate({ to: "/auth", replace: true });
     }
   }, [loading, user, navigate]);
+
+  // Admins get browser push for new ride requests and events.
+  useEffect(() => {
+    if (user) {
+      ensurePushSubscribed().catch(() => {});
+    }
+  }, [user]);
+
+
 
   if (loading || !user) {
     return (
@@ -157,6 +169,7 @@ function AuthenticatedLayout() {
               </div>
               <div className="truncate text-xs text-muted-foreground">{user.email}</div>
             </div>
+            {isAdmin && <NotificationBell />}
             <button
               onClick={toggleTheme}
               className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -189,6 +202,7 @@ function AuthenticatedLayout() {
             <span className="text-sm font-semibold">RedArt Dispatch</span>
           </div>
           <div className="flex items-center gap-1">
+            {isAdmin && <NotificationBell />}
             <button
               onClick={toggleTheme}
               className="rounded-lg p-2 text-muted-foreground hover:bg-accent"

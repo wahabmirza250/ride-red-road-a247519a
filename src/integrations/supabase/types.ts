@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_notifications: {
+        Row: {
+          body: string
+          created_at: string
+          data: Json
+          id: string
+          kind: string
+          read: boolean
+          title: string
+          url: string | null
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          kind: string
+          read?: boolean
+          title: string
+          url?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          kind?: string
+          read?: boolean
+          title?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       billing_audit_log: {
         Row: {
           action: string
@@ -292,6 +325,54 @@ export type Database = {
           vehicle_model?: string | null
           vehicle_plate?: string | null
           vehicle_year?: number | null
+        }
+        Relationships: []
+      }
+      events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          ends_at: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          location_address: string | null
+          location_lat: number | null
+          location_lng: number | null
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          location_address?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          location_address?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          starts_at?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -896,6 +977,36 @@ export type Database = {
           last_name?: string | null
           phone?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
         }
         Relationships: []
       }

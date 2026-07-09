@@ -22,18 +22,46 @@ export const submitRideRequest = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("ride_requests").insert({
-      contact_name: data.contact_name.trim(),
-      contact_phone: data.contact_phone.trim(),
-      contact_medicaid: data.contact_medicaid?.trim() || null,
-      pickup_address: data.pickup_address.trim(),
-      dropoff_address: data.dropoff_address.trim(),
-      requested_pickup_time: data.requested_pickup_time || null,
-      notes: data.notes?.trim() || null,
-      status: "pending",
-      source: "passenger_app",
-    });
+    const { data: inserted, error } = await supabaseAdmin
+      .from("ride_requests")
+      .insert({
+        contact_name: data.contact_name.trim(),
+        contact_phone: data.contact_phone.trim(),
+        contact_medicaid: data.contact_medicaid?.trim() || null,
+        pickup_address: data.pickup_address.trim(),
+        dropoff_address: data.dropoff_address.trim(),
+        requested_pickup_time: data.requested_pickup_time || null,
+        notes: data.notes?.trim() || null,
+        status: "pending",
+        source: "passenger_app",
+      })
+      .select("id")
+      .single();
     if (error) throw new Error(error.message);
+
+    // Fan out to admins: DB feed + browser push.
+    const title = "New ride request";
+    const body = `${data.contact_name} — ${data.pickup_address} → ${data.dropoff_address}`;
+    await supabaseAdmin.from("admin_notifications").insert({
+      kind: "ride_request",
+      title,
+      body,
+      url: "/trips",
+      data: { ride_request_id: inserted?.id, phone: data.contact_phone },
+    });
+    try {
+      const { sendPushToAdmins } = await import("@/lib/pushSend.server");
+      await sendPushToAdmins({
+        title,
+        body,
+        url: "/trips",
+        tag: `ride-${inserted?.id}`,
+        requireInteraction: true,
+      });
+    } catch (e) {
+      console.warn("[ride_request] admin push failed", e);
+    }
+
     return { ok: true };
   });
 

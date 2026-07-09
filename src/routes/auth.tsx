@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -12,51 +13,14 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-// Deterministic password derived from email so the same email always
-// resolves to the same account without the user needing to remember one.
-// Password-less UX only — not a security boundary.
-function derivePassword(email: string) {
-  const normalized = email.trim().toLowerCase();
-  return `nemt::${normalized}::v1::redart`;
-}
-
-async function passwordlessSignIn(
-  email: string,
-  role: "passenger" | "driver" | "admin",
-) {
-  const normalized = email.trim().toLowerCase();
-  const password = derivePassword(normalized);
-
-  const { error: signInError } = await supabase.auth.signInWithPassword({
-    email: normalized,
-    password,
-  });
-  if (!signInError) return;
-
-  // Account doesn't exist yet — create it silently.
-  const redirectTo =
-    typeof window !== "undefined" ? window.location.origin : undefined;
-  const { error: signUpError } = await supabase.auth.signUp({
-    email: normalized,
-    password,
-    options: {
-      emailRedirectTo: redirectTo,
-      data: { role },
-    },
-  });
-  if (signUpError) throw signUpError;
-
-  const { error: retryError } = await supabase.auth.signInWithPassword({
-    email: normalized,
-    password,
-  });
-  if (retryError) throw retryError;
-}
-
 function AuthPage() {
   const navigate = useNavigate();
   const { user, loading, isAdmin, isDriver, isPassenger } = useAuth();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -67,14 +31,53 @@ function AuthPage() {
     else navigate({ to: "/passenger", replace: true });
   }, [loading, user, isAdmin, isDriver, isPassenger, navigate]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await passwordlessSignIn(email, "passenger");
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (error) throw error;
       toast.success("Signed in");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(err instanceof Error ? err.message : "Sign in failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSignUp(e: React.FormEvent) {
+    e.preventDefault();
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: {
+          emailRedirectTo:
+            typeof window !== "undefined" ? window.location.origin : undefined,
+          data: {
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            role: "passenger",
+          },
+        },
+      });
+      if (error) throw error;
+      toast.success("Account created");
+      // Auto-confirm is on; try to sign in immediately.
+      await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sign up failed");
     } finally {
       setSubmitting(false);
     }
@@ -95,28 +98,100 @@ function AuthPage() {
           </p>
         </div>
 
-        <div className="rounded-3xl border border-border bg-surface p-8 shadow-lift">
-          <h1 className="text-xl font-semibold tracking-tight">Continue</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Enter your email to continue. No password required.
-          </p>
+        <div className="rounded-3xl border border-border bg-surface p-6 shadow-lift">
+          <Tabs value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="signin">Sign in</TabsTrigger>
+              <TabsTrigger value="signup">Create account</TabsTrigger>
+            </TabsList>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" disabled={submitting} className="w-full rounded-full">
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue"}
-            </Button>
-          </form>
+            <TabsContent value="signin" className="mt-5">
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="signin-email">Email</Label>
+                  <Input
+                    id="signin-email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="signin-password">Password</Label>
+                  <Input
+                    id="signin-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" disabled={submitting} className="w-full rounded-full">
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="signup" className="mt-5">
+              <form onSubmit={handleSignUp} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>First name</Label>
+                    <Input
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Last name</Label>
+                    <Input
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    At least 6 characters.
+                  </p>
+                </div>
+                <Button type="submit" disabled={submitting} className="w-full rounded-full">
+                  {submitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Create passenger account"
+                  )}
+                </Button>
+                <p className="text-center text-[11px] text-muted-foreground">
+                  Drivers and admins are created by the dispatch team.
+                </p>
+              </form>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
