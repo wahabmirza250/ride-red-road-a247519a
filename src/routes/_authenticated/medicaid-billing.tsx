@@ -19,6 +19,7 @@ import {
 } from "@/lib/billing.functions";
 import { getPortal } from "@/lib/portals";
 import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
+import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 
 export const Route = createFileRoute("/_authenticated/medicaid-billing")({
   component: MedicaidBillingPage,
@@ -42,6 +43,7 @@ function MedicaidBillingPage() {
   const [tab, setTab] = useState<TabKey>("pending_review");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
 
   const listFn = useServerFn(listBillingRecords);
   const rows = useQuery({
@@ -284,10 +286,10 @@ function MedicaidBillingPage() {
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            openPdfInNewTab(
-                              r.pdf_url,
-                              `trip-${(r.passenger_name ?? "rider").replace(/\s+/g, "_")}.pdf`,
-                            )
+                            setPdfPreview({
+                              url: r.pdf_url!,
+                              filename: `trip-${(r.passenger_name ?? "rider").replace(/\s+/g, "_")}.pdf`,
+                            })
                           }
                         >
                           <Eye className="mr-1 h-3.5 w-3.5" /> View
@@ -326,6 +328,11 @@ function MedicaidBillingPage() {
       <BillingDetailSheet
         id={selectedId}
         onClose={() => setSelectedId(null)}
+      />
+      <PdfPreviewDialog
+        url={pdfPreview?.url ?? null}
+        filename={pdfPreview?.filename ?? "trip.pdf"}
+        onClose={() => setPdfPreview(null)}
       />
     </div>
   );
