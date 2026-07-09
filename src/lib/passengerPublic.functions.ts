@@ -186,6 +186,7 @@ export const upsertPassengerProfile = createServerFn({ method: "POST" })
       last_name: string;
       phone?: string;
       email?: string;
+      address?: string;
       medicaid_id?: string;
       ssn_last4?: string;
       date_of_birth?: string;
@@ -212,6 +213,7 @@ export const upsertPassengerProfile = createServerFn({ method: "POST" })
       last_name: data.last_name.trim(),
       phone: data.phone?.trim() || null,
       email: data.email?.trim() || null,
+      address: data.address?.trim() || null,
       medicaid_id: data.medicaid_id?.trim() || null,
       ssn_last4: data.ssn_last4?.trim() || null,
       date_of_birth: data.date_of_birth || null,
@@ -224,21 +226,38 @@ export const upsertPassengerProfile = createServerFn({ method: "POST" })
       .eq("device_id", data.device_id)
       .maybeSingle();
 
+    let passengerId: string;
     if (existing) {
       const { error } = await supabaseAdmin
         .from("passengers")
         .update(payload)
         .eq("id", existing.id);
       if (error) throw new Error(error.message);
-      return { id: existing.id };
+      passengerId = existing.id;
+    } else {
+      const { data: inserted, error } = await supabaseAdmin
+        .from("passengers")
+        .insert({ ...payload, device_id: data.device_id, is_active: true })
+        .select("id")
+        .single();
+      if (error) throw new Error(error.message);
+      passengerId = inserted.id;
     }
-    const { data: inserted, error } = await supabaseAdmin
-      .from("passengers")
-      .insert({ ...payload, device_id: data.device_id, is_active: true })
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
-    return { id: inserted.id };
+
+    // Notify admin: new / updated passenger profile is available in the panel.
+    try {
+      await supabaseAdmin.from("admin_notifications").insert({
+        kind: existing ? "passenger_updated" : "passenger_created",
+        title: existing ? "Passenger profile updated" : "New passenger profile",
+        body: `${payload.first_name} ${payload.last_name}${payload.phone ? ` · ${payload.phone}` : ""}`,
+        url: "/passengers",
+        data: { passenger_id: passengerId },
+      });
+    } catch (e) {
+      console.warn("[passenger_profile] admin notification failed", e);
+    }
+
+    return { id: passengerId };
   });
 
 /** PUBLIC — read the passenger's own profile by device_id. */
@@ -251,7 +270,7 @@ export const getMyPassengerProfile = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
       .from("passengers")
-      .select("id, first_name, last_name, phone, email, medicaid_id, ssn_last4, date_of_birth, approx_city, approx_region")
+      .select("id, first_name, last_name, phone, email, address, medicaid_id, ssn_last4, date_of_birth, approx_city, approx_region")
       .eq("device_id", data.device_id)
       .maybeSingle();
     return row;

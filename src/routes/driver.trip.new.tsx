@@ -34,6 +34,7 @@ import {
   detectOdometerFromImage,
 } from "@/lib/nemtTrip.functions";
 import { generateStateFormPdf } from "@/lib/medicaidPdf";
+import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 
 export const Route = createFileRoute("/driver/trip/new")({
   validateSearch: (search) => ({
@@ -572,6 +573,7 @@ function NewNemtTripWizard() {
 
   // Live preview PDF for first rider
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
   async function buildPreview(slot: RiderSlot) {
     try {
       const bytes = await generateStateFormPdf({
@@ -622,24 +624,8 @@ function NewNemtTripWizard() {
     return URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
   }
 
-  async function openPdfInNewTab(url: string, filename: string) {
-    // Open the tab synchronously so it isn't treated as a popup, then
-    // point it at the blob URL once the fetch resolves.
-    const win = window.open("", "_blank");
-    try {
-      const blobUrl = await fetchPdfBlob(url);
-      if (win) {
-        win.location.href = blobUrl;
-      } else {
-        // Popup blocked — fall back to a direct download.
-        downloadFromBlobUrl(blobUrl, filename);
-      }
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
-    } catch (e) {
-      win?.close();
-      toast.error(e instanceof Error ? e.message : "Could not open PDF");
-    }
-  }
+
+
 
   async function downloadPdf(url: string, filename: string) {
     try {
@@ -692,7 +678,7 @@ function NewNemtTripWizard() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => openPdfInNewTab(p.url, p.filename)}
+                  onClick={() => setPdfPreview({ url: p.url, filename: p.filename })}
                   className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent"
                 >
                   View PDF
@@ -708,6 +694,12 @@ function NewNemtTripWizard() {
             </div>
           ))}
         </div>
+
+        <PdfPreviewDialog
+          url={pdfPreview?.url ?? null}
+          filename={pdfPreview?.filename ?? "trip.pdf"}
+          onClose={() => setPdfPreview(null)}
+        />
 
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => navigate({ to: "/driver/history" })}>

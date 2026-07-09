@@ -19,6 +19,7 @@ import {
 } from "@/lib/billing.functions";
 import { getPortal } from "@/lib/portals";
 import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
+import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 
 export const Route = createFileRoute("/_authenticated/medicaid-billing")({
   component: MedicaidBillingPage,
@@ -42,6 +43,7 @@ function MedicaidBillingPage() {
   const [tab, setTab] = useState<TabKey>("pending_review");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
 
   const listFn = useServerFn(listBillingRecords);
   const rows = useQuery({
@@ -284,10 +286,10 @@ function MedicaidBillingPage() {
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            openPdfInNewTab(
-                              r.pdf_url,
-                              `trip-${(r.passenger_name ?? "rider").replace(/\s+/g, "_")}.pdf`,
-                            )
+                            setPdfPreview({
+                              url: r.pdf_url!,
+                              filename: `trip-${(r.passenger_name ?? "rider").replace(/\s+/g, "_")}.pdf`,
+                            })
                           }
                         >
                           <Eye className="mr-1 h-3.5 w-3.5" /> View
@@ -327,6 +329,11 @@ function MedicaidBillingPage() {
         id={selectedId}
         onClose={() => setSelectedId(null)}
       />
+      <PdfPreviewDialog
+        url={pdfPreview?.url ?? null}
+        filename={pdfPreview?.filename ?? "trip.pdf"}
+        onClose={() => setPdfPreview(null)}
+      />
     </div>
   );
 }
@@ -338,26 +345,6 @@ async function fetchPdfBlobUrl(url: string): Promise<string> {
   return URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
 }
 
-async function openPdfInNewTab(url: string, filename: string) {
-  const win = window.open("", "_blank");
-  try {
-    const blobUrl = await fetchPdfBlobUrl(url);
-    if (win) {
-      win.location.href = blobUrl;
-    } else {
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    }
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
-  } catch (e) {
-    win?.close();
-    toast.error(e instanceof Error ? e.message : "Could not open PDF");
-  }
-}
 
 async function downloadPdf(url: string, filename: string) {
   try {

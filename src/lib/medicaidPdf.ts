@@ -188,7 +188,12 @@ export async function generateStateFormPdf(
     try {
       const sigField = form.getField("Members Signature");
       const widgets = sigField.acroField.getWidgets();
-      for (const widget of widgets) {
+      // The state template repeats the signature widget for each leg. The
+      // driver only captures a single signature, so stamp it once (on the
+      // first widget) rather than duplicating the same signature across
+      // every widget on the page.
+      const widget = widgets[0];
+      if (widget) {
         const rect = widget.getRectangle();
         const pageRef = widget.P();
         const page = pdf.getPages().find((pg) => pg.ref === pageRef) ?? pdf.getPage(0);
@@ -203,7 +208,7 @@ export async function generateStateFormPdf(
           });
         }
       }
-      // Remove the signature widget so the stamped image is the only visible mark.
+      // Remove the signature widget(s) so the stamped image is the only visible mark.
       try {
         form.removeField(sigField);
       } catch {
