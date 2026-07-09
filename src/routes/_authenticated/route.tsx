@@ -169,6 +169,7 @@ function AuthenticatedLayout() {
               </div>
               <div className="truncate text-xs text-muted-foreground">{user.email}</div>
             </div>
+            {isAdmin && <NotificationBell />}
             <button
               onClick={toggleTheme}
               className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
