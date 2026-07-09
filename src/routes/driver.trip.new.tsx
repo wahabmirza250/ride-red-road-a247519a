@@ -573,6 +573,7 @@ function NewNemtTripWizard() {
 
   // Live preview PDF for first rider
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
   async function buildPreview(slot: RiderSlot) {
     try {
       const bytes = await generateStateFormPdf({
@@ -693,7 +694,7 @@ function NewNemtTripWizard() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => openPdfInNewTab(p.url, p.filename)}
+                  onClick={() => setPdfPreview({ url: p.url, filename: p.filename })}
                   className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent"
                 >
                   View PDF
@@ -709,6 +710,12 @@ function NewNemtTripWizard() {
             </div>
           ))}
         </div>
+
+        <PdfPreviewDialog
+          url={pdfPreview?.url ?? null}
+          filename={pdfPreview?.filename ?? "trip.pdf"}
+          onClose={() => setPdfPreview(null)}
+        />
 
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => navigate({ to: "/driver/history" })}>
