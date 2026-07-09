@@ -77,11 +77,11 @@ function AuthenticatedLayout() {
 
   // Admins get browser push for new ride requests and events.
   useEffect(() => {
-    if (user && useAuth) {
-      // will no-op if permission denied or already prompted
+    if (user) {
       ensurePushSubscribed().catch(() => {});
     }
   }, [user]);
+
 
 
   if (loading || !user) {
