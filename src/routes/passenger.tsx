@@ -34,6 +34,15 @@ function getOrCreateDeviceId(): string {
 function PassengerLayout() {
   const loc = useLocation();
   const track = useServerFn(trackVisitor);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    // Auto-subscribe signed-in passengers to push (idempotent, one-time prompt).
+    if (user) {
+      ensurePushSubscribed().catch(() => {});
+    }
+  }, [user]);
+
 
   useEffect(() => {
     if (typeof window === "undefined") return;
