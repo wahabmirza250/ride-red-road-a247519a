@@ -345,26 +345,6 @@ async function fetchPdfBlobUrl(url: string): Promise<string> {
   return URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
 }
 
-async function openPdfInNewTab(url: string, filename: string) {
-  const win = window.open("", "_blank");
-  try {
-    const blobUrl = await fetchPdfBlobUrl(url);
-    if (win) {
-      win.location.href = blobUrl;
-    } else {
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    }
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
-  } catch (e) {
-    win?.close();
-    toast.error(e instanceof Error ? e.message : "Could not open PDF");
-  }
-}
 
 async function downloadPdf(url: string, filename: string) {
   try {
