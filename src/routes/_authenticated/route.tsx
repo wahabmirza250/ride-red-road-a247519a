@@ -43,6 +43,7 @@ const ADMIN_NAV = [
   { to: "/medicaid-billing", label: "Medicaid Billing", icon: FileSignature },
   { to: "/drivers", label: "Drivers", icon: Users },
   { to: "/passengers", label: "Passengers", icon: UserRound },
+  { to: "/events", label: "Events", icon: Sparkles },
   { to: "/team", label: "Team & apps", icon: Shield },
   { to: "/messages", label: "Messages", icon: MessageSquare },
   { to: "/reports", label: "Reports", icon: BarChart3 },
