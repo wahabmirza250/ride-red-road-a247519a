@@ -1178,6 +1178,30 @@ export type Database = {
         }
         Relationships: []
       }
+      robot_api_keys: {
+        Row: {
+          api_key: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+        }
+        Relationships: []
+      }
       saved_places: {
         Row: {
           address: string
