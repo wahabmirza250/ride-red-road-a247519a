@@ -65,5 +65,5 @@ export const rotateRobotApiKey = createServerFn({ method: "POST" })
       .select("id, api_key, created_at, is_active")
       .single();
     if (error) throw new Error(error.message);
-    return data as RobotApiKey;
+    return data as unknown as RobotApiKey;
   });
