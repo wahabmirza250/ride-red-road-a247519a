@@ -69,17 +69,27 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       );
     }
 
-    // Sign PDF URLs in parallel (15 min TTL, same as detail view)
+    // Sign PDF URLs in parallel (15 min TTL). Verify the file actually
+    // exists in the bucket first — otherwise the signed URL 400s with a JSON
+    // "Object not found" body and the viewer shows a broken PDF icon.
     const pdfUrls = await Promise.all(
       (rows ?? []).map(async (r: any) => {
-        const path = r.medicaid_trips?.state_pdf_path;
+        const path: string | null = r.medicaid_trips?.state_pdf_path ?? null;
         if (!path) return null;
+        const slash = path.lastIndexOf("/");
+        const folder = slash >= 0 ? path.slice(0, slash) : "";
+        const filename = slash >= 0 ? path.slice(slash + 1) : path;
+        const { data: listed } = await supabase.storage
+          .from("state-pdfs")
+          .list(folder, { search: filename, limit: 1 });
+        if (!listed?.some((f) => f.name === filename)) return null;
         const { data: signed } = await supabase.storage
           .from("state-pdfs")
           .createSignedUrl(path, 60 * 15);
         return signed?.signedUrl ?? null;
       }),
     );
+
 
     return (rows ?? []).map((r: any, i: number) => ({
       id: r.id,
