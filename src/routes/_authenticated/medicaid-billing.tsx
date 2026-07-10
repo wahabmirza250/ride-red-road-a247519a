@@ -152,6 +152,10 @@ function MedicaidBillingPage() {
         </div>
       )}
 
+      <BillingRatesCard />
+
+
+
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <TabsList className="flex-wrap">
