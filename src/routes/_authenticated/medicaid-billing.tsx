@@ -20,6 +20,7 @@ import {
 import { getPortal } from "@/lib/portals";
 import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
+import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
 
 export const Route = createFileRoute("/_authenticated/medicaid-billing")({
   component: MedicaidBillingPage,
