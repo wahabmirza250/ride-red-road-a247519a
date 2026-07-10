@@ -91,10 +91,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "RedArt LLC — NEMT Dispatch" },
       {
         property: "og:description",
-        content: "Modern dispatch, driver, and passenger apps for Colorado Medicaid transportation.",
+        content: "Non-emergency medical transportation platform for RedArt LLC — Colorado Medicaid dispatch, driver, and passenger operations.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "RedArt LLC — NEMT Dispatch" },
+      { name: "twitter:description", content: "Non-emergency medical transportation platform for RedArt LLC — Colorado Medicaid dispatch, driver, and passenger operations." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c046532c-0d2c-4762-8772-ac774765be74/id-preview-fc9f982c--1c3c174b-6cbe-4b49-974e-a1f94a0d4813.lovable.app-1783660942040.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c046532c-0d2c-4762-8772-ac774765be74/id-preview-fc9f982c--1c3c174b-6cbe-4b49-974e-a1f94a0d4813.lovable.app-1783660942040.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
