@@ -20,6 +20,7 @@ import {
 import { getPortal } from "@/lib/portals";
 import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
+import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
 
 export const Route = createFileRoute("/_authenticated/medicaid-billing")({
   component: MedicaidBillingPage,
@@ -150,6 +151,10 @@ function MedicaidBillingPage() {
           {defaultPortal.state}
         </div>
       )}
+
+      <BillingRatesCard />
+
+
 
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>

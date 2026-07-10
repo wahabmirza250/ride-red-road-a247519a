@@ -85,6 +85,42 @@ export type Database = {
           },
         ]
       }
+      billing_rate_settings: {
+        Row: {
+          charge_amount: number
+          created_at: string
+          id: string
+          place_of_service: string | null
+          procedure_code: string
+          provider_id: string
+          unit_type: string
+          updated_at: string
+          vehicle_type: string
+        }
+        Insert: {
+          charge_amount: number
+          created_at?: string
+          id?: string
+          place_of_service?: string | null
+          procedure_code: string
+          provider_id: string
+          unit_type: string
+          updated_at?: string
+          vehicle_type: string
+        }
+        Update: {
+          charge_amount?: number
+          created_at?: string
+          id?: string
+          place_of_service?: string | null
+          procedure_code?: string
+          provider_id?: string
+          unit_type?: string
+          updated_at?: string
+          vehicle_type?: string
+        }
+        Relationships: []
+      }
       billing_records: {
         Row: {
           created_at: string
