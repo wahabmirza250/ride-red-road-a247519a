@@ -65,13 +65,13 @@ export const upsertBillingRateSetting = createServerFn({ method: "POST" })
       unit_type: data.unit_type,
       place_of_service: data.place_of_service?.trim() || null,
     };
-    const { data: saved, error } = await context.supabase
-      .from("billing_rate_settings" as never)
+    const { data: saved, error } = await (context.supabase as any)
+      .from("billing_rate_settings")
       .upsert(row, { onConflict: "provider_id,vehicle_type" })
       .select("*")
       .single();
     if (error) throw new Error(error.message);
-    return saved as unknown as BillingRateSetting;
+    return saved as BillingRateSetting;
   });
 
 export const deleteBillingRateSetting = createServerFn({ method: "POST" })
