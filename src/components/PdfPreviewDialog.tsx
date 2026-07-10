@@ -33,12 +33,35 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
     (async () => {
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`Load failed (${res.status})`);
-        const blob = await res.blob();
+        const buf = await res.arrayBuffer();
+        // Supabase signed URLs return 400 with a JSON error body when the
+        // object is missing. Detect that and any non-PDF payload so the user
+        // sees a real message instead of a broken iframe icon.
+        const header = new Uint8Array(buf.slice(0, 5));
+        const isPdf =
+          header[0] === 0x25 && // %
+          header[1] === 0x50 && // P
+          header[2] === 0x44 && // D
+          header[3] === 0x46 && // F
+          header[4] === 0x2d;   // -
+        if (!res.ok || !isPdf) {
+          let detail = `${res.status} ${res.statusText}`.trim();
+          try {
+            const txt = new TextDecoder().decode(buf);
+            const parsed = JSON.parse(txt);
+            if (parsed?.message) detail = parsed.message;
+            else if (parsed?.error) detail = parsed.error;
+          } catch {
+            /* not JSON — keep status text */
+          }
+          throw new Error(
+            detail.toLowerCase().includes("not found") || detail.includes("404") || detail.includes("400")
+              ? "This trip's PDF is missing from storage. Ask the driver to re-submit the trip so the PDF is regenerated."
+              : `Could not load PDF: ${detail}`,
+          );
+        }
         if (cancelled) return;
-        created = URL.createObjectURL(
-          new Blob([blob], { type: "application/pdf" }),
-        );
+        created = URL.createObjectURL(new Blob([buf], { type: "application/pdf" }));
         setBlobUrl(created);
       } catch (e) {
         if (!cancelled) {
@@ -51,6 +74,7 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
       if (created) URL.revokeObjectURL(created);
     };
   }, [url]);
+
 
   function download() {
     if (!blobUrl) return;
