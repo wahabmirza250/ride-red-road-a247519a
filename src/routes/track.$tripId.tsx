@@ -42,35 +42,33 @@ function TrackPage() {
   const trip = useQuery({
     queryKey: ["public-trip", tripId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("trips")
-        .select("id, status, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_id, gps_route")
-        .eq("id", tripId)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("get_public_trip_track", {
+        _trip_id: tripId,
+      });
       if (error) throw error;
-      return data as PublicTrip | null;
+      const row = data as any;
+      if (!row || !row.id) return null;
+      return {
+        id: row.id,
+        status: row.status,
+        pickup_address: row.pickup_address,
+        dropoff_address: row.dropoff_address,
+        pickup_lat: row.pickup_lat,
+        pickup_lng: row.pickup_lng,
+        dropoff_lat: row.dropoff_lat,
+        dropoff_lng: row.dropoff_lng,
+        driver_id: row.driver?.id ?? null,
+        gps_route: row.gps_route,
+        _driver: row.driver ?? null,
+      } as PublicTrip & { _driver: any };
     },
     refetchInterval: 15_000,
   });
 
   const driver = useQuery({
-    queryKey: ["public-driver", trip.data?.driver_id],
-    enabled: !!trip.data?.driver_id,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("drivers")
-        .select("id, user_id, current_lat, current_lng, vehicle_make, vehicle_model, vehicle_year, vehicle_color, vehicle_plate")
-        .eq("id", trip.data!.driver_id!)
-        .maybeSingle();
-      if (!data) return null;
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("first_name, last_name, phone")
-        .eq("id", data.user_id)
-        .maybeSingle();
-      return { ...data, profile: prof };
-    },
-    refetchInterval: 20_000,
+    queryKey: ["public-driver", (trip.data as any)?._driver?.id],
+    enabled: !!(trip.data as any)?._driver,
+    queryFn: async () => (trip.data as any)._driver,
   });
 
   const [driverPos, setDriverPos] = useState<{ lat: number; lng: number } | null>(null);
