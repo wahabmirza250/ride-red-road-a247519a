@@ -44,7 +44,6 @@ import { Route as AuthenticatedEventsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
-import { Route as ApiPublicResetAdminOnceRouteImport } from './routes/api/public/reset-admin-once'
 import { Route as ApiPublicReceiveSubmissionResultRouteImport } from './routes/api/public/receive-submission-result'
 import { Route as ApiPublicHfcCallbackRouteImport } from './routes/api/public/hfc-callback'
 import { Route as ApiPublicGetBillingRateRouteImport } from './routes/api/public/get-billing-rate'
@@ -227,11 +226,6 @@ const DriverTripNewRoute = DriverTripNewRouteImport.update({
   path: '/trip/new',
   getParentRoute: () => DriverRoute,
 } as any)
-const ApiPublicResetAdminOnceRoute = ApiPublicResetAdminOnceRouteImport.update({
-  id: '/api/public/reset-admin-once',
-  path: '/api/public/reset-admin-once',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicReceiveSubmissionResultRoute =
   ApiPublicReceiveSubmissionResultRouteImport.update({
     id: '/api/public/receive-submission-result',
@@ -300,7 +294,6 @@ export interface FileRoutesByFullPath {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
   '/api/public/receive-submission-result': typeof ApiPublicReceiveSubmissionResultRoute
-  '/api/public/reset-admin-once': typeof ApiPublicResetAdminOnceRoute
   '/driver/trip/new': typeof DriverTripNewRoute
 }
 export interface FileRoutesByTo {
@@ -340,7 +333,6 @@ export interface FileRoutesByTo {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
   '/api/public/receive-submission-result': typeof ApiPublicReceiveSubmissionResultRoute
-  '/api/public/reset-admin-once': typeof ApiPublicResetAdminOnceRoute
   '/driver/trip/new': typeof DriverTripNewRoute
 }
 export interface FileRoutesById {
@@ -384,7 +376,6 @@ export interface FileRoutesById {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
   '/api/public/receive-submission-result': typeof ApiPublicReceiveSubmissionResultRoute
-  '/api/public/reset-admin-once': typeof ApiPublicResetAdminOnceRoute
   '/driver/trip/new': typeof DriverTripNewRoute
 }
 export interface FileRouteTypes {
@@ -428,7 +419,6 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/hfc-callback'
     | '/api/public/receive-submission-result'
-    | '/api/public/reset-admin-once'
     | '/driver/trip/new'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -468,7 +458,6 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/hfc-callback'
     | '/api/public/receive-submission-result'
-    | '/api/public/reset-admin-once'
     | '/driver/trip/new'
   id:
     | '__root__'
@@ -511,7 +500,6 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/hfc-callback'
     | '/api/public/receive-submission-result'
-    | '/api/public/reset-admin-once'
     | '/driver/trip/new'
   fileRoutesById: FileRoutesById
 }
@@ -525,7 +513,6 @@ export interface RootRouteChildren {
   ApiPublicGetBillingRateRoute: typeof ApiPublicGetBillingRateRoute
   ApiPublicHfcCallbackRoute: typeof ApiPublicHfcCallbackRoute
   ApiPublicReceiveSubmissionResultRoute: typeof ApiPublicReceiveSubmissionResultRoute
-  ApiPublicResetAdminOnceRoute: typeof ApiPublicResetAdminOnceRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -775,13 +762,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DriverTripNewRouteImport
       parentRoute: typeof DriverRoute
     }
-    '/api/public/reset-admin-once': {
-      id: '/api/public/reset-admin-once'
-      path: '/api/public/reset-admin-once'
-      fullPath: '/api/public/reset-admin-once'
-      preLoaderRoute: typeof ApiPublicResetAdminOnceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/receive-submission-result': {
       id: '/api/public/receive-submission-result'
       path: '/api/public/receive-submission-result'
@@ -932,18 +912,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicGetBillingRateRoute: ApiPublicGetBillingRateRoute,
   ApiPublicHfcCallbackRoute: ApiPublicHfcCallbackRoute,
   ApiPublicReceiveSubmissionResultRoute: ApiPublicReceiveSubmissionResultRoute,
-  ApiPublicResetAdminOnceRoute: ApiPublicResetAdminOnceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
