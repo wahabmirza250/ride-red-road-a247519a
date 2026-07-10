@@ -18,12 +18,12 @@ export interface BillingRateSetting {
 export const listBillingRateSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
-      .from("billing_rate_settings" as never)
+    const { data, error } = await (context.supabase as any)
+      .from("billing_rate_settings")
       .select("*")
       .order("vehicle_type", { ascending: true });
     if (error) throw new Error(error.message);
-    return (data ?? []) as unknown as BillingRateSetting[];
+    return (data ?? []) as BillingRateSetting[];
   });
 
 export const upsertBillingRateSetting = createServerFn({ method: "POST" })
