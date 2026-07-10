@@ -69,12 +69,12 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
         const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)) });
         const pdf = await loadingTask.promise;
         if (cancelled) {
-          pdf.destroy();
+          void loadingTask.destroy();
           return;
         }
         setNumPages(pdf.numPages);
         setPdfBytes(buf);
-        await pdf.destroy();
+        void loadingTask.destroy();
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Could not load PDF");
@@ -182,17 +182,18 @@ function PdfCanvasPage({
   useEffect(() => {
     let cancelled = false;
     let renderTask: pdfjs.RenderTask | null = null;
+    let loadingTask: pdfjs.PDFDocumentLoadingTask | null = null;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     (async () => {
       try {
         setError(null);
-        const loadingTask = pdfjs.getDocument({ data: new Uint8Array(bytes.slice(0)) });
+        loadingTask = pdfjs.getDocument({ data: new Uint8Array(bytes.slice(0)) });
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(pageNumber);
         if (cancelled) {
-          await pdf.destroy();
+          void loadingTask.destroy();
           return;
         }
 
@@ -213,7 +214,7 @@ function PdfCanvasPage({
           viewport,
         });
         await renderTask.promise;
-        await pdf.destroy();
+        void loadingTask.destroy();
       } catch (e) {
         if (!cancelled && !(e instanceof Error && e.name === "RenderingCancelledException")) {
           setError(e instanceof Error ? e.message : "Could not render PDF page");
@@ -224,6 +225,7 @@ function PdfCanvasPage({
     return () => {
       cancelled = true;
       renderTask?.cancel();
+      void loadingTask?.destroy();
     };
   }, [bytes, pageNumber, scale]);
 
