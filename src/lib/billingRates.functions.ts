@@ -81,8 +81,8 @@ export const deleteBillingRateSetting = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("billing_rate_settings" as never)
+    const { error } = await (context.supabase as any)
+      .from("billing_rate_settings")
       .delete()
       .eq("id", data.id);
     if (error) throw new Error(error.message);
