@@ -1,0 +1,89 @@
+import { createFileRoute } from "@tanstack/react-router";
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+const VEHICLE_TYPES = new Set(["ambulatory", "wheelchair_van"]);
+
+function isUuid(v: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+}
+
+export const Route = createFileRoute("/api/public/get-billing-rate")({
+  server: {
+    handlers: {
+      GET: async ({ request }) => {
+        const apiKey = request.headers.get("x-api-key");
+        if (!apiKey) {
+          return json({ error: "Missing X-API-Key header" }, 401);
+        }
+
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+        // Validate API key
+        const { data: keyRow, error: keyErr } = await supabaseAdmin
+          .from("robot_api_keys" as any)
+          .select("id")
+          .eq("api_key", apiKey)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (keyErr) return json({ error: "Auth check failed" }, 500);
+        if (!keyRow) return json({ error: "Invalid API key" }, 401);
+
+        // Validate query params
+        const url = new URL(request.url);
+        const provider_id = url.searchParams.get("provider_id");
+        const vehicle_type = url.searchParams.get("vehicle_type");
+
+        if (!provider_id || !vehicle_type) {
+          return json(
+            { error: "provider_id and vehicle_type query parameters are required" },
+            400,
+          );
+        }
+        if (!isUuid(provider_id)) {
+          return json({ error: "provider_id must be a UUID" }, 400);
+        }
+        if (!VEHICLE_TYPES.has(vehicle_type)) {
+          return json(
+            { error: "vehicle_type must be 'ambulatory' or 'wheelchair_van'" },
+            400,
+          );
+        }
+
+        const { data, error } = await supabaseAdmin
+          .from("billing_rate_settings" as any)
+          .select("procedure_code, charge_amount, unit_type, place_of_service")
+          .eq("provider_id", provider_id)
+          .eq("vehicle_type", vehicle_type)
+          .maybeSingle();
+
+        if (error) return json({ error: "Lookup failed" }, 500);
+        if (!data) {
+          return json(
+            {
+              error: "No billing rate found for the given provider_id and vehicle_type",
+            },
+            404,
+          );
+        }
+
+        return json({
+          provider_id,
+          vehicle_type,
+          procedure_code: (data as any).procedure_code,
+          charge_amount: Number((data as any).charge_amount),
+          unit_type: (data as any).unit_type,
+          place_of_service: (data as any).place_of_service,
+        });
+      },
+    },
+  },
+});
