@@ -10,6 +10,7 @@ export const Route = createFileRoute("/api/public/reset-admin-once")({
         if (!newPassword || newPassword.length < 6) {
           return new Response("ADMIN_RESET_NEW_PASSWORD missing/short", { status: 500 });
         }
+        console.log("[reset-admin-once] pw length=", newPassword.length);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
