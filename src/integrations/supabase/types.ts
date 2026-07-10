@@ -1551,6 +1551,10 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      driver_can_see_passenger: {
+        Args: { _passenger_id: string }
+        Returns: boolean
+      }
       get_portal_credential_for_submission: {
         Args: { _company_id?: string; _portal_id: string }
         Returns: {
@@ -1561,6 +1565,7 @@ export type Database = {
           state: string
         }[]
       }
+      get_public_trip_track: { Args: { _trip_id: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
