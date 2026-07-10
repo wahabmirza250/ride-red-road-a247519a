@@ -601,7 +601,9 @@ function NewNemtTripWizard() {
       });
       const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
       if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(URL.createObjectURL(blob));
+      const nextPreviewUrl = URL.createObjectURL(blob);
+      setPreviewUrl(nextPreviewUrl);
+      setPdfPreview({ url: nextPreviewUrl, filename: "trip-preview.pdf" });
     } catch (e: any) {
       toast.error(e.message ?? "Preview failed");
     }
@@ -1007,26 +1009,15 @@ function NewNemtTripWizard() {
             ))}
           </div>
           {previewUrl && (
-            <div className="space-y-2">
-              <div className="hidden sm:block">
-                <object
-                  data={previewUrl}
-                  type="application/pdf"
-                  className="h-[70vh] w-full rounded-xl border"
-                >
-                  <div className="p-4 text-xs text-muted-foreground">
-                    Your browser can&apos;t display the PDF inline. Use the
-                    buttons below to open or download it.
-                  </div>
-                </object>
-              </div>
+            <div className="rounded-xl border bg-surface p-3">
+              <div className="mb-2 text-sm font-medium">PDF preview is ready</div>
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => window.open(previewUrl, "_blank")}
+                  onClick={() => setPdfPreview({ url: previewUrl, filename: "trip-preview.pdf" })}
                 >
-                  Open in new tab
+                  View PDF
                 </Button>
                 <Button
                   size="sm"
@@ -1059,6 +1050,11 @@ function NewNemtTripWizard() {
           </div>
         </TabsContent>
       </Tabs>
+      <PdfPreviewDialog
+        url={pdfPreview?.url ?? null}
+        filename={pdfPreview?.filename ?? "trip.pdf"}
+        onClose={() => setPdfPreview(null)}
+      />
     </div>
   );
 }
