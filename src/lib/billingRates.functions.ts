@@ -67,7 +67,7 @@ export const upsertBillingRateSetting = createServerFn({ method: "POST" })
     };
     const { data: saved, error } = await (context.supabase as any)
       .from("billing_rate_settings")
-      .upsert(row, { onConflict: "provider_id,vehicle_type" })
+      .upsert(row, { onConflict: "provider_id,vehicle_type,unit_type" })
       .select("*")
       .single();
     if (error) throw new Error(error.message);

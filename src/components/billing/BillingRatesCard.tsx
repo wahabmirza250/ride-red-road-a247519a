@@ -57,6 +57,13 @@ export function BillingRatesCard() {
   const rows = useQuery({
     queryKey: ["billing_rate_settings"],
     queryFn: () => listFn(),
+    select: (data: BillingRateSetting[]) =>
+      [...data].sort((a, b) => {
+        if (a.vehicle_type !== b.vehicle_type)
+          return a.vehicle_type.localeCompare(b.vehicle_type);
+        // trip before mile
+        return a.unit_type === b.unit_type ? 0 : a.unit_type === "trip" ? -1 : 1;
+      }),
   });
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -152,10 +159,9 @@ export function BillingRatesCard() {
           <table className="w-full text-sm">
             <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left">Vehicle</th>
+                <th className="px-3 py-2 text-left">Rate</th>
                 <th className="px-3 py-2 text-left">Code</th>
                 <th className="px-3 py-2 text-left">Charge</th>
-                <th className="px-3 py-2 text-left">Unit</th>
                 <th className="px-3 py-2 text-left">POS</th>
                 <th className="px-3 py-2"></th>
               </tr>
@@ -163,10 +169,14 @@ export function BillingRatesCard() {
             <tbody className="divide-y divide-border">
               {rows.data.map((r) => (
                 <tr key={r.id} className={editingId === r.id ? "bg-accent/40" : ""}>
-                  <td className="px-3 py-2 font-medium">{VEHICLE_LABELS[r.vehicle_type]}</td>
+                  <td className="px-3 py-2 font-medium">
+                    {VEHICLE_LABELS[r.vehicle_type]} — {UNIT_LABELS[r.unit_type]} rate
+                  </td>
                   <td className="px-3 py-2">{r.procedure_code}</td>
-                  <td className="px-3 py-2">${Number(r.charge_amount).toFixed(2)}</td>
-                  <td className="px-3 py-2">{UNIT_LABELS[r.unit_type]}</td>
+                  <td className="px-3 py-2">
+                    ${Number(r.charge_amount).toFixed(2)}
+                    <span className="text-muted-foreground"> / {UNIT_LABELS[r.unit_type].toLowerCase()}</span>
+                  </td>
                   <td className="px-3 py-2 text-muted-foreground">{r.place_of_service ?? "—"}</td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex justify-end gap-1">
@@ -184,7 +194,11 @@ export function BillingRatesCard() {
                         variant="outline"
                         disabled={del.isPending}
                         onClick={() => {
-                          if (confirm(`Delete billing setting for ${VEHICLE_LABELS[r.vehicle_type]}?`)) {
+                          if (
+                            confirm(
+                              `Delete ${VEHICLE_LABELS[r.vehicle_type]} ${UNIT_LABELS[r.unit_type].toLowerCase()} rate?`,
+                            )
+                          ) {
                             del.mutate(r.id);
                           }
                         }}
