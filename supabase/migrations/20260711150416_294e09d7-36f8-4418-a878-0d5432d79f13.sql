@@ -1,0 +1,2 @@
+ALTER TABLE public.billing_rate_settings DROP CONSTRAINT billing_rate_settings_provider_id_vehicle_type_key;
+ALTER TABLE public.billing_rate_settings ADD CONSTRAINT billing_rate_settings_provider_vehicle_unit_key UNIQUE (provider_id, vehicle_type, unit_type);
