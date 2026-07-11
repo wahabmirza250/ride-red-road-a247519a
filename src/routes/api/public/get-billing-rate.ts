@@ -11,6 +11,7 @@ function json(body: unknown, status = 200) {
 }
 
 const VEHICLE_TYPES = new Set(["ambulatory", "wheelchair_van"]);
+const UNIT_TYPES = new Set(["trip", "mile"]);
 
 function isUuid(v: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
@@ -41,10 +42,11 @@ export const Route = createFileRoute("/api/public/get-billing-rate")({
         const url = new URL(request.url);
         const provider_id = url.searchParams.get("provider_id");
         const vehicle_type = url.searchParams.get("vehicle_type");
+        const unit_type = url.searchParams.get("unit_type");
 
-        if (!provider_id || !vehicle_type) {
+        if (!provider_id || !vehicle_type || !unit_type) {
           return json(
-            { error: "provider_id and vehicle_type query parameters are required" },
+            { error: "provider_id, vehicle_type and unit_type query parameters are required" },
             400,
           );
         }
@@ -57,19 +59,23 @@ export const Route = createFileRoute("/api/public/get-billing-rate")({
             400,
           );
         }
+        if (!UNIT_TYPES.has(unit_type)) {
+          return json({ error: "unit_type must be 'trip' or 'mile'" }, 400);
+        }
 
         const { data, error } = await supabaseAdmin
           .from("billing_rate_settings" as any)
           .select("procedure_code, charge_amount, unit_type, place_of_service")
           .eq("provider_id", provider_id)
           .eq("vehicle_type", vehicle_type)
+          .eq("unit_type", unit_type)
           .maybeSingle();
 
         if (error) return json({ error: "Lookup failed" }, 500);
         if (!data) {
           return json(
             {
-              error: "No billing rate found for the given provider_id and vehicle_type",
+              error: "No billing rate found for the given provider_id, vehicle_type and unit_type",
             },
             404,
           );
