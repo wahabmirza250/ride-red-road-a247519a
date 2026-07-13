@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Pencil, Trash2, Save, X } from "lucide-react";
+import { Loader2, Pencil, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,11 +14,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  deleteBillingRateSetting,
   listBillingRateSettings,
-  upsertBillingRateSetting,
+  upsertBillingRatePair,
   type BillingRateSetting,
-  type UnitType,
   type VehicleType,
 } from "@/lib/billingRates.functions";
 
@@ -27,200 +25,241 @@ const VEHICLE_LABELS: Record<VehicleType, string> = {
   wheelchair_van: "Wheelchair Van",
 };
 
-const UNIT_LABELS: Record<UnitType, string> = {
-  trip: "Trip",
-  mile: "Mile",
-};
+const VEHICLE_TYPES: VehicleType[] = ["ambulatory", "wheelchair_van"];
+
+type SectionState = { procedure_code: string; charge_amount: string };
+type SectionErrors = { procedure_code?: string; charge_amount?: string };
 
 type FormState = {
   vehicle_type: VehicleType;
-  procedure_code: string;
-  charge_amount: string;
-  unit_type: UnitType;
   place_of_service: string;
+  trip: SectionState;
+  mile: SectionState;
 };
 
-const EMPTY_FORM: FormState = {
-  vehicle_type: "ambulatory",
-  procedure_code: "",
-  charge_amount: "",
-  unit_type: "trip",
+const EMPTY_SECTION: SectionState = { procedure_code: "", charge_amount: "" };
+
+const emptyForm = (vehicle_type: VehicleType): FormState => ({
+  vehicle_type,
   place_of_service: "",
-};
+  trip: { ...EMPTY_SECTION },
+  mile: { ...EMPTY_SECTION },
+});
+
+type GroupedRates = Record<
+  VehicleType,
+  { trip?: BillingRateSetting; mile?: BillingRateSetting }
+>;
+
+function groupRates(rows: BillingRateSetting[]): GroupedRates {
+  const g: GroupedRates = {
+    ambulatory: {},
+    wheelchair_van: {},
+  };
+  for (const r of rows) {
+    g[r.vehicle_type][r.unit_type] = r;
+  }
+  return g;
+}
 
 export function BillingRatesCard() {
   const qc = useQueryClient();
   const listFn = useServerFn(listBillingRateSettings);
-  const upsertFn = useServerFn(upsertBillingRateSetting);
-  const deleteFn = useServerFn(deleteBillingRateSetting);
+  const upsertPairFn = useServerFn(upsertBillingRatePair);
 
   const rows = useQuery({
     queryKey: ["billing_rate_settings"],
     queryFn: () => listFn(),
-    select: (data: BillingRateSetting[]) =>
-      [...data].sort((a, b) => {
-        if (a.vehicle_type !== b.vehicle_type)
-          return a.vehicle_type.localeCompare(b.vehicle_type);
-        // trip before mile
-        return a.unit_type === b.unit_type ? 0 : a.unit_type === "trip" ? -1 : 1;
-      }),
   });
 
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [errors, setErrors] = useState<{ procedure_code?: string; charge_amount?: string }>({});
+  const grouped = useMemo<GroupedRates>(
+    () => groupRates(rows.data ?? []),
+    [rows.data],
+  );
 
-  const loadInto = (r: BillingRateSetting) => {
-    setEditingId(r.id);
+  const [form, setForm] = useState<FormState>(() => emptyForm("ambulatory"));
+  const [isEditing, setIsEditing] = useState(false);
+  const [errors, setErrors] = useState<{
+    trip: SectionErrors;
+    mile: SectionErrors;
+  }>({ trip: {}, mile: {} });
+
+  const loadVehicle = (vt: VehicleType) => {
+    const g = grouped[vt];
+    setIsEditing(true);
     setForm({
-      vehicle_type: r.vehicle_type,
-      procedure_code: r.procedure_code,
-      charge_amount: String(r.charge_amount),
-      unit_type: r.unit_type,
-      place_of_service: r.place_of_service ?? "",
+      vehicle_type: vt,
+      place_of_service:
+        g.trip?.place_of_service ?? g.mile?.place_of_service ?? "",
+      trip: {
+        procedure_code: g.trip?.procedure_code ?? "",
+        charge_amount:
+          g.trip?.charge_amount != null ? String(g.trip.charge_amount) : "",
+      },
+      mile: {
+        procedure_code: g.mile?.procedure_code ?? "",
+        charge_amount:
+          g.mile?.charge_amount != null ? String(g.mile.charge_amount) : "",
+      },
     });
-    setErrors({});
+    setErrors({ trip: {}, mile: {} });
   };
 
   const resetForm = () => {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setErrors({});
+    setIsEditing(false);
+    setForm(emptyForm("ambulatory"));
+    setErrors({ trip: {}, mile: {} });
+  };
+
+  // When switching vehicle type in add-mode, pre-fill from existing if any
+  const onVehicleChange = (vt: VehicleType) => {
+    const g = grouped[vt];
+    if (g.trip || g.mile) {
+      loadVehicle(vt);
+    } else {
+      setForm({ ...emptyForm(vt) });
+      setErrors({ trip: {}, mile: {} });
+    }
   };
 
   const upsert = useMutation({
-    mutationFn: (payload: Parameters<typeof upsertFn>[0]["data"]) =>
-      upsertFn({ data: payload }),
+    mutationFn: (payload: Parameters<typeof upsertPairFn>[0]["data"]) =>
+      upsertPairFn({ data: payload }),
     onSuccess: () => {
-      toast.success(editingId ? "Setting updated" : "Setting saved");
+      toast.success("Billing settings saved");
       qc.invalidateQueries({ queryKey: ["billing_rate_settings"] });
       resetForm();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const del = useMutation({
-    mutationFn: (id: string) => deleteFn({ data: { id } }),
-    onSuccess: () => {
-      toast.success("Setting deleted");
-      qc.invalidateQueries({ queryKey: ["billing_rate_settings"] });
-      if (editingId) resetForm();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  // If the row being edited is deleted elsewhere, clear the form
   useEffect(() => {
-    if (editingId && rows.data && !rows.data.find((r) => r.id === editingId)) {
+    // Reset if data cleared while editing
+    if (isEditing && rows.data && rows.data.length === 0) {
       resetForm();
     }
-  }, [rows.data, editingId]);
+  }, [rows.data, isEditing]);
+
+  const validateSection = (s: SectionState): SectionErrors => {
+    const e: SectionErrors = {};
+    if (!s.procedure_code.trim()) e.procedure_code = "Required";
+    const n = Number(s.charge_amount);
+    if (!s.charge_amount.trim() || Number.isNaN(n) || n < 0) {
+      e.charge_amount = "Required";
+    }
+    return e;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const nextErrors: typeof errors = {};
-    if (!form.procedure_code.trim()) nextErrors.procedure_code = "Required";
-    const amount = Number(form.charge_amount);
-    if (!form.charge_amount.trim() || Number.isNaN(amount) || amount < 0) {
-      nextErrors.charge_amount = "Required";
-    }
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
+    const tripErr = validateSection(form.trip);
+    const mileErr = validateSection(form.mile);
+    setErrors({ trip: tripErr, mile: mileErr });
+    if (Object.keys(tripErr).length || Object.keys(mileErr).length) return;
 
     upsert.mutate({
       vehicle_type: form.vehicle_type,
-      procedure_code: form.procedure_code,
-      charge_amount: amount,
-      unit_type: form.unit_type,
       place_of_service: form.place_of_service || null,
+      trip: {
+        procedure_code: form.trip.procedure_code,
+        charge_amount: Number(form.trip.charge_amount),
+      },
+      mile: {
+        procedure_code: form.mile.procedure_code,
+        charge_amount: Number(form.mile.charge_amount),
+      },
     });
   };
+
+  const configuredVehicles = VEHICLE_TYPES.filter(
+    (vt) => grouped[vt].trip || grouped[vt].mile,
+  );
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-4 shadow-soft space-y-4">
       <div>
         <h3 className="text-base font-semibold">Billing Settings</h3>
         <p className="text-xs text-muted-foreground">
-          Configure billing codes and charges per vehicle type.
+          Configure Trip and Mileage rates per vehicle type.
         </p>
       </div>
 
-      {/* Existing settings table */}
+      {/* Summary */}
       {rows.isLoading ? (
         <div className="flex justify-center py-6">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
-      ) : !rows.data?.length ? (
+      ) : configuredVehicles.length === 0 ? (
         <div className="rounded-xl border border-dashed p-6 text-center text-xs text-muted-foreground">
-          No billing settings yet. Add one below.
+          No billing settings yet. Configure a vehicle type below.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 text-left">Rate</th>
-                <th className="px-3 py-2 text-left">Code</th>
-                <th className="px-3 py-2 text-left">Charge</th>
-                <th className="px-3 py-2 text-left">POS</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {rows.data.map((r) => (
-                <tr key={r.id} className={editingId === r.id ? "bg-accent/40" : ""}>
-                  <td className="px-3 py-2 font-medium">
-                    {VEHICLE_LABELS[r.vehicle_type]} — {UNIT_LABELS[r.unit_type]} rate
-                  </td>
-                  <td className="px-3 py-2">{r.procedure_code}</td>
-                  <td className="px-3 py-2">
-                    ${Number(r.charge_amount).toFixed(2)}
-                    <span className="text-muted-foreground"> / {UNIT_LABELS[r.unit_type].toLowerCase()}</span>
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">{r.place_of_service ?? "—"}</td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => loadInto(r)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={del.isPending}
-                        onClick={() => {
-                          if (
-                            confirm(
-                              `Delete ${VEHICLE_LABELS[r.vehicle_type]} ${UNIT_LABELS[r.unit_type].toLowerCase()} rate?`,
-                            )
-                          ) {
-                            del.mutate(r.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="overflow-hidden rounded-xl border border-border divide-y divide-border">
+          {configuredVehicles.map((vt) => {
+            const g = grouped[vt];
+            const trip = g.trip;
+            const mile = g.mile;
+            return (
+              <div
+                key={vt}
+                className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="text-sm">
+                  <div className="font-medium">{VEHICLE_LABELS[vt]}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Trip{" "}
+                    {trip ? (
+                      <>
+                        ${Number(trip.charge_amount).toFixed(2)}{" "}
+                        <span className="opacity-70">({trip.procedure_code})</span>
+                      </>
+                    ) : (
+                      <span className="opacity-70">not set</span>
+                    )}
+                    {"  |  "}
+                    Mile{" "}
+                    {mile ? (
+                      <>
+                        ${Number(mile.charge_amount).toFixed(2)}{" "}
+                        <span className="opacity-70">({mile.procedure_code})</span>
+                      </>
+                    ) : (
+                      <span className="opacity-70">not set</span>
+                    )}
+                    {(trip?.place_of_service || mile?.place_of_service) && (
+                      <>
+                        {"  |  POS "}
+                        {trip?.place_of_service ?? mile?.place_of_service}
+                      </>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => loadVehicle(vt)}
+                >
+                  <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+                </Button>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-border bg-background/50 p-4">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 rounded-xl border border-border bg-background/50 p-4"
+      >
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-semibold">
-            {editingId ? "Edit setting" : "Add setting"}
+            {isEditing
+              ? `Edit ${VEHICLE_LABELS[form.vehicle_type]} rates`
+              : "Add / Edit rates"}
           </h4>
-          {editingId && (
+          {isEditing && (
             <Button type="button" variant="ghost" size="sm" onClick={resetForm}>
               <X className="mr-1 h-3.5 w-3.5" /> Cancel
             </Button>
@@ -232,9 +271,11 @@ export function BillingRatesCard() {
             <Label>Vehicle Type</Label>
             <Select
               value={form.vehicle_type}
-              onValueChange={(v) => setForm({ ...form, vehicle_type: v as VehicleType })}
+              onValueChange={(v) => onVehicleChange(v as VehicleType)}
             >
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ambulatory">Ambulatory</SelectItem>
                 <SelectItem value="wheelchair_van">Wheelchair Van</SelectItem>
@@ -243,61 +284,83 @@ export function BillingRatesCard() {
           </div>
 
           <div className="space-y-1">
-            <Label>Unit Type</Label>
-            <Select
-              value={form.unit_type}
-              onValueChange={(v) => setForm({ ...form, unit_type: v as UnitType })}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="trip">Trip</SelectItem>
-                <SelectItem value="mile">Mile</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1">
-            <Label>
-              Procedure Code <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              value={form.procedure_code}
-              placeholder="A0100"
-              onChange={(e) => setForm({ ...form, procedure_code: e.target.value })}
-              aria-invalid={!!errors.procedure_code}
-            />
-            {errors.procedure_code && (
-              <p className="text-xs text-destructive">{errors.procedure_code}</p>
-            )}
-          </div>
-
-          <div className="space-y-1">
-            <Label>
-              Charge Amount <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              type="number"
-              inputMode="decimal"
-              step="0.01"
-              min="0"
-              placeholder="25.00"
-              value={form.charge_amount}
-              onChange={(e) => setForm({ ...form, charge_amount: e.target.value })}
-              aria-invalid={!!errors.charge_amount}
-            />
-            {errors.charge_amount && (
-              <p className="text-xs text-destructive">{errors.charge_amount}</p>
-            )}
-          </div>
-
-          <div className="space-y-1 md:col-span-2">
             <Label>Place of Service</Label>
             <Input
               value={form.place_of_service}
               placeholder="99"
-              onChange={(e) => setForm({ ...form, place_of_service: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, place_of_service: e.target.value })
+              }
             />
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {(["trip", "mile"] as const).map((section) => {
+            const label = section === "trip" ? "Trip Rate" : "Mileage Rate";
+            const state = form[section];
+            const err = errors[section];
+            return (
+              <div
+                key={section}
+                className="space-y-3 rounded-lg border border-border bg-surface p-3"
+              >
+                <div className="text-sm font-semibold">{label}</div>
+                <div className="space-y-1">
+                  <Label>
+                    Procedure Code <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    value={state.procedure_code}
+                    placeholder={section === "trip" ? "A0130" : "S0215"}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        [section]: {
+                          ...state,
+                          procedure_code: e.target.value,
+                        },
+                      })
+                    }
+                    aria-invalid={!!err.procedure_code}
+                  />
+                  {err.procedure_code && (
+                    <p className="text-xs text-destructive">
+                      {err.procedure_code}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label>
+                    Charge Amount <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    placeholder={section === "trip" ? "25.00" : "1.50"}
+                    value={state.charge_amount}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        [section]: {
+                          ...state,
+                          charge_amount: e.target.value,
+                        },
+                      })
+                    }
+                    aria-invalid={!!err.charge_amount}
+                  />
+                  {err.charge_amount && (
+                    <p className="text-xs text-destructive">
+                      {err.charge_amount}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="flex justify-end">
@@ -307,7 +370,7 @@ export function BillingRatesCard() {
             ) : (
               <Save className="mr-1 h-4 w-4" />
             )}
-            {editingId ? "Update" : "Save"}
+            Save
           </Button>
         </div>
       </form>
