@@ -74,6 +74,65 @@ export const upsertBillingRateSetting = createServerFn({ method: "POST" })
     return saved as BillingRateSetting;
   });
 
+export const upsertBillingRatePair = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      vehicle_type: VehicleType;
+      place_of_service?: string | null;
+      trip: { procedure_code: string; charge_amount: number };
+      mile: { procedure_code: string; charge_amount: number };
+    }) => {
+      if (!["ambulatory", "wheelchair_van"].includes(input.vehicle_type)) {
+        throw new Error("Invalid vehicle type");
+      }
+      for (const section of ["trip", "mile"] as const) {
+        const s = input[section];
+        if (!s || !s.procedure_code?.trim()) {
+          throw new Error(`${section === "trip" ? "Trip" : "Mile"} Procedure Code is required`);
+        }
+        if (
+          s.charge_amount === undefined ||
+          s.charge_amount === null ||
+          Number.isNaN(s.charge_amount) ||
+          s.charge_amount < 0
+        ) {
+          throw new Error(
+            `${section === "trip" ? "Trip" : "Mile"} Charge Amount is required and must be >= 0`,
+          );
+        }
+      }
+      return input;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const pos = data.place_of_service?.trim() || null;
+    const rows = [
+      {
+        provider_id: context.userId,
+        vehicle_type: data.vehicle_type,
+        unit_type: "trip" as UnitType,
+        procedure_code: data.trip.procedure_code.trim(),
+        charge_amount: Number(data.trip.charge_amount),
+        place_of_service: pos,
+      },
+      {
+        provider_id: context.userId,
+        vehicle_type: data.vehicle_type,
+        unit_type: "mile" as UnitType,
+        procedure_code: data.mile.procedure_code.trim(),
+        charge_amount: Number(data.mile.charge_amount),
+        place_of_service: pos,
+      },
+    ];
+    const { data: saved, error } = await (context.supabase as any)
+      .from("billing_rate_settings")
+      .upsert(rows, { onConflict: "provider_id,vehicle_type,unit_type" })
+      .select("*");
+    if (error) throw new Error(error.message);
+    return saved as BillingRateSetting[];
+  });
+
 export const deleteBillingRateSetting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => {
