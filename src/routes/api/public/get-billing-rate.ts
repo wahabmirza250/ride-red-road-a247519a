@@ -71,7 +71,10 @@ export const Route = createFileRoute("/api/public/get-billing-rate")({
           .eq("unit_type", unit_type)
           .maybeSingle();
 
-        if (error) return json({ error: "Lookup failed" }, 500);
+        if (error) {
+          console.error("get-billing-rate lookup error", { message: error.message, code: (error as any).code, details: (error as any).details, hint: (error as any).hint });
+          return json({ error: "Lookup failed", detail: error.message, code: (error as any).code, hint: (error as any).hint }, 500);
+        }
         if (!data) {
           return json(
             {
