@@ -46,6 +46,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
 import { Route as ApiPublicReceiveSubmissionResultRouteImport } from './routes/api/public/receive-submission-result'
 import { Route as ApiPublicHfcCallbackRouteImport } from './routes/api/public/hfc-callback'
+import { Route as ApiPublicGetTripPdfRouteImport } from './routes/api/public/get-trip-pdf'
 import { Route as ApiPublicGetBillingRateRouteImport } from './routes/api/public/get-billing-rate'
 import { Route as AuthenticatedPayrollDriverIdRouteImport } from './routes/_authenticated/payroll.$driverId'
 import { Route as AuthenticatedMedicaidTripsNewRouteImport } from './routes/_authenticated/medicaid-trips.new'
@@ -237,6 +238,11 @@ const ApiPublicHfcCallbackRoute = ApiPublicHfcCallbackRouteImport.update({
   path: '/api/public/hfc-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicGetTripPdfRoute = ApiPublicGetTripPdfRouteImport.update({
+  id: '/api/public/get-trip-pdf',
+  path: '/api/public/get-trip-pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicGetBillingRateRoute = ApiPublicGetBillingRateRouteImport.update({
   id: '/api/public/get-billing-rate',
   path: '/api/public/get-billing-rate',
@@ -292,6 +298,7 @@ export interface FileRoutesByFullPath {
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
+  '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
   '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
   '/api/public/receive-submission-result': typeof ApiPublicReceiveSubmissionResultRoute
   '/driver/trip/new': typeof DriverTripNewRoute
@@ -331,6 +338,7 @@ export interface FileRoutesByTo {
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
+  '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
   '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
   '/api/public/receive-submission-result': typeof ApiPublicReceiveSubmissionResultRoute
   '/driver/trip/new': typeof DriverTripNewRoute
@@ -374,6 +382,7 @@ export interface FileRoutesById {
   '/_authenticated/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/_authenticated/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
+  '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
   '/api/public/hfc-callback': typeof ApiPublicHfcCallbackRoute
   '/api/public/receive-submission-result': typeof ApiPublicReceiveSubmissionResultRoute
   '/driver/trip/new': typeof DriverTripNewRoute
@@ -417,6 +426,7 @@ export interface FileRouteTypes {
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
     | '/api/public/get-billing-rate'
+    | '/api/public/get-trip-pdf'
     | '/api/public/hfc-callback'
     | '/api/public/receive-submission-result'
     | '/driver/trip/new'
@@ -456,6 +466,7 @@ export interface FileRouteTypes {
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
     | '/api/public/get-billing-rate'
+    | '/api/public/get-trip-pdf'
     | '/api/public/hfc-callback'
     | '/api/public/receive-submission-result'
     | '/driver/trip/new'
@@ -498,6 +509,7 @@ export interface FileRouteTypes {
     | '/_authenticated/medicaid-trips/new'
     | '/_authenticated/payroll/$driverId'
     | '/api/public/get-billing-rate'
+    | '/api/public/get-trip-pdf'
     | '/api/public/hfc-callback'
     | '/api/public/receive-submission-result'
     | '/driver/trip/new'
@@ -511,6 +523,7 @@ export interface RootRouteChildren {
   PassengerRoute: typeof PassengerRouteWithChildren
   TrackTripIdRoute: typeof TrackTripIdRoute
   ApiPublicGetBillingRateRoute: typeof ApiPublicGetBillingRateRoute
+  ApiPublicGetTripPdfRoute: typeof ApiPublicGetTripPdfRoute
   ApiPublicHfcCallbackRoute: typeof ApiPublicHfcCallbackRoute
   ApiPublicReceiveSubmissionResultRoute: typeof ApiPublicReceiveSubmissionResultRoute
 }
@@ -776,6 +789,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHfcCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/get-trip-pdf': {
+      id: '/api/public/get-trip-pdf'
+      path: '/api/public/get-trip-pdf'
+      fullPath: '/api/public/get-trip-pdf'
+      preLoaderRoute: typeof ApiPublicGetTripPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/get-billing-rate': {
       id: '/api/public/get-billing-rate'
       path: '/api/public/get-billing-rate'
@@ -910,19 +930,10 @@ const rootRouteChildren: RootRouteChildren = {
   PassengerRoute: PassengerRouteWithChildren,
   TrackTripIdRoute: TrackTripIdRoute,
   ApiPublicGetBillingRateRoute: ApiPublicGetBillingRateRoute,
+  ApiPublicGetTripPdfRoute: ApiPublicGetTripPdfRoute,
   ApiPublicHfcCallbackRoute: ApiPublicHfcCallbackRoute,
   ApiPublicReceiveSubmissionResultRoute: ApiPublicReceiveSubmissionResultRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
