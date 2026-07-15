@@ -8,7 +8,7 @@ export function BrandMark({ className }: { className?: string }) {
     <img
       src={mark.url}
       alt="RedArt LLC"
-      className={cn("h-9 w-9 rounded-xl object-contain shadow-soft", className)}
+      className={cn("h-9 w-9 object-contain", className)}
     />
   );
 }
