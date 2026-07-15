@@ -55,11 +55,48 @@ function DriverProfile() {
       });
     supabase
       .from("drivers")
-      .select("vehicle_make,vehicle_model,vehicle_year,vehicle_plate,rating,total_trips")
+      .select("vehicle_make,vehicle_model,vehicle_year,vehicle_plate,vehicle_photo_path,rating,total_trips")
       .eq("user_id", user.id)
       .maybeSingle()
-      .then(({ data }) => data && setDriver(data));
+      .then(async ({ data }) => {
+        if (!data) return;
+        setDriver(data);
+        if (data.vehicle_photo_path) {
+          const { data: signed } = await supabase.storage
+            .from("vehicle-photos")
+            .createSignedUrl(data.vehicle_photo_path, 3600);
+          setVehiclePhotoUrl(signed?.signedUrl ?? null);
+        }
+      });
   }, [user]);
+
+  async function uploadVehiclePhoto(file: File) {
+    if (!user) return;
+    setUploadingVehicle(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${user.id}/vehicle-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("vehicle-photos").upload(path, file, {
+      contentType: file.type,
+      upsert: true,
+    });
+    if (error) {
+      setUploadingVehicle(false);
+      return toast.error(error.message);
+    }
+    const { error: updErr } = await supabase
+      .from("drivers")
+      .update({ vehicle_photo_path: path })
+      .eq("user_id", user.id);
+    if (updErr) {
+      setUploadingVehicle(false);
+      return toast.error(updErr.message);
+    }
+    const { data: signed } = await supabase.storage.from("vehicle-photos").createSignedUrl(path, 3600);
+    setVehiclePhotoUrl(signed?.signedUrl ?? null);
+    setDriver((d) => (d ? { ...d, vehicle_photo_path: path } : d));
+    setUploadingVehicle(false);
+    toast.success("Vehicle photo updated");
+  }
 
   async function save() {
     if (!user || !profile) return;
