@@ -27,6 +27,7 @@ export function DriverTripMap({ driver, pickup, dropoff, focus, className }: Pro
   const rendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const [ready, setReady] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const { theme } = useTheme();
 
   // Init map once.
   useEffect(() => {
@@ -37,10 +38,10 @@ export function DriverTripMap({ driver, pickup, dropoff, focus, className }: Pro
         mapRef.current = new g.maps.Map(hostRef.current, {
           center: { lat: 39.7392, lng: -104.9903 },
           zoom: 11,
-          styles: DARK_MAP_STYLE,
+          styles: theme === "dark" ? DARK_MAP_STYLE : LIGHT_MAP_STYLE,
           disableDefaultUI: true,
           zoomControl: true,
-          backgroundColor: "#0f172a",
+          backgroundColor: theme === "dark" ? "#0f172a" : "#f8fafc",
           gestureHandling: "greedy",
         });
         rendererRef.current = new g.maps.DirectionsRenderer({
@@ -58,7 +59,18 @@ export function DriverTripMap({ driver, pickup, dropoff, focus, className }: Pro
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Restyle when theme changes.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    mapRef.current.setOptions({
+      styles: theme === "dark" ? DARK_MAP_STYLE : LIGHT_MAP_STYLE,
+      backgroundColor: theme === "dark" ? "#0f172a" : "#f8fafc",
+    });
+  }, [theme]);
+
 
   // Redraw markers + route when props change.
   useEffect(() => {
