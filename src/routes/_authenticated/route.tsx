@@ -191,10 +191,8 @@ function AuthenticatedLayout() {
         {/* Mobile top bar */}
         <div className="glass sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border px-4 lg:hidden">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <span className="text-sm font-bold">R</span>
-            </span>
-            <span className="text-sm font-semibold">RedArt Dispatch</span>
+            <BrandMark className="h-8 w-8" />
+            <span className="font-display text-sm font-semibold tracking-tight">RedArt Dispatch</span>
           </div>
           <div className="flex items-center gap-1">
             {isAdmin && <NotificationBell />}
