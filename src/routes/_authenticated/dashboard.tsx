@@ -72,10 +72,10 @@ function statusTone(status: string) {
   if (["in_progress", "on_trip", "active", "available"].includes(s))
     return { label: "Active", classes: "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30" };
   if (["completed", "done", "reviewed"].includes(s))
-    return { label: "Completed", classes: "bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/30" };
+    return { label: "Completed", classes: "bg-primary/20 text-sky-300 ring-1 ring-sky-500/30" };
   if (["scheduled", "pending", "assigned", "pending_review"].includes(s))
     return { label: "Scheduled", classes: "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30" };
-  return { label: status.replace(/_/g, " "), classes: "bg-slate-500/20 text-slate-300 ring-1 ring-slate-500/30" };
+  return { label: status.replace(/_/g, " "), classes: "bg-muted text-foreground ring-1 ring-border" };
 }
 
 function initials(first?: string | null, last?: string | null) {
@@ -240,7 +240,7 @@ function DashboardPage() {
   const driverTone = selected ? statusTone(selected.status) : statusTone("offline");
 
   return (
-    <div className="-mx-4 -my-6 min-h-[calc(100vh-4rem)] bg-slate-950 px-4 py-6 text-slate-100 md:-mx-6 md:-my-8 md:px-6 md:py-8">
+    <div className="-mx-4 -my-6 min-h-[calc(100vh-4rem)] bg-background px-4 py-6 text-foreground md:-mx-6 md:-my-8 md:px-6 md:py-8">
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         {/* Center panel */}
         <div className="space-y-5">
@@ -251,7 +251,7 @@ function DashboardPage() {
                 <select
                   value={selectedId ?? ""}
                   onChange={(e) => setSelectedId(e.target.value)}
-                  className="appearance-none rounded-xl bg-slate-900 py-2 pl-3 pr-9 text-lg font-semibold text-slate-100 ring-1 ring-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  className="appearance-none rounded-xl bg-card py-2 pl-3 pr-9 text-lg font-semibold text-foreground ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   {(drivers.data ?? []).map((d) => (
                     <option key={d.id} value={d.id}>
@@ -260,9 +260,9 @@ function DashboardPage() {
                   ))}
                   {(drivers.data ?? []).length === 0 && <option>No drivers</option>}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               </div>
-              <span className="hidden text-sm text-slate-400 md:inline">
+              <span className="hidden text-sm text-muted-foreground md:inline">
                 {trip.data?.scheduled_pickup_time
                   ? formatDateTime(trip.data.scheduled_pickup_time)
                   : "No active trip"}
@@ -335,13 +335,13 @@ function DashboardPage() {
 
 
             {/* Driver info card */}
-            <div className="rounded-2xl bg-slate-900 p-5 ring-1 ring-slate-800">
+            <div className="rounded-2xl bg-card p-5 ring-1 ring-border">
               <div className="flex items-start gap-4">
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-slate-800">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
                   {driverPhoto.data ? (
                     <img src={driverPhoto.data} alt="Driver" className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-slate-400">
+                    <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-muted-foreground">
                       {initials(selected?.profile?.first_name, selected?.profile?.last_name)}
                     </div>
                   )}
@@ -350,10 +350,10 @@ function DashboardPage() {
                   <div className="truncate text-base font-semibold">
                     {selected?.profile?.first_name} {selected?.profile?.last_name}
                   </div>
-                  <div className="truncate text-xs text-slate-400">
+                  <div className="truncate text-xs text-muted-foreground">
                     {selected?.profile?.email ?? "—"}
                   </div>
-                  <div className="mt-1 flex items-center gap-3 text-[11px] text-slate-500">
+                  <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
                     <span className="flex items-center gap-1 text-amber-300">
                       <Star className="h-3 w-3 fill-current" />
                       {selected?.rating ? Number(selected.rating).toFixed(2) : "—"}
@@ -363,22 +363,22 @@ function DashboardPage() {
                 </div>
               </div>
 
-              <div className="mt-4 space-y-2 rounded-xl bg-slate-800/50 p-3 text-xs">
+              <div className="mt-4 space-y-2 rounded-xl bg-muted p-3 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">License</span>
-                  <span className="font-medium text-slate-200">Active</span>
+                  <span className="text-muted-foreground">License</span>
+                  <span className="font-medium text-foreground">Active</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Hired</span>
-                  <span className="font-medium text-slate-200">
+                  <span className="text-muted-foreground">Hired</span>
+                  <span className="font-medium text-foreground">
                     {selected?.profile?.created_at
                       ? new Date(selected.profile.created_at).toLocaleDateString()
                       : "—"}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Phone</span>
-                  <span className="font-medium text-slate-200">
+                  <span className="text-muted-foreground">Phone</span>
+                  <span className="font-medium text-foreground">
                     {selected?.profile?.phone || "—"}
                   </span>
                 </div>
@@ -386,7 +386,7 @@ function DashboardPage() {
 
               <Link
                 to="/messages"
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-sky-500 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-400"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
               >
                 <MessageSquare className="h-4 w-4" />
                 Start a chat
@@ -407,7 +407,7 @@ function DashboardPage() {
 
           {/* Map + trip stops */}
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="h-[400px] overflow-hidden rounded-2xl bg-slate-900 ring-1 ring-slate-800">
+            <div className="h-[400px] overflow-hidden rounded-2xl bg-card ring-1 ring-border">
               <DriverTripMap
                 driver={driverPos}
                 pickup={pickupPos}
@@ -416,9 +416,9 @@ function DashboardPage() {
                 className="h-full w-full"
               />
             </div>
-            <div className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
+            <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
               <div className="mb-3 flex items-center justify-between">
-                <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Trip stops
                 </div>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${tripTone.classes}`}>
@@ -441,7 +441,7 @@ function DashboardPage() {
                   />
                 </ol>
               ) : (
-                <div className="py-10 text-center text-xs text-slate-500">
+                <div className="py-10 text-center text-xs text-muted-foreground">
                   No trip data for this driver.
                 </div>
               )}
@@ -451,23 +451,23 @@ function DashboardPage() {
 
         {/* Right sidebar: Drivers */}
         <aside className="space-y-3">
-          <div className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
+          <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-100">Drivers</h2>
-              <span className="text-xs text-slate-500">{filteredDrivers.length}</span>
+              <h2 className="text-sm font-semibold text-foreground">Drivers</h2>
+              <span className="text-xs text-muted-foreground">{filteredDrivers.length}</span>
             </div>
             <div className="relative mb-3">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search drivers"
-                className="w-full rounded-full bg-slate-800/70 py-2 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                className="w-full rounded-full bg-muted py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div className="max-h-[560px] space-y-2 overflow-y-auto pr-1">
               {filteredDrivers.length === 0 && (
-                <div className="py-10 text-center text-xs text-slate-500">No drivers found.</div>
+                <div className="py-10 text-center text-xs text-muted-foreground">No drivers found.</div>
               )}
               {filteredDrivers.map((d) => {
                 const tone = statusTone(d.status);
@@ -478,8 +478,8 @@ function DashboardPage() {
                     onClick={() => setSelectedId(d.id)}
                     className={`flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition ${
                       active
-                        ? "bg-sky-500/15 ring-1 ring-sky-500/50"
-                        : "bg-slate-800/40 hover:bg-slate-800/70"
+                        ? "bg-primary/15 ring-1 ring-sky-500/50"
+                        : "bg-muted/40 hover:bg-muted"
                     }`}
                   >
                     <Avatar
@@ -489,14 +489,14 @@ function DashboardPage() {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="truncate text-sm font-semibold text-slate-100">
+                        <div className="truncate text-sm font-semibold text-foreground">
                           {d.profile?.first_name} {d.profile?.last_name}
                         </div>
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${tone.classes}`}>
                           {tone.label}
                         </span>
                       </div>
-                      <div className="mt-0.5 flex items-center justify-between text-[11px] text-slate-400">
+                      <div className="mt-0.5 flex items-center justify-between text-[11px] text-muted-foreground">
                         <span className="truncate">
                           {d.vehicle_year ?? ""} {d.vehicle_model ?? d.vehicle_make ?? "—"}
                         </span>
@@ -509,7 +509,7 @@ function DashboardPage() {
             </div>
             <Link
               to="/trips"
-              className="mt-3 flex items-center justify-center gap-2 rounded-full bg-slate-800 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+              className="mt-3 flex items-center justify-center gap-2 rounded-full bg-muted py-2 text-xs font-semibold text-foreground hover:bg-muted"
             >
               <History className="h-3.5 w-3.5" /> View history
             </Link>
@@ -522,13 +522,13 @@ function DashboardPage() {
 
 function StatPill({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500/15 text-sky-300">
+    <div className="flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-border">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sky-300">
         {icon}
       </div>
       <div>
-        <div className="text-xs text-slate-400">{label}</div>
-        <div className="text-lg font-semibold text-slate-100">{value}</div>
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="text-lg font-semibold text-foreground">{value}</div>
       </div>
     </div>
   );
@@ -549,14 +549,14 @@ function StopRow({
     <li className="flex gap-3">
       <div className="flex flex-col items-center">
         <Circle className={`h-3 w-3 rounded-full ${dotClass}`} fill="currentColor" />
-        <div className="mt-1 h-full w-px bg-slate-700" />
+        <div className="mt-1 h-full w-px bg-muted" />
       </div>
       <div className="min-w-0 flex-1 pb-1">
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-slate-400">
+        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
           <MapPin className="h-3 w-3" /> {label}
         </div>
-        <div className="mt-1 text-sm text-slate-100">{address ?? "—"}</div>
-        <div className="text-[11px] text-slate-500">{time ? formatDateTime(time) : "—"}</div>
+        <div className="mt-1 text-sm text-foreground">{address ?? "—"}</div>
+        <div className="text-[11px] text-muted-foreground">{time ? formatDateTime(time) : "—"}</div>
       </div>
     </li>
   );
