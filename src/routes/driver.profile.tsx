@@ -27,11 +27,14 @@ function DriverProfile() {
     vehicle_model: string | null;
     vehicle_year: number | null;
     vehicle_plate: string | null;
+    vehicle_photo_path: string | null;
     rating: number;
     total_trips: number;
   } | null>(null);
+  const [vehiclePhotoUrl, setVehiclePhotoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingVehicle, setUploadingVehicle] = useState(false);
 
   useEffect(() => {
     if (!user) return;
