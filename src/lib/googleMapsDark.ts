@@ -17,8 +17,12 @@ export function loadGoogleMapsDark(): Promise<typeof google> {
   if (window.google?.maps) return Promise.resolve(window.google);
   if (loaderPromise) return loaderPromise;
 
-  const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-  if (!key) return Promise.reject(new Error("VITE_GOOGLE_MAPS_API_KEY missing"));
+  // Prefer the Lovable-managed Google Maps browser key (already authorized for
+  // *.lovable.app). Fall back to the project-provided key if configured.
+  const managed = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
+  const custom = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  const key = managed || custom;
+  if (!key) return Promise.reject(new Error("Google Maps API key missing"));
 
   loaderPromise = new Promise((resolve, reject) => {
     window.__lovableGmapsDarkCb = () => {

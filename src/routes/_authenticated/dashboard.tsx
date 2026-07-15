@@ -275,9 +275,9 @@ function DashboardPage() {
 
           {/* Vehicle + Driver info */}
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Vehicle card */}
-            <div className="overflow-hidden rounded-2xl bg-slate-900 ring-1 ring-slate-800">
-              <div className="relative h-40 bg-gradient-to-br from-slate-800 to-slate-950">
+            {/* Vehicle card - blue accent to match reference */}
+            <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-sky-600 to-sky-800 ring-1 ring-sky-500/30 shadow-lg shadow-sky-900/30">
+              <div className="relative h-40 overflow-hidden">
                 {vehiclePhoto.data ? (
                   <img
                     src={vehiclePhoto.data}
@@ -285,47 +285,54 @@ function DashboardPage() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-slate-600">
-                    <Car className="h-16 w-16" />
+                  <div className="flex h-full w-full items-center justify-center text-sky-200/60">
+                    <Car className="h-20 w-20" />
                   </div>
                 )}
               </div>
-              <div className="space-y-3 p-4">
+              <div className="space-y-3 p-4 text-white">
                 <div>
-                  <div className="text-lg font-semibold">
+                  <div className="text-lg font-bold">
                     {selected?.vehicle_year ?? ""} {selected?.vehicle_make ?? "—"}{" "}
                     {selected?.vehicle_model ?? ""}
                   </div>
-                  <div className="text-xs text-slate-400">
-                    Plate {selected?.vehicle_plate ?? "—"}
-                    {selected?.default_vin ? ` · VIN ${selected.default_vin}` : ""}
+                  <div className="mt-1 flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Star
+                        key={i}
+                        className={`h-3.5 w-3.5 ${
+                          i <= Math.round(Number(selected?.rating ?? 0))
+                            ? "fill-amber-300 text-amber-300"
+                            : "text-sky-300/40"
+                        }`}
+                      />
+                    ))}
+                    <span className="ml-1.5 text-xs text-sky-100/90">
+                      {selected?.total_ratings ?? 0} ratings
+                    </span>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="rounded-lg bg-slate-800/60 py-2">
-                    <div className="flex items-center justify-center gap-1 text-amber-300">
-                      <Star className="h-3.5 w-3.5 fill-current" />
-                      <span className="font-semibold">
-                        {selected?.rating ? Number(selected.rating).toFixed(1) : "—"}
-                      </span>
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-slate-500">
-                      {selected?.total_ratings ?? 0} ratings
-                    </div>
+                <div className="space-y-1.5 border-t border-sky-400/20 pt-3 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-sky-200/80">Plate</span>
+                    <span className="font-semibold">{selected?.vehicle_plate ?? "—"}</span>
                   </div>
-                  <div className="rounded-lg bg-slate-800/60 py-2">
-                    <div className="font-semibold text-slate-100">{selected?.total_trips ?? 0}</div>
-                    <div className="mt-0.5 text-[10px] text-slate-500">Trips</div>
+                  <div className="flex justify-between">
+                    <span className="text-sky-200/80">VIN</span>
+                    <span className="font-semibold">{selected?.default_vin ?? "—"}</span>
                   </div>
-                  <div className="rounded-lg bg-slate-800/60 py-2">
-                    <div className="font-semibold text-slate-100">
-                      {driverPos ? "Live" : "Offline"}
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-slate-500">GPS</div>
+                  <div className="flex justify-between">
+                    <span className="text-sky-200/80">Trips completed</span>
+                    <span className="font-semibold">{selected?.total_trips ?? 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sky-200/80">GPS</span>
+                    <span className="font-semibold">{driverPos ? "Live" : "Offline"}</span>
                   </div>
                 </div>
               </div>
             </div>
+
 
             {/* Driver info card */}
             <div className="rounded-2xl bg-slate-900 p-5 ring-1 ring-slate-800">
