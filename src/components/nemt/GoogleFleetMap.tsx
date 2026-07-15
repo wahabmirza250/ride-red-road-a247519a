@@ -37,6 +37,7 @@ export function GoogleFleetMap({
   const markersRef = useRef<google.maps.Marker[]>([]);
   const [ready, setReady] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const { theme } = useTheme();
 
   useEffect(() => {
     let cancelled = false;
@@ -46,10 +47,10 @@ export function GoogleFleetMap({
         mapRef.current = new g.maps.Map(hostRef.current, {
           center: { lat: center[0], lng: center[1] },
           zoom: 11,
-          styles: DARK_MAP_STYLE,
+          styles: theme === "dark" ? DARK_MAP_STYLE : LIGHT_MAP_STYLE,
           disableDefaultUI: true,
           zoomControl: true,
-          backgroundColor: "#0f172a",
+          backgroundColor: theme === "dark" ? "#0f172a" : "#f8fafc",
           gestureHandling: "greedy",
         });
         setReady(true);
@@ -58,7 +59,18 @@ export function GoogleFleetMap({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [center]);
+
+  // Restyle when theme changes.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    mapRef.current.setOptions({
+      styles: theme === "dark" ? DARK_MAP_STYLE : LIGHT_MAP_STYLE,
+      backgroundColor: theme === "dark" ? "#0f172a" : "#f8fafc",
+    });
+  }, [theme]);
+
 
   useEffect(() => {
     const g = window.google;
