@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseBrowser";
-import { DriverFleetMap, type DriverMarker } from "@/components/nemt/useClientMap";
+import { GoogleFleetMap, type FleetMarker } from "@/components/nemt/GoogleFleetMap";
 import { fmtMoney } from "@/lib/rideMath";
 
 export const Route = createFileRoute("/_authenticated/live-ops")({
@@ -90,7 +90,7 @@ function LiveOps() {
     };
   }, [load]);
 
-  const markers: DriverMarker[] = drivers
+  const markers: FleetMarker[] = drivers
     .filter((d) => d.current_lat != null && d.current_lng != null)
     .map((d) => ({
       id: d.id,
@@ -128,7 +128,16 @@ function LiveOps() {
         ))}
       </div>
       <div className="h-[420px] overflow-hidden rounded-2xl border border-border">
-        <DriverFleetMap center={DEFAULT_CENTER} markers={markers} focus={focus} />
+        <GoogleFleetMap
+          center={DEFAULT_CENTER}
+          markers={markers}
+          focus={focus}
+          onMarkerClick={(id) => {
+            const d = drivers.find((x) => x.id === id);
+            if (d?.current_lat && d?.current_lng)
+              setFocus({ lat: Number(d.current_lat), lng: Number(d.current_lng), zoom: 14, id });
+          }}
+        />
       </div>
 
       <div className="rounded-2xl border border-border bg-surface p-4">
