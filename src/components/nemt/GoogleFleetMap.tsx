@@ -1,6 +1,8 @@
 /// <reference types="google.maps" />
 import { useEffect, useRef, useState } from "react";
-import { loadGoogleMapsDark, DARK_MAP_STYLE } from "@/lib/googleMapsDark";
+import { loadGoogleMapsDark, DARK_MAP_STYLE, LIGHT_MAP_STYLE } from "@/lib/googleMapsDark";
+import { useTheme } from "@/lib/theme";
+
 
 export type FleetMarker = {
   id: string;
