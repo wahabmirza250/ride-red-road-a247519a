@@ -208,10 +208,35 @@ function DriverProfile() {
       </div>
 
       {driver && (
-        <div className="space-y-2 rounded-2xl border border-border bg-surface p-4 text-sm">
+        <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 text-sm">
           <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Vehicle
           </div>
+
+          <div className="relative overflow-hidden rounded-xl border border-border bg-surface-muted">
+            {vehiclePhotoUrl ? (
+              <img src={vehiclePhotoUrl} alt="Vehicle" className="h-40 w-full object-cover" />
+            ) : (
+              <div className="flex h-40 w-full items-center justify-center text-xs text-muted-foreground">
+                No vehicle photo yet
+              </div>
+            )}
+            <label className="absolute bottom-2 right-2 flex cursor-pointer items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-lift">
+              {uploadingVehicle ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Camera className="h-3.5 w-3.5" />
+              )}
+              {vehiclePhotoUrl ? "Replace" : "Upload"}
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => e.target.files?.[0] && uploadVehiclePhoto(e.target.files[0])}
+              />
+            </label>
+          </div>
+
           <div className="flex justify-between">
             <span className="text-muted-foreground">Make / model</span>
             <span className="font-medium">
