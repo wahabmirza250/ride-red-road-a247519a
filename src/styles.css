@@ -275,3 +275,18 @@
 }
 .animate-rise-in { animation: rise-in 0.6s cubic-bezier(.2,.7,.2,1) both; }
 
+/* Slow shimmer sweep for glass cards */
+@keyframes glass-shimmer {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
+}
+.animate-glass-shimmer { animation: glass-shimmer 6s ease-in-out infinite; }
+
+/* Gentle floating for hero icons */
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+.animate-float-soft { animation: float-soft 4.5s ease-in-out infinite; }
+
+
