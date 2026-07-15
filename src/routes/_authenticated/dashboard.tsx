@@ -1,244 +1,556 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseBrowser";
-import { PageHeader } from "@/components/nemt/PageHeader";
-import { StatCard } from "@/components/nemt/StatCard";
-import { StatusPill } from "@/components/nemt/StatusPill";
-import { Users, Route as RouteIcon, DollarSign, CheckCircle2 } from "lucide-react";
-import { DriverFleetMap } from "@/components/nemt/useClientMap";
-import { formatDateTime, formatCurrency } from "@/lib/format";
-import { toast } from "sonner";
+import { DriverTripMap, type LatLng } from "@/components/nemt/DriverTripMap";
+import { Avatar } from "@/components/Avatar";
+import {
+  Search,
+  Star,
+  MapPin,
+  Circle,
+  Gauge,
+  Clock,
+  Users as UsersIcon,
+  MessageSquare,
+  ChevronDown,
+  History,
+  Car,
+} from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { formatDateTime } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
 });
 
-type DriverRow = {
+type DriverListRow = {
   id: string;
-  status: "available" | "on_trip" | "offline";
+  user_id: string;
+  status: string;
   current_lat: number | null;
   current_lng: number | null;
-  profiles: { first_name: string | null; last_name: string | null } | null;
+  photo_url: string | null;
+  vehicle_photo_path: string | null;
+  vehicle_make: string | null;
+  vehicle_model: string | null;
+  vehicle_year: number | null;
+  vehicle_plate: string | null;
+  default_vin: string | null;
+  rating: number | null;
+  total_trips: number | null;
+  total_ratings: number | null;
+  profile: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    phone: string | null;
+    avatar_url: string | null;
+    created_at: string | null;
+  } | null;
 };
 
-function useDashboardStats() {
+type CurrentTrip = {
+  id: string;
+  status: string;
+  pickup_address: string | null;
+  dropoff_address: string | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  dropoff_lat: number | null;
+  dropoff_lng: number | null;
+  scheduled_pickup_time: string | null;
+  actual_pickup_time: string | null;
+  actual_dropoff_time: string | null;
+  computed_miles: number | null;
+  gps_miles: number | null;
+  source: "trips" | "medicaid_trips";
+};
+
+function statusTone(status: string) {
+  const s = status.toLowerCase();
+  if (["in_progress", "on_trip", "active", "available"].includes(s))
+    return { label: "Active", classes: "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30" };
+  if (["completed", "done", "reviewed"].includes(s))
+    return { label: "Completed", classes: "bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/30" };
+  if (["scheduled", "pending", "assigned", "pending_review"].includes(s))
+    return { label: "Scheduled", classes: "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30" };
+  return { label: status.replace(/_/g, " "), classes: "bg-slate-500/20 text-slate-300 ring-1 ring-slate-500/30" };
+}
+
+function initials(first?: string | null, last?: string | null) {
+  return `${(first ?? "").charAt(0)}${(last ?? "").charAt(0)}`.toUpperCase() || "?";
+}
+
+function useDrivers() {
   return useQuery({
-    queryKey: ["dashboard-stats"],
-    queryFn: async () => {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      const iso = startOfDay.toISOString();
+    queryKey: ["dashboard-drivers-v2"],
+    queryFn: async (): Promise<DriverListRow[]> => {
+      const { data, error } = await supabase
+        .from("drivers")
+        .select(
+          "id, user_id, status, current_lat, current_lng, photo_url, vehicle_photo_path, vehicle_make, vehicle_model, vehicle_year, vehicle_plate, default_vin, rating, total_trips, total_ratings",
+        );
+      if (error) throw error;
+      const rows = data ?? [];
+      const userIds = rows.map((r) => r.user_id).filter(Boolean);
+      const profileMap = new Map<string, DriverListRow["profile"]>();
+      if (userIds.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name, email, phone, avatar_url, created_at")
+          .in("id", userIds);
+        (profs ?? []).forEach((p) =>
+          profileMap.set(p.id, {
+            first_name: p.first_name,
+            last_name: p.last_name,
+            email: p.email,
+            phone: p.phone,
+            avatar_url: p.avatar_url,
+            created_at: p.created_at,
+          }),
+        );
+      }
+      return rows.map((r) => ({ ...r, profile: profileMap.get(r.user_id) ?? null }));
+    },
+    refetchInterval: 20_000,
+  });
+}
 
-      const [tripsToday, activeDrivers, pendingBilling, completedToday] = await Promise.all([
-        supabase
-          .from("trips")
-          .select("id", { count: "exact", head: true })
-          .gte("scheduled_pickup_time", iso),
-        supabase
-          .from("drivers")
-          .select("id", { count: "exact", head: true })
-          .in("status", ["available", "on_trip"]),
-        supabase
-          .from("trip_billing_records")
-          .select("amount")
-          .eq("status", "pending"),
-        supabase
-          .from("trips")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "completed")
-          .gte("updated_at", iso),
-      ]);
+function useCurrentTrip(driverId: string | null) {
+  return useQuery({
+    enabled: !!driverId,
+    queryKey: ["dashboard-current-trip", driverId],
+    queryFn: async (): Promise<CurrentTrip | null> => {
+      if (!driverId) return null;
+      const { data: trip } = await supabase
+        .from("trips")
+        .select(
+          "id, status, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, scheduled_pickup_time, actual_pickup_time, actual_dropoff_time, computed_miles, gps_miles",
+        )
+        .eq("driver_id", driverId)
+        .order("scheduled_pickup_time", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle();
 
-      const pendingTotal =
-        pendingBilling.data?.reduce((s, r) => s + Number(r.amount ?? 0), 0) ?? 0;
+      if (trip) return { ...trip, source: "trips" as const };
 
+      // Fallback: medicaid_trips (no lat/lng columns aren't in that table for pickup/dropoff)
+      const { data: mtrip } = await supabase
+        .from("medicaid_trips")
+        .select(
+          "id, status, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, pickup_at, ride_started_at, arrived_dropoff_at, miles",
+        )
+        .eq("driver_id", driverId)
+        .order("pickup_at", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle();
+      if (!mtrip) return null;
       return {
-        tripsToday: tripsToday.count ?? 0,
-        activeDrivers: activeDrivers.count ?? 0,
-        pendingTotal,
-        completedToday: completedToday.count ?? 0,
+        id: mtrip.id,
+        status: mtrip.status,
+        pickup_address: mtrip.pickup_address,
+        dropoff_address: mtrip.dropoff_address,
+        pickup_lat: mtrip.pickup_lat,
+        pickup_lng: mtrip.pickup_lng,
+        dropoff_lat: mtrip.dropoff_lat,
+        dropoff_lng: mtrip.dropoff_lng,
+        scheduled_pickup_time: mtrip.pickup_at,
+        actual_pickup_time: mtrip.ride_started_at,
+        actual_dropoff_time: mtrip.arrived_dropoff_at,
+        computed_miles: Number(mtrip.miles ?? 0),
+        gps_miles: null,
+        source: "medicaid_trips" as const,
       };
     },
     refetchInterval: 30_000,
   });
 }
 
-function useDriversWithLocation() {
+function useSignedImage(bucket: string, path: string | null | undefined) {
   return useQuery({
-    queryKey: ["drivers-map"],
+    enabled: !!path,
+    queryKey: ["signed", bucket, path],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("drivers")
-        .select("id, status, current_lat, current_lng, user_id");
-      if (error) throw error;
-      // fetch profiles separately (avoid RLS join complications)
-      const userIds = (data ?? []).map((d) => d.user_id);
-      const profileMap = new Map<string, { first_name: string | null; last_name: string | null }>();
-      if (userIds.length) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, first_name, last_name")
-          .in("id", userIds);
-        (profiles ?? []).forEach((p) => profileMap.set(p.id, p));
-      }
-      return (data ?? []).map((d) => ({
-        ...d,
-        profiles: profileMap.get(d.user_id) ?? null,
-      })) as DriverRow[];
+      if (!path) return null;
+      const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+      return data?.signedUrl ?? null;
     },
-    refetchInterval: 20_000,
-  });
-}
-
-function useRecentActivity() {
-  return useQuery({
-    queryKey: ["recent-trips"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("trips")
-        .select("id, status, pickup_address, dropoff_address, updated_at")
-        .order("updated_at", { ascending: false })
-        .limit(10);
-      if (error) throw error;
-      return data ?? [];
-    },
-    refetchInterval: 15_000,
+    staleTime: 30 * 60_000,
   });
 }
 
 function DashboardPage() {
-  const stats = useDashboardStats();
-  const drivers = useDriversWithLocation();
-  const activity = useRecentActivity();
+  const drivers = useDrivers();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
-  // Realtime toast on trip status changes
+  // Default selection to first driver.
   useEffect(() => {
-    const ch = supabase
-      .channel("dashboard-trips")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "trips" },
-        (payload) => {
-          const oldStatus = (payload.old as { status?: string })?.status;
-          const newStatus = (payload.new as { status?: string })?.status;
-          if (oldStatus && newStatus && oldStatus !== newStatus) {
-            toast(`Trip status → ${newStatus.replace(/_/g, " ")}`, {
-              duration: 8000,
-            });
-            activity.refetch();
-            stats.refetch();
-          }
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "drivers" },
-        () => {
-          drivers.refetch();
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!selectedId && drivers.data && drivers.data.length > 0) {
+      setSelectedId(drivers.data[0].id);
+    }
+  }, [drivers.data, selectedId]);
 
-  // Colorado default center
-  const [mapCenter] = useState<[number, number]>([39.5501, -105.7821]);
-  const markers = (drivers.data ?? [])
-    .filter((d) => d.current_lat != null && d.current_lng != null)
-    .map((d) => ({
-      id: d.id,
-      lat: d.current_lat!,
-      lng: d.current_lng!,
-      status: d.status,
-      label: `${d.profiles?.first_name ?? ""} ${d.profiles?.last_name ?? ""}`.trim() || "Driver",
-    }));
+  const selected = useMemo(
+    () => drivers.data?.find((d) => d.id === selectedId) ?? null,
+    [drivers.data, selectedId],
+  );
+
+  const trip = useCurrentTrip(selectedId);
+  const vehiclePhoto = useSignedImage("vehicle-photos", selected?.vehicle_photo_path ?? null);
+  const driverPhoto = useSignedImage("profiles", selected?.profile?.avatar_url ?? null);
+
+  const filteredDrivers = useMemo(() => {
+    const list = drivers.data ?? [];
+    if (!search.trim()) return list;
+    const q = search.toLowerCase();
+    return list.filter((d) => {
+      const name = `${d.profile?.first_name ?? ""} ${d.profile?.last_name ?? ""}`.toLowerCase();
+      return name.includes(q) || (d.vehicle_plate ?? "").toLowerCase().includes(q);
+    });
+  }, [drivers.data, search]);
+
+  const driverPos: LatLng | null =
+    selected?.current_lat != null && selected?.current_lng != null
+      ? { lat: selected.current_lat, lng: selected.current_lng }
+      : null;
+  const pickupPos: LatLng | null =
+    trip.data?.pickup_lat != null && trip.data?.pickup_lng != null
+      ? { lat: trip.data.pickup_lat, lng: trip.data.pickup_lng }
+      : null;
+  const dropoffPos: LatLng | null =
+    trip.data?.dropoff_lat != null && trip.data?.dropoff_lng != null
+      ? { lat: trip.data.dropoff_lat, lng: trip.data.dropoff_lng }
+      : null;
+
+  // Compute trip duration.
+  const tripTime = useMemo(() => {
+    if (!trip.data) return "—";
+    const start = trip.data.actual_pickup_time ?? trip.data.scheduled_pickup_time;
+    const end = trip.data.actual_dropoff_time ?? (trip.data.status === "in_progress" ? new Date().toISOString() : null);
+    if (!start || !end) return "—";
+    const mins = Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000));
+    if (mins < 60) return `${mins}m`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  }, [trip.data]);
+
+  const tripMiles = trip.data?.gps_miles ?? trip.data?.computed_miles ?? null;
+  const tripTone = trip.data ? statusTone(trip.data.status) : statusTone("scheduled");
+  const driverTone = selected ? statusTone(selected.status) : statusTone("offline");
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Dispatch overview"
-        description="Live map, today's activity, and pending work."
-      />
-
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard
-          label="Trips today"
-          value={stats.data?.tripsToday ?? "—"}
-          icon={<RouteIcon className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Active drivers"
-          value={stats.data?.activeDrivers ?? "—"}
-          icon={<Users className="h-5 w-5" />}
-          accent="info"
-        />
-        <StatCard
-          label="Pending billing"
-          value={stats.data ? formatCurrency(stats.data.pendingTotal) : "—"}
-          icon={<DollarSign className="h-5 w-5" />}
-          accent="warning"
-        />
-        <StatCard
-          label="Completed today"
-          value={stats.data?.completedToday ?? "—"}
-          icon={<CheckCircle2 className="h-5 w-5" />}
-          accent="success"
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border border-border bg-surface p-4 shadow-soft lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Live driver map</h2>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-success" /> Available
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-info" /> On trip
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground" /> Offline
+    <div className="-mx-4 -my-6 min-h-[calc(100vh-4rem)] bg-slate-950 px-4 py-6 text-slate-100 md:-mx-6 md:-my-8 md:px-6 md:py-8">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        {/* Center panel */}
+        <div className="space-y-5">
+          {/* Header: driver switcher */}
+          <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="relative">
+                <select
+                  value={selectedId ?? ""}
+                  onChange={(e) => setSelectedId(e.target.value)}
+                  className="appearance-none rounded-xl bg-slate-900 py-2 pl-3 pr-9 text-lg font-semibold text-slate-100 ring-1 ring-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                >
+                  {(drivers.data ?? []).map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.profile?.first_name} {d.profile?.last_name}
+                    </option>
+                  ))}
+                  {(drivers.data ?? []).length === 0 && <option>No drivers</option>}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              <span className="hidden text-sm text-slate-400 md:inline">
+                {trip.data?.scheduled_pickup_time
+                  ? formatDateTime(trip.data.scheduled_pickup_time)
+                  : "No active trip"}
               </span>
             </div>
-          </div>
-          <div className="h-[420px] overflow-hidden rounded-xl">
-            <DriverFleetMap center={mapCenter} markers={markers} />
-          </div>
-        </div>
+            <span className={`rounded-full px-3 py-1 text-xs font-medium ${tripTone.classes}`}>
+              {tripTone.label}
+            </span>
+          </header>
 
-        <div className="rounded-2xl border border-border bg-surface p-4 shadow-soft">
-          <h2 className="mb-3 text-sm font-semibold">Recent activity</h2>
-          {activity.data?.length ? (
-            <ul className="divide-y divide-border">
-              {activity.data.map((t) => (
-                <li key={t.id} className="flex items-start justify-between gap-3 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">
-                      {t.pickup_address}
+          {/* Vehicle + Driver info */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Vehicle card */}
+            <div className="overflow-hidden rounded-2xl bg-slate-900 ring-1 ring-slate-800">
+              <div className="relative h-40 bg-gradient-to-br from-slate-800 to-slate-950">
+                {vehiclePhoto.data ? (
+                  <img
+                    src={vehiclePhoto.data}
+                    alt="Vehicle"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-slate-600">
+                    <Car className="h-16 w-16" />
+                  </div>
+                )}
+              </div>
+              <div className="space-y-3 p-4">
+                <div>
+                  <div className="text-lg font-semibold">
+                    {selected?.vehicle_year ?? ""} {selected?.vehicle_make ?? "—"}{" "}
+                    {selected?.vehicle_model ?? ""}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Plate {selected?.vehicle_plate ?? "—"}
+                    {selected?.default_vin ? ` · VIN ${selected.default_vin}` : ""}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="rounded-lg bg-slate-800/60 py-2">
+                    <div className="flex items-center justify-center gap-1 text-amber-300">
+                      <Star className="h-3.5 w-3.5 fill-current" />
+                      <span className="font-semibold">
+                        {selected?.rating ? Number(selected.rating).toFixed(1) : "—"}
+                      </span>
                     </div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      → {t.dropoff_address}
-                    </div>
-                    <div className="mt-0.5 text-[11px] text-muted-foreground">
-                      {formatDateTime(t.updated_at)}
+                    <div className="mt-0.5 text-[10px] text-slate-500">
+                      {selected?.total_ratings ?? 0} ratings
                     </div>
                   </div>
-                  <StatusPill status={t.status} />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              No recent activity yet.
+                  <div className="rounded-lg bg-slate-800/60 py-2">
+                    <div className="font-semibold text-slate-100">{selected?.total_trips ?? 0}</div>
+                    <div className="mt-0.5 text-[10px] text-slate-500">Trips</div>
+                  </div>
+                  <div className="rounded-lg bg-slate-800/60 py-2">
+                    <div className="font-semibold text-slate-100">
+                      {driverPos ? "Live" : "Offline"}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-slate-500">GPS</div>
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* Driver info card */}
+            <div className="rounded-2xl bg-slate-900 p-5 ring-1 ring-slate-800">
+              <div className="flex items-start gap-4">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-slate-800">
+                  {driverPhoto.data ? (
+                    <img src={driverPhoto.data} alt="Driver" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-slate-400">
+                      {initials(selected?.profile?.first_name, selected?.profile?.last_name)}
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-base font-semibold">
+                    {selected?.profile?.first_name} {selected?.profile?.last_name}
+                  </div>
+                  <div className="truncate text-xs text-slate-400">
+                    {selected?.profile?.email ?? "—"}
+                  </div>
+                  <div className="mt-1 flex items-center gap-3 text-[11px] text-slate-500">
+                    <span className="flex items-center gap-1 text-amber-300">
+                      <Star className="h-3 w-3 fill-current" />
+                      {selected?.rating ? Number(selected.rating).toFixed(2) : "—"}
+                    </span>
+                    <span>Since {selected?.profile?.created_at ? new Date(selected.profile.created_at).getFullYear() : "—"}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2 rounded-xl bg-slate-800/50 p-3 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">License</span>
+                  <span className="font-medium text-slate-200">Active</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Hired</span>
+                  <span className="font-medium text-slate-200">
+                    {selected?.profile?.created_at
+                      ? new Date(selected.profile.created_at).toLocaleDateString()
+                      : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Phone</span>
+                  <span className="font-medium text-slate-200">
+                    {selected?.profile?.phone || "—"}
+                  </span>
+                </div>
+              </div>
+
+              <Link
+                to="/messages"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-sky-500 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-400"
+              >
+                <MessageSquare className="h-4 w-4" />
+                Start a chat
+              </Link>
+            </div>
+          </div>
+
+          {/* Trip stats bar */}
+          <div className="grid grid-cols-3 gap-3">
+            <StatPill icon={<Clock className="h-4 w-4" />} label="Trip time" value={tripTime} />
+            <StatPill
+              icon={<Gauge className="h-4 w-4" />}
+              label="Miles driven"
+              value={tripMiles != null ? Number(tripMiles).toFixed(1) : "—"}
+            />
+            <StatPill icon={<UsersIcon className="h-4 w-4" />} label="Passengers" value={trip.data ? "1" : "0"} />
+          </div>
+
+          {/* Map + trip stops */}
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="h-[400px] overflow-hidden rounded-2xl bg-slate-900 ring-1 ring-slate-800">
+              <DriverTripMap
+                driver={driverPos}
+                pickup={pickupPos}
+                dropoff={dropoffPos}
+                focus={driverPos}
+                className="h-full w-full"
+              />
+            </div>
+            <div className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                  Trip stops
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${tripTone.classes}`}>
+                  {tripTone.label}
+                </span>
+              </div>
+              {trip.data ? (
+                <ol className="space-y-4">
+                  <StopRow
+                    dotClass="bg-emerald-400"
+                    label="Pickup"
+                    time={trip.data.actual_pickup_time ?? trip.data.scheduled_pickup_time}
+                    address={trip.data.pickup_address}
+                  />
+                  <StopRow
+                    dotClass="bg-rose-400"
+                    label="Dropoff"
+                    time={trip.data.actual_dropoff_time}
+                    address={trip.data.dropoff_address}
+                  />
+                </ol>
+              ) : (
+                <div className="py-10 text-center text-xs text-slate-500">
+                  No trip data for this driver.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Right sidebar: Drivers */}
+        <aside className="space-y-3">
+          <div className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-100">Drivers</h2>
+              <span className="text-xs text-slate-500">{filteredDrivers.length}</span>
+            </div>
+            <div className="relative mb-3">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search drivers"
+                className="w-full rounded-full bg-slate-800/70 py-2 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+            </div>
+            <div className="max-h-[560px] space-y-2 overflow-y-auto pr-1">
+              {filteredDrivers.length === 0 && (
+                <div className="py-10 text-center text-xs text-slate-500">No drivers found.</div>
+              )}
+              {filteredDrivers.map((d) => {
+                const tone = statusTone(d.status);
+                const active = d.id === selectedId;
+                return (
+                  <button
+                    key={d.id}
+                    onClick={() => setSelectedId(d.id)}
+                    className={`flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition ${
+                      active
+                        ? "bg-sky-500/15 ring-1 ring-sky-500/50"
+                        : "bg-slate-800/40 hover:bg-slate-800/70"
+                    }`}
+                  >
+                    <Avatar
+                      path={d.profile?.avatar_url ?? null}
+                      name={`${d.profile?.first_name ?? ""} ${d.profile?.last_name ?? ""}`}
+                      size={40}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="truncate text-sm font-semibold text-slate-100">
+                          {d.profile?.first_name} {d.profile?.last_name}
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${tone.classes}`}>
+                          {tone.label}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 flex items-center justify-between text-[11px] text-slate-400">
+                        <span className="truncate">
+                          {d.vehicle_year ?? ""} {d.vehicle_model ?? d.vehicle_make ?? "—"}
+                        </span>
+                        <span className="shrink-0">{d.total_trips ?? 0} trips</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <Link
+              to="/trips"
+              className="mt-3 flex items-center justify-center gap-2 rounded-full bg-slate-800 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+            >
+              <History className="h-3.5 w-3.5" /> View history
+            </Link>
+          </div>
+        </aside>
       </div>
     </div>
+  );
+}
+
+function StatPill({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500/15 text-sky-300">
+        {icon}
+      </div>
+      <div>
+        <div className="text-xs text-slate-400">{label}</div>
+        <div className="text-lg font-semibold text-slate-100">{value}</div>
+      </div>
+    </div>
+  );
+}
+
+function StopRow({
+  dotClass,
+  label,
+  time,
+  address,
+}: {
+  dotClass: string;
+  label: string;
+  time: string | null | undefined;
+  address: string | null | undefined;
+}) {
+  return (
+    <li className="flex gap-3">
+      <div className="flex flex-col items-center">
+        <Circle className={`h-3 w-3 rounded-full ${dotClass}`} fill="currentColor" />
+        <div className="mt-1 h-full w-px bg-slate-700" />
+      </div>
+      <div className="min-w-0 flex-1 pb-1">
+        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-slate-400">
+          <MapPin className="h-3 w-3" /> {label}
+        </div>
+        <div className="mt-1 text-sm text-slate-100">{address ?? "—"}</div>
+        <div className="text-[11px] text-slate-500">{time ? formatDateTime(time) : "—"}</div>
+      </div>
+    </li>
   );
 }

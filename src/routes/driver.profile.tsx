@@ -27,11 +27,14 @@ function DriverProfile() {
     vehicle_model: string | null;
     vehicle_year: number | null;
     vehicle_plate: string | null;
+    vehicle_photo_path: string | null;
     rating: number;
     total_trips: number;
   } | null>(null);
+  const [vehiclePhotoUrl, setVehiclePhotoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingVehicle, setUploadingVehicle] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -52,11 +55,48 @@ function DriverProfile() {
       });
     supabase
       .from("drivers")
-      .select("vehicle_make,vehicle_model,vehicle_year,vehicle_plate,rating,total_trips")
+      .select("vehicle_make,vehicle_model,vehicle_year,vehicle_plate,vehicle_photo_path,rating,total_trips")
       .eq("user_id", user.id)
       .maybeSingle()
-      .then(({ data }) => data && setDriver(data));
+      .then(async ({ data }) => {
+        if (!data) return;
+        setDriver(data);
+        if (data.vehicle_photo_path) {
+          const { data: signed } = await supabase.storage
+            .from("vehicle-photos")
+            .createSignedUrl(data.vehicle_photo_path, 3600);
+          setVehiclePhotoUrl(signed?.signedUrl ?? null);
+        }
+      });
   }, [user]);
+
+  async function uploadVehiclePhoto(file: File) {
+    if (!user) return;
+    setUploadingVehicle(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${user.id}/vehicle-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("vehicle-photos").upload(path, file, {
+      contentType: file.type,
+      upsert: true,
+    });
+    if (error) {
+      setUploadingVehicle(false);
+      return toast.error(error.message);
+    }
+    const { error: updErr } = await supabase
+      .from("drivers")
+      .update({ vehicle_photo_path: path })
+      .eq("user_id", user.id);
+    if (updErr) {
+      setUploadingVehicle(false);
+      return toast.error(updErr.message);
+    }
+    const { data: signed } = await supabase.storage.from("vehicle-photos").createSignedUrl(path, 3600);
+    setVehiclePhotoUrl(signed?.signedUrl ?? null);
+    setDriver((d) => (d ? { ...d, vehicle_photo_path: path } : d));
+    setUploadingVehicle(false);
+    toast.success("Vehicle photo updated");
+  }
 
   async function save() {
     if (!user || !profile) return;
@@ -168,10 +208,35 @@ function DriverProfile() {
       </div>
 
       {driver && (
-        <div className="space-y-2 rounded-2xl border border-border bg-surface p-4 text-sm">
+        <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 text-sm">
           <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Vehicle
           </div>
+
+          <div className="relative overflow-hidden rounded-xl border border-border bg-surface-muted">
+            {vehiclePhotoUrl ? (
+              <img src={vehiclePhotoUrl} alt="Vehicle" className="h-40 w-full object-cover" />
+            ) : (
+              <div className="flex h-40 w-full items-center justify-center text-xs text-muted-foreground">
+                No vehicle photo yet
+              </div>
+            )}
+            <label className="absolute bottom-2 right-2 flex cursor-pointer items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-lift">
+              {uploadingVehicle ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Camera className="h-3.5 w-3.5" />
+              )}
+              {vehiclePhotoUrl ? "Replace" : "Upload"}
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => e.target.files?.[0] && uploadVehiclePhoto(e.target.files[0])}
+              />
+            </label>
+          </div>
+
           <div className="flex justify-between">
             <span className="text-muted-foreground">Make / model</span>
             <span className="font-medium">
