@@ -119,10 +119,26 @@ function AuthenticatedLayout() {
 
   const meta = user.user_metadata as { first_name?: string; last_name?: string } | undefined;
 
+  const isDashboard =
+    location.pathname === "/dashboard" || location.pathname.startsWith("/dashboard/");
+
   return (
-    <div className="flex min-h-screen bg-surface-muted">
+    <div
+      className={cn(
+        "flex min-h-screen",
+        isDashboard ? "bg-slate-950 text-slate-100" : "bg-surface-muted",
+      )}
+    >
       {/* Sidebar */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface lg:flex">
+      <aside
+        className={cn(
+          "hidden w-64 shrink-0 flex-col border-r lg:flex",
+          isDashboard
+            ? "border-slate-800 bg-slate-950"
+            : "border-border bg-surface",
+        )}
+      >
+
         <div className="flex h-16 items-center gap-2 px-5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <span className="text-base font-bold">R</span>
