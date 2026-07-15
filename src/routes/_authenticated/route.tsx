@@ -30,6 +30,7 @@ import { initials } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/admin/NotificationBell";
 import { ensurePushSubscribed } from "@/lib/push";
+import { BrandMark, BrandWordmark } from "@/components/Brand";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -119,37 +120,15 @@ function AuthenticatedLayout() {
 
   const meta = user.user_metadata as { first_name?: string; last_name?: string } | undefined;
 
-  const isDashboard =
-    location.pathname === "/dashboard" || location.pathname.startsWith("/dashboard/");
-
   return (
-    <div
-      className={cn(
-        "flex min-h-screen",
-        isDashboard ? "bg-slate-950 text-slate-100" : "bg-surface-muted",
-      )}
-    >
+    <div className="flex min-h-screen bg-surface-muted">
       {/* Sidebar */}
-      <aside
-        className={cn(
-          "hidden w-64 shrink-0 flex-col border-r lg:flex",
-          isDashboard
-            ? "border-slate-800 bg-slate-950"
-            : "border-border bg-surface",
-        )}
-      >
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
 
-        <div className="flex h-16 items-center gap-2 px-5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <span className="text-base font-bold">R</span>
-          </span>
-          <div>
-            <div className="text-sm font-semibold tracking-tight leading-tight">RedArt LLC</div>
-            <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
-              NEMT Dispatch
-            </div>
-          </div>
+        <div className="flex h-16 items-center px-5">
+          <BrandWordmark className="h-8" />
         </div>
+
         <nav className="flex-1 space-y-1 px-3 py-4">
           {NAV.map((item) => {
             const active =
@@ -160,12 +139,15 @@ function AuthenticatedLayout() {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
+                  "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
                   active
-                    ? "bg-primary/8 text-primary"
+                    ? "bg-primary/10 text-primary shadow-soft"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
+                {active && (
+                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+                )}
                 <Icon className="h-4 w-4" />
                 {item.label}
               </Link>
@@ -212,10 +194,8 @@ function AuthenticatedLayout() {
         {/* Mobile top bar */}
         <div className="glass sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border px-4 lg:hidden">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <span className="text-sm font-bold">R</span>
-            </span>
-            <span className="text-sm font-semibold">RedArt Dispatch</span>
+            <BrandMark className="h-8 w-8" />
+            <span className="font-display text-sm font-semibold tracking-tight">RedArt Dispatch</span>
           </div>
           <div className="flex items-center gap-1">
             {isAdmin && <NotificationBell />}
