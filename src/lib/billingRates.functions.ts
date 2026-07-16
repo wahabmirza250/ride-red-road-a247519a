@@ -79,17 +79,17 @@ export const upsertBillingRatePair = createServerFn({ method: "POST" })
   .inputValidator(
     (input: {
       vehicle_type: VehicleType;
-      place_of_service?: string | null;
-      trip: { procedure_code: string; charge_amount: number };
-      mile: { procedure_code: string; charge_amount: number };
+      trip: { procedure_code: string; charge_amount: number; place_of_service: string };
+      mile: { procedure_code: string; charge_amount: number; place_of_service: string };
     }) => {
       if (!["ambulatory", "wheelchair_van"].includes(input.vehicle_type)) {
         throw new Error("Invalid vehicle type");
       }
       for (const section of ["trip", "mile"] as const) {
         const s = input[section];
+        const label = section === "trip" ? "Trip" : "Mile";
         if (!s || !s.procedure_code?.trim()) {
-          throw new Error(`${section === "trip" ? "Trip" : "Mile"} Procedure Code is required`);
+          throw new Error(`${label} Procedure Code is required`);
         }
         if (
           s.charge_amount === undefined ||
@@ -97,16 +97,16 @@ export const upsertBillingRatePair = createServerFn({ method: "POST" })
           Number.isNaN(s.charge_amount) ||
           s.charge_amount < 0
         ) {
-          throw new Error(
-            `${section === "trip" ? "Trip" : "Mile"} Charge Amount is required and must be >= 0`,
-          );
+          throw new Error(`${label} Charge Amount is required and must be >= 0`);
+        }
+        if (!s.place_of_service?.trim()) {
+          throw new Error(`${label} Place of Service is required`);
         }
       }
       return input;
     },
   )
   .handler(async ({ data, context }) => {
-    const pos = data.place_of_service?.trim() || null;
     const rows = [
       {
         provider_id: context.userId,
@@ -114,7 +114,7 @@ export const upsertBillingRatePair = createServerFn({ method: "POST" })
         unit_type: "trip" as UnitType,
         procedure_code: data.trip.procedure_code.trim(),
         charge_amount: Number(data.trip.charge_amount),
-        place_of_service: pos,
+        place_of_service: data.trip.place_of_service.trim(),
       },
       {
         provider_id: context.userId,
@@ -122,7 +122,7 @@ export const upsertBillingRatePair = createServerFn({ method: "POST" })
         unit_type: "mile" as UnitType,
         procedure_code: data.mile.procedure_code.trim(),
         charge_amount: Number(data.mile.charge_amount),
-        place_of_service: pos,
+        place_of_service: data.mile.place_of_service.trim(),
       },
     ];
     const { data: saved, error } = await (context.supabase as any)

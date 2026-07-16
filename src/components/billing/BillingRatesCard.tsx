@@ -27,21 +27,31 @@ const VEHICLE_LABELS: Record<VehicleType, string> = {
 
 const VEHICLE_TYPES: VehicleType[] = ["ambulatory", "wheelchair_van"];
 
-type SectionState = { procedure_code: string; charge_amount: string };
-type SectionErrors = { procedure_code?: string; charge_amount?: string };
+type SectionState = {
+  procedure_code: string;
+  charge_amount: string;
+  place_of_service: string;
+};
+type SectionErrors = {
+  procedure_code?: string;
+  charge_amount?: string;
+  place_of_service?: string;
+};
 
 type FormState = {
   vehicle_type: VehicleType;
-  place_of_service: string;
   trip: SectionState;
   mile: SectionState;
 };
 
-const EMPTY_SECTION: SectionState = { procedure_code: "", charge_amount: "" };
+const EMPTY_SECTION: SectionState = {
+  procedure_code: "",
+  charge_amount: "",
+  place_of_service: "",
+};
 
 const emptyForm = (vehicle_type: VehicleType): FormState => ({
   vehicle_type,
-  place_of_service: "",
   trip: { ...EMPTY_SECTION },
   mile: { ...EMPTY_SECTION },
 });
@@ -89,17 +99,17 @@ export function BillingRatesCard() {
     setIsEditing(true);
     setForm({
       vehicle_type: vt,
-      place_of_service:
-        g.trip?.place_of_service ?? g.mile?.place_of_service ?? "",
       trip: {
         procedure_code: g.trip?.procedure_code ?? "",
         charge_amount:
           g.trip?.charge_amount != null ? String(g.trip.charge_amount) : "",
+        place_of_service: g.trip?.place_of_service ?? "",
       },
       mile: {
         procedure_code: g.mile?.procedure_code ?? "",
         charge_amount:
           g.mile?.charge_amount != null ? String(g.mile.charge_amount) : "",
+        place_of_service: g.mile?.place_of_service ?? "",
       },
     });
     setErrors({ trip: {}, mile: {} });
@@ -111,7 +121,6 @@ export function BillingRatesCard() {
     setErrors({ trip: {}, mile: {} });
   };
 
-  // When switching vehicle type in add-mode, pre-fill from existing if any
   const onVehicleChange = (vt: VehicleType) => {
     const g = grouped[vt];
     if (g.trip || g.mile) {
@@ -134,7 +143,6 @@ export function BillingRatesCard() {
   });
 
   useEffect(() => {
-    // Reset if data cleared while editing
     if (isEditing && rows.data && rows.data.length === 0) {
       resetForm();
     }
@@ -147,6 +155,7 @@ export function BillingRatesCard() {
     if (!s.charge_amount.trim() || Number.isNaN(n) || n < 0) {
       e.charge_amount = "Required";
     }
+    if (!s.place_of_service.trim()) e.place_of_service = "Required";
     return e;
   };
 
@@ -159,14 +168,15 @@ export function BillingRatesCard() {
 
     upsert.mutate({
       vehicle_type: form.vehicle_type,
-      place_of_service: form.place_of_service || null,
       trip: {
         procedure_code: form.trip.procedure_code,
         charge_amount: Number(form.trip.charge_amount),
+        place_of_service: form.trip.place_of_service,
       },
       mile: {
         procedure_code: form.mile.procedure_code,
         charge_amount: Number(form.mile.charge_amount),
+        place_of_service: form.mile.place_of_service,
       },
     });
   };
@@ -211,7 +221,13 @@ export function BillingRatesCard() {
                     {trip ? (
                       <>
                         ${Number(trip.charge_amount).toFixed(2)}{" "}
-                        <span className="opacity-70">({trip.procedure_code})</span>
+                        <span className="opacity-70">
+                          ({trip.procedure_code}
+                          {trip.place_of_service
+                            ? `, POS ${trip.place_of_service}`
+                            : ""}
+                          )
+                        </span>
                       </>
                     ) : (
                       <span className="opacity-70">not set</span>
@@ -221,16 +237,16 @@ export function BillingRatesCard() {
                     {mile ? (
                       <>
                         ${Number(mile.charge_amount).toFixed(2)}{" "}
-                        <span className="opacity-70">({mile.procedure_code})</span>
+                        <span className="opacity-70">
+                          ({mile.procedure_code}
+                          {mile.place_of_service
+                            ? `, POS ${mile.place_of_service}`
+                            : ""}
+                          )
+                        </span>
                       </>
                     ) : (
                       <span className="opacity-70">not set</span>
-                    )}
-                    {(trip?.place_of_service || mile?.place_of_service) && (
-                      <>
-                        {"  |  POS "}
-                        {trip?.place_of_service ?? mile?.place_of_service}
-                      </>
                     )}
                   </div>
                 </div>
@@ -266,33 +282,20 @@ export function BillingRatesCard() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className="space-y-1">
-            <Label>Vehicle Type</Label>
-            <Select
-              value={form.vehicle_type}
-              onValueChange={(v) => onVehicleChange(v as VehicleType)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ambulatory">Ambulatory</SelectItem>
-                <SelectItem value="wheelchair_van">Wheelchair Van</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1">
-            <Label>Place of Service</Label>
-            <Input
-              value={form.place_of_service}
-              placeholder="99"
-              onChange={(e) =>
-                setForm({ ...form, place_of_service: e.target.value })
-              }
-            />
-          </div>
+        <div className="space-y-1">
+          <Label>Vehicle Type</Label>
+          <Select
+            value={form.vehicle_type}
+            onValueChange={(v) => onVehicleChange(v as VehicleType)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ambulatory">Ambulatory</SelectItem>
+              <SelectItem value="wheelchair_van">Wheelchair Van</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -355,6 +358,30 @@ export function BillingRatesCard() {
                   {err.charge_amount && (
                     <p className="text-xs text-destructive">
                       {err.charge_amount}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label>
+                    Place of Service <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    value={state.place_of_service}
+                    placeholder={section === "trip" ? "99" : "41"}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        [section]: {
+                          ...state,
+                          place_of_service: e.target.value,
+                        },
+                      })
+                    }
+                    aria-invalid={!!err.place_of_service}
+                  />
+                  {err.place_of_service && (
+                    <p className="text-xs text-destructive">
+                      {err.place_of_service}
                     </p>
                   )}
                 </div>
