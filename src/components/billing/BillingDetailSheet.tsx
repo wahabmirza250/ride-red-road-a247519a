@@ -199,6 +199,50 @@ export function BillingDetailSheet({
               </div>
             )}
 
+            {robotJobId && (
+              <div className="rounded-xl border border-border bg-surface p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2">
+                    <Bot className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="text-xs">
+                      <div className="flex items-center gap-2 font-medium">
+                        Automation robot
+                        {robotIsRunning && (
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="mt-0.5 text-muted-foreground">
+                        Status: <span className="font-mono">{robotStatus ?? "unknown"}</span>
+                        {robotStartedAt && (
+                          <> · started {formatDateTime(robotStartedAt)}</>
+                        )}
+                      </div>
+                      {robotMessage && (
+                        <div className="mt-1 text-foreground/80">{robotMessage}</div>
+                      )}
+                      <div className="mt-1 text-[10px] text-muted-foreground">
+                        Job ID: <span className="font-mono">{robotJobId}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => checkRobot.mutate()}
+                    disabled={checkRobot.isPending}
+                  >
+                    {checkRobot.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                    <span className="ml-1">Check status</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+
+
             <div className="grid grid-cols-2 gap-3">
               <Field label="Passenger" value={rider?.full_name} />
               <Field label="Medicaid ID" value={rider?.medicaid_id} />
