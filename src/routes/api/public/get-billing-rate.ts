@@ -65,7 +65,7 @@ export const Route = createFileRoute("/api/public/get-billing-rate")({
 
         const { data, error } = await supabaseAdmin
           .from("billing_rate_settings" as any)
-          .select("procedure_code, charge_amount, unit_type, place_of_service")
+          .select("procedure_code, charge_amount, unit_type, place_of_service, default_diagnosis_code")
           .eq("provider_id", provider_id)
           .eq("vehicle_type", vehicle_type)
           .eq("unit_type", unit_type)
@@ -91,6 +91,7 @@ export const Route = createFileRoute("/api/public/get-billing-rate")({
           charge_amount: Number((data as any).charge_amount),
           unit_type: (data as any).unit_type,
           place_of_service: (data as any).place_of_service,
+          default_diagnosis_code: (data as any).default_diagnosis_code,
         });
       },
     },

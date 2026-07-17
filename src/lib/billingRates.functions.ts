@@ -12,6 +12,7 @@ export interface BillingRateSetting {
   charge_amount: number;
   unit_type: UnitType;
   place_of_service: string | null;
+  default_diagnosis_code: string | null;
   updated_at: string;
 }
 
@@ -79,11 +80,15 @@ export const upsertBillingRatePair = createServerFn({ method: "POST" })
   .inputValidator(
     (input: {
       vehicle_type: VehicleType;
+      default_diagnosis_code: string;
       trip: { procedure_code: string; charge_amount: number; place_of_service: string };
       mile: { procedure_code: string; charge_amount: number; place_of_service: string };
     }) => {
       if (!["ambulatory", "wheelchair_van"].includes(input.vehicle_type)) {
         throw new Error("Invalid vehicle type");
+      }
+      if (!input.default_diagnosis_code?.trim()) {
+        throw new Error("Default Diagnosis Code is required");
       }
       for (const section of ["trip", "mile"] as const) {
         const s = input[section];
@@ -107,6 +112,7 @@ export const upsertBillingRatePair = createServerFn({ method: "POST" })
     },
   )
   .handler(async ({ data, context }) => {
+    const dx = data.default_diagnosis_code.trim();
     const rows = [
       {
         provider_id: context.userId,
@@ -115,6 +121,7 @@ export const upsertBillingRatePair = createServerFn({ method: "POST" })
         procedure_code: data.trip.procedure_code.trim(),
         charge_amount: Number(data.trip.charge_amount),
         place_of_service: data.trip.place_of_service.trim(),
+        default_diagnosis_code: dx,
       },
       {
         provider_id: context.userId,
@@ -123,6 +130,7 @@ export const upsertBillingRatePair = createServerFn({ method: "POST" })
         procedure_code: data.mile.procedure_code.trim(),
         charge_amount: Number(data.mile.charge_amount),
         place_of_service: data.mile.place_of_service.trim(),
+        default_diagnosis_code: dx,
       },
     ];
     const { data: saved, error } = await (context.supabase as any)
