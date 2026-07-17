@@ -691,43 +691,8 @@ export const markRejected = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/* ---------- SUBMIT (calls edge function) ---------- */
 
-export const submitBillingRecords = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z.object({ ids: z.array(z.string().uuid()).min(1) }).parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
 
-    const SUPABASE_URL = process.env.SUPABASE_URL!;
-    const SUPABASE_ANON_KEY = process.env.SUPABASE_PUBLISHABLE_KEY!;
-
-    // Forward the caller's bearer so the edge function knows who called it
-    const authHeader =
-      (await import("@tanstack/react-start/server")).getRequestHeader?.(
-        "authorization",
-      ) ?? "";
-
-    const res = await fetch(
-      `${SUPABASE_URL}/functions/v1/submit-to-state-portal`,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          apikey: SUPABASE_ANON_KEY,
-          authorization: authHeader || `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ billing_record_ids: data.ids }),
-      },
-    );
-
-    const text = await res.text();
-    if (!res.ok) throw new Error(text || `Edge function failed (${res.status})`);
-    return JSON.parse(text || "{}");
-  });
 
 /* ---------- PORTAL CREDENTIALS ---------- */
 
@@ -788,16 +753,11 @@ export const getBillingSettings = createServerFn({ method: "GET" })
       .is("company_id", null)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    const runner_configured = Boolean(
-      process.env.AUTOMATION_SERVICE_URL &&
-        process.env.AUTOMATION_SERVICE_API_KEY &&
-        process.env.AUTOMATION_SERVICE_HMAC_SECRET,
-    );
     return {
       default_portal_id: data?.default_portal_id ?? null,
-      runner_configured,
     };
   });
+
 
 export const setDefaultBillingPortal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

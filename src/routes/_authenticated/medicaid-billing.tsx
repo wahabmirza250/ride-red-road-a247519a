@@ -1,26 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Loader2, Send, AlertCircle, AlertTriangle, HandMetal, Eye, FileDown } from "lucide-react";
+import { Loader2, AlertCircle, AlertTriangle, HandMetal, Eye, FileDown } from "lucide-react";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDateTime } from "@/lib/format";
 import {
   getBillingSettings,
   listBillingRecords,
-  submitBillingRecords,
 } from "@/lib/billing.functions";
 import { getPortal } from "@/lib/portals";
 import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
+
 
 export const Route = createFileRoute("/_authenticated/medicaid-billing")({
   component: MedicaidBillingPage,
@@ -43,7 +42,6 @@ function MedicaidBillingPage() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<TabKey>("pending_review");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [checked, setChecked] = useState<Set<string>>(new Set());
   const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
 
   const listFn = useServerFn(listBillingRecords);
@@ -60,7 +58,6 @@ function MedicaidBillingPage() {
     enabled: isAdmin,
   });
   const defaultPortal = getPortal(settings.data?.default_portal_id);
-  const runnerConfigured = settings.data?.runner_configured ?? true;
 
   // Realtime — invalidate on any billing_records change
   useEffect(() => {
@@ -80,29 +77,7 @@ function MedicaidBillingPage() {
     };
   }, [qc]);
 
-  // Reset selection when the tab changes
-  useEffect(() => {
-    setChecked(new Set());
-  }, [tab]);
 
-  const submitFn = useServerFn(submitBillingRecords);
-  const submitMany = useMutation({
-    mutationFn: (ids: string[]) => submitFn({ data: { ids } }),
-    onSuccess: (r: any) => {
-      const okCount = r?.results?.filter((x: any) => x.ok).length ?? 0;
-      const failCount = (r?.results?.length ?? 0) - okCount;
-      if (okCount) toast.success(`Submitting ${okCount} trip(s)…`);
-      if (failCount) toast.error(`${failCount} failed to start`);
-      setChecked(new Set());
-      qc.invalidateQueries({ queryKey: ["billing_list"] });
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
-
-  const idsOnPage = useMemo(
-    () => (rows.data ?? []).map((r: any) => r.id),
-    [rows.data],
-  );
 
   if (!isAdmin) {
     return (
@@ -117,22 +92,7 @@ function MedicaidBillingPage() {
         description="Review driver-submitted trips, submit them to the state portal, and track results."
       />
 
-      {!runnerConfigured && (
-        <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <div className="font-medium">Runner not configured</div>
-            <div className="text-xs">
-              Submissions will stay in <em>Pending Submit</em> until the
-              automation service secrets (<code>AUTOMATION_SERVICE_URL</code>,{" "}
-              <code>AUTOMATION_SERVICE_API_KEY</code>,{" "}
-              <code>AUTOMATION_SERVICE_HMAC_SECRET</code>) are set.
-            </div>
-          </div>
-        </div>
-      )}
-
-      {runnerConfigured && !defaultPortal && (
+      {!defaultPortal && (
         <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
@@ -144,6 +104,7 @@ function MedicaidBillingPage() {
           </div>
         </div>
       )}
+
 
       {defaultPortal && (
         <div className="text-xs text-muted-foreground">
@@ -167,39 +128,8 @@ function MedicaidBillingPage() {
         </TabsList>
       </Tabs>
 
-      {tab === "pending_submit" && (rows.data?.length ?? 0) > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface p-3">
-          <Checkbox
-            checked={checked.size === idsOnPage.length && idsOnPage.length > 0}
-            onCheckedChange={(v) =>
-              setChecked(new Set(v ? idsOnPage : []))
-            }
-          />
-          <span className="text-xs text-muted-foreground">
-            {checked.size} selected
-          </span>
-          <div className="ml-auto flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={checked.size === 0 || submitMany.isPending}
-              onClick={() => submitMany.mutate(Array.from(checked))}
-            >
-              <Send className="mr-1 h-4 w-4" /> Submit selected
-            </Button>
-            <Button
-              size="sm"
-              disabled={idsOnPage.length === 0 || submitMany.isPending}
-              onClick={() => submitMany.mutate(idsOnPage)}
-            >
-              {submitMany.isPending && (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              )}
-              <Send className="mr-1 h-4 w-4" /> Submit all
-            </Button>
-          </div>
-        </div>
-      )}
+
+
 
       {rows.isLoading ? (
         <div className="flex justify-center py-12">
@@ -214,9 +144,8 @@ function MedicaidBillingPage() {
           <table className="w-full text-sm">
             <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                {tab === "pending_submit" && (
-                  <th className="w-10 px-3 py-3"></th>
-                )}
+
+
                 <th className="px-4 py-3 text-left">Passenger</th>
                 <th className="px-4 py-3 text-left">Driver</th>
                 <th className="px-4 py-3 text-left">Trip date</th>
@@ -232,22 +161,8 @@ function MedicaidBillingPage() {
                   className="cursor-pointer hover:bg-accent/60"
                   onClick={() => setSelectedId(r.id)}
                 >
-                  {tab === "pending_submit" && (
-                    <td
-                      className="px-3 py-3"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Checkbox
-                        checked={checked.has(r.id)}
-                        onCheckedChange={(v) => {
-                          const next = new Set(checked);
-                          if (v) next.add(r.id);
-                          else next.delete(r.id);
-                          setChecked(next);
-                        }}
-                      />
-                    </td>
-                  )}
+
+
                   <td className="px-4 py-3">
                     <div className="font-medium">{r.passenger_name ?? "—"}</div>
                     <div className="text-xs text-muted-foreground">

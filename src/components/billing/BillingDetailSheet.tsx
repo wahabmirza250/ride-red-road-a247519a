@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Loader2, FileDown, Check, X, Send, AlertCircle, RefreshCw, Bot } from "lucide-react";
+import { Loader2, FileDown, Check, X, AlertCircle, RefreshCw, Bot } from "lucide-react";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { formatDateTime } from "@/lib/format";
 import {
@@ -22,8 +22,8 @@ import {
   markRejected,
   regenerateBillingPdf,
   requestFix,
-  submitBillingRecords,
 } from "@/lib/billing.functions";
+
 
 export function BillingDetailSheet({
   id,
@@ -37,7 +37,7 @@ export function BillingDetailSheet({
   const fetchDetail = useServerFn(getBillingRecord);
   const approveFn = useServerFn(approveBillingRecord);
   const requestFixFn = useServerFn(requestFix);
-  const submitFn = useServerFn(submitBillingRecords);
+  
   const markApprovedFn = useServerFn(markApproved);
   const markRejectedFn = useServerFn(markRejected);
   const regeneratePdfFn = useServerFn(regenerateBillingPdf);
@@ -82,16 +82,8 @@ export function BillingDetailSheet({
     onError: (e: any) => toast.error(e.message),
   });
 
-  const submitOne = useMutation({
-    mutationFn: () => submitFn({ data: { ids: [id!] } }),
-    onSuccess: (r: any) => {
-      const first = r?.results?.[0];
-      if (first?.ok) toast.success("Submission started");
-      else toast.error(first?.error ?? "Submit failed");
-      invalidate();
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
+
+
 
   const stateApprove = useMutation({
     mutationFn: () => markApprovedFn({ data: { id: id! } }),
@@ -337,23 +329,8 @@ export function BillingDetailSheet({
                 </>
               )}
 
-              {(rec.status === "pending_submit" ||
-                rec.status === "submitting") && (
-                <Button
-                  className="w-full"
-                  disabled={
-                    submitOne.isPending || rec.status === "submitting"
-                  }
-                  onClick={() => submitOne.mutate()}
-                >
-                  {submitOne.isPending || rec.status === "submitting" ? (
-                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-1 h-4 w-4" />
-                  )}
-                  {rec.submission_error ? "Retry submit" : "Submit to state portal"}
-                </Button>
-              )}
+
+
 
               {rec.status === "submitted" && (
                 <>
