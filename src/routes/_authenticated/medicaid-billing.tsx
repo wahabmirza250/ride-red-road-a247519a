@@ -161,22 +161,8 @@ function MedicaidBillingPage() {
                   className="cursor-pointer hover:bg-accent/60"
                   onClick={() => setSelectedId(r.id)}
                 >
-                  {tab === "pending_submit" && (
-                    <td
-                      className="px-3 py-3"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Checkbox
-                        checked={checked.has(r.id)}
-                        onCheckedChange={(v) => {
-                          const next = new Set(checked);
-                          if (v) next.add(r.id);
-                          else next.delete(r.id);
-                          setChecked(next);
-                        }}
-                      />
-                    </td>
-                  )}
+
+
                   <td className="px-4 py-3">
                     <div className="font-medium">{r.passenger_name ?? "—"}</div>
                     <div className="text-xs text-muted-foreground">
