@@ -250,12 +250,14 @@ function CredentialDialog({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label>Login email</Label>
+          <Label>Login username</Label>
           <Input
-            type="email"
+            type="text"
+            autoComplete="username"
             value={loginEmail}
             onChange={(e) => setLoginEmail(e.target.value)}
           />
+
         </div>
         <div className="space-y-1.5">
           <Label>
