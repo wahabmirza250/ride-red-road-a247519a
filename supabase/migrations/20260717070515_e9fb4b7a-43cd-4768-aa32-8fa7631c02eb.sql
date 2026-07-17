@@ -1,0 +1,1 @@
+ALTER TABLE public.billing_rate_settings ADD COLUMN IF NOT EXISTS default_diagnosis_code TEXT;
