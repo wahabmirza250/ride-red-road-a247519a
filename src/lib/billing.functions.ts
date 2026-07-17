@@ -328,19 +328,253 @@ export const approveBillingRecord = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
 
-    const { error } = await supabase
+    // Load the trip + rider so we can build the robot payload
+    const { data: rec, error: recErr } = await supabase
+      .from("billing_records")
+      .select(
+        `id, trip_id,
+         medicaid_trips!inner(
+           id, pickup_at, odometer_start, odometer_end, signature_path,
+           vehicle_type, trip_kind, rider_id,
+           riders(medicaid_id)
+         )`,
+      )
+      .eq("id", data.id)
+      .single();
+    if (recErr) throw new Error(recErr.message);
+    const trip: any = rec.medicaid_trips;
+    if (!trip) throw new Error("Trip not found");
+
+    // Flip to pending_submit + clear stale error, then trigger the robot
+    const { error: updErr } = await supabase
       .from("billing_records")
       .update({
         status: "pending_submit",
         reviewed_by: userId,
         reviewed_at: new Date().toISOString(),
         fix_notes: null,
+        submission_error: null,
+        requires_human_step: false,
       })
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (updErr) throw new Error(updErr.message);
     await logAudit(supabase, data.id, userId, "approved");
+
+    // Kick off the automation. We do this synchronously so the toast can
+    // report a real failure (missing rate, missing rider, etc.), but any
+    // downstream error is stored on the record instead of blowing away
+    // the "approved" state — the admin can retry from the detail sheet.
+    try {
+      await startRobotSubmission(supabase, {
+        billingRecordId: data.id,
+        trip,
+        providerUserId: userId,
+      });
+    } catch (e: any) {
+      const msg = e?.message ?? "Failed to start automation";
+      await supabase
+        .from("billing_records")
+        .update({ submission_error: msg })
+        .eq("id", data.id);
+      await logAudit(supabase, data.id, userId, "robot_start_failed", msg);
+      // Don't throw — the approval itself succeeded.
+    }
+
     return { ok: true };
   });
+
+const ROBOT_BASE_URL =
+  "https://redart-hcpf-automation-production.up.railway.app";
+
+function formatTripDateMDY(pickupAt: string | null | undefined): string {
+  const d = pickupAt ? new Date(pickupAt) : new Date();
+  const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+  const mm = String(safe.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(safe.getUTCDate()).padStart(2, "0");
+  const yyyy = safe.getUTCFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
+
+async function startRobotSubmission(
+  supabase: any,
+  args: { billingRecordId: string; trip: any; providerUserId: string },
+) {
+  const { billingRecordId, trip, providerUserId } = args;
+  const rider = trip.riders;
+  const medicaidMemberId: string | null = rider?.medicaid_id ?? null;
+  if (!medicaidMemberId) {
+    throw new Error("Rider has no Medicaid member ID");
+  }
+
+  // Unique job id per submission attempt. Server-side timestamp keeps it
+  // monotonic even if two attempts race.
+  const jobId = `trip-${trip.id}-${Date.now()}`;
+
+  const payload = {
+    id: jobId,
+    medicaid_trip_id: trip.id,
+    provider_id: providerUserId,
+    vehicle_type: (trip.vehicle_type as string | null) ?? "ambulatory",
+    medicaid_member_id: medicaidMemberId,
+    trip_date: formatTripDateMDY(trip.pickup_at),
+    signature_captured: Boolean(trip.signature_path),
+    pickup_odometer: Number(trip.odometer_start ?? 0),
+    dropoff_odometer: Number(trip.odometer_end ?? 0),
+    is_round_trip: trip.trip_kind === "round_trip",
+  };
+
+  const res = await fetch(`${ROBOT_BASE_URL}/submit-claim`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(
+      `Automation service rejected the request (${res.status}): ${text.slice(0, 300)}`,
+    );
+  }
+  let parsed: any = {};
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    /* tolerate non-JSON */
+  }
+  const returnedJobId: string =
+    typeof parsed?.jobId === "string" && parsed.jobId ? parsed.jobId : jobId;
+
+  const nowIso = new Date().toISOString();
+  await supabase
+    .from("medicaid_trips")
+    .update({
+      robot_job_id: returnedJobId,
+      robot_job_started_at: nowIso,
+      robot_last_status: "started",
+      robot_last_message: null,
+      robot_last_checked_at: nowIso,
+    })
+    .eq("id", trip.id);
+
+  await supabase
+    .from("billing_records")
+    .update({ status: "submitting", submission_error: null })
+    .eq("id", billingRecordId);
+}
+
+/**
+ * Poll the Railway automation service for job status and reconcile the
+ * billing record. Safe to call repeatedly from the client — becomes a no-op
+ * once the job is in a terminal state.
+ */
+export const checkRobotJobStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const { data: rec, error } = await supabase
+      .from("billing_records")
+      .select(
+        `id, status, trip_id,
+         medicaid_trips!inner(id, robot_job_id, robot_last_status, robot_last_message, robot_last_checked_at)`,
+      )
+      .eq("id", data.id)
+      .single();
+    if (error) throw new Error(error.message);
+    const trip: any = rec.medicaid_trips;
+    const jobId: string | null = trip?.robot_job_id ?? null;
+    if (!jobId) {
+      return { pending: false, status: "no_job", message: "No robot job has been started for this trip." };
+    }
+
+    const res = await fetch(`${ROBOT_BASE_URL}/job-status/${encodeURIComponent(jobId)}`, {
+      method: "GET",
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      // Don't mutate DB state on a transient poll failure
+      return {
+        pending: true,
+        status: "poll_error",
+        message: `Poll failed (${res.status}): ${text.slice(0, 200)}`,
+      };
+    }
+    let body: any = {};
+    try { body = JSON.parse(text); } catch { /* ignore */ }
+
+    const jobStatus: string = String(body?.status ?? "unknown");
+    const result = body?.result ?? {};
+    const resultStatus: string = String(result?.status ?? "");
+    const resultReason: string | null =
+      typeof result?.reason === "string" && result.reason ? result.reason :
+      typeof result?.message === "string" && result.message ? result.message :
+      typeof body?.error === "string" && body.error ? body.error : null;
+
+    const nowIso = new Date().toISOString();
+
+    // Still running
+    if (jobStatus !== "done" && jobStatus !== "error") {
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: jobStatus,
+          robot_last_message: resultReason,
+          robot_last_checked_at: nowIso,
+        })
+        .eq("id", trip.id);
+      return { pending: true, status: jobStatus, message: resultReason };
+    }
+
+    // Terminal: success path
+    if (jobStatus === "done" && resultStatus === "READY_FOR_HUMAN_REVIEW") {
+      const msg =
+        "Claim form is filled in the HCPF portal — please log in, review, and click Submit manually.";
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: resultStatus,
+          robot_last_message: msg,
+          robot_last_checked_at: nowIso,
+        })
+        .eq("id", trip.id);
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "pending_submit",
+          requires_human_step: true,
+          submission_error: msg,
+        })
+        .eq("id", rec.id);
+      await logAudit(supabase, rec.id, userId, "robot_ready_for_review", msg);
+      return { pending: false, status: resultStatus, message: msg };
+    }
+
+    // Terminal: error / BLOCKED_*
+    const errMsg =
+      resultReason ||
+      (resultStatus ? `Automation returned ${resultStatus}` : "Automation failed");
+    await supabase
+      .from("medicaid_trips")
+      .update({
+        robot_last_status: resultStatus || jobStatus,
+        robot_last_message: errMsg,
+        robot_last_checked_at: nowIso,
+      })
+      .eq("id", trip.id);
+    await supabase
+      .from("billing_records")
+      .update({
+        status: "needs_fix",
+        submission_error: errMsg,
+        fix_notes: errMsg,
+        requires_human_step: false,
+      })
+      .eq("id", rec.id);
+    await logAudit(supabase, rec.id, userId, "robot_failed", errMsg);
+    return { pending: false, status: resultStatus || jobStatus, message: errMsg };
+  });
+
 
 export const requestFix = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

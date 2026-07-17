@@ -11,11 +11,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Loader2, FileDown, Check, X, Send, AlertCircle } from "lucide-react";
+import { Loader2, FileDown, Check, X, Send, AlertCircle, RefreshCw, Bot } from "lucide-react";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { formatDateTime } from "@/lib/format";
 import {
   approveBillingRecord,
+  checkRobotJobStatus,
   getBillingRecord,
   markApproved,
   markRejected,
@@ -40,6 +41,7 @@ export function BillingDetailSheet({
   const markApprovedFn = useServerFn(markApproved);
   const markRejectedFn = useServerFn(markRejected);
   const regeneratePdfFn = useServerFn(regenerateBillingPdf);
+  const checkRobotFn = useServerFn(checkRobotJobStatus);
 
   const [fixNotes, setFixNotes] = useState("");
   const [rejectReason, setRejectReason] = useState("");
@@ -63,9 +65,8 @@ export function BillingDetailSheet({
   const approve = useMutation({
     mutationFn: () => approveFn({ data: { id: id! } }),
     onSuccess: () => {
-      toast.success("Approved — moved to Pending Submit");
+      toast.success("Approved — automation started");
       invalidate();
-      onClose();
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -122,9 +123,41 @@ export function BillingDetailSheet({
     onError: (e: any) => toast.error(e.message),
   });
 
+  const checkRobot = useMutation({
+    mutationFn: () => checkRobotFn({ data: { id: id! } }),
+    onSuccess: (res: any) => {
+      if (res?.status === "no_job") toast.message(res.message);
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const rec = detail.data?.record as any;
   const trip = detail.data?.trip as any;
   const rider = trip?.riders;
+
+  const robotJobId: string | null = trip?.robot_job_id ?? null;
+  const robotStatus: string | null = trip?.robot_last_status ?? null;
+  const robotMessage: string | null = trip?.robot_last_message ?? null;
+  const robotStartedAt: string | null = trip?.robot_job_started_at ?? null;
+  const robotIsRunning =
+    rec?.status === "submitting" ||
+    (!!robotJobId &&
+      robotStatus !== null &&
+      robotStatus !== "READY_FOR_HUMAN_REVIEW" &&
+      robotStatus !== "error" &&
+      !String(robotStatus).startsWith("BLOCKED_"));
+
+  // Auto-poll every 15s while a robot job is in-flight.
+  useEffect(() => {
+    if (!open || !id || !robotIsRunning) return;
+    const t = setInterval(() => {
+      checkRobot.mutate();
+    }, 15000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, id, robotIsRunning]);
+
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
@@ -165,6 +198,50 @@ export function BillingDetailSheet({
                 </div>
               </div>
             )}
+
+            {robotJobId && (
+              <div className="rounded-xl border border-border bg-surface p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2">
+                    <Bot className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="text-xs">
+                      <div className="flex items-center gap-2 font-medium">
+                        Automation robot
+                        {robotIsRunning && (
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="mt-0.5 text-muted-foreground">
+                        Status: <span className="font-mono">{robotStatus ?? "unknown"}</span>
+                        {robotStartedAt && (
+                          <> · started {formatDateTime(robotStartedAt)}</>
+                        )}
+                      </div>
+                      {robotMessage && (
+                        <div className="mt-1 text-foreground/80">{robotMessage}</div>
+                      )}
+                      <div className="mt-1 text-[10px] text-muted-foreground">
+                        Job ID: <span className="font-mono">{robotJobId}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => checkRobot.mutate()}
+                    disabled={checkRobot.isPending}
+                  >
+                    {checkRobot.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                    <span className="ml-1">Check status</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+
 
             <div className="grid grid-cols-2 gap-3">
               <Field label="Passenger" value={rider?.full_name} />
