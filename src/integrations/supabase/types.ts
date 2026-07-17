@@ -89,6 +89,7 @@ export type Database = {
         Row: {
           charge_amount: number
           created_at: string
+          default_diagnosis_code: string | null
           id: string
           place_of_service: string | null
           procedure_code: string
@@ -100,6 +101,7 @@ export type Database = {
         Insert: {
           charge_amount: number
           created_at?: string
+          default_diagnosis_code?: string | null
           id?: string
           place_of_service?: string | null
           procedure_code: string
@@ -111,6 +113,7 @@ export type Database = {
         Update: {
           charge_amount?: number
           created_at?: string
+          default_diagnosis_code?: string | null
           id?: string
           place_of_service?: string | null
           procedure_code?: string
