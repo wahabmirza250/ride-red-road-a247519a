@@ -719,7 +719,7 @@ export const upsertPortalCredential = createServerFn({ method: "POST" })
         portal_id: z.string().min(1),
         portal_name: z.string().min(1),
         state: z.string().min(2),
-        login_email: z.string().email(),
+        login_email: z.string().min(1),
         login_password: z.string().min(1),
         company_id: z.string().uuid().nullable().optional(),
       })
