@@ -37,7 +37,7 @@ export function BillingDetailSheet({
   const fetchDetail = useServerFn(getBillingRecord);
   const approveFn = useServerFn(approveBillingRecord);
   const requestFixFn = useServerFn(requestFix);
-  const submitFn = useServerFn(submitBillingRecords);
+  
   const markApprovedFn = useServerFn(markApproved);
   const markRejectedFn = useServerFn(markRejected);
   const regeneratePdfFn = useServerFn(regenerateBillingPdf);
