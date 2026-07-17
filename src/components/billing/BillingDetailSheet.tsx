@@ -329,23 +329,8 @@ export function BillingDetailSheet({
                 </>
               )}
 
-              {(rec.status === "pending_submit" ||
-                rec.status === "submitting") && (
-                <Button
-                  className="w-full"
-                  disabled={
-                    submitOne.isPending || rec.status === "submitting"
-                  }
-                  onClick={() => submitOne.mutate()}
-                >
-                  {submitOne.isPending || rec.status === "submitting" ? (
-                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-1 h-4 w-4" />
-                  )}
-                  {rec.submission_error ? "Retry submit" : "Submit to state portal"}
-                </Button>
-              )}
+
+
 
               {rec.status === "submitted" && (
                 <>
