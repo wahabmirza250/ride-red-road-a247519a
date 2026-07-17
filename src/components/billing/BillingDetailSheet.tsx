@@ -41,6 +41,7 @@ export function BillingDetailSheet({
   const markApprovedFn = useServerFn(markApproved);
   const markRejectedFn = useServerFn(markRejected);
   const regeneratePdfFn = useServerFn(regenerateBillingPdf);
+  const checkRobotFn = useServerFn(checkRobotJobStatus);
 
   const [fixNotes, setFixNotes] = useState("");
   const [rejectReason, setRejectReason] = useState("");
@@ -64,9 +65,8 @@ export function BillingDetailSheet({
   const approve = useMutation({
     mutationFn: () => approveFn({ data: { id: id! } }),
     onSuccess: () => {
-      toast.success("Approved — moved to Pending Submit");
+      toast.success("Approved — automation started");
       invalidate();
-      onClose();
     },
     onError: (e: any) => toast.error(e.message),
   });
