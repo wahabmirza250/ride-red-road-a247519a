@@ -40,6 +40,7 @@ type SectionErrors = {
 
 type FormState = {
   vehicle_type: VehicleType;
+  default_diagnosis_code: string;
   trip: SectionState;
   mile: SectionState;
 };
@@ -52,6 +53,7 @@ const EMPTY_SECTION: SectionState = {
 
 const emptyForm = (vehicle_type: VehicleType): FormState => ({
   vehicle_type,
+  default_diagnosis_code: "",
   trip: { ...EMPTY_SECTION },
   mile: { ...EMPTY_SECTION },
 });
@@ -90,6 +92,7 @@ export function BillingRatesCard() {
   const [form, setForm] = useState<FormState>(() => emptyForm("ambulatory"));
   const [isEditing, setIsEditing] = useState(false);
   const [errors, setErrors] = useState<{
+    default_diagnosis_code?: string;
     trip: SectionErrors;
     mile: SectionErrors;
   }>({ trip: {}, mile: {} });
@@ -99,6 +102,8 @@ export function BillingRatesCard() {
     setIsEditing(true);
     setForm({
       vehicle_type: vt,
+      default_diagnosis_code:
+        g.trip?.default_diagnosis_code ?? g.mile?.default_diagnosis_code ?? "",
       trip: {
         procedure_code: g.trip?.procedure_code ?? "",
         charge_amount:
@@ -163,11 +168,18 @@ export function BillingRatesCard() {
     e.preventDefault();
     const tripErr = validateSection(form.trip);
     const mileErr = validateSection(form.mile);
-    setErrors({ trip: tripErr, mile: mileErr });
-    if (Object.keys(tripErr).length || Object.keys(mileErr).length) return;
+    const dxErr = form.default_diagnosis_code.trim() ? undefined : "Required";
+    setErrors({ default_diagnosis_code: dxErr, trip: tripErr, mile: mileErr });
+    if (
+      dxErr ||
+      Object.keys(tripErr).length ||
+      Object.keys(mileErr).length
+    )
+      return;
 
     upsert.mutate({
       vehicle_type: form.vehicle_type,
+      default_diagnosis_code: form.default_diagnosis_code.trim(),
       trip: {
         procedure_code: form.trip.procedure_code,
         charge_amount: Number(form.trip.charge_amount),
@@ -209,6 +221,10 @@ export function BillingRatesCard() {
             const g = grouped[vt];
             const trip = g.trip;
             const mile = g.mile;
+            const dx =
+              trip?.default_diagnosis_code ??
+              mile?.default_diagnosis_code ??
+              null;
             return (
               <div
                 key={vt}
@@ -217,6 +233,13 @@ export function BillingRatesCard() {
                 <div className="text-sm">
                   <div className="font-medium">{VEHICLE_LABELS[vt]}</div>
                   <div className="text-xs text-muted-foreground">
+                    Dx{" "}
+                    {dx ? (
+                      <span>{dx}</span>
+                    ) : (
+                      <span className="opacity-70">not set</span>
+                    )}
+                    {"  |  "}
                     Trip{" "}
                     {trip ? (
                       <>
@@ -282,20 +305,41 @@ export function BillingRatesCard() {
           )}
         </div>
 
-        <div className="space-y-1">
-          <Label>Vehicle Type</Label>
-          <Select
-            value={form.vehicle_type}
-            onValueChange={(v) => onVehicleChange(v as VehicleType)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ambulatory">Ambulatory</SelectItem>
-              <SelectItem value="wheelchair_van">Wheelchair Van</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="space-y-1">
+            <Label>Vehicle Type</Label>
+            <Select
+              value={form.vehicle_type}
+              onValueChange={(v) => onVehicleChange(v as VehicleType)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ambulatory">Ambulatory</SelectItem>
+                <SelectItem value="wheelchair_van">Wheelchair Van</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>
+              Default Diagnosis Code{" "}
+              <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              value={form.default_diagnosis_code}
+              placeholder="R688"
+              onChange={(e) =>
+                setForm({ ...form, default_diagnosis_code: e.target.value })
+              }
+              aria-invalid={!!errors.default_diagnosis_code}
+            />
+            {errors.default_diagnosis_code && (
+              <p className="text-xs text-destructive">
+                {errors.default_diagnosis_code}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
