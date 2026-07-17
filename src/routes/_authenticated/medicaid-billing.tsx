@@ -42,7 +42,6 @@ function MedicaidBillingPage() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<TabKey>("pending_review");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [checked, setChecked] = useState<Set<string>>(new Set());
   const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
 
   const listFn = useServerFn(listBillingRecords);
@@ -59,7 +58,6 @@ function MedicaidBillingPage() {
     enabled: isAdmin,
   });
   const defaultPortal = getPortal(settings.data?.default_portal_id);
-  const runnerConfigured = settings.data?.runner_configured ?? true;
 
   // Realtime — invalidate on any billing_records change
   useEffect(() => {
@@ -79,29 +77,7 @@ function MedicaidBillingPage() {
     };
   }, [qc]);
 
-  // Reset selection when the tab changes
-  useEffect(() => {
-    setChecked(new Set());
-  }, [tab]);
 
-  const submitFn = useServerFn(submitBillingRecords);
-  const submitMany = useMutation({
-    mutationFn: (ids: string[]) => submitFn({ data: { ids } }),
-    onSuccess: (r: any) => {
-      const okCount = r?.results?.filter((x: any) => x.ok).length ?? 0;
-      const failCount = (r?.results?.length ?? 0) - okCount;
-      if (okCount) toast.success(`Submitting ${okCount} trip(s)…`);
-      if (failCount) toast.error(`${failCount} failed to start`);
-      setChecked(new Set());
-      qc.invalidateQueries({ queryKey: ["billing_list"] });
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
-
-  const idsOnPage = useMemo(
-    () => (rows.data ?? []).map((r: any) => r.id),
-    [rows.data],
-  );
 
   if (!isAdmin) {
     return (
