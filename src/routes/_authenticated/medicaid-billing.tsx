@@ -144,9 +144,8 @@ function MedicaidBillingPage() {
           <table className="w-full text-sm">
             <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                {tab === "pending_submit" && (
-                  <th className="w-10 px-3 py-3"></th>
-                )}
+
+
                 <th className="px-4 py-3 text-left">Passenger</th>
                 <th className="px-4 py-3 text-left">Driver</th>
                 <th className="px-4 py-3 text-left">Trip date</th>
