@@ -11,11 +11,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Loader2, FileDown, Check, X, Send, AlertCircle } from "lucide-react";
+import { Loader2, FileDown, Check, X, Send, AlertCircle, RefreshCw, Bot } from "lucide-react";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { formatDateTime } from "@/lib/format";
 import {
   approveBillingRecord,
+  checkRobotJobStatus,
   getBillingRecord,
   markApproved,
   markRejected,
