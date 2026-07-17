@@ -45,6 +45,7 @@ import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
 import { Route as ApiPublicGetTripPdfRouteImport } from './routes/api/public/get-trip-pdf'
+import { Route as ApiPublicGetPortalCredentialRouteImport } from './routes/api/public/get-portal-credential'
 import { Route as ApiPublicGetBillingRateRouteImport } from './routes/api/public/get-billing-rate'
 import { Route as AuthenticatedPayrollDriverIdRouteImport } from './routes/_authenticated/payroll.$driverId'
 import { Route as AuthenticatedMedicaidTripsNewRouteImport } from './routes/_authenticated/medicaid-trips.new'
@@ -230,6 +231,12 @@ const ApiPublicGetTripPdfRoute = ApiPublicGetTripPdfRouteImport.update({
   path: '/api/public/get-trip-pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicGetPortalCredentialRoute =
+  ApiPublicGetPortalCredentialRouteImport.update({
+    id: '/api/public/get-portal-credential',
+    path: '/api/public/get-portal-credential',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicGetBillingRateRoute = ApiPublicGetBillingRateRouteImport.update({
   id: '/api/public/get-billing-rate',
   path: '/api/public/get-billing-rate',
@@ -285,6 +292,7 @@ export interface FileRoutesByFullPath {
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
+  '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
   '/driver/trip/new': typeof DriverTripNewRoute
 }
@@ -323,6 +331,7 @@ export interface FileRoutesByTo {
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
+  '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
   '/driver/trip/new': typeof DriverTripNewRoute
 }
@@ -365,6 +374,7 @@ export interface FileRoutesById {
   '/_authenticated/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
   '/_authenticated/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
+  '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
   '/driver/trip/new': typeof DriverTripNewRoute
 }
@@ -407,6 +417,7 @@ export interface FileRouteTypes {
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
     | '/api/public/get-billing-rate'
+    | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
     | '/driver/trip/new'
   fileRoutesByTo: FileRoutesByTo
@@ -445,6 +456,7 @@ export interface FileRouteTypes {
     | '/medicaid-trips/new'
     | '/payroll/$driverId'
     | '/api/public/get-billing-rate'
+    | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
     | '/driver/trip/new'
   id:
@@ -486,6 +498,7 @@ export interface FileRouteTypes {
     | '/_authenticated/medicaid-trips/new'
     | '/_authenticated/payroll/$driverId'
     | '/api/public/get-billing-rate'
+    | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
     | '/driver/trip/new'
   fileRoutesById: FileRoutesById
@@ -498,6 +511,7 @@ export interface RootRouteChildren {
   PassengerRoute: typeof PassengerRouteWithChildren
   TrackTripIdRoute: typeof TrackTripIdRoute
   ApiPublicGetBillingRateRoute: typeof ApiPublicGetBillingRateRoute
+  ApiPublicGetPortalCredentialRoute: typeof ApiPublicGetPortalCredentialRoute
   ApiPublicGetTripPdfRoute: typeof ApiPublicGetTripPdfRoute
 }
 
@@ -755,6 +769,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGetTripPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/get-portal-credential': {
+      id: '/api/public/get-portal-credential'
+      path: '/api/public/get-portal-credential'
+      fullPath: '/api/public/get-portal-credential'
+      preLoaderRoute: typeof ApiPublicGetPortalCredentialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/get-billing-rate': {
       id: '/api/public/get-billing-rate'
       path: '/api/public/get-billing-rate'
@@ -889,6 +910,7 @@ const rootRouteChildren: RootRouteChildren = {
   PassengerRoute: PassengerRouteWithChildren,
   TrackTripIdRoute: TrackTripIdRoute,
   ApiPublicGetBillingRateRoute: ApiPublicGetBillingRateRoute,
+  ApiPublicGetPortalCredentialRoute: ApiPublicGetPortalCredentialRoute,
   ApiPublicGetTripPdfRoute: ApiPublicGetTripPdfRoute,
 }
 export const routeTree = rootRouteImport
