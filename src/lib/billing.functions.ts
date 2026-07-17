@@ -753,16 +753,11 @@ export const getBillingSettings = createServerFn({ method: "GET" })
       .is("company_id", null)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    const runner_configured = Boolean(
-      process.env.AUTOMATION_SERVICE_URL &&
-        process.env.AUTOMATION_SERVICE_API_KEY &&
-        process.env.AUTOMATION_SERVICE_HMAC_SECRET,
-    );
     return {
       default_portal_id: data?.default_portal_id ?? null,
-      runner_configured,
     };
   });
+
 
 export const setDefaultBillingPortal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
