@@ -82,16 +82,8 @@ export function BillingDetailSheet({
     onError: (e: any) => toast.error(e.message),
   });
 
-  const submitOne = useMutation({
-    mutationFn: () => submitFn({ data: { ids: [id!] } }),
-    onSuccess: (r: any) => {
-      const first = r?.results?.[0];
-      if (first?.ok) toast.success("Submission started");
-      else toast.error(first?.error ?? "Submit failed");
-      invalidate();
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
+
+
 
   const stateApprove = useMutation({
     mutationFn: () => markApprovedFn({ data: { id: id! } }),
