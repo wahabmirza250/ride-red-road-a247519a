@@ -123,9 +123,41 @@ export function BillingDetailSheet({
     onError: (e: any) => toast.error(e.message),
   });
 
+  const checkRobot = useMutation({
+    mutationFn: () => checkRobotFn({ data: { id: id! } }),
+    onSuccess: (res: any) => {
+      if (res?.status === "no_job") toast.message(res.message);
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const rec = detail.data?.record as any;
   const trip = detail.data?.trip as any;
   const rider = trip?.riders;
+
+  const robotJobId: string | null = trip?.robot_job_id ?? null;
+  const robotStatus: string | null = trip?.robot_last_status ?? null;
+  const robotMessage: string | null = trip?.robot_last_message ?? null;
+  const robotStartedAt: string | null = trip?.robot_job_started_at ?? null;
+  const robotIsRunning =
+    rec?.status === "submitting" ||
+    (!!robotJobId &&
+      robotStatus !== null &&
+      robotStatus !== "READY_FOR_HUMAN_REVIEW" &&
+      robotStatus !== "error" &&
+      !String(robotStatus).startsWith("BLOCKED_"));
+
+  // Auto-poll every 15s while a robot job is in-flight.
+  useEffect(() => {
+    if (!open || !id || !robotIsRunning) return;
+    const t = setInterval(() => {
+      checkRobot.mutate();
+    }, 15000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, id, robotIsRunning]);
+
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
