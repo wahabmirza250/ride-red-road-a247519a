@@ -128,39 +128,8 @@ function MedicaidBillingPage() {
         </TabsList>
       </Tabs>
 
-      {tab === "pending_submit" && (rows.data?.length ?? 0) > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface p-3">
-          <Checkbox
-            checked={checked.size === idsOnPage.length && idsOnPage.length > 0}
-            onCheckedChange={(v) =>
-              setChecked(new Set(v ? idsOnPage : []))
-            }
-          />
-          <span className="text-xs text-muted-foreground">
-            {checked.size} selected
-          </span>
-          <div className="ml-auto flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={checked.size === 0 || submitMany.isPending}
-              onClick={() => submitMany.mutate(Array.from(checked))}
-            >
-              <Send className="mr-1 h-4 w-4" /> Submit selected
-            </Button>
-            <Button
-              size="sm"
-              disabled={idsOnPage.length === 0 || submitMany.isPending}
-              onClick={() => submitMany.mutate(idsOnPage)}
-            >
-              {submitMany.isPending && (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              )}
-              <Send className="mr-1 h-4 w-4" /> Submit all
-            </Button>
-          </div>
-        </div>
-      )}
+
+
 
       {rows.isLoading ? (
         <div className="flex justify-center py-12">
