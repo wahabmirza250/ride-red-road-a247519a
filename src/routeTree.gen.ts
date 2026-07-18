@@ -48,6 +48,7 @@ import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedEventsRouteImport } from './routes/_authenticated/events'
 import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as PassengerBookVehicleRouteImport } from './routes/passenger.book.vehicle'
 import { Route as PassengerBookPickupRouteImport } from './routes/passenger.book.pickup'
 import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
 import { Route as ApiPublicGetTripPdfRouteImport } from './routes/api/public/get-trip-pdf'
@@ -253,6 +254,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const PassengerBookVehicleRoute = PassengerBookVehicleRouteImport.update({
+  id: '/book/vehicle',
+  path: '/book/vehicle',
+  getParentRoute: () => PassengerRoute,
+} as any)
 const PassengerBookPickupRoute = PassengerBookPickupRouteImport.update({
   id: '/book/pickup',
   path: '/book/pickup',
@@ -338,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
+  '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -383,6 +390,7 @@ export interface FileRoutesByTo {
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
+  '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -432,6 +440,7 @@ export interface FileRoutesById {
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
+  '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -481,6 +490,7 @@ export interface FileRouteTypes {
     | '/api/public/get-trip-pdf'
     | '/driver/trip/new'
     | '/passenger/book/pickup'
+    | '/passenger/book/vehicle'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -526,6 +536,7 @@ export interface FileRouteTypes {
     | '/api/public/get-trip-pdf'
     | '/driver/trip/new'
     | '/passenger/book/pickup'
+    | '/passenger/book/vehicle'
   id:
     | '__root__'
     | '/'
@@ -574,6 +585,7 @@ export interface FileRouteTypes {
     | '/api/public/get-trip-pdf'
     | '/driver/trip/new'
     | '/passenger/book/pickup'
+    | '/passenger/book/vehicle'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -864,6 +876,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/passenger/book/vehicle': {
+      id: '/passenger/book/vehicle'
+      path: '/book/vehicle'
+      fullPath: '/passenger/book/vehicle'
+      preLoaderRoute: typeof PassengerBookVehicleRouteImport
+      parentRoute: typeof PassengerRoute
+    }
     '/passenger/book/pickup': {
       id: '/passenger/book/pickup'
       path: '/book/pickup'
@@ -1009,6 +1028,7 @@ interface PassengerRouteChildren {
   PassengerTrackRoute: typeof PassengerTrackRoute
   PassengerIndexRoute: typeof PassengerIndexRoute
   PassengerBookPickupRoute: typeof PassengerBookPickupRoute
+  PassengerBookVehicleRoute: typeof PassengerBookVehicleRoute
 }
 
 const PassengerRouteChildren: PassengerRouteChildren = {
@@ -1022,6 +1042,7 @@ const PassengerRouteChildren: PassengerRouteChildren = {
   PassengerTrackRoute: PassengerTrackRoute,
   PassengerIndexRoute: PassengerIndexRoute,
   PassengerBookPickupRoute: PassengerBookPickupRoute,
+  PassengerBookVehicleRoute: PassengerBookVehicleRoute,
 }
 
 const PassengerRouteWithChildren = PassengerRoute._addFileChildren(
