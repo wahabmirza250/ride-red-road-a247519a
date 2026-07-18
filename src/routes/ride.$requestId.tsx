@@ -411,9 +411,9 @@ function MatchedBlock({
       {/* Driver row */}
       <div className="mt-3 flex items-center gap-3 rounded-2xl border border-border/60 bg-surface p-3">
         <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-primary/10 text-base font-semibold uppercase text-primary">
-          {driver.profile?.avatar_url ? (
+          {avatarUrl ? (
             <img
-              src={driver.profile.avatar_url}
+              src={avatarUrl}
               alt={driverName}
               className="h-full w-full object-cover"
             />
