@@ -70,11 +70,11 @@ type CurrentTrip = {
 function statusTone(status: string) {
   const s = status.toLowerCase();
   if (["in_progress", "busy", "active", "available"].includes(s))
-    return { label: "Active", classes: "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30" };
+    return { label: "Active", classes: "bg-brand-green/20 text-brand-green ring-1 ring-brand-green/40" };
   if (["completed", "done", "reviewed"].includes(s))
-    return { label: "Completed", classes: "bg-primary/20 text-sky-300 ring-1 ring-sky-500/30" };
+    return { label: "Completed", classes: "bg-brand-blue/20 text-brand-blue ring-1 ring-brand-blue/40" };
   if (["scheduled", "pending", "assigned", "pending_review"].includes(s))
-    return { label: "Scheduled", classes: "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30" };
+    return { label: "Scheduled", classes: "bg-brand-yellow/25 text-brand-yellow-foreground ring-1 ring-brand-yellow/50 dark:text-brand-yellow" };
   return { label: status.replace(/_/g, " "), classes: "bg-muted text-foreground ring-1 ring-border" };
 }
 
