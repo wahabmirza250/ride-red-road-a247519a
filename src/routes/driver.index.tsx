@@ -238,7 +238,7 @@ function DriverHome() {
       .eq("id", req.id)
       .eq("status", "pending");
     if (error) return toast.error(error.message);
-    await supabase.from("drivers").update({ status: "on_trip" }).eq("id", driver.id);
+    await supabase.from("drivers").update({ status: "busy" }).eq("id", driver.id);
     toast.success("Trip accepted");
     void loadRequests();
   }
