@@ -79,7 +79,7 @@ function VehicleSelect() {
     }
     if (!user) {
       toast.error("Sign in to book a ride.");
-      void navigate({ to: "/auth" });
+      void navigate({ to: "/passenger/signup" });
       return;
     }
     setSubmitting(true);

@@ -35,7 +35,7 @@ function RewardsPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           Track your rides and enter contests for prizes.
         </p>
-        <Link to="/auth" className="mt-4 inline-block text-sm font-medium text-primary hover:underline">
+        <Link to="/passenger/signup" className="mt-4 inline-block text-sm font-medium text-primary hover:underline">
           Sign in
         </Link>
       </div>
