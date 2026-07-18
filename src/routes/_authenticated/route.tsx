@@ -11,6 +11,7 @@ import {
   CalendarClock,
   Newspaper,
   Gamepad2,
+  Trophy,
   LogOut,
   Loader2,
   ClipboardList,
