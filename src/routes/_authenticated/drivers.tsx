@@ -351,7 +351,7 @@ function EditDriverDialog({
   const [avatarPath, setAvatarPath] = useState<string | null>(driver.profile?.avatar_url ?? null);
   const [uploading, setUploading] = useState(false);
   const [vehiclePath, setVehiclePath] = useState<string | null>(
-    (driver as unknown as { vehicle_photo_path?: string | null }).vehicle_photo_path ?? null,
+    driver.vehicle_photo_path ?? null,
   );
   const [vehicleUrl, setVehicleUrl] = useState<string | null>(null);
   const [uploadingVehicle, setUploadingVehicle] = useState(false);
