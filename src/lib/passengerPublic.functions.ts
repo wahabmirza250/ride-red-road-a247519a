@@ -270,7 +270,7 @@ export const getMyPassengerProfile = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
       .from("passengers")
-      .select("id, first_name, last_name, phone, email, address, medicaid_id, ssn_last4, date_of_birth, approx_city, approx_region")
+      .select("id, first_name, last_name, phone, email, address, medicaid_id, ssn_last4, date_of_birth, approx_city, approx_region, created_at")
       .eq("device_id", data.device_id)
       .maybeSingle();
     return row;
