@@ -526,12 +526,9 @@ function DriverHome() {
                 <Button
                   variant="outline"
                   className="rounded-full"
-                  onClick={async () => {
-                    await supabase.from("ride_requests").update({ status: "rejected" }).eq("id", r.id);
-                    void loadRequests();
-                  }}
+                  onClick={() => declineFn({ data: { request_id: r.id } }).then(() => loadRequests())}
                 >
-                  Skip
+                  Decline
                 </Button>
                 <Button className="rounded-full" onClick={() => accept(r)}>
                   Accept
