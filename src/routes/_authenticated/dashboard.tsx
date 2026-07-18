@@ -507,12 +507,27 @@ function DashboardPage() {
   );
 }
 
-function StatPill({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function StatPill({
+  icon,
+  label,
+  value,
+  tone = "red",
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone?: "red" | "blue" | "green" | "yellow";
+}) {
+  const toneMap: Record<string, string> = {
+    red: "bg-brand-red/15 text-brand-red",
+    blue: "bg-brand-blue/15 text-brand-blue",
+    green: "bg-brand-green/15 text-brand-green",
+    yellow: "bg-brand-yellow/25 text-brand-yellow-foreground dark:text-brand-yellow",
+  };
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-border">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-full ${toneMap[tone]}`}>
         {icon}
-
       </div>
       <div>
         <div className="text-xs text-muted-foreground">{label}</div>
