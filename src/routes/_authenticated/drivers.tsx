@@ -41,6 +41,8 @@ type DriverRow = {
   vehicle_year: number | null;
   vehicle_plate: string | null;
   vehicle_color: string | null;
+  vehicle_photo_path: string | null;
+
   status: "available" | "busy" | "offline";
   rating: number;
   total_ratings: number;
