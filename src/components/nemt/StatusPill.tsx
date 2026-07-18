@@ -18,7 +18,7 @@ const styles: Record<string, string> = {
   rejected: "bg-destructive/10 text-destructive",
   // driver
   available: "bg-success/15 text-success",
-  on_trip: "bg-info/15 text-info",
+  busy: "bg-info/15 text-info",
   offline: "bg-muted text-muted-foreground",
   // incidents
   open: "bg-warning/15 text-warning-foreground",
