@@ -199,7 +199,9 @@ function DashboardPage() {
 
   const trip = useCurrentTrip(selectedId);
   const vehiclePhoto = useSignedImage("vehicle-photos", selected?.vehicle_photo_path ?? null);
-  const driverPhoto = useSignedImage("avatars", selected?.profile?.avatar_url ?? null);
+  const driverPhoto = useSignedImage("driver-photos", selected?.photo_url ?? null);
+  const legacyDriverPhoto = useSignedImage("avatars", selected?.profile?.avatar_url ?? null);
+  const driverPhotoUrl = driverPhoto.data ?? legacyDriverPhoto.data ?? null;
 
   const filteredDrivers = useMemo(() => {
     const list = drivers.data ?? [];
@@ -277,7 +279,7 @@ function DashboardPage() {
           <div className="grid gap-4 md:grid-cols-2">
             {/* Vehicle card */}
             <div className="group relative overflow-hidden rounded-2xl bg-card ring-1 ring-border transition hover:shadow-lift">
-              <div className="relative h-40 overflow-hidden">
+              <div className="relative h-40 overflow-hidden bg-muted">
                 {vehiclePhoto.data ? (
                   <img
                     src={vehiclePhoto.data}
@@ -285,13 +287,7 @@ function DashboardPage() {
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
                   />
                 ) : (
-                  <div
-                    className="flex h-full w-full items-center justify-center"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #dbeafe 0%, #93c5fd 50%, #60a5fa 100%)",
-                    }}
-                  >
+                  <div className="vehicle-photo-placeholder-gradient flex h-full w-full items-center justify-center">
                     <Car className="h-16 w-16 text-white/90 drop-shadow" />
                   </div>
                 )}
@@ -348,8 +344,8 @@ function DashboardPage() {
             <div className="rounded-2xl bg-card p-5 ring-1 ring-border">
               <div className="flex items-start gap-4">
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
-                  {driverPhoto.data ? (
-                    <img src={driverPhoto.data} alt="Driver" className="h-full w-full object-cover" />
+                  {driverPhotoUrl ? (
+                    <img src={driverPhotoUrl} alt="Driver" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-muted-foreground">
                       {initials(selected?.profile?.first_name, selected?.profile?.last_name)}
@@ -495,9 +491,12 @@ function DashboardPage() {
 
                   >
                     <Avatar
-                      path={d.profile?.avatar_url ?? null}
+                      bucket="driver-photos"
+                      path={d.photo_url ?? null}
+                      fallbackPath={d.profile?.avatar_url ?? null}
                       name={`${d.profile?.first_name ?? ""} ${d.profile?.last_name ?? ""}`}
                       size={40}
+                      className="bg-muted"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
