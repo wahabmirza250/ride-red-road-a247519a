@@ -66,8 +66,19 @@ const DRIVER_NAV = [
   { to: "/games", label: "Games", icon: Gamepad2 },
 ] as const;
 
+// Paths inside /_authenticated that non-admins must not see. Drivers landing
+// on any of these are bounced to their own home; passengers are bounced out
+// of the dispatch app entirely.
+const DRIVER_ALLOWED_PREFIXES = ["/medicaid-trips", "/news", "/games"];
+
+function isDriverAllowed(pathname: string): boolean {
+  return DRIVER_ALLOWED_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+}
+
 function AuthenticatedLayout() {
-  const { loading, user, isAdmin, isDriver, signOut } = useAuth();
+  const { loading, user, isAdmin, isDriver, isPassenger, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, toggle: toggleTheme } = useTheme();
@@ -75,10 +86,30 @@ function AuthenticatedLayout() {
   useDriverLocationPing();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+    if (!user) {
       navigate({ to: "/auth", replace: true });
+      return;
     }
-  }, [loading, user, navigate]);
+    // Role-based routing guard.
+    if (!isAdmin && !isDriver) {
+      // Passenger-only (or roleless) users have no business in the dispatch app.
+      navigate({ to: isPassenger ? "/passenger" : "/auth", replace: true });
+      return;
+    }
+    if (!isAdmin && isDriver && !isDriverAllowed(location.pathname)) {
+      // Driver stumbled onto an admin-only page inside the dispatch app.
+      navigate({ to: "/medicaid-trips", replace: true });
+    }
+  }, [
+    loading,
+    user,
+    isAdmin,
+    isDriver,
+    isPassenger,
+    location.pathname,
+    navigate,
+  ]);
 
   // Admins get browser push for new ride requests and events.
   useEffect(() => {
@@ -98,6 +129,7 @@ function AuthenticatedLayout() {
   }
 
   const NAV = isAdmin ? ADMIN_NAV : isDriver ? DRIVER_NAV : [];
+
 
   if (!isAdmin && !isDriver) {
     return (
