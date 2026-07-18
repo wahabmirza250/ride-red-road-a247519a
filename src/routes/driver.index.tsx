@@ -69,6 +69,7 @@ type PaxRow = {
 };
 
 function DriverHome() {
+  const declineFn = useServerFn(declineRideOffer);
   const { user } = useAuth();
   const [driver, setDriver] = useState<DriverRow | null>(null);
   const [pending, setPending] = useState<Request[]>([]);
