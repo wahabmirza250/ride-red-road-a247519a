@@ -124,6 +124,8 @@ function RidePage() {
   }, []);
 
   // Load driver info as soon as one is assigned (offer state), realtime updates.
+  // Uses the get_ride_request_view RPC because passengers don't have direct RLS
+  // access to public.drivers / public.profiles.
   const [driver, setDriver] = useState<DriverRow | null>(null);
   useEffect(() => {
     const did = req?.driver_id;
@@ -132,41 +134,24 @@ function RidePage() {
       return;
     }
     let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("drivers")
-        .select(
-          "id,user_id,current_lat,current_lng,vehicle_make,vehicle_model,vehicle_year,vehicle_color,vehicle_plate,vehicle_photo_path",
-        )
-        .eq("id", did)
-        .maybeSingle();
+    const load = async () => {
+      const { data } = await supabase.rpc("get_ride_request_view", {
+        _request_id: requestId,
+      });
       if (cancelled || !data) return;
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("first_name,last_name,phone,avatar_url")
-        .eq("id", (data as { user_id: string }).user_id)
-        .maybeSingle();
-      if (cancelled) return;
-      setDriver({ ...(data as Omit<DriverRow, "profile">), profile: (prof as DriverRow["profile"]) ?? null });
-    })();
+      const drv = (data as { driver: DriverRow | null }).driver;
+      if (drv) setDriver(drv);
+    };
+    void load();
 
-    const ch = supabase
-      .channel(`ride-driver-${did}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "drivers", filter: `id=eq.${did}` },
-        (payload) => {
-          const n = payload.new as Partial<DriverRow>;
-          setDriver((prev) => (prev ? { ...prev, ...n } : prev));
-        },
-      )
-      .subscribe();
-
+    // Refresh driver location as the driver row updates. We can't subscribe with
+    // RLS-restricted filter, so poll every 5s while an offer/trip is live.
+    const poll = window.setInterval(load, 5000);
     return () => {
       cancelled = true;
-      supabase.removeChannel(ch);
+      window.clearInterval(poll);
     };
-  }, [req?.driver_id]);
+  }, [req?.driver_id, requestId]);
 
   const created = req?.created_at ? new Date(req.created_at).getTime() : now;
   const waited = now - created;
