@@ -8,13 +8,13 @@ export type FleetMarker = {
   id: string;
   lat: number;
   lng: number;
-  status: "available" | "on_trip" | "offline";
+  status: "available" | "busy" | "offline";
   label?: string;
 };
 
 const STATUS_COLOR: Record<FleetMarker["status"], string> = {
   available: "#22c55e", // green
-  on_trip: "#38bdf8", // blue
+  busy: "#38bdf8", // blue
   offline: "#94a3b8", // slate
 };
 

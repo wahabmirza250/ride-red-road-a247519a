@@ -69,7 +69,7 @@ type CurrentTrip = {
 
 function statusTone(status: string) {
   const s = status.toLowerCase();
-  if (["in_progress", "on_trip", "active", "available"].includes(s))
+  if (["in_progress", "busy", "active", "available"].includes(s))
     return { label: "Active", classes: "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30" };
   if (["completed", "done", "reviewed"].includes(s))
     return { label: "Completed", classes: "bg-primary/20 text-sky-300 ring-1 ring-sky-500/30" };

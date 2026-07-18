@@ -18,13 +18,13 @@ export type DriverMarker = {
   id: string;
   lat: number;
   lng: number;
-  status: "available" | "on_trip" | "offline";
+  status: "available" | "busy" | "offline";
   label?: string;
 };
 
 function pillIcon(m: DriverMarker) {
   const dot =
-    m.status === "available" ? "#22c55e" : m.status === "on_trip" ? "#f59e0b" : "#9ca3af";
+    m.status === "available" ? "#22c55e" : m.status === "busy" ? "#f59e0b" : "#9ca3af";
   const name = (m.label || "Driver").replace(/</g, "&lt;");
   const html = `
     <div style="transform:translate(-50%,-100%);display:inline-flex;align-items:center;gap:6px;
