@@ -23,6 +23,7 @@ export const Route = createFileRoute("/passenger/apply")({
 
 function ApplyForRide() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const submit = useServerFn(submitRideRequest);
   const submitAuthed = useServerFn(passengerRequestRide);
   const search = Route.useSearch();
