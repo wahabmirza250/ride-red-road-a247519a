@@ -450,13 +450,14 @@ function DashboardPage() {
 
         {/* Trip stats bar */}
         <div className="grid grid-cols-3 gap-3">
-          <StatPill icon={<Clock className="h-4 w-4" />} label="Trip time" value={tripTime} />
+          <StatPill tone="blue" icon={<Clock className="h-4 w-4" />} label="Trip time" value={tripTime} />
           <StatPill
+            tone="green"
             icon={<Gauge className="h-4 w-4" />}
             label="Miles driven"
             value={tripMiles != null ? Number(tripMiles).toFixed(1) : "—"}
           />
-          <StatPill icon={<UsersIcon className="h-4 w-4" />} label="Passengers" value={trip.data ? "1" : "0"} />
+          <StatPill tone="yellow" icon={<UsersIcon className="h-4 w-4" />} label="Passengers" value={trip.data ? "1" : "0"} />
         </div>
 
         {/* Map + trip stops */}
