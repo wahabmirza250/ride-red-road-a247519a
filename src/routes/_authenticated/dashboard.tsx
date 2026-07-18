@@ -483,9 +483,10 @@ function DashboardPage() {
                     onClick={() => setSelectedId(d.id)}
                     className={`flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition ${
                       active
-                        ? "bg-primary/15 ring-1 ring-sky-500/50"
+                        ? "bg-primary/10 ring-1 ring-primary/40"
                         : "bg-muted/40 hover:bg-muted"
                     }`}
+
                   >
                     <Avatar
                       path={d.profile?.avatar_url ?? null}
