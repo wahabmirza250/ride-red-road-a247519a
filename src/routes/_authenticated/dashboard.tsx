@@ -483,13 +483,13 @@ function DashboardPage() {
             {trip.data ? (
               <ol className="space-y-4">
                 <StopRow
-                  dotClass="bg-emerald-400"
+                  dotClass="bg-brand-green text-brand-green"
                   label="Pickup"
                   time={trip.data.actual_pickup_time ?? trip.data.scheduled_pickup_time}
                   address={trip.data.pickup_address}
                 />
                 <StopRow
-                  dotClass="bg-rose-400"
+                  dotClass="bg-brand-red text-brand-red"
                   label="Dropoff"
                   time={trip.data.actual_dropoff_time}
                   address={trip.data.dropoff_address}
