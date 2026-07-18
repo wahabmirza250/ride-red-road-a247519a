@@ -44,6 +44,7 @@ import { Route as AuthenticatedLiveOpsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedIncidentsRouteImport } from './routes/_authenticated/incidents'
 import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/games'
 import { Route as AuthenticatedEventsRouteImport } from './routes/_authenticated/events'
+import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
 import { Route as ApiPublicGetTripPdfRouteImport } from './routes/api/public/get-trip-pdf'
@@ -229,6 +230,11 @@ const AuthenticatedEventsRoute = AuthenticatedEventsRouteImport.update({
   path: '/events',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDriversRoute = AuthenticatedDriversRouteImport.update({
+  id: '/drivers',
+  path: '/drivers',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -274,6 +280,7 @@ export interface FileRoutesByFullPath {
   '/driver': typeof DriverRouteWithChildren
   '/passenger': typeof PassengerRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/drivers': typeof AuthenticatedDriversRoute
   '/events': typeof AuthenticatedEventsRoute
   '/games': typeof AuthenticatedGamesRoute
   '/incidents': typeof AuthenticatedIncidentsRoute
@@ -315,6 +322,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/drivers': typeof AuthenticatedDriversRoute
   '/events': typeof AuthenticatedEventsRoute
   '/games': typeof AuthenticatedGamesRoute
   '/incidents': typeof AuthenticatedIncidentsRoute
@@ -360,6 +368,7 @@ export interface FileRoutesById {
   '/driver': typeof DriverRouteWithChildren
   '/passenger': typeof PassengerRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/drivers': typeof AuthenticatedDriversRoute
   '/_authenticated/events': typeof AuthenticatedEventsRoute
   '/_authenticated/games': typeof AuthenticatedGamesRoute
   '/_authenticated/incidents': typeof AuthenticatedIncidentsRoute
@@ -405,6 +414,7 @@ export interface FileRouteTypes {
     | '/driver'
     | '/passenger'
     | '/dashboard'
+    | '/drivers'
     | '/events'
     | '/games'
     | '/incidents'
@@ -446,6 +456,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/dashboard'
+    | '/drivers'
     | '/events'
     | '/games'
     | '/incidents'
@@ -490,6 +501,7 @@ export interface FileRouteTypes {
     | '/driver'
     | '/passenger'
     | '/_authenticated/dashboard'
+    | '/_authenticated/drivers'
     | '/_authenticated/events'
     | '/_authenticated/games'
     | '/_authenticated/incidents'
@@ -787,6 +799,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedEventsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/drivers': {
+      id: '/_authenticated/drivers'
+      path: '/drivers'
+      fullPath: '/drivers'
+      preLoaderRoute: typeof AuthenticatedDriversRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -855,6 +874,7 @@ const AuthenticatedMedicaidTripsRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDriversRoute: typeof AuthenticatedDriversRoute
   AuthenticatedEventsRoute: typeof AuthenticatedEventsRoute
   AuthenticatedGamesRoute: typeof AuthenticatedGamesRoute
   AuthenticatedIncidentsRoute: typeof AuthenticatedIncidentsRoute
@@ -875,6 +895,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDriversRoute: AuthenticatedDriversRoute,
   AuthenticatedEventsRoute: AuthenticatedEventsRoute,
   AuthenticatedGamesRoute: AuthenticatedGamesRoute,
   AuthenticatedIncidentsRoute: AuthenticatedIncidentsRoute,

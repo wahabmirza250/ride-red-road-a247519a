@@ -397,11 +397,11 @@ function EditDriverDialog({ driver, onClose }: { driver: DriverWithProfile; onCl
   const del = useServerFn(deleteDriver);
   const driverPhotoPreview = useObjectUrl(driverPhotoFile);
   const vehiclePhotoPreview = useObjectUrl(vehiclePhotoFile);
-  const driverPhotoUrl =
-    driverPhotoPreview ??
-    useSignedUrl("driver-photos", driver.photo_url) ??
-    useSignedUrl("avatars", driver.profile?.avatar_url);
-  const vehiclePhotoUrl = vehiclePhotoPreview ?? useSignedUrl("vehicle-photos", driver.vehicle_photo_path);
+  const savedDriverPhotoUrl = useSignedUrl("driver-photos", driver.photo_url);
+  const legacyDriverPhotoUrl = useSignedUrl("avatars", driver.profile?.avatar_url);
+  const savedVehiclePhotoUrl = useSignedUrl("vehicle-photos", driver.vehicle_photo_path);
+  const driverPhotoUrl = driverPhotoPreview ?? savedDriverPhotoUrl ?? legacyDriverPhotoUrl;
+  const vehiclePhotoUrl = vehiclePhotoPreview ?? savedVehiclePhotoUrl;
 
   async function handleDelete() {
     if (!confirm(`Delete ${driver.profile?.first_name ?? "this driver"}? This removes their login and cannot be undone.`)) return;
