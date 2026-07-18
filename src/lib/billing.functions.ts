@@ -24,16 +24,34 @@ const StatusEnum = z.enum([
   "needs_fix",
 ]);
 
+const ALL_STATUSES = [
+  "pending_review",
+  "approved",
+  "submitting",
+  "needs_fix",
+  "pending_submit",
+  "submitted",
+  "rejected",
+] as const;
+
 /* ---------- LIST ---------- */
 
 export const listBillingRecords = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ status: StatusEnum }).parse(d),
+    z
+      .object({
+        statuses: z.array(StatusEnum).min(1).optional(),
+        status: StatusEnum.optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
+
+    const statuses = data.statuses ?? (data.status ? [data.status] : []);
+    if (!statuses.length) throw new Error("statuses required");
 
     const { data: rows, error } = await supabase
       .from("billing_records")
@@ -43,14 +61,14 @@ export const listBillingRecords = createServerFn({ method: "POST" })
          requires_human_step, updated_at,
          medicaid_trips!inner(
            id, pickup_at, pickup_address, dropoff_address, driver_id, state_pdf_path,
+           robot_job_id, robot_last_status, robot_last_message, robot_job_started_at,
            riders(full_name, medicaid_id)
          )`,
       )
-      .eq("status", data.status)
+      .in("status", statuses)
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
 
-    // Second query for driver profiles (avoids ambiguous FK join)
     const driverIds = Array.from(
       new Set(
         (rows ?? [])
@@ -69,9 +87,6 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       );
     }
 
-    // Sign PDF URLs in parallel (15 min TTL). Verify the file actually
-    // exists in the bucket first — otherwise the signed URL 400s with a JSON
-    // "Object not found" body and the viewer shows a broken PDF icon.
     const pdfUrls = await Promise.all(
       (rows ?? []).map(async (r: any) => {
         const path: string | null = r.medicaid_trips?.state_pdf_path ?? null;
@@ -89,7 +104,6 @@ export const listBillingRecords = createServerFn({ method: "POST" })
         return signed?.signedUrl ?? null;
       }),
     );
-
 
     return (rows ?? []).map((r: any, i: number) => ({
       id: r.id,
@@ -112,7 +126,27 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       pickup_address: r.medicaid_trips?.pickup_address,
       dropoff_address: r.medicaid_trips?.dropoff_address,
       pdf_url: pdfUrls[i],
+      robot_job_id: r.medicaid_trips?.robot_job_id ?? null,
+      robot_last_status: r.medicaid_trips?.robot_last_status ?? null,
+      robot_last_message: r.medicaid_trips?.robot_last_message ?? null,
+      robot_job_started_at: r.medicaid_trips?.robot_job_started_at ?? null,
     }));
+  });
+
+export const getBillingCounts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data, error } = await supabase
+      .from("billing_records")
+      .select("status")
+      .in("status", ALL_STATUSES as unknown as string[]);
+    if (error) throw new Error(error.message);
+    const counts: Record<string, number> = {};
+    for (const s of ALL_STATUSES) counts[s] = 0;
+    for (const row of data ?? []) counts[(row as any).status] = (counts[(row as any).status] ?? 0) + 1;
+    return counts;
   });
 
 
