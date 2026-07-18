@@ -24,16 +24,34 @@ const StatusEnum = z.enum([
   "needs_fix",
 ]);
 
+const ALL_STATUSES = [
+  "pending_review",
+  "approved",
+  "submitting",
+  "needs_fix",
+  "pending_submit",
+  "submitted",
+  "rejected",
+] as const;
+
 /* ---------- LIST ---------- */
 
 export const listBillingRecords = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ status: StatusEnum }).parse(d),
+    z
+      .object({
+        statuses: z.array(StatusEnum).min(1).optional(),
+        status: StatusEnum.optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
+
+    const statuses = data.statuses ?? (data.status ? [data.status] : []);
+    if (!statuses.length) throw new Error("statuses required");
 
     const { data: rows, error } = await supabase
       .from("billing_records")
@@ -43,14 +61,14 @@ export const listBillingRecords = createServerFn({ method: "POST" })
          requires_human_step, updated_at,
          medicaid_trips!inner(
            id, pickup_at, pickup_address, dropoff_address, driver_id, state_pdf_path,
+           robot_job_id, robot_last_status, robot_last_message, robot_job_started_at,
            riders(full_name, medicaid_id)
          )`,
       )
-      .eq("status", data.status)
+      .in("status", statuses)
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
 
-    // Second query for driver profiles (avoids ambiguous FK join)
     const driverIds = Array.from(
       new Set(
         (rows ?? [])
@@ -69,9 +87,6 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       );
     }
 
-    // Sign PDF URLs in parallel (15 min TTL). Verify the file actually
-    // exists in the bucket first — otherwise the signed URL 400s with a JSON
-    // "Object not found" body and the viewer shows a broken PDF icon.
     const pdfUrls = await Promise.all(
       (rows ?? []).map(async (r: any) => {
         const path: string | null = r.medicaid_trips?.state_pdf_path ?? null;
@@ -89,7 +104,6 @@ export const listBillingRecords = createServerFn({ method: "POST" })
         return signed?.signedUrl ?? null;
       }),
     );
-
 
     return (rows ?? []).map((r: any, i: number) => ({
       id: r.id,
@@ -112,7 +126,27 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       pickup_address: r.medicaid_trips?.pickup_address,
       dropoff_address: r.medicaid_trips?.dropoff_address,
       pdf_url: pdfUrls[i],
+      robot_job_id: r.medicaid_trips?.robot_job_id ?? null,
+      robot_last_status: r.medicaid_trips?.robot_last_status ?? null,
+      robot_last_message: r.medicaid_trips?.robot_last_message ?? null,
+      robot_job_started_at: r.medicaid_trips?.robot_job_started_at ?? null,
     }));
+  });
+
+export const getBillingCounts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data, error } = await supabase
+      .from("billing_records")
+      .select("status")
+      .in("status", ALL_STATUSES as unknown as string[]);
+    if (error) throw new Error(error.message);
+    const counts: Record<string, number> = {};
+    for (const s of ALL_STATUSES) counts[s] = 0;
+    for (const row of data ?? []) counts[(row as any).status] = (counts[(row as any).status] ?? 0) + 1;
+    return counts;
   });
 
 
@@ -321,6 +355,11 @@ function normalizeTripLegs(trip: any): Leg[] {
   ];
 }
 
+/**
+ * Approve a trip after admin review. Moves it to `approved` status so it
+ * shows up in the "Ready to Submit" tab. The robot is NOT triggered here;
+ * the admin batches selected trips and clicks "Submit Claims" in Tab 2.
+ */
 export const approveBillingRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
@@ -328,28 +367,10 @@ export const approveBillingRecord = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
 
-    // Load the trip + rider so we can build the robot payload
-    const { data: rec, error: recErr } = await supabase
-      .from("billing_records")
-      .select(
-        `id, trip_id,
-         medicaid_trips!inner(
-           id, pickup_at, odometer_start, odometer_end, signature_path,
-           vehicle_type, trip_kind, rider_id,
-           riders(medicaid_id)
-         )`,
-      )
-      .eq("id", data.id)
-      .single();
-    if (recErr) throw new Error(recErr.message);
-    const trip: any = rec.medicaid_trips;
-    if (!trip) throw new Error("Trip not found");
-
-    // Flip to pending_submit + clear stale error, then trigger the robot
     const { error: updErr } = await supabase
       .from("billing_records")
       .update({
-        status: "pending_submit",
+        status: "approved",
         reviewed_by: userId,
         reviewed_at: new Date().toISOString(),
         fix_notes: null,
@@ -359,27 +380,95 @@ export const approveBillingRecord = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (updErr) throw new Error(updErr.message);
     await logAudit(supabase, data.id, userId, "approved");
+    return { ok: true };
+  });
 
-    // Kick off the automation. We do this synchronously so the toast can
-    // report a real failure (missing rate, missing rider, etc.), but any
-    // downstream error is stored on the record instead of blowing away
-    // the "approved" state — the admin can retry from the detail sheet.
+/**
+ * Start (or retry) the Railway robot for a single billing record.
+ * Called per-record from the "Ready to Submit" tab bulk-submit loop
+ * or from the trip detail sheet.
+ */
+export const startRobotForRecord = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const { data: rec, error: recErr } = await supabase
+      .from("billing_records")
+      .select(
+        `id, status, trip_id,
+         medicaid_trips!inner(
+           id, pickup_at, odometer_start, odometer_end, signature_path,
+           vehicle_type, trip_kind, rider_id,
+           riders(medicaid_id)
+         )`,
+      )
+      .eq("id", data.id)
+      .single();
+    if (recErr) throw new Error(recErr.message);
+    if (!["approved", "needs_fix", "submitting"].includes(rec.status as string)) {
+      throw new Error(`Trip is in "${rec.status}" and cannot be submitted from here`);
+    }
+    const trip: any = rec.medicaid_trips;
+    if (!trip) throw new Error("Trip not found");
+
     try {
       await startRobotSubmission(supabase, {
         billingRecordId: data.id,
         trip,
         providerUserId: userId,
       });
+      await logAudit(supabase, data.id, userId, "robot_started");
+      return { ok: true };
     } catch (e: any) {
       const msg = e?.message ?? "Failed to start automation";
       await supabase
         .from("billing_records")
-        .update({ submission_error: msg })
+        .update({ status: "needs_fix", submission_error: msg, fix_notes: msg })
         .eq("id", data.id);
       await logAudit(supabase, data.id, userId, "robot_start_failed", msg);
-      // Don't throw — the approval itself succeeded.
+      throw new Error(msg);
     }
+  });
 
+/**
+ * Record that a human logged into the portal, clicked Submit, and captured
+ * the state's confirmation/receipt number. Moves the record to `submitted`.
+ */
+export const markPortalSubmitted = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        confirmation_number: z.string().trim().min(1).max(120),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase
+      .from("billing_records")
+      .update({
+        status: "submitted",
+        state_confirmation_number: data.confirmation_number,
+        submitted_at: nowIso,
+        submission_error: null,
+        requires_human_step: false,
+      })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await logAudit(
+      supabase,
+      data.id,
+      userId,
+      "portal_submitted",
+      `Confirmation #${data.confirmation_number}`,
+    );
     return { ok: true };
   });
 
