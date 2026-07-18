@@ -279,3 +279,30 @@ export const dispatcherRequestRide = createServerFn({ method: "POST" })
     const dispatch = await dispatchRideRequest({ data: { request_id: inserted.id } });
     return { request_id: inserted.id, ...dispatch };
   });
+
+/** PUBLIC (auth optional) — estimated pickup minutes for each vehicle type
+ *  from a given pickup coordinate. Returns null when no available driver
+ *  of that type has GPS. Used by the passenger vehicle picker. */
+export const getVehicleEtas = createServerFn({ method: "POST" })
+  .inputValidator((input: { lat: number; lng: number }) => {
+    if (input?.lat == null || input?.lng == null) throw new Error("Pickup coords required");
+    return input;
+  })
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: drivers } = await supabaseAdmin
+      .from("drivers")
+      .select("id, default_vehicle_type, current_lat, current_lng, status")
+      .eq("status", "available");
+
+    const pickup = { lat: data.lat, lng: data.lng };
+    const bestByType: Record<string, number> = {};
+    for (const d of drivers ?? []) {
+      if (d.current_lat == null || d.current_lng == null) continue;
+      const type = d.default_vehicle_type ?? "ambulatory";
+      const km = haversineKm(pickup, { lat: Number(d.current_lat), lng: Number(d.current_lng) });
+      const mins = Math.max(1, Math.round((km / 40) * 60));
+      if (bestByType[type] == null || mins < bestByType[type]) bestByType[type] = mins;
+    }
+    return bestByType;
+  });
