@@ -395,9 +395,9 @@ function MatchedBlock({
 
       {/* Vehicle photo strip */}
       <div className="mt-4 overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-sky-500/15 via-sky-500/5 to-transparent">
-        {driver.vehicle_photo_path ? (
+        {vehiclePhotoUrl ? (
           <img
-            src={driver.vehicle_photo_path}
+            src={vehiclePhotoUrl}
             alt={vehicleDesc || "Vehicle"}
             className="h-32 w-full object-contain p-2"
           />
