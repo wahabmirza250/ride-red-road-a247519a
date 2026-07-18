@@ -357,13 +357,23 @@ function EditDriverDialog({
   const del = useServerFn(deleteDriver);
 
   // Resolve current vehicle photo signed URL on open / change.
-  useState(() => {
-    if (!vehiclePath) return;
+  useEffect(() => {
+    if (!vehiclePath) {
+      setVehicleUrl(null);
+      return;
+    }
+    let cancelled = false;
     supabase.storage
       .from("vehicle-photos")
       .createSignedUrl(vehiclePath, 3600)
-      .then(({ data }) => setVehicleUrl(data?.signedUrl ?? null));
-  });
+      .then(({ data }) => {
+        if (!cancelled) setVehicleUrl(data?.signedUrl ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [vehiclePath]);
+
 
   async function uploadAvatar(file: File) {
     setUploading(true);
