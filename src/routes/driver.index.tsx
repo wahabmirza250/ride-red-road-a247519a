@@ -106,10 +106,13 @@ function DriverHome() {
 
   const loadRequests = useCallback(async () => {
     if (!driver) return;
+    const nowIso = new Date().toISOString();
     const { data: pend } = await supabase
       .from("ride_requests")
       .select("*")
       .eq("status", "pending")
+      .or(`driver_id.eq.${driver.id},driver_id.is.null`)
+      .or(`offer_expires_at.is.null,offer_expires_at.gt.${nowIso}`)
       .order("created_at", { ascending: false })
       .limit(5);
     setPending((pend ?? []) as Request[]);
