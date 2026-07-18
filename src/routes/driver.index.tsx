@@ -202,12 +202,13 @@ function DriverHome() {
   async function toggleOnline() {
     if (!driver) return;
     const next = !online;
+    const nextStatus: "available" | "offline" = next ? "available" : "offline";
     const { error } = await supabase
       .from("drivers")
-      .update({ is_online: next, status: next ? "available" : "offline" })
+      .update({ status: nextStatus })
       .eq("id", driver.id);
     if (error) return toast.error(error.message);
-    setDriver({ ...driver, is_online: next, status: next ? "available" : "offline" });
+    setDriver({ ...driver, status: nextStatus });
     toast.success(next ? "You're online" : "Went offline");
   }
 
