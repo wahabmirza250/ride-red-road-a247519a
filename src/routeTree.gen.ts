@@ -18,6 +18,7 @@ import { Route as PassengerIndexRouteImport } from './routes/passenger.index'
 import { Route as DriverIndexRouteImport } from './routes/driver.index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
 import { Route as RideRequestIdRouteImport } from './routes/ride.$requestId'
+import { Route as PassengerTrackRouteImport } from './routes/passenger.track'
 import { Route as PassengerSafetyRouteImport } from './routes/passenger.safety'
 import { Route as PassengerRewardsRouteImport } from './routes/passenger.rewards'
 import { Route as PassengerProfileRouteImport } from './routes/passenger.profile'
@@ -97,6 +98,11 @@ const RideRequestIdRoute = RideRequestIdRouteImport.update({
   id: '/ride/$requestId',
   path: '/ride/$requestId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PassengerTrackRoute = PassengerTrackRouteImport.update({
+  id: '/track',
+  path: '/track',
+  getParentRoute: () => PassengerRoute,
 } as any)
 const PassengerSafetyRoute = PassengerSafetyRouteImport.update({
   id: '/safety',
@@ -314,6 +320,7 @@ export interface FileRoutesByFullPath {
   '/passenger/profile': typeof PassengerProfileRoute
   '/passenger/rewards': typeof PassengerRewardsRoute
   '/passenger/safety': typeof PassengerSafetyRoute
+  '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver/': typeof DriverIndexRoute
@@ -357,6 +364,7 @@ export interface FileRoutesByTo {
   '/passenger/profile': typeof PassengerProfileRoute
   '/passenger/rewards': typeof PassengerRewardsRoute
   '/passenger/safety': typeof PassengerSafetyRoute
+  '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver': typeof DriverIndexRoute
@@ -404,6 +412,7 @@ export interface FileRoutesById {
   '/passenger/profile': typeof PassengerProfileRoute
   '/passenger/rewards': typeof PassengerRewardsRoute
   '/passenger/safety': typeof PassengerSafetyRoute
+  '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver/': typeof DriverIndexRoute
@@ -451,6 +460,7 @@ export interface FileRouteTypes {
     | '/passenger/profile'
     | '/passenger/rewards'
     | '/passenger/safety'
+    | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/driver/'
@@ -494,6 +504,7 @@ export interface FileRouteTypes {
     | '/passenger/profile'
     | '/passenger/rewards'
     | '/passenger/safety'
+    | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/driver'
@@ -540,6 +551,7 @@ export interface FileRouteTypes {
     | '/passenger/profile'
     | '/passenger/rewards'
     | '/passenger/safety'
+    | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/driver/'
@@ -629,6 +641,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/ride/$requestId'
       preLoaderRoute: typeof RideRequestIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/passenger/track': {
+      id: '/passenger/track'
+      path: '/track'
+      fullPath: '/passenger/track'
+      preLoaderRoute: typeof PassengerTrackRouteImport
+      parentRoute: typeof PassengerRoute
     }
     '/passenger/safety': {
       id: '/passenger/safety'
@@ -968,6 +987,7 @@ interface PassengerRouteChildren {
   PassengerProfileRoute: typeof PassengerProfileRoute
   PassengerRewardsRoute: typeof PassengerRewardsRoute
   PassengerSafetyRoute: typeof PassengerSafetyRoute
+  PassengerTrackRoute: typeof PassengerTrackRoute
   PassengerIndexRoute: typeof PassengerIndexRoute
 }
 
@@ -979,6 +999,7 @@ const PassengerRouteChildren: PassengerRouteChildren = {
   PassengerProfileRoute: PassengerProfileRoute,
   PassengerRewardsRoute: PassengerRewardsRoute,
   PassengerSafetyRoute: PassengerSafetyRoute,
+  PassengerTrackRoute: PassengerTrackRoute,
   PassengerIndexRoute: PassengerIndexRoute,
 }
 

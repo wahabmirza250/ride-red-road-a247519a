@@ -1,210 +1,190 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
-import { useServerFn } from "@tanstack/react-start";
-import { toast } from "sonner";
-import { Loader2, Search, MapPin, Clock, Phone } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { lookupPassengerRides } from "@/lib/passenger.functions";
-import { fmtMoney } from "@/lib/rideMath";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Search, CalendarClock, MapPin, PlusCircle, Navigation, ArrowRight } from "lucide-react";
+import { supabase } from "@/lib/supabaseBrowser";
+import { useAuth } from "@/lib/auth";
+import { useCurrentPosition } from "@/lib/useGeolocation";
 
 export const Route = createFileRoute("/passenger/")({
   component: PassengerHome,
 });
 
-type Trip = {
-  id: string;
-  status: string;
-  pickup_address: string;
-  dropoff_address: string;
-  scheduled_pickup_time: string;
-  actual_pickup_time: string | null;
-  actual_dropoff_time: string | null;
-  estimated_fare: number | null;
-  driver: { name: string; phone: string | null; vehicle: string | null } | null;
-};
+type RecentTrip = { id: string; dropoff_address: string; created_at: string };
 
 function PassengerHome() {
-  const lookup = useServerFn(lookupPassengerRides);
-  const [phone, setPhone] = useState("");
-  const [medicaid, setMedicaid] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [trips, setTrips] = useState<Trip[] | null>(null);
-  const [passengerName, setPassengerName] = useState<string>("");
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { pos } = useCurrentPosition();
+  const [firstName, setFirstName] = useState<string>("");
+  const [recent, setRecent] = useState<RecentTrip[]>([]);
 
-  const run = useCallback(
-    async (p: string, m: string) => {
-      setLoading(true);
-      try {
-        const res = await lookup({ data: { phone: p, medicaidId: m } });
-        setTrips(res.trips as Trip[]);
-        setPassengerName(res.passengers[0]?.name ?? "");
-        if (!res.passengers.length)
-          toast.info("No account found — please give this info to your driver at pickup.");
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Lookup failed");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [lookup],
-  );
-
+  // Load profile name + recent dropoffs for signed-in passengers.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const p = window.localStorage.getItem("passenger_phone") ?? "";
-    const m = window.localStorage.getItem("passenger_medicaid") ?? "";
-    if (p || m) {
-      setPhone(p);
-      setMedicaid(m);
-      void run(p, m);
-    }
-  }, [run]);
+    if (!user) return;
+    let cancel = false;
+    (async () => {
+      const { data: prof } = await supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle();
+      if (!cancel && prof?.first_name) setFirstName(prof.first_name);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!phone && !medicaid) return toast.error("Enter phone or Medicaid ID");
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("passenger_phone", phone);
-      window.localStorage.setItem("passenger_medicaid", medicaid);
-    }
-    void run(phone, medicaid);
+      const { data: passenger } = await supabase.from("passengers").select("id").eq("user_id", user.id).maybeSingle();
+      if (!passenger || cancel) return;
+      const { data: trips } = await supabase
+        .from("trips")
+        .select("id, dropoff_address, created_at")
+        .eq("passenger_id", passenger.id)
+        .not("dropoff_address", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (!cancel) setRecent((trips ?? []) as RecentTrip[]);
+    })();
+    return () => { cancel = true; };
+  }, [user]);
+
+  const greeting = useMemo(() => {
+    const name = firstName || (user?.email ? user.email.split("@")[0] : "");
+    return name ? `Hi there, ${name}` : "Hi there";
+  }, [firstName, user]);
+
+  const seenAddresses = new Set<string>();
+  const uniqueRecent = recent.filter((r) => {
+    const k = r.dropoff_address.trim().toLowerCase();
+    if (seenAddresses.has(k)) return false;
+    seenAddresses.add(k);
+    return true;
+  });
+
+  function goToSearch() {
+    void navigate({ to: "/passenger/book/pickup" });
+  }
+
+  function pickRecent(addr: string) {
+    void navigate({ to: "/passenger/book/pickup", search: { dropoff: addr } });
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1.5 pt-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Find your ride
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Enter your phone or Medicaid ID to see your trips.
-        </p>
+    <div className="space-y-6 pb-6">
+      <div className="space-y-1 pt-1">
+        <h1 className="text-2xl font-semibold tracking-tight">{greeting}</h1>
+        <p className="text-sm text-muted-foreground">Where would you like to go today?</p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4 rounded-2xl border border-border bg-surface p-5 shadow-soft"
+      {/* Big "Where are you going?" search bar */}
+      <button
+        onClick={goToSearch}
+        className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-4 text-left shadow-soft transition hover:border-primary/60 hover:shadow-lift"
       >
-        <div className="space-y-1.5">
-          <Label htmlFor="phone" className="text-xs font-medium text-muted-foreground">
-            Phone number
-          </Label>
-          <div className="relative">
-            <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="phone"
-              type="tel"
-              inputMode="tel"
-              placeholder="(555) 123-4567"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="h-11 pl-9"
-            />
-          </div>
-        </div>
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Search className="h-5 w-5" />
+        </span>
+        <span className="flex-1">
+          <span className="block text-base font-semibold text-foreground">Where are you going?</span>
+          <span className="block text-xs text-muted-foreground">Tap to enter a destination</span>
+        </span>
+        <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
+      </button>
 
-        <div className="flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
-          or
-          <span className="h-px flex-1 bg-border" />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="mid" className="text-xs font-medium text-muted-foreground">
-            Medicaid ID
-          </Label>
-          <Input
-            id="mid"
-            value={medicaid}
-            onChange={(e) => setMedicaid(e.target.value)}
-            placeholder="e.g. M964077"
-            className="h-11"
-          />
-        </div>
-
-        <Button
-          type="submit"
-          disabled={loading}
-          className="h-11 w-full rounded-full text-base font-semibold"
+      {/* Quick actions */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link
+          to="/passenger/apply"
+          className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface p-3.5 shadow-soft transition hover:border-primary/60"
         >
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Looking up…
-            </>
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-amber-500">
+            <CalendarClock className="h-4 w-4" />
+          </span>
+          <span>
+            <span className="block text-sm font-semibold">Schedule ahead</span>
+            <span className="block text-[11px] text-muted-foreground">Book a future ride</span>
+          </span>
+        </Link>
+        <Link
+          to="/passenger/track"
+          className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface p-3.5 shadow-soft transition hover:border-primary/60"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/15 text-sky-500">
+            <MapPin className="h-4 w-4" />
+          </span>
+          <span>
+            <span className="block text-sm font-semibold">Track a ride</span>
+            <span className="block text-[11px] text-muted-foreground">Phone or Medicaid ID</span>
+          </span>
+        </Link>
+      </div>
+
+      {/* Saved / recent locations */}
+      <section className="space-y-2.5">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          {uniqueRecent.length ? "Recent destinations" : "Saved places"}
+        </h2>
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">
+          {uniqueRecent.length === 0 ? (
+            <button
+              onClick={goToSearch}
+              className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-surface-muted"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <PlusCircle className="h-4 w-4" />
+              </span>
+              <span>
+                <span className="block text-sm font-medium">Add a location</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  Book your first ride to save destinations
+                </span>
+              </span>
+            </button>
           ) : (
-            <>
-              <Search className="mr-2 h-4 w-4" />
-              Look up my ride
-            </>
+            uniqueRecent.map((r, i) => (
+              <button
+                key={r.id}
+                onClick={() => pickRecent(r.dropoff_address)}
+                className={`flex w-full items-center gap-3 p-4 text-left transition hover:bg-surface-muted ${
+                  i > 0 ? "border-t border-border/60" : ""
+                }`}
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-muted text-muted-foreground">
+                  <MapPin className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{r.dropoff_address}</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    {new Date(r.created_at).toLocaleDateString()}
+                  </span>
+                </span>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            ))
           )}
-        </Button>
-      </form>
-
-      {passengerName && (
-        <div className="text-sm text-muted-foreground">
-          Rides for <span className="font-medium text-foreground">{passengerName}</span>
         </div>
-      )}
+      </section>
 
-      {trips !== null && trips.length === 0 && !loading && (
-        <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No rides on file yet.
-        </div>
-      )}
-
-      <div className="space-y-3">
-        {(trips ?? []).map((t) => (
-          <div
-            key={t.id}
-            className="space-y-3 rounded-2xl border border-border bg-surface p-4 shadow-soft"
-          >
-            <div className="flex items-center justify-between">
-              <Badge variant="secondary" className="capitalize">
-                {t.status.replace(/_/g, " ")}
-              </Badge>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                {new Date(t.scheduled_pickup_time).toLocaleString()}
+      {/* You are here */}
+      <section className="space-y-2.5">
+        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <Navigation className="h-3.5 w-3.5" /> You are here
+        </h2>
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">
+          <div className="h-40 w-full">
+            {pos ? (
+              <iframe
+                title="Your location"
+                className="h-full w-full border-0"
+                src={`https://www.google.com/maps?q=${pos.lat},${pos.lng}&z=15&output=embed`}
+                loading="lazy"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-surface-muted text-xs text-muted-foreground">
+                Fetching your location…
               </div>
-            </div>
-            <div className="space-y-1.5 text-sm">
-              <div className="flex gap-2">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                <span>{t.pickup_address}</span>
-              </div>
-              <div className="flex gap-2">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-                <span>{t.dropoff_address}</span>
-              </div>
-            </div>
-            {t.driver && (
-              <div className="flex items-center justify-between rounded-xl bg-surface-muted px-3 py-2 text-sm">
-                <div>
-                  <div className="font-medium">{t.driver.name}</div>
-                  {t.driver.vehicle && (
-                    <div className="text-xs text-muted-foreground">{t.driver.vehicle}</div>
-                  )}
-                </div>
-                {t.driver.phone && (
-                  <a
-                    href={`tel:${t.driver.phone}`}
-                    className="rounded-full bg-primary p-2 text-primary-foreground transition hover:brightness-110"
-                  >
-                    <Phone className="h-4 w-4" />
-                  </a>
-                )}
-              </div>
-            )}
-            {t.estimated_fare != null && (
-              <div className="text-right text-sm font-medium">{fmtMoney(t.estimated_fare)}</div>
             )}
           </div>
-        ))}
-      </div>
+          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <span className="relative flex h-3 w-3">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-500/60" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-sky-500 ring-2 ring-white" />
+            </span>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
