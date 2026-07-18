@@ -529,8 +529,9 @@ function DashboardPage() {
 function StatPill({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-border">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sky-300">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
         {icon}
+
       </div>
       <div>
         <div className="text-xs text-muted-foreground">{label}</div>
