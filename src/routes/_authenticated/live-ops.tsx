@@ -153,9 +153,9 @@ function LiveOps() {
           {drivers.map((d) => {
             const hasGps = d.current_lat != null && d.current_lng != null;
             const dot =
-              d.status === "on_trip"
+              d.status === "busy"
                 ? "bg-amber-500"
-                : d.is_online
+                : d.status === "available"
                   ? "bg-emerald-500"
                   : "bg-gray-400";
             const selected = focus?.id === d.id;
