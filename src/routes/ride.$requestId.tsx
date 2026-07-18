@@ -359,6 +359,9 @@ function MatchedBlock({
   const vehicleDesc = [driver.vehicle_year, driver.vehicle_color, driver.vehicle_make, driver.vehicle_model]
     .filter(Boolean)
     .join(" ");
+  const vehiclePhotoUrl = useSignedUrl("vehicle-photos", driver.vehicle_photo_path);
+  const driverPhotoUrl = useSignedUrl("driver-photos", driver.photo_url);
+  const avatarUrl = driverPhotoUrl ?? (driver.profile?.avatar_url ? driver.profile.avatar_url : null);
 
   return (
     <div>
