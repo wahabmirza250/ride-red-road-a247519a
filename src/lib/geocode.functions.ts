@@ -1,0 +1,55 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_maps";
+
+const InputSchema = z.object({
+  address: z.string().trim().min(3).max(300),
+});
+
+export type GeocodeResult = {
+  address: string;
+  lat: number;
+  lng: number;
+};
+
+/**
+ * Server-side geocoding via the Google Maps connector gateway.
+ * Used as a fallback when a passenger types an address without picking an
+ * autocomplete suggestion. The browser key is not authorized for the Geocoding
+ * API, so this must run server-side through the gateway.
+ */
+export const geocodeAddress = createServerFn({ method: "POST" })
+  .inputValidator((data) => InputSchema.parse(data))
+  .handler(async ({ data }): Promise<GeocodeResult | null> => {
+    const lovableKey = process.env.LOVABLE_API_KEY;
+    const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!lovableKey || !gmapsKey) {
+      throw new Error("Google Maps connector is not configured");
+    }
+    const url = `${GATEWAY_URL}/maps/api/geocode/json?address=${encodeURIComponent(data.address)}`;
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": gmapsKey,
+      },
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Geocoding failed [${res.status}]: ${body}`);
+    }
+    const json = (await res.json()) as {
+      status: string;
+      results?: Array<{
+        formatted_address: string;
+        geometry: { location: { lat: number; lng: number } };
+      }>;
+    };
+    if (json.status !== "OK" || !json.results?.length) return null;
+    const first = json.results[0];
+    return {
+      address: first.formatted_address,
+      lat: first.geometry.location.lat,
+      lng: first.geometry.location.lng,
+    };
+  });
