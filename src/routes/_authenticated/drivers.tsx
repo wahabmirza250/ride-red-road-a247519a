@@ -348,8 +348,22 @@ function EditDriverDialog({
   const [saving, setSaving] = useState(false);
   const [avatarPath, setAvatarPath] = useState<string | null>(driver.profile?.avatar_url ?? null);
   const [uploading, setUploading] = useState(false);
+  const [vehiclePath, setVehiclePath] = useState<string | null>(
+    (driver as unknown as { vehicle_photo_path?: string | null }).vehicle_photo_path ?? null,
+  );
+  const [vehicleUrl, setVehicleUrl] = useState<string | null>(null);
+  const [uploadingVehicle, setUploadingVehicle] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const del = useServerFn(deleteDriver);
+
+  // Resolve current vehicle photo signed URL on open / change.
+  useState(() => {
+    if (!vehiclePath) return;
+    supabase.storage
+      .from("vehicle-photos")
+      .createSignedUrl(vehiclePath, 3600)
+      .then(({ data }) => setVehicleUrl(data?.signedUrl ?? null));
+  });
 
   async function uploadAvatar(file: File) {
     setUploading(true);
@@ -368,6 +382,37 @@ function EditDriverDialog({
     toast.success("Photo updated");
     qc.invalidateQueries({ queryKey: ["drivers"] });
   }
+
+  async function uploadVehicle(file: File) {
+    setUploadingVehicle(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${driver.user_id}/vehicle-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("vehicle-photos")
+      .upload(path, file, { contentType: file.type, upsert: true });
+    if (error) {
+      setUploadingVehicle(false);
+      return toast.error(error.message);
+    }
+    const { error: updErr } = await supabase
+      .from("drivers")
+      .update({ vehicle_photo_path: path })
+      .eq("id", driver.id);
+    if (updErr) {
+      setUploadingVehicle(false);
+      return toast.error(updErr.message);
+    }
+    const { data: signed } = await supabase.storage
+      .from("vehicle-photos")
+      .createSignedUrl(path, 3600);
+    setVehiclePath(path);
+    setVehicleUrl(signed?.signedUrl ?? null);
+    setUploadingVehicle(false);
+    toast.success("Vehicle photo updated");
+    qc.invalidateQueries({ queryKey: ["drivers"] });
+    qc.invalidateQueries({ queryKey: ["dashboard-drivers-v2"] });
+  }
+
 
   async function handleDelete() {
     if (!confirm(`Delete ${driver.profile?.first_name ?? "this driver"}? This removes their login and cannot be undone.`)) return;
