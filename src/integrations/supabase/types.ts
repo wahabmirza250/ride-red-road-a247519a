@@ -297,7 +297,6 @@ export type Database = {
             | null
           default_vin: string | null
           id: string
-          is_online: boolean
           last_location_at: string | null
           license_number: string | null
           photo_url: string | null
@@ -324,7 +323,6 @@ export type Database = {
             | null
           default_vin?: string | null
           id?: string
-          is_online?: boolean
           last_location_at?: string | null
           license_number?: string | null
           photo_url?: string | null
@@ -351,7 +349,6 @@ export type Database = {
             | null
           default_vin?: string | null
           id?: string
-          is_online?: boolean
           last_location_at?: string | null
           license_number?: string | null
           photo_url?: string | null
@@ -1073,6 +1070,7 @@ export type Database = {
           contact_name: string | null
           contact_phone: string | null
           created_at: string
+          declined_driver_ids: string[]
           distance_km: number | null
           driver_id: string | null
           dropoff_address: string
@@ -1082,6 +1080,7 @@ export type Database = {
           estimated_minutes: number | null
           id: string
           notes: string | null
+          offer_expires_at: string | null
           passenger_id: string | null
           pickup_address: string
           pickup_lat: number | null
@@ -1097,6 +1096,7 @@ export type Database = {
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          declined_driver_ids?: string[]
           distance_km?: number | null
           driver_id?: string | null
           dropoff_address: string
@@ -1106,6 +1106,7 @@ export type Database = {
           estimated_minutes?: number | null
           id?: string
           notes?: string | null
+          offer_expires_at?: string | null
           passenger_id?: string | null
           pickup_address: string
           pickup_lat?: number | null
@@ -1121,6 +1122,7 @@ export type Database = {
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          declined_driver_ids?: string[]
           distance_km?: number | null
           driver_id?: string | null
           dropoff_address?: string
@@ -1130,6 +1132,7 @@ export type Database = {
           estimated_minutes?: number | null
           id?: string
           notes?: string | null
+          offer_expires_at?: string | null
           passenger_id?: string | null
           pickup_address?: string
           pickup_lat?: number | null
@@ -1623,7 +1626,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "driver" | "passenger"
       billing_status: "pending" | "submitted" | "paid" | "rejected"
-      driver_status: "available" | "on_trip" | "offline"
+      driver_status: "available" | "busy" | "offline"
       incident_status: "open" | "reviewed" | "closed"
       incident_type:
         | "accident"
@@ -1784,7 +1787,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "driver", "passenger"],
       billing_status: ["pending", "submitted", "paid", "rejected"],
-      driver_status: ["available", "on_trip", "offline"],
+      driver_status: ["available", "busy", "offline"],
       incident_status: ["open", "reviewed", "closed"],
       incident_type: [
         "accident",

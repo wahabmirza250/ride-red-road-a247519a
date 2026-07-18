@@ -41,7 +41,7 @@ type DriverRow = {
   vehicle_year: number | null;
   vehicle_plate: string | null;
   vehicle_color: string | null;
-  status: "available" | "on_trip" | "offline";
+  status: "available" | "busy" | "offline";
   rating: number;
   total_ratings: number;
   total_trips: number;
@@ -452,7 +452,7 @@ function EditDriverDialog({
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="available">Available</SelectItem>
-              <SelectItem value="on_trip">On trip</SelectItem>
+              <SelectItem value="busy">Busy</SelectItem>
               <SelectItem value="offline">Offline</SelectItem>
             </SelectContent>
           </Select>

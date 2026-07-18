@@ -2,12 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Send, MapPin, Clock, Phone, User, FileText, CheckCircle2, Sparkles } from "lucide-react";
+import { Loader2, Send, MapPin, Clock, Phone, User, FileText, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { submitRideRequest } from "@/lib/passengerPublic.functions";
+import { passengerRequestRide } from "@/lib/dispatch.functions";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/passenger/apply")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -19,7 +22,9 @@ export const Route = createFileRoute("/passenger/apply")({
 });
 
 function ApplyForRide() {
+  const { user } = useAuth();
   const submit = useServerFn(submitRideRequest);
+  const submitAuthed = useServerFn(passengerRequestRide);
   const search = Route.useSearch();
   const [f, setF] = useState({
     contact_name: "",
@@ -30,8 +35,11 @@ function ApplyForRide() {
     requested_pickup_time: "",
     notes: search.eventTitle ? `Going to: ${search.eventTitle}` : "",
   });
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [dropoffCoords, setDropoffCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [dispatchMsg, setDispatchMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -47,7 +55,32 @@ function ApplyForRide() {
     e.preventDefault();
     setLoading(true);
     try {
-      await submit({ data: f });
+      if (user && pickupCoords && dropoffCoords) {
+        const res = await submitAuthed({
+          data: {
+            pickup_address: f.pickup_address,
+            pickup_lat: pickupCoords.lat,
+            pickup_lng: pickupCoords.lng,
+            dropoff_address: f.dropoff_address,
+            dropoff_lat: dropoffCoords.lat,
+            dropoff_lng: dropoffCoords.lng,
+            requested_pickup_time: f.requested_pickup_time || null,
+            notes: f.notes || null,
+            contact_name: f.contact_name || null,
+            contact_phone: f.contact_phone || null,
+          },
+        });
+        setDispatchMsg(
+          res.assigned
+            ? "Driver found — waiting for them to accept."
+            : res.reason === "no_drivers_available"
+              ? "No drivers available nearby right now. We'll keep trying and notify dispatch."
+              : "Request submitted.",
+        );
+      } else {
+        await submit({ data: f });
+        setDispatchMsg(null);
+      }
       setDone(true);
       if (typeof window !== "undefined" && f.contact_phone) {
         window.localStorage.setItem("passenger_phone", f.contact_phone);
@@ -59,6 +92,7 @@ function ApplyForRide() {
     }
   }
 
+
   if (done) {
     return (
       <div className="animate-rise-in rounded-3xl border border-border/60 bg-surface/80 p-8 text-center shadow-lift backdrop-blur">
@@ -67,7 +101,7 @@ function ApplyForRide() {
         </div>
         <h2 className="text-lg font-semibold">Request received</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Dispatch will call you at {f.contact_phone} shortly to confirm your ride.
+          {dispatchMsg ?? `Dispatch will call you at ${f.contact_phone} shortly to confirm your ride.`}
         </p>
         <Button
           className="mt-6 rounded-full"
@@ -109,11 +143,24 @@ function ApplyForRide() {
             <Input value={f.contact_medicaid} onChange={(e) => upd("contact_medicaid", e.target.value)} />
           </Field>
           <Field icon={<MapPin className="h-4 w-4 text-emerald-500" />} label="Pickup address" required>
-            <Input value={f.pickup_address} onChange={(e) => upd("pickup_address", e.target.value)} required />
+            <AddressAutocomplete
+              value={f.pickup_address}
+              onChange={(v) => { upd("pickup_address", v); setPickupCoords(null); }}
+              onResolve={(p) => { upd("pickup_address", p.address); setPickupCoords({ lat: p.lat, lng: p.lng }); }}
+              placeholder="Start typing an address…"
+            />
           </Field>
           <Field icon={<MapPin className="h-4 w-4 text-rose-500" />} label="Drop-off address" required>
-            <Input value={f.dropoff_address} onChange={(e) => upd("dropoff_address", e.target.value)} required />
+            <AddressAutocomplete
+              value={f.dropoff_address}
+              onChange={(v) => { upd("dropoff_address", v); setDropoffCoords(null); }}
+              onResolve={(p) => { upd("dropoff_address", p.address); setDropoffCoords({ lat: p.lat, lng: p.lng }); }}
+              placeholder="Start typing an address…"
+            />
           </Field>
+          {user && (!pickupCoords || !dropoffCoords) && (
+            <p className="text-xs text-amber-500">Pick both addresses from the dropdown so we can auto-dispatch a driver.</p>
+          )}
           <Field icon={<Clock className="h-4 w-4" />} label="Pickup time">
             <Input type="datetime-local" value={f.requested_pickup_time} onChange={(e) => upd("requested_pickup_time", e.target.value)} />
           </Field>

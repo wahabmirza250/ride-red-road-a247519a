@@ -30,6 +30,7 @@ import {
   driverCreatePassenger,
   driverSearchPassengers,
 } from "@/lib/passenger.functions";
+import { declineRideOffer } from "@/lib/dispatch.functions";
 
 export const Route = createFileRoute("/driver/")({
   component: DriverHome,
@@ -37,8 +38,7 @@ export const Route = createFileRoute("/driver/")({
 
 type DriverRow = {
   id: string;
-  is_online: boolean;
-  status: string;
+  status: "available" | "busy" | "offline";
   current_lat: number | null;
   current_lng: number | null;
 };
@@ -69,6 +69,7 @@ type PaxRow = {
 };
 
 function DriverHome() {
+  const declineFn = useServerFn(declineRideOffer);
   const { user } = useAuth();
   const [driver, setDriver] = useState<DriverRow | null>(null);
   const [pending, setPending] = useState<Request[]>([]);
@@ -88,13 +89,13 @@ function DriverHome() {
     if (!user) return;
     supabase
       .from("drivers")
-      .select("id,is_online,status,current_lat,current_lng")
+      .select("id,status,current_lat,current_lng")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => data && setDriver(data as DriverRow));
   }, [user]);
 
-  const online = driver?.is_online ?? false;
+  const online = driver ? driver.status !== "offline" : false;
 
   const pushLoc = useCallback(
     async (p: { lat: number; lng: number }) => {
@@ -107,10 +108,13 @@ function DriverHome() {
 
   const loadRequests = useCallback(async () => {
     if (!driver) return;
+    const nowIso = new Date().toISOString();
     const { data: pend } = await supabase
       .from("ride_requests")
       .select("*")
       .eq("status", "pending")
+      .or(`driver_id.eq.${driver.id},driver_id.is.null`)
+      .or(`offer_expires_at.is.null,offer_expires_at.gt.${nowIso}`)
       .order("created_at", { ascending: false })
       .limit(5);
     setPending((pend ?? []) as Request[]);
@@ -203,12 +207,13 @@ function DriverHome() {
   async function toggleOnline() {
     if (!driver) return;
     const next = !online;
+    const nextStatus: "available" | "offline" = next ? "available" : "offline";
     const { error } = await supabase
       .from("drivers")
-      .update({ is_online: next, status: next ? "available" : "offline" })
+      .update({ status: nextStatus })
       .eq("id", driver.id);
     if (error) return toast.error(error.message);
-    setDriver({ ...driver, is_online: next, status: next ? "available" : "offline" });
+    setDriver({ ...driver, status: nextStatus });
     toast.success(next ? "You're online" : "Went offline");
   }
 
@@ -238,7 +243,7 @@ function DriverHome() {
       .eq("id", req.id)
       .eq("status", "pending");
     if (error) return toast.error(error.message);
-    await supabase.from("drivers").update({ status: "on_trip" }).eq("id", driver.id);
+    await supabase.from("drivers").update({ status: "busy" }).eq("id", driver.id);
     toast.success("Trip accepted");
     void loadRequests();
   }
@@ -523,12 +528,9 @@ function DriverHome() {
                 <Button
                   variant="outline"
                   className="rounded-full"
-                  onClick={async () => {
-                    await supabase.from("ride_requests").update({ status: "rejected" }).eq("id", r.id);
-                    void loadRequests();
-                  }}
+                  onClick={() => declineFn({ data: { request_id: r.id } }).then(() => loadRequests())}
                 >
-                  Skip
+                  Decline
                 </Button>
                 <Button className="rounded-full" onClick={() => accept(r)}>
                   Accept

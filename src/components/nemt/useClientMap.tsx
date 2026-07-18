@@ -4,7 +4,7 @@ export type DriverMarker = {
   id: string;
   lat: number;
   lng: number;
-  status: "available" | "on_trip" | "offline";
+  status: "available" | "busy" | "offline";
   label?: string;
 };
 export type GpsPoint = { lat: number; lng: number; t?: string | null };
