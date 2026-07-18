@@ -19,9 +19,11 @@ import {
   checkRobotJobStatus,
   getBillingRecord,
   markApproved,
+  markPortalSubmitted,
   markRejected,
   regenerateBillingPdf,
   requestFix,
+  startRobotForRecord,
 } from "@/lib/billing.functions";
 
 
