@@ -135,7 +135,7 @@ function RidePage() {
       const { data } = await supabase
         .from("drivers")
         .select(
-          "id,user_id,current_lat,current_lng,vehicle_make,vehicle_model,vehicle_year,vehicle_color,vehicle_plate,vehicle_photo_url",
+          "id,user_id,current_lat,current_lng,vehicle_make,vehicle_model,vehicle_year,vehicle_color,vehicle_plate,vehicle_photo_path",
         )
         .eq("id", did)
         .maybeSingle();
@@ -391,9 +391,9 @@ function MatchedBlock({
 
       {/* Vehicle photo strip */}
       <div className="mt-4 overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-sky-500/15 via-sky-500/5 to-transparent">
-        {driver.vehicle_photo_url ? (
+        {driver.vehicle_photo_path ? (
           <img
-            src={driver.vehicle_photo_url}
+            src={driver.vehicle_photo_path}
             alt={vehicleDesc || "Vehicle"}
             className="h-32 w-full object-contain p-2"
           />
