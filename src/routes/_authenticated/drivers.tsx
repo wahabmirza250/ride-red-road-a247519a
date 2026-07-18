@@ -452,7 +452,7 @@ function EditDriverDialog({
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="available">Available</SelectItem>
-              <SelectItem value="busy">On trip</SelectItem>
+              <SelectItem value="busy">Busy</SelectItem>
               <SelectItem value="offline">Offline</SelectItem>
             </SelectContent>
           </Select>
