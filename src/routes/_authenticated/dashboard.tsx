@@ -358,9 +358,10 @@ function DashboardPage() {
                     {selected?.profile?.email ?? "—"}
                   </div>
                   <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-1 text-amber-300">
+                    <span className="flex items-center gap-1 text-amber-500 dark:text-amber-400">
                       <Star className="h-3 w-3 fill-current" />
                       {selected?.rating ? Number(selected.rating).toFixed(2) : "—"}
+
                     </span>
                     <span>Since {selected?.profile?.created_at ? new Date(selected.profile.created_at).getFullYear() : "—"}</span>
                   </div>
