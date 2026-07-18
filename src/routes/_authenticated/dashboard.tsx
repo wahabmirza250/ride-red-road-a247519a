@@ -279,19 +279,20 @@ function DashboardPage() {
           <div className="grid gap-4 md:grid-cols-2">
             {/* Vehicle card */}
             <div className="group relative overflow-hidden rounded-2xl bg-card ring-1 ring-border transition hover:shadow-lift">
-              <div className="relative h-40 overflow-hidden bg-muted">
+              <div className="vehicle-photo-placeholder-gradient relative h-44 overflow-hidden p-3">
                 {vehiclePhoto.data ? (
                   <img
                     src={vehiclePhoto.data}
                     alt="Vehicle"
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                    className="h-full w-full object-contain drop-shadow-md transition-transform duration-500 group-hover:scale-[1.02]"
                   />
                 ) : (
-                  <div className="vehicle-photo-placeholder-gradient flex h-full w-full items-center justify-center">
+                  <div className="flex h-full w-full items-center justify-center">
                     <Car className="h-16 w-16 text-white/90 drop-shadow" />
                   </div>
                 )}
               </div>
+
               <div className="space-y-3 p-4">
                 <div>
                   <div className="text-lg font-bold text-foreground">
