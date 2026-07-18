@@ -51,7 +51,8 @@ type DriverRow = {
   vehicle_year: number | null;
   vehicle_color: string | null;
   vehicle_plate: string | null;
-  vehicle_photo_url: string | null;
+  vehicle_photo_path: string | null;
+  photo_url: string | null;
   profile: {
     first_name: string | null;
     last_name: string | null;
