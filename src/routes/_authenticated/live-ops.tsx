@@ -36,7 +36,7 @@ function LiveOps() {
 
   const load = useCallback(async () => {
     const [{ data: d }, { data: r }] = await Promise.all([
-      supabase.from("drivers").select("id,user_id,is_online,status,current_lat,current_lng"),
+      supabase.from("drivers").select("id,user_id,status,current_lat,current_lng"),
       supabase
         .from("ride_requests")
         .select("id,status,pickup_address,dropoff_address,estimated_fare,created_at")
@@ -95,16 +95,11 @@ function LiveOps() {
       id: d.id,
       lat: Number(d.current_lat),
       lng: Number(d.current_lng),
-      status:
-        d.status === "on_trip"
-          ? "on_trip"
-          : d.is_online
-            ? "available"
-            : "offline",
+      status: d.status,
       label: d.name ?? "Driver",
     }));
 
-  const onlineCount = drivers.filter((d) => d.is_online).length;
+  const onlineCount = drivers.filter((d) => d.status !== "offline").length;
 
   return (
     <div className="space-y-4">
