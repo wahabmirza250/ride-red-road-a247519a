@@ -60,17 +60,19 @@ export function BillingDetailSheet({
   useEffect(() => {
     setFixNotes("");
     setRejectReason("");
+    setConfirmationNumber("");
   }, [id]);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["billing_list"] });
     qc.invalidateQueries({ queryKey: ["billing_detail", id] });
+    qc.invalidateQueries({ queryKey: ["billing_counts"] });
   };
 
   const approve = useMutation({
     mutationFn: () => approveFn({ data: { id: id! } }),
     onSuccess: () => {
-      toast.success("Approved — automation started");
+      toast.success("Approved — moved to Ready to Submit");
       invalidate();
     },
     onError: (e: any) => toast.error(e.message),
