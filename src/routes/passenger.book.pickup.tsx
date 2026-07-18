@@ -1,11 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ChevronLeft, MapPin, StickyNote, Loader2 } from "lucide-react";
+import { ChevronLeft, MapPin, StickyNote, Loader2, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { useCurrentPosition } from "@/lib/useGeolocation";
+import { geocodeAddress } from "@/lib/geocode.functions";
 
 export const Route = createFileRoute("/passenger/book/pickup")({
   ssr: false,
@@ -24,7 +26,7 @@ export const Route = createFileRoute("/passenger/book/pickup")({
 function ConfirmPickup() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { pos } = useCurrentPosition();
+  const { pos, err: geoErr } = useCurrentPosition();
 
   // Destination
   const [dropoff, setDropoff] = useState(search.dropoff ?? "");
@@ -39,44 +41,87 @@ function ConfirmPickup() {
   );
   const [note, setNote] = useState(search.notes ?? "");
   const [autoLocating, setAutoLocating] = useState(!pickup);
+  const [resolving, setResolving] = useState(false);
 
-  // Reverse-geocode the passenger's current position → default pickup address.
+  // Reverse-geocode the passenger's current position → default pickup address (best effort).
   useEffect(() => {
     if (pickup || !pos) return;
     setPickupCoords({ lat: pos.lat, lng: pos.lng });
-    const key = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined) ?? "";
-    if (!key) {
-      setPickup(`Current location (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})`);
-      setAutoLocating(false);
-      return;
-    }
-    fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${pos.lat},${pos.lng}&key=${key}`)
-      .then((r) => r.json())
-      .then((j) => {
-        const addr = j?.results?.[0]?.formatted_address as string | undefined;
-        if (addr) setPickup(addr);
-        else setPickup(`Current location (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})`);
-      })
-      .catch(() => setPickup(`Current location (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})`))
-      .finally(() => setAutoLocating(false));
+    setPickup(`Current location (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})`);
+    setAutoLocating(false);
   }, [pos, pickup]);
 
-  const canContinue = !!pickup && !!pickupCoords && !!dropoff && !!dropoffCoords;
+  useEffect(() => {
+    if (!pos && geoErr) setAutoLocating(false);
+  }, [pos, geoErr]);
 
-  function next() {
-    if (!canContinue) return;
-    void navigate({
-      to: "/passenger/book/vehicle",
-      search: {
-        pickup,
-        pLat: pickupCoords!.lat,
-        pLng: pickupCoords!.lng,
-        dropoff,
-        dLat: dropoffCoords!.lat,
-        dLng: dropoffCoords!.lng,
-        notes: note || undefined,
-      },
-    });
+  function useCurrentLocation() {
+    if (!pos) {
+      toast.error(geoErr ?? "Location unavailable. Please allow location access or type an address.");
+      return;
+    }
+    setPickupCoords({ lat: pos.lat, lng: pos.lng });
+    setPickup(`Current location (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})`);
+  }
+
+  const hasPickup = !!pickup.trim();
+  const hasDropoff = !!dropoff.trim();
+
+  async function next() {
+    if (!hasPickup || !hasDropoff) {
+      toast.error("Please enter both a pickup and destination address.");
+      return;
+    }
+    setResolving(true);
+    try {
+      let pc = pickupCoords;
+      let dc = dropoffCoords;
+      let pAddr = pickup;
+      let dAddr = dropoff;
+
+      if (!pc) {
+        const g = await geocodeAddress({ data: { address: pickup } });
+        if (!g) {
+          toast.error("We couldn't find that pickup address. Try a more specific one.");
+          setResolving(false);
+          return;
+        }
+        pc = { lat: g.lat, lng: g.lng };
+        pAddr = g.address;
+        setPickup(g.address);
+        setPickupCoords(pc);
+      }
+      if (!dc) {
+        const g = await geocodeAddress({ data: { address: dropoff } });
+        if (!g) {
+          toast.error("We couldn't find that destination. Try a more specific one.");
+          setResolving(false);
+          return;
+        }
+        dc = { lat: g.lat, lng: g.lng };
+        dAddr = g.address;
+        setDropoff(g.address);
+        setDropoffCoords(dc);
+      }
+
+      void navigate({
+        to: "/passenger/book/vehicle",
+        search: {
+          pickup: pAddr,
+          pLat: pc.lat,
+          pLng: pc.lng,
+          dropoff: dAddr,
+          dLat: dc.lat,
+          dLng: dc.lng,
+          notes: note || undefined,
+        },
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Could not look up that address. Please try again.");
+    } finally {
+      setResolving(false);
+    }
   }
 
   const mapSrc = pickupCoords
@@ -90,19 +135,21 @@ function ConfirmPickup() {
         {pickupCoords ? (
           <iframe title="Pickup" src={mapSrc} className="h-full w-full border-0" loading="lazy" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-            {autoLocating ? "Finding your location…" : "Enter a pickup address"}
+          <div className="flex h-full w-full items-center justify-center px-6 text-center text-xs text-muted-foreground">
+            {autoLocating ? "Finding your location…" : "Enter a pickup address below or tap “Use my location.”"}
           </div>
         )}
 
         {/* Center pin */}
-        <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-full flex-col items-center">
-          <div className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground shadow-lift">
-            Recommended
+        {pickupCoords && (
+          <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-full flex-col items-center">
+            <div className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground shadow-lift">
+              Recommended
+            </div>
+            <div className="mt-1 h-6 w-6 rounded-full bg-primary shadow-lift ring-4 ring-white" />
+            <div className="-mt-1 h-3 w-3 rotate-45 bg-primary" />
           </div>
-          <div className="mt-1 h-6 w-6 rounded-full bg-primary shadow-lift ring-4 ring-white" />
-          <div className="-mt-1 h-3 w-3 rotate-45 bg-primary" />
-        </div>
+        )}
 
         <Link
           to="/passenger"
@@ -111,14 +158,22 @@ function ConfirmPickup() {
         >
           <ChevronLeft className="h-5 w-5" />
         </Link>
+
+        <button
+          type="button"
+          onClick={useCurrentLocation}
+          className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full border border-border/60 bg-background/90 px-3 py-2 text-xs font-medium text-foreground shadow-lift backdrop-blur hover:bg-background"
+        >
+          <Crosshair className="h-3.5 w-3.5" /> Use my location
+        </button>
       </div>
 
       {/* Bottom sheet */}
       <div className="absolute inset-x-0 -mt-6 rounded-t-3xl border-t border-border bg-background px-4 pt-5 pb-6 shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.25)]">
         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-border" />
-        <h2 className="text-lg font-semibold">Confirm pickup spot</h2>
+        <h2 className="text-lg font-semibold">Confirm pickup & destination</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Drag map or edit address to set your pickup
+          Pick a suggestion or type any address — we'll look it up for you.
         </p>
 
         <div className="mt-4 space-y-3">
@@ -130,7 +185,7 @@ function ConfirmPickup() {
               value={pickup}
               onChange={(v) => { setPickup(v); setPickupCoords(null); }}
               onResolve={(p) => { setPickup(p.address); setPickupCoords({ lat: p.lat, lng: p.lng }); }}
-              placeholder="Start typing an address…"
+              placeholder="Start typing or paste an address…"
             />
           </div>
 
@@ -161,10 +216,14 @@ function ConfirmPickup() {
 
           <Button
             onClick={next}
-            disabled={!canContinue}
+            disabled={!hasPickup || !hasDropoff || resolving}
             className="mt-2 h-12 w-full rounded-full text-base font-semibold"
           >
-            {autoLocating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Locating…</> : "Confirm pickup"}
+            {resolving ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Looking up address…</>
+            ) : (
+              "Confirm pickup"
+            )}
           </Button>
         </div>
       </div>
