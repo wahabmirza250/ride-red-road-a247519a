@@ -131,6 +131,28 @@ export function BillingDetailSheet({
     onError: (e: any) => toast.error(e.message),
   });
 
+  const startRobot = useMutation({
+    mutationFn: () => startRobotFn({ data: { id: id! } }),
+    onSuccess: () => {
+      toast.success("Robot started");
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const markSubmitted = useMutation({
+    mutationFn: () =>
+      markSubmittedFn({
+        data: { id: id!, confirmation_number: confirmationNumber.trim() },
+      }),
+    onSuccess: () => {
+      toast.success("Marked as submitted");
+      invalidate();
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const rec = detail.data?.record as any;
   const trip = detail.data?.trip as any;
   const rider = trip?.riders;
