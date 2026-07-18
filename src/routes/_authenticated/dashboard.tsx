@@ -278,8 +278,8 @@ function DashboardPage() {
           {/* Vehicle + Driver info */}
           <div className="grid gap-4 md:grid-cols-2">
             {/* Vehicle card */}
-            <div className="group relative overflow-hidden rounded-2xl bg-card ring-1 ring-border transition hover:shadow-lift">
-              <div className="vehicle-photo-placeholder-gradient relative h-44 overflow-hidden p-3">
+            <div className="vehicle-card-blue group relative overflow-hidden rounded-2xl ring-1 ring-border transition hover:shadow-lift">
+              <div className="relative h-44 overflow-hidden p-3">
                 {vehiclePhoto.data ? (
                   <img
                     src={vehiclePhoto.data}
@@ -295,7 +295,7 @@ function DashboardPage() {
 
               <div className="space-y-3 p-4">
                 <div>
-                  <div className="text-lg font-bold text-foreground">
+                  <div className="text-lg font-bold text-white">
                     {selected?.vehicle_year ?? ""} {selected?.vehicle_make ?? "—"}{" "}
                     {selected?.vehicle_model ?? ""}
                   </div>
@@ -306,31 +306,31 @@ function DashboardPage() {
                         className={`h-3.5 w-3.5 ${
                           i <= Math.round(Number(selected?.rating ?? 0))
                             ? "fill-amber-400 text-amber-400"
-                            : "text-muted-foreground/40"
+                            : "text-white/40"
                         }`}
                       />
                     ))}
-                    <span className="ml-1.5 text-xs text-muted-foreground">
+                    <span className="ml-1.5 text-xs text-white/80">
                       {selected?.total_ratings ?? 0} ratings
                     </span>
                   </div>
                 </div>
-                <div className="space-y-1.5 border-t border-border pt-3 text-xs">
+                <div className="space-y-1.5 border-t border-white/20 pt-3 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Plate</span>
-                    <span className="font-semibold text-foreground">{selected?.vehicle_plate ?? "—"}</span>
+                    <span className="text-white/70">Plate</span>
+                    <span className="font-semibold text-white">{selected?.vehicle_plate ?? "—"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">VIN</span>
-                    <span className="font-semibold text-foreground">{selected?.default_vin ?? "—"}</span>
+                    <span className="text-white/70">VIN</span>
+                    <span className="font-semibold text-white">{selected?.default_vin ?? "—"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Trips completed</span>
-                    <span className="font-semibold text-foreground">{selected?.total_trips ?? 0}</span>
+                    <span className="text-white/70">Trips completed</span>
+                    <span className="font-semibold text-white">{selected?.total_trips ?? 0}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">GPS</span>
-                    <span className={`font-semibold ${driverPos ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                    <span className="text-white/70">GPS</span>
+                    <span className={`font-semibold ${driverPos ? "text-emerald-300" : "text-white/70"}`}>
                       {driverPos ? "Live" : "Offline"}
                     </span>
                   </div>
