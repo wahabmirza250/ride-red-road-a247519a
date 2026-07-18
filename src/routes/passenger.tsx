@@ -2,6 +2,8 @@ import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-rout
 import { useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Home, PlusCircle, Newspaper, Sparkles, UserCircle2, LogOut, Trophy } from "lucide-react";
+import { BrandMark, BrandWordmark } from "@/components/Brand";
+
 import { cn } from "@/lib/utils";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
@@ -84,12 +86,12 @@ function PassengerLayout() {
     <div className="relative min-h-screen bg-background pb-24 text-foreground">
       <AuroraBackdrop />
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/70 px-4 backdrop-blur-xl">
-        <Link to="/passenger" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-soft">
-            R
-          </span>
-          <span className="text-sm font-semibold tracking-tight">RedArt Rides</span>
+        <Link to="/passenger" className="flex items-center gap-2.5">
+          <BrandMark className="h-8 w-8 rounded-xl shadow-soft ring-1 ring-border/50" />
+          <BrandWordmark className="hidden h-6 sm:block" />
+          <span className="text-sm font-semibold tracking-tight sm:hidden">RedArt Rides</span>
         </Link>
+
         {hasSession && (
           <button
             onClick={forget}
