@@ -101,7 +101,7 @@ function ApplyForRide() {
         </div>
         <h2 className="text-lg font-semibold">Request received</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Dispatch will call you at {f.contact_phone} shortly to confirm your ride.
+          {dispatchMsg ?? `Dispatch will call you at ${f.contact_phone} shortly to confirm your ride.`}
         </p>
         <Button
           className="mt-6 rounded-full"
