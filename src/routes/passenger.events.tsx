@@ -92,7 +92,7 @@ function EventsFeed() {
         </div>
         {!user && (
           <div className="mt-3 rounded-xl border border-dashed border-border p-3 text-xs text-muted-foreground">
-            <Link to="/auth" className="font-medium text-primary hover:underline">
+            <Link to="/passenger/signup" className="font-medium text-primary hover:underline">
               Sign in
             </Link>{" "}
             to get push notifications when new events are posted.
