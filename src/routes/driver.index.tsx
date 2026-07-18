@@ -87,13 +87,13 @@ function DriverHome() {
     if (!user) return;
     supabase
       .from("drivers")
-      .select("id,is_online,status,current_lat,current_lng")
+      .select("id,status,current_lat,current_lng")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => data && setDriver(data as DriverRow));
   }, [user]);
 
-  const online = driver?.is_online ?? false;
+  const online = driver ? driver.status !== "offline" : false;
 
   const pushLoc = useCallback(
     async (p: { lat: number; lng: number }) => {
