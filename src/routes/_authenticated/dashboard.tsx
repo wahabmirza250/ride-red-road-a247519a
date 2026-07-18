@@ -275,28 +275,24 @@ function DashboardPage() {
 
           {/* Vehicle + Driver info */}
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Vehicle card — glass, light-blue in day / deep-blue in night */}
-            <div className="group relative animate-rise-in overflow-hidden rounded-2xl border border-sky-300/50 bg-gradient-to-br from-sky-200/70 via-sky-100/60 to-white/50 shadow-lg shadow-sky-500/10 backdrop-blur-xl transition-transform duration-500 hover:-translate-y-0.5 hover:shadow-sky-500/20 dark:border-sky-400/20 dark:from-sky-900/50 dark:via-sky-950/60 dark:to-slate-950/70 dark:shadow-sky-950/40">
-              {/* Shimmer sweep */}
-              <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div className="animate-glass-shimmer absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent dark:via-white/10" />
-              </div>
-              <div className="relative h-40 overflow-hidden">
+            {/* Vehicle card */}
+            <div className="group relative overflow-hidden rounded-2xl bg-card ring-1 ring-border transition hover:shadow-lift">
+              <div className="relative h-40 overflow-hidden bg-muted">
                 {vehiclePhoto.data ? (
                   <img
                     src={vehiclePhoto.data}
                     alt="Vehicle"
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-sky-700/70 dark:text-sky-200/60">
-                    <Car className="animate-float-soft h-20 w-20" />
+                  <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                    <Car className="h-16 w-16" />
                   </div>
                 )}
               </div>
-              <div className="relative space-y-3 p-4 text-sky-950 dark:text-white">
+              <div className="space-y-3 p-4">
                 <div>
-                  <div className="text-lg font-bold">
+                  <div className="text-lg font-bold text-foreground">
                     {selected?.vehicle_year ?? ""} {selected?.vehicle_make ?? "—"}{" "}
                     {selected?.vehicle_model ?? ""}
                   </div>
@@ -307,37 +303,38 @@ function DashboardPage() {
                         className={`h-3.5 w-3.5 ${
                           i <= Math.round(Number(selected?.rating ?? 0))
                             ? "fill-amber-400 text-amber-400"
-                            : "text-sky-500/40 dark:text-sky-300/30"
+                            : "text-muted-foreground/40"
                         }`}
                       />
                     ))}
-                    <span className="ml-1.5 text-xs text-sky-800/80 dark:text-sky-100/80">
+                    <span className="ml-1.5 text-xs text-muted-foreground">
                       {selected?.total_ratings ?? 0} ratings
                     </span>
                   </div>
                 </div>
-                <div className="space-y-1.5 border-t border-sky-400/30 pt-3 text-xs dark:border-sky-400/20">
+                <div className="space-y-1.5 border-t border-border pt-3 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-sky-800/70 dark:text-sky-200/70">Plate</span>
-                    <span className="font-semibold">{selected?.vehicle_plate ?? "—"}</span>
+                    <span className="text-muted-foreground">Plate</span>
+                    <span className="font-semibold text-foreground">{selected?.vehicle_plate ?? "—"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sky-800/70 dark:text-sky-200/70">VIN</span>
-                    <span className="font-semibold">{selected?.default_vin ?? "—"}</span>
+                    <span className="text-muted-foreground">VIN</span>
+                    <span className="font-semibold text-foreground">{selected?.default_vin ?? "—"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sky-800/70 dark:text-sky-200/70">Trips completed</span>
-                    <span className="font-semibold">{selected?.total_trips ?? 0}</span>
+                    <span className="text-muted-foreground">Trips completed</span>
+                    <span className="font-semibold text-foreground">{selected?.total_trips ?? 0}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sky-800/70 dark:text-sky-200/70">GPS</span>
-                    <span className={`font-semibold ${driverPos ? "text-emerald-600 dark:text-emerald-300" : "text-slate-500 dark:text-slate-400"}`}>
+                    <span className="text-muted-foreground">GPS</span>
+                    <span className={`font-semibold ${driverPos ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
                       {driverPos ? "Live" : "Offline"}
                     </span>
                   </div>
                 </div>
               </div>
             </div>
+
 
 
 
