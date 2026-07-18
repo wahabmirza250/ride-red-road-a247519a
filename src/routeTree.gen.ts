@@ -19,6 +19,7 @@ import { Route as DriverIndexRouteImport } from './routes/driver.index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
 import { Route as RideRequestIdRouteImport } from './routes/ride.$requestId'
 import { Route as PassengerTrackRouteImport } from './routes/passenger.track'
+import { Route as PassengerSignupRouteImport } from './routes/passenger.signup'
 import { Route as PassengerSafetyRouteImport } from './routes/passenger.safety'
 import { Route as PassengerRewardsRouteImport } from './routes/passenger.rewards'
 import { Route as PassengerProfileRouteImport } from './routes/passenger.profile'
@@ -104,6 +105,11 @@ const RideRequestIdRoute = RideRequestIdRouteImport.update({
 const PassengerTrackRoute = PassengerTrackRouteImport.update({
   id: '/track',
   path: '/track',
+  getParentRoute: () => PassengerRoute,
+} as any)
+const PassengerSignupRoute = PassengerSignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
   getParentRoute: () => PassengerRoute,
 } as any)
 const PassengerSafetyRoute = PassengerSafetyRouteImport.update({
@@ -332,6 +338,7 @@ export interface FileRoutesByFullPath {
   '/passenger/profile': typeof PassengerProfileRoute
   '/passenger/rewards': typeof PassengerRewardsRoute
   '/passenger/safety': typeof PassengerSafetyRoute
+  '/passenger/signup': typeof PassengerSignupRoute
   '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
@@ -378,6 +385,7 @@ export interface FileRoutesByTo {
   '/passenger/profile': typeof PassengerProfileRoute
   '/passenger/rewards': typeof PassengerRewardsRoute
   '/passenger/safety': typeof PassengerSafetyRoute
+  '/passenger/signup': typeof PassengerSignupRoute
   '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
@@ -428,6 +436,7 @@ export interface FileRoutesById {
   '/passenger/profile': typeof PassengerProfileRoute
   '/passenger/rewards': typeof PassengerRewardsRoute
   '/passenger/safety': typeof PassengerSafetyRoute
+  '/passenger/signup': typeof PassengerSignupRoute
   '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
@@ -478,6 +487,7 @@ export interface FileRouteTypes {
     | '/passenger/profile'
     | '/passenger/rewards'
     | '/passenger/safety'
+    | '/passenger/signup'
     | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
@@ -524,6 +534,7 @@ export interface FileRouteTypes {
     | '/passenger/profile'
     | '/passenger/rewards'
     | '/passenger/safety'
+    | '/passenger/signup'
     | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
@@ -573,6 +584,7 @@ export interface FileRouteTypes {
     | '/passenger/profile'
     | '/passenger/rewards'
     | '/passenger/safety'
+    | '/passenger/signup'
     | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
@@ -671,6 +683,13 @@ declare module '@tanstack/react-router' {
       path: '/track'
       fullPath: '/passenger/track'
       preLoaderRoute: typeof PassengerTrackRouteImport
+      parentRoute: typeof PassengerRoute
+    }
+    '/passenger/signup': {
+      id: '/passenger/signup'
+      path: '/signup'
+      fullPath: '/passenger/signup'
+      preLoaderRoute: typeof PassengerSignupRouteImport
       parentRoute: typeof PassengerRoute
     }
     '/passenger/safety': {
@@ -1025,6 +1044,7 @@ interface PassengerRouteChildren {
   PassengerProfileRoute: typeof PassengerProfileRoute
   PassengerRewardsRoute: typeof PassengerRewardsRoute
   PassengerSafetyRoute: typeof PassengerSafetyRoute
+  PassengerSignupRoute: typeof PassengerSignupRoute
   PassengerTrackRoute: typeof PassengerTrackRoute
   PassengerIndexRoute: typeof PassengerIndexRoute
   PassengerBookPickupRoute: typeof PassengerBookPickupRoute
@@ -1039,6 +1059,7 @@ const PassengerRouteChildren: PassengerRouteChildren = {
   PassengerProfileRoute: PassengerProfileRoute,
   PassengerRewardsRoute: PassengerRewardsRoute,
   PassengerSafetyRoute: PassengerSafetyRoute,
+  PassengerSignupRoute: PassengerSignupRoute,
   PassengerTrackRoute: PassengerTrackRoute,
   PassengerIndexRoute: PassengerIndexRoute,
   PassengerBookPickupRoute: PassengerBookPickupRoute,

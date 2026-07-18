@@ -101,14 +101,23 @@ function PassengerLayout() {
           <BrandMark className="h-8 w-8 rounded-xl shadow-soft ring-1 ring-border/50 sm:hidden" />
         </Link>
 
-        {hasSession && (
-          <button
-            onClick={forget}
-            className="rounded-lg p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground"
-            title="Forget me on this device"
+        {user ? (
+          hasSession && (
+            <button
+              onClick={forget}
+              className="rounded-lg p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+              title="Forget me on this device"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          )
+        ) : (
+          <Link
+            to="/passenger/signup"
+            className="rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
           >
-            <LogOut className="h-4 w-4" />
-          </button>
+            Sign in / Sign up
+          </Link>
         )}
       </header>
       <main className="mx-auto max-w-2xl p-4 animate-rise-in">
