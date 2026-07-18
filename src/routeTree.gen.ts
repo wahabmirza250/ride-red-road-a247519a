@@ -17,6 +17,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PassengerIndexRouteImport } from './routes/passenger.index'
 import { Route as DriverIndexRouteImport } from './routes/driver.index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
+import { Route as PassengerRewardsRouteImport } from './routes/passenger.rewards'
 import { Route as PassengerProfileRouteImport } from './routes/passenger.profile'
 import { Route as PassengerNewsRouteImport } from './routes/passenger.news'
 import { Route as PassengerGamesRouteImport } from './routes/passenger.games'
@@ -30,6 +31,7 @@ import { Route as DriverEarningsRouteImport } from './routes/driver.earnings'
 import { Route as AuthenticatedTripsRouteImport } from './routes/_authenticated/trips'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSchedulesRouteImport } from './routes/_authenticated/schedules'
+import { Route as AuthenticatedRewardsSettingsRouteImport } from './routes/_authenticated/rewards-settings'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPassengersRouteImport } from './routes/_authenticated/passengers'
 import { Route as AuthenticatedNewsFeedRouteImport } from './routes/_authenticated/news-feed'
@@ -88,6 +90,11 @@ const TrackTripIdRoute = TrackTripIdRouteImport.update({
   id: '/track/$tripId',
   path: '/track/$tripId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PassengerRewardsRoute = PassengerRewardsRouteImport.update({
+  id: '/rewards',
+  path: '/rewards',
+  getParentRoute: () => PassengerRoute,
 } as any)
 const PassengerProfileRoute = PassengerProfileRouteImport.update({
   id: '/profile',
@@ -154,6 +161,12 @@ const AuthenticatedSchedulesRoute = AuthenticatedSchedulesRouteImport.update({
   path: '/schedules',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRewardsSettingsRoute =
+  AuthenticatedRewardsSettingsRouteImport.update({
+    id: '/rewards-settings',
+    path: '/rewards-settings',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -273,6 +286,7 @@ export interface FileRoutesByFullPath {
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/passengers': typeof AuthenticatedPassengersRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRoute
@@ -286,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/passenger/games': typeof PassengerGamesRoute
   '/passenger/news': typeof PassengerNewsRoute
   '/passenger/profile': typeof PassengerProfileRoute
+  '/passenger/rewards': typeof PassengerRewardsRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver/': typeof DriverIndexRoute
   '/passenger/': typeof PassengerIndexRoute
@@ -312,6 +327,7 @@ export interface FileRoutesByTo {
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/passengers': typeof AuthenticatedPassengersRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRoute
@@ -325,6 +341,7 @@ export interface FileRoutesByTo {
   '/passenger/games': typeof PassengerGamesRoute
   '/passenger/news': typeof PassengerNewsRoute
   '/passenger/profile': typeof PassengerProfileRoute
+  '/passenger/rewards': typeof PassengerRewardsRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver': typeof DriverIndexRoute
   '/passenger': typeof PassengerIndexRoute
@@ -355,6 +372,7 @@ export interface FileRoutesById {
   '/_authenticated/news-feed': typeof AuthenticatedNewsFeedRoute
   '/_authenticated/passengers': typeof AuthenticatedPassengersRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
   '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/trips': typeof AuthenticatedTripsRoute
@@ -368,6 +386,7 @@ export interface FileRoutesById {
   '/passenger/games': typeof PassengerGamesRoute
   '/passenger/news': typeof PassengerNewsRoute
   '/passenger/profile': typeof PassengerProfileRoute
+  '/passenger/rewards': typeof PassengerRewardsRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver/': typeof DriverIndexRoute
   '/passenger/': typeof PassengerIndexRoute
@@ -398,6 +417,7 @@ export interface FileRouteTypes {
     | '/news-feed'
     | '/passengers'
     | '/reports'
+    | '/rewards-settings'
     | '/schedules'
     | '/team'
     | '/trips'
@@ -411,6 +431,7 @@ export interface FileRouteTypes {
     | '/passenger/games'
     | '/passenger/news'
     | '/passenger/profile'
+    | '/passenger/rewards'
     | '/track/$tripId'
     | '/driver/'
     | '/passenger/'
@@ -437,6 +458,7 @@ export interface FileRouteTypes {
     | '/news-feed'
     | '/passengers'
     | '/reports'
+    | '/rewards-settings'
     | '/schedules'
     | '/team'
     | '/trips'
@@ -450,6 +472,7 @@ export interface FileRouteTypes {
     | '/passenger/games'
     | '/passenger/news'
     | '/passenger/profile'
+    | '/passenger/rewards'
     | '/track/$tripId'
     | '/driver'
     | '/passenger'
@@ -479,6 +502,7 @@ export interface FileRouteTypes {
     | '/_authenticated/news-feed'
     | '/_authenticated/passengers'
     | '/_authenticated/reports'
+    | '/_authenticated/rewards-settings'
     | '/_authenticated/schedules'
     | '/_authenticated/team'
     | '/_authenticated/trips'
@@ -492,6 +516,7 @@ export interface FileRouteTypes {
     | '/passenger/games'
     | '/passenger/news'
     | '/passenger/profile'
+    | '/passenger/rewards'
     | '/track/$tripId'
     | '/driver/'
     | '/passenger/'
@@ -572,6 +597,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/track/$tripId'
       preLoaderRoute: typeof TrackTripIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/passenger/rewards': {
+      id: '/passenger/rewards'
+      path: '/rewards'
+      fullPath: '/passenger/rewards'
+      preLoaderRoute: typeof PassengerRewardsRouteImport
+      parentRoute: typeof PassengerRoute
     }
     '/passenger/profile': {
       id: '/passenger/profile'
@@ -662,6 +694,13 @@ declare module '@tanstack/react-router' {
       path: '/schedules'
       fullPath: '/schedules'
       preLoaderRoute: typeof AuthenticatedSchedulesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/rewards-settings': {
+      id: '/_authenticated/rewards-settings'
+      path: '/rewards-settings'
+      fullPath: '/rewards-settings'
+      preLoaderRoute: typeof AuthenticatedRewardsSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/reports': {
@@ -828,6 +867,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNewsFeedRoute: typeof AuthenticatedNewsFeedRoute
   AuthenticatedPassengersRoute: typeof AuthenticatedPassengersRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedRewardsSettingsRoute: typeof AuthenticatedRewardsSettingsRoute
   AuthenticatedSchedulesRoute: typeof AuthenticatedSchedulesRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedTripsRoute: typeof AuthenticatedTripsRoute
@@ -848,6 +888,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedNewsFeedRoute: AuthenticatedNewsFeedRoute,
   AuthenticatedPassengersRoute: AuthenticatedPassengersRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedRewardsSettingsRoute: AuthenticatedRewardsSettingsRoute,
   AuthenticatedSchedulesRoute: AuthenticatedSchedulesRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedTripsRoute: AuthenticatedTripsRoute,
@@ -886,6 +927,7 @@ interface PassengerRouteChildren {
   PassengerGamesRoute: typeof PassengerGamesRoute
   PassengerNewsRoute: typeof PassengerNewsRoute
   PassengerProfileRoute: typeof PassengerProfileRoute
+  PassengerRewardsRoute: typeof PassengerRewardsRoute
   PassengerIndexRoute: typeof PassengerIndexRoute
 }
 
@@ -895,6 +937,7 @@ const PassengerRouteChildren: PassengerRouteChildren = {
   PassengerGamesRoute: PassengerGamesRoute,
   PassengerNewsRoute: PassengerNewsRoute,
   PassengerProfileRoute: PassengerProfileRoute,
+  PassengerRewardsRoute: PassengerRewardsRoute,
   PassengerIndexRoute: PassengerIndexRoute,
 }
 

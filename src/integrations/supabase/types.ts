@@ -286,6 +286,85 @@ export type Database = {
           },
         ]
       }
+      contest_entries: {
+        Row: {
+          created_at: string
+          id: string
+          passenger_id: string
+          period_end: string
+          period_start: string
+          qualified_at: string
+          ride_count: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          passenger_id: string
+          period_end: string
+          period_start: string
+          qualified_at?: string
+          ride_count?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          passenger_id?: string
+          period_end?: string
+          period_start?: string
+          qualified_at?: string
+          ride_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contest_entries_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "passengers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contest_winners: {
+        Row: {
+          delivered_at: string | null
+          delivery_note: string | null
+          id: string
+          passenger_id: string
+          period_end: string
+          period_start: string
+          prize_description: string
+          selected_at: string
+        }
+        Insert: {
+          delivered_at?: string | null
+          delivery_note?: string | null
+          id?: string
+          passenger_id: string
+          period_end: string
+          period_start: string
+          prize_description: string
+          selected_at?: string
+        }
+        Update: {
+          delivered_at?: string | null
+          delivery_note?: string | null
+          id?: string
+          passenger_id?: string
+          period_end?: string
+          period_start?: string
+          prize_description?: string
+          selected_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contest_winners_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "passengers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           created_at: string
@@ -1061,6 +1140,36 @@ export type Database = {
           p256dh?: string
           user_agent?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      rewards_settings: {
+        Row: {
+          enabled: boolean
+          id: boolean
+          period_type: string
+          prize_description: string
+          rides_required: number
+          updated_at: string
+          winners_per_period: number
+        }
+        Insert: {
+          enabled?: boolean
+          id?: boolean
+          period_type?: string
+          prize_description?: string
+          rides_required?: number
+          updated_at?: string
+          winners_per_period?: number
+        }
+        Update: {
+          enabled?: boolean
+          id?: boolean
+          period_type?: string
+          prize_description?: string
+          rides_required?: number
+          updated_at?: string
+          winners_per_period?: number
         }
         Relationships: []
       }
