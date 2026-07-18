@@ -238,13 +238,26 @@
   .shadow-lift {
     box-shadow: var(--shadow-lift);
   }
+  /* Vehicle card blue gradient — light sky on top, deep #0067A3 at the bottom.
+     Matches the reference photo backdrop the user provided. */
   .vehicle-photo-placeholder-gradient {
     background: linear-gradient(
-      135deg,
-      color-mix(in oklab, var(--brand-blue) 18%, white) 0%,
-      color-mix(in oklab, var(--brand-blue) 62%, white) 48%,
-      color-mix(in oklab, var(--brand-blue) 86%, var(--brand-ink)) 100%
+      to bottom,
+      #bfe4f5 0%,
+      #6ec1e4 45%,
+      #1a8fc4 80%,
+      #0067a3 100%
     );
+  }
+  .vehicle-card-blue {
+    background: linear-gradient(
+      to bottom,
+      #cfeaf7 0%,
+      #7cc6e6 40%,
+      #1e93c7 78%,
+      #0067a3 100%
+    );
+    color: #ffffff;
   }
 }
 
