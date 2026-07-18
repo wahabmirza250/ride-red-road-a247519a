@@ -492,6 +492,33 @@ function EditDriverDialog({
         </label>
       </div>
 
+      <div className="overflow-hidden rounded-xl border border-border bg-surface-muted">
+        <div className="relative h-32 w-full bg-muted">
+          {vehicleUrl ? (
+            <img src={vehicleUrl} alt="Vehicle" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+              No vehicle photo yet
+            </div>
+          )}
+          <label className="absolute bottom-2 right-2 inline-flex cursor-pointer items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-lift hover:bg-primary/90">
+            {uploadingVehicle ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Camera className="h-3.5 w-3.5" />
+            )}
+            {vehicleUrl ? "Replace" : "Upload vehicle photo"}
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => e.target.files?.[0] && uploadVehicle(e.target.files[0])}
+            />
+          </label>
+        </div>
+      </div>
+
+
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="First name">
           <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
