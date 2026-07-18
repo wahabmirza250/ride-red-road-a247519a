@@ -407,7 +407,7 @@ function DashboardPage() {
                     onClick={() => setSelectedId(d.id)}
                     className={`flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition ${
                       active
-                        ? "bg-primary/10 ring-1 ring-primary/40"
+                        ? "bg-brand-blue/10 ring-1 ring-brand-blue/40"
                         : "bg-muted/40 hover:bg-muted"
                     }`}
                   >
