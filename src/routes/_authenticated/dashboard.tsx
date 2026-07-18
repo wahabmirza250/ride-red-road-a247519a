@@ -243,222 +243,143 @@ function DashboardPage() {
 
   return (
     <div className="-mx-4 -my-6 min-h-[calc(100vh-4rem)] bg-background px-4 py-6 text-foreground md:-mx-6 md:-my-8 md:px-6 md:py-8">
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-        {/* Center panel */}
-        <div className="space-y-5">
-          {/* Header: driver switcher */}
-          <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="relative">
-                <select
-                  value={selectedId ?? ""}
-                  onChange={(e) => setSelectedId(e.target.value)}
-                  className="appearance-none rounded-xl bg-card py-2 pl-3 pr-9 text-lg font-semibold text-foreground ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {(drivers.data ?? []).map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.profile?.first_name} {d.profile?.last_name}
-                    </option>
-                  ))}
-                  {(drivers.data ?? []).length === 0 && <option>No drivers</option>}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              </div>
-              <span className="hidden text-sm text-muted-foreground md:inline">
-                {trip.data?.scheduled_pickup_time
-                  ? formatDateTime(trip.data.scheduled_pickup_time)
-                  : "No active trip"}
-              </span>
+      <div className="space-y-5">
+        {/* Header: current driver name + status */}
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="truncate text-lg font-semibold text-foreground">
+              {selected ? `${selected.profile?.first_name ?? ""} ${selected.profile?.last_name ?? ""}`.trim() || "Driver" : "No driver selected"}
             </div>
-            <span className={`rounded-full px-3 py-1 text-xs font-medium ${tripTone.classes}`}>
-              {tripTone.label}
-            </span>
-          </header>
-
-          {/* Vehicle + Driver info */}
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Vehicle card */}
-            <div className="vehicle-card-blue group relative overflow-hidden rounded-2xl ring-1 ring-border transition hover:shadow-lift">
-              <div className="relative h-44 overflow-hidden p-3">
-                {vehiclePhoto.data ? (
-                  <img
-                    src={vehiclePhoto.data}
-                    alt="Vehicle"
-                    className="h-full w-full object-contain drop-shadow-md transition-transform duration-500 group-hover:scale-[1.02]"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Car className="h-16 w-16 text-white/90 drop-shadow" />
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3 p-4">
-                <div>
-                  <div className="text-lg font-bold text-white">
-                    {selected?.vehicle_year ?? ""} {selected?.vehicle_make ?? "—"}{" "}
-                    {selected?.vehicle_model ?? ""}
-                  </div>
-                  <div className="mt-1 flex items-center gap-0.5">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <Star
-                        key={i}
-                        className={`h-3.5 w-3.5 ${
-                          i <= Math.round(Number(selected?.rating ?? 0))
-                            ? "fill-amber-400 text-amber-400"
-                            : "text-white/40"
-                        }`}
-                      />
-                    ))}
-                    <span className="ml-1.5 text-xs text-white/80">
-                      {selected?.total_ratings ?? 0} ratings
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-1.5 border-t border-white/20 pt-3 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Plate</span>
-                    <span className="font-semibold text-white">{selected?.vehicle_plate ?? "—"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/70">VIN</span>
-                    <span className="font-semibold text-white">{selected?.default_vin ?? "—"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Trips completed</span>
-                    <span className="font-semibold text-white">{selected?.total_trips ?? 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/70">GPS</span>
-                    <span className={`font-semibold ${driverPos ? "text-emerald-300" : "text-white/70"}`}>
-                      {driverPos ? "Live" : "Offline"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-
-
-
-            {/* Driver info card */}
-            <div className="rounded-2xl bg-card p-5 ring-1 ring-border">
-              <div className="flex items-start gap-4">
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
-                  {driverPhotoUrl ? (
-                    <img src={driverPhotoUrl} alt="Driver" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-muted-foreground">
-                      {initials(selected?.profile?.first_name, selected?.profile?.last_name)}
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-base font-semibold">
-                    {selected?.profile?.first_name} {selected?.profile?.last_name}
-                  </div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {selected?.profile?.email ?? "—"}
-                  </div>
-                  <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-1 text-amber-500 dark:text-amber-400">
-                      <Star className="h-3 w-3 fill-current" />
-                      {selected?.rating ? Number(selected.rating).toFixed(2) : "—"}
-
-                    </span>
-                    <span>Since {selected?.profile?.created_at ? new Date(selected.profile.created_at).getFullYear() : "—"}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-2 rounded-xl bg-muted p-3 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">License</span>
-                  <span className="font-medium text-foreground">Active</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Hired</span>
-                  <span className="font-medium text-foreground">
-                    {selected?.profile?.created_at
-                      ? new Date(selected.profile.created_at).toLocaleDateString()
-                      : "—"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Phone</span>
-                  <span className="font-medium text-foreground">
-                    {selected?.profile?.phone || "—"}
-                  </span>
-                </div>
-              </div>
-
-              <Link
-                to="/messages"
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
-              >
-                <MessageSquare className="h-4 w-4" />
-                Start a chat
-              </Link>
+            <div className="text-xs text-muted-foreground">
+              {trip.data?.scheduled_pickup_time
+                ? formatDateTime(trip.data.scheduled_pickup_time)
+                : "No active trip"}
             </div>
           </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-medium ${tripTone.classes}`}>
+            {tripTone.label}
+          </span>
+        </header>
 
-          {/* Trip stats bar */}
-          <div className="grid grid-cols-3 gap-3">
-            <StatPill icon={<Clock className="h-4 w-4" />} label="Trip time" value={tripTime} />
-            <StatPill
-              icon={<Gauge className="h-4 w-4" />}
-              label="Miles driven"
-              value={tripMiles != null ? Number(tripMiles).toFixed(1) : "—"}
-            />
-            <StatPill icon={<UsersIcon className="h-4 w-4" />} label="Passengers" value={trip.data ? "1" : "0"} />
-          </div>
-
-          {/* Map + trip stops */}
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="h-[400px] overflow-hidden rounded-2xl bg-card ring-1 ring-border">
-              <DriverTripMap
-                driver={driverPos}
-                pickup={pickupPos}
-                dropoff={dropoffPos}
-                focus={driverPos}
-                className="h-full w-full"
-              />
-            </div>
-            <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Trip stops
-                </div>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${tripTone.classes}`}>
-                  {tripTone.label}
-                </span>
-              </div>
-              {trip.data ? (
-                <ol className="space-y-4">
-                  <StopRow
-                    dotClass="bg-emerald-400"
-                    label="Pickup"
-                    time={trip.data.actual_pickup_time ?? trip.data.scheduled_pickup_time}
-                    address={trip.data.pickup_address}
-                  />
-                  <StopRow
-                    dotClass="bg-rose-400"
-                    label="Dropoff"
-                    time={trip.data.actual_dropoff_time}
-                    address={trip.data.dropoff_address}
-                  />
-                </ol>
+        {/* Vehicle + Driver profile + Drivers list */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          {/* Vehicle card — slim */}
+          <div className="vehicle-card-blue group relative overflow-hidden rounded-2xl ring-1 ring-border transition hover:shadow-lift">
+            <div className="relative h-32 overflow-hidden p-2">
+              {vehiclePhoto.data ? (
+                <img
+                  src={vehiclePhoto.data}
+                  alt="Vehicle"
+                  className="h-full w-full object-contain drop-shadow-md transition-transform duration-500 group-hover:scale-[1.02]"
+                />
               ) : (
-                <div className="py-10 text-center text-xs text-muted-foreground">
-                  No trip data for this driver.
+                <div className="flex h-full w-full items-center justify-center">
+                  <Car className="h-12 w-12 text-white/90 drop-shadow" />
                 </div>
               )}
             </div>
-          </div>
-        </div>
 
-        {/* Right sidebar: Drivers */}
-        <aside className="space-y-3">
+            <div className="space-y-2 p-3">
+              <div>
+                <div className="text-sm font-bold leading-tight text-white">
+                  {selected?.vehicle_year ?? ""} {selected?.vehicle_make ?? "—"}{" "}
+                  {selected?.vehicle_model ?? ""}
+                </div>
+                <div className="mt-0.5 flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Star
+                      key={i}
+                      className={`h-3 w-3 ${
+                        i <= Math.round(Number(selected?.rating ?? 0))
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-white/40"
+                      }`}
+                    />
+                  ))}
+                  <span className="ml-1 text-[10px] text-white/80">
+                    {selected?.total_ratings ?? 0}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-1 border-t border-white/20 pt-2 text-[11px]">
+                <div className="flex justify-between">
+                  <span className="text-white/70">Plate</span>
+                  <span className="font-semibold text-white">{selected?.vehicle_plate ?? "—"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/70">Trips</span>
+                  <span className="font-semibold text-white">{selected?.total_trips ?? 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/70">GPS</span>
+                  <span className={`font-semibold ${driverPos ? "text-emerald-300" : "text-white/70"}`}>
+                    {driverPos ? "Live" : "Offline"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Driver profile card */}
+          <div className="rounded-2xl bg-card p-5 ring-1 ring-border">
+            <div className="flex items-start gap-4">
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
+                {driverPhotoUrl ? (
+                  <img src={driverPhotoUrl} alt="Driver" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-muted-foreground">
+                    {initials(selected?.profile?.first_name, selected?.profile?.last_name)}
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-base font-semibold">
+                  {selected?.profile?.first_name} {selected?.profile?.last_name}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {selected?.profile?.email ?? "—"}
+                </div>
+                <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-1 text-amber-500 dark:text-amber-400">
+                    <Star className="h-3 w-3 fill-current" />
+                    {selected?.rating ? Number(selected.rating).toFixed(2) : "—"}
+                  </span>
+                  <span>Since {selected?.profile?.created_at ? new Date(selected.profile.created_at).getFullYear() : "—"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2 rounded-xl bg-muted p-3 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">License</span>
+                <span className="font-medium text-foreground">Active</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Hired</span>
+                <span className="font-medium text-foreground">
+                  {selected?.profile?.created_at
+                    ? new Date(selected.profile.created_at).toLocaleDateString()
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Phone</span>
+                <span className="font-medium text-foreground">
+                  {selected?.profile?.phone || "—"}
+                </span>
+              </div>
+            </div>
+
+            <Link
+              to="/messages"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Start a chat
+            </Link>
+          </div>
+
+          {/* Drivers list — moved next to profile */}
           <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-foreground">Drivers</h2>
@@ -473,7 +394,7 @@ function DashboardPage() {
                 className="w-full rounded-full bg-muted py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
-            <div className="max-h-[560px] space-y-2 overflow-y-auto pr-1">
+            <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
               {filteredDrivers.length === 0 && (
                 <div className="py-10 text-center text-xs text-muted-foreground">No drivers found.</div>
               )}
@@ -489,7 +410,6 @@ function DashboardPage() {
                         ? "bg-primary/10 ring-1 ring-primary/40"
                         : "bg-muted/40 hover:bg-muted"
                     }`}
-
                   >
                     <Avatar
                       bucket="driver-photos"
@@ -526,7 +446,61 @@ function DashboardPage() {
               <History className="h-3.5 w-3.5" /> View history
             </Link>
           </div>
-        </aside>
+        </div>
+
+        {/* Trip stats bar */}
+        <div className="grid grid-cols-3 gap-3">
+          <StatPill icon={<Clock className="h-4 w-4" />} label="Trip time" value={tripTime} />
+          <StatPill
+            icon={<Gauge className="h-4 w-4" />}
+            label="Miles driven"
+            value={tripMiles != null ? Number(tripMiles).toFixed(1) : "—"}
+          />
+          <StatPill icon={<UsersIcon className="h-4 w-4" />} label="Passengers" value={trip.data ? "1" : "0"} />
+        </div>
+
+        {/* Map + trip stops */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="h-[400px] overflow-hidden rounded-2xl bg-card ring-1 ring-border">
+            <DriverTripMap
+              driver={driverPos}
+              pickup={pickupPos}
+              dropoff={dropoffPos}
+              focus={driverPos}
+              className="h-full w-full"
+            />
+          </div>
+          <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Trip stops
+              </div>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${tripTone.classes}`}>
+                {tripTone.label}
+              </span>
+            </div>
+            {trip.data ? (
+              <ol className="space-y-4">
+                <StopRow
+                  dotClass="bg-emerald-400"
+                  label="Pickup"
+                  time={trip.data.actual_pickup_time ?? trip.data.scheduled_pickup_time}
+                  address={trip.data.pickup_address}
+                />
+                <StopRow
+                  dotClass="bg-rose-400"
+                  label="Dropoff"
+                  time={trip.data.actual_dropoff_time}
+                  address={trip.data.dropoff_address}
+                />
+              </ol>
+            ) : (
+              <div className="py-10 text-center text-xs text-muted-foreground">
+                No trip data for this driver.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

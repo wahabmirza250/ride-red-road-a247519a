@@ -252,9 +252,8 @@
   .vehicle-card-blue {
     background: linear-gradient(
       to bottom,
-      #cfeaf7 0%,
-      #7cc6e6 40%,
-      #1e93c7 78%,
+      #1a8fd4 0%,
+      #0d7dc2 55%,
       #0067a3 100%
     );
     color: #ffffff;
