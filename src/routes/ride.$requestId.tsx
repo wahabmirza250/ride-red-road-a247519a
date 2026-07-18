@@ -17,6 +17,7 @@ import {
   LifeBuoy,
 } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
+import { useSignedUrl } from "@/lib/signedUrl";
 
 export const Route = createFileRoute("/ride/$requestId")({
   ssr: false,
