@@ -2,6 +2,8 @@ import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-rout
 import { useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Home, PlusCircle, Newspaper, Sparkles, UserCircle2, LogOut, Trophy } from "lucide-react";
+import { BrandMark, BrandWordmark } from "@/components/Brand";
+
 import { cn } from "@/lib/utils";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
