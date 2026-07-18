@@ -143,11 +143,24 @@ function ApplyForRide() {
             <Input value={f.contact_medicaid} onChange={(e) => upd("contact_medicaid", e.target.value)} />
           </Field>
           <Field icon={<MapPin className="h-4 w-4 text-emerald-500" />} label="Pickup address" required>
-            <Input value={f.pickup_address} onChange={(e) => upd("pickup_address", e.target.value)} required />
+            <AddressAutocomplete
+              value={f.pickup_address}
+              onChange={(v) => { upd("pickup_address", v); setPickupCoords(null); }}
+              onResolve={(p) => { upd("pickup_address", p.address); setPickupCoords({ lat: p.lat, lng: p.lng }); }}
+              placeholder="Start typing an address…"
+            />
           </Field>
           <Field icon={<MapPin className="h-4 w-4 text-rose-500" />} label="Drop-off address" required>
-            <Input value={f.dropoff_address} onChange={(e) => upd("dropoff_address", e.target.value)} required />
+            <AddressAutocomplete
+              value={f.dropoff_address}
+              onChange={(v) => { upd("dropoff_address", v); setDropoffCoords(null); }}
+              onResolve={(p) => { upd("dropoff_address", p.address); setDropoffCoords({ lat: p.lat, lng: p.lng }); }}
+              placeholder="Start typing an address…"
+            />
           </Field>
+          {user && (!pickupCoords || !dropoffCoords) && (
+            <p className="text-xs text-amber-500">Pick both addresses from the dropdown so we can auto-dispatch a driver.</p>
+          )}
           <Field icon={<Clock className="h-4 w-4" />} label="Pickup time">
             <Input type="datetime-local" value={f.requested_pickup_time} onChange={(e) => upd("requested_pickup_time", e.target.value)} />
           </Field>
