@@ -31,7 +31,9 @@ import { initials } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/admin/NotificationBell";
 import { ensurePushSubscribed } from "@/lib/push";
-import { BrandMark, BrandWordmark } from "@/components/Brand";
+import { BrandMark } from "@/components/Brand";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -125,67 +127,84 @@ function AuthenticatedLayout() {
   return (
     <div className="flex min-h-screen bg-surface-muted">
       {/* Sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
-        <div className="flex h-16 items-center px-5">
-          <BrandWordmark className="h-8" />
+      <aside className="hidden w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar lg:flex">
+        <div className="flex h-16 w-full items-center justify-center">
+          <BrandMark className="h-8 w-8" />
         </div>
 
-        <nav className="flex-1 space-y-0.5 px-3 py-2">
-          {NAV.map((item) => {
-            const active =
-              location.pathname === item.to || location.pathname.startsWith(item.to + "/");
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium outline-none",
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="truncate">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="border-t border-border p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-              {initials(meta?.first_name, meta?.last_name) === "?"
-                ? (user.email ?? "?").slice(0, 2).toUpperCase()
-                : initials(meta?.first_name, meta?.last_name)}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium">
-                {meta?.first_name} {meta?.last_name}
-              </div>
-              <div className="truncate text-xs text-muted-foreground">{user.email}</div>
-            </div>
+        <TooltipProvider delayDuration={0}>
+          <nav className="flex flex-1 flex-col items-center gap-1 py-2">
+            {NAV.map((item) => {
+              const active =
+                location.pathname === item.to || location.pathname.startsWith(item.to + "/");
+              const Icon = item.icon;
+              return (
+                <Tooltip key={item.to}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      to={item.to}
+                      aria-label={item.label}
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-lg outline-none",
+                        active
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                      )}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{item.label}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </nav>
+
+          <div className="flex w-full flex-col items-center gap-1 border-t border-border py-3">
             {isAdmin && <NotificationBell />}
-            <button
-              onClick={toggleTheme}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-              title="Toggle theme"
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
-            <button
-              onClick={async () => {
-                await signOut();
-                navigate({ to: "/auth", replace: true });
-              }}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-              title="Sign out"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleTheme}
+                  aria-label="Toggle theme"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Toggle theme</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={async () => {
+                    await signOut();
+                    navigate({ to: "/auth", replace: true });
+                  }}
+                  aria-label="Sign out"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Sign out ({user.email})</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  {initials(meta?.first_name, meta?.last_name) === "?"
+                    ? (user.email ?? "?").slice(0, 2).toUpperCase()
+                    : initials(meta?.first_name, meta?.last_name)}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {meta?.first_name} {meta?.last_name}
+              </TooltipContent>
+            </Tooltip>
           </div>
-        </div>
+        </TooltipProvider>
       </aside>
+
 
 
       {/* Main */}
