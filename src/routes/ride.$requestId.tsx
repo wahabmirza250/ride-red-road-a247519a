@@ -244,7 +244,7 @@ function RidePage() {
 
       {/* Searching overlay pulse (only when still searching) */}
       {!hasMatch && !noDriverYet && (
-        <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center">
+        <div className="pointer-events-none absolute inset-0 z-[1000] flex items-center justify-center">
           <div className="relative flex h-40 w-40 items-center justify-center">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/25" />
             <span
