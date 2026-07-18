@@ -336,7 +336,7 @@ export function BillingDetailSheet({
                     onClick={() => approve.mutate()}
                     disabled={approve.isPending}
                   >
-                    <Check className="mr-1 h-4 w-4" /> Approve → Pending Submit
+                    <Check className="mr-1 h-4 w-4" /> Approve → Ready to Submit
                   </Button>
                   <div>
                     <Label>Needs fix — describe the issue</Label>
@@ -358,8 +358,66 @@ export function BillingDetailSheet({
                 </>
               )}
 
+              {(rec.status === "approved" ||
+                rec.status === "needs_fix" ||
+                rec.status === "submitting") && (
+                <>
+                  <Button
+                    className="w-full"
+                    onClick={() => startRobot.mutate()}
+                    disabled={startRobot.isPending || rec.status === "submitting"}
+                  >
+                    {startRobot.isPending || rec.status === "submitting" ? (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Bot className="mr-1 h-4 w-4" />
+                    )}
+                    {rec.status === "needs_fix"
+                      ? "Retry robot submission"
+                      : rec.status === "submitting"
+                        ? "Robot running…"
+                        : "Submit to portal robot"}
+                  </Button>
+                  <div>
+                    <Label>Send back to driver</Label>
+                    <Textarea
+                      rows={2}
+                      value={fixNotes}
+                      onChange={(e) => setFixNotes(e.target.value)}
+                      placeholder="Describe what needs to be fixed"
+                    />
+                    <Button
+                      variant="secondary"
+                      className="mt-2 w-full"
+                      disabled={!fixNotes.trim() || needsFix.isPending}
+                      onClick={() => needsFix.mutate()}
+                    >
+                      Send back to driver
+                    </Button>
+                  </div>
+                </>
+              )}
 
-
+              {rec.status === "pending_submit" && (
+                <div>
+                  <Label>Confirmation / Receipt number from HCPF portal</Label>
+                  <Input
+                    value={confirmationNumber}
+                    onChange={(e) => setConfirmationNumber(e.target.value)}
+                    placeholder="Paste the portal's receipt number"
+                  />
+                  <Button
+                    className="mt-2 w-full"
+                    disabled={!confirmationNumber.trim() || markSubmitted.isPending}
+                    onClick={() => markSubmitted.mutate()}
+                  >
+                    {markSubmitted.isPending && (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    )}
+                    <Check className="mr-1 h-4 w-4" /> Mark as Submitted
+                  </Button>
+                </div>
+              )}
 
               {rec.status === "submitted" && (
                 <>
