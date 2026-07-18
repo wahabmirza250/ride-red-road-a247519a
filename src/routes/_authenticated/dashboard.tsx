@@ -70,11 +70,11 @@ type CurrentTrip = {
 function statusTone(status: string) {
   const s = status.toLowerCase();
   if (["in_progress", "busy", "active", "available"].includes(s))
-    return { label: "Active", classes: "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30" };
+    return { label: "Active", classes: "bg-brand-green/20 text-brand-green ring-1 ring-brand-green/40" };
   if (["completed", "done", "reviewed"].includes(s))
-    return { label: "Completed", classes: "bg-primary/20 text-sky-300 ring-1 ring-sky-500/30" };
+    return { label: "Completed", classes: "bg-brand-blue/20 text-brand-blue ring-1 ring-brand-blue/40" };
   if (["scheduled", "pending", "assigned", "pending_review"].includes(s))
-    return { label: "Scheduled", classes: "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30" };
+    return { label: "Scheduled", classes: "bg-brand-yellow/25 text-brand-yellow-foreground ring-1 ring-brand-yellow/50 dark:text-brand-yellow" };
   return { label: status.replace(/_/g, " "), classes: "bg-muted text-foreground ring-1 ring-border" };
 }
 
@@ -407,7 +407,7 @@ function DashboardPage() {
                     onClick={() => setSelectedId(d.id)}
                     className={`flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition ${
                       active
-                        ? "bg-primary/10 ring-1 ring-primary/40"
+                        ? "bg-brand-blue/10 ring-1 ring-brand-blue/40"
                         : "bg-muted/40 hover:bg-muted"
                     }`}
                   >
@@ -450,13 +450,14 @@ function DashboardPage() {
 
         {/* Trip stats bar */}
         <div className="grid grid-cols-3 gap-3">
-          <StatPill icon={<Clock className="h-4 w-4" />} label="Trip time" value={tripTime} />
+          <StatPill tone="blue" icon={<Clock className="h-4 w-4" />} label="Trip time" value={tripTime} />
           <StatPill
+            tone="green"
             icon={<Gauge className="h-4 w-4" />}
             label="Miles driven"
             value={tripMiles != null ? Number(tripMiles).toFixed(1) : "—"}
           />
-          <StatPill icon={<UsersIcon className="h-4 w-4" />} label="Passengers" value={trip.data ? "1" : "0"} />
+          <StatPill tone="yellow" icon={<UsersIcon className="h-4 w-4" />} label="Passengers" value={trip.data ? "1" : "0"} />
         </div>
 
         {/* Map + trip stops */}
@@ -482,13 +483,13 @@ function DashboardPage() {
             {trip.data ? (
               <ol className="space-y-4">
                 <StopRow
-                  dotClass="bg-emerald-400"
+                  dotClass="bg-brand-green text-brand-green"
                   label="Pickup"
                   time={trip.data.actual_pickup_time ?? trip.data.scheduled_pickup_time}
                   address={trip.data.pickup_address}
                 />
                 <StopRow
-                  dotClass="bg-rose-400"
+                  dotClass="bg-brand-red text-brand-red"
                   label="Dropoff"
                   time={trip.data.actual_dropoff_time}
                   address={trip.data.dropoff_address}
@@ -506,12 +507,27 @@ function DashboardPage() {
   );
 }
 
-function StatPill({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function StatPill({
+  icon,
+  label,
+  value,
+  tone = "red",
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone?: "red" | "blue" | "green" | "yellow";
+}) {
+  const toneMap: Record<string, string> = {
+    red: "bg-brand-red/15 text-brand-red",
+    blue: "bg-brand-blue/15 text-brand-blue",
+    green: "bg-brand-green/15 text-brand-green",
+    yellow: "bg-brand-yellow/25 text-brand-yellow-foreground dark:text-brand-yellow",
+  };
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-border">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-full ${toneMap[tone]}`}>
         {icon}
-
       </div>
       <div>
         <div className="text-xs text-muted-foreground">{label}</div>
