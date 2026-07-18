@@ -32,6 +32,8 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/admin/NotificationBell";
 import { ensurePushSubscribed } from "@/lib/push";
 import { BrandMark, BrandWordmark } from "@/components/Brand";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
