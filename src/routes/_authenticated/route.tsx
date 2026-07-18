@@ -125,13 +125,12 @@ function AuthenticatedLayout() {
   return (
     <div className="flex min-h-screen bg-surface-muted">
       {/* Sidebar */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
-
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
         <div className="flex h-16 items-center px-5">
           <BrandWordmark className="h-8" />
         </div>
 
-        <nav className="flex-1 space-y-1 px-3 py-4">
+        <nav className="flex-1 space-y-0.5 px-3 py-2">
           {NAV.map((item) => {
             const active =
               location.pathname === item.to || location.pathname.startsWith(item.to + "/");
@@ -141,17 +140,14 @@ function AuthenticatedLayout() {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium outline-none",
                   active
-                    ? "bg-primary/10 text-primary shadow-soft"
+                    ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
-                {active && (
-                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
-                )}
-                <Icon className="h-4 w-4" />
-                {item.label}
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{item.label}</span>
               </Link>
             );
           })}
@@ -190,6 +186,7 @@ function AuthenticatedLayout() {
           </div>
         </div>
       </aside>
+
 
       {/* Main */}
       <main className="flex-1 overflow-x-hidden">
