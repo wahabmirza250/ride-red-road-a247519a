@@ -259,7 +259,7 @@ function RidePage() {
       )}
 
       {/* Top overlay: back + route pill */}
-      <div className="absolute inset-x-0 top-0 z-10 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <div className="absolute inset-x-0 top-0 z-[1000] p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="mx-auto flex max-w-2xl items-center gap-2">
           <Link
             to="/passenger"
@@ -286,7 +286,7 @@ function RidePage() {
       </div>
 
       {/* Bottom sheet */}
-      <div className="absolute inset-x-0 bottom-0 z-10">
+      <div className="absolute inset-x-0 bottom-0 z-[1000]">
         <div className="mx-auto max-w-2xl">
           <div className="rounded-t-3xl border-x border-t border-border/60 bg-background/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.35)] backdrop-blur-xl">
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
