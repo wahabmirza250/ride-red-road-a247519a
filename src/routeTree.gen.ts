@@ -17,6 +17,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PassengerIndexRouteImport } from './routes/passenger.index'
 import { Route as DriverIndexRouteImport } from './routes/driver.index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
+import { Route as RideRequestIdRouteImport } from './routes/ride.$requestId'
 import { Route as PassengerSafetyRouteImport } from './routes/passenger.safety'
 import { Route as PassengerRewardsRouteImport } from './routes/passenger.rewards'
 import { Route as PassengerProfileRouteImport } from './routes/passenger.profile'
@@ -90,6 +91,11 @@ const DriverIndexRoute = DriverIndexRouteImport.update({
 const TrackTripIdRoute = TrackTripIdRouteImport.update({
   id: '/track/$tripId',
   path: '/track/$tripId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RideRequestIdRoute = RideRequestIdRouteImport.update({
+  id: '/ride/$requestId',
+  path: '/ride/$requestId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PassengerSafetyRoute = PassengerSafetyRouteImport.update({
@@ -308,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/passenger/profile': typeof PassengerProfileRoute
   '/passenger/rewards': typeof PassengerRewardsRoute
   '/passenger/safety': typeof PassengerSafetyRoute
+  '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver/': typeof DriverIndexRoute
   '/passenger/': typeof PassengerIndexRoute
@@ -350,6 +357,7 @@ export interface FileRoutesByTo {
   '/passenger/profile': typeof PassengerProfileRoute
   '/passenger/rewards': typeof PassengerRewardsRoute
   '/passenger/safety': typeof PassengerSafetyRoute
+  '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver': typeof DriverIndexRoute
   '/passenger': typeof PassengerIndexRoute
@@ -396,6 +404,7 @@ export interface FileRoutesById {
   '/passenger/profile': typeof PassengerProfileRoute
   '/passenger/rewards': typeof PassengerRewardsRoute
   '/passenger/safety': typeof PassengerSafetyRoute
+  '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/driver/': typeof DriverIndexRoute
   '/passenger/': typeof PassengerIndexRoute
@@ -442,6 +451,7 @@ export interface FileRouteTypes {
     | '/passenger/profile'
     | '/passenger/rewards'
     | '/passenger/safety'
+    | '/ride/$requestId'
     | '/track/$tripId'
     | '/driver/'
     | '/passenger/'
@@ -484,6 +494,7 @@ export interface FileRouteTypes {
     | '/passenger/profile'
     | '/passenger/rewards'
     | '/passenger/safety'
+    | '/ride/$requestId'
     | '/track/$tripId'
     | '/driver'
     | '/passenger'
@@ -529,6 +540,7 @@ export interface FileRouteTypes {
     | '/passenger/profile'
     | '/passenger/rewards'
     | '/passenger/safety'
+    | '/ride/$requestId'
     | '/track/$tripId'
     | '/driver/'
     | '/passenger/'
@@ -546,6 +558,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DriverRoute: typeof DriverRouteWithChildren
   PassengerRoute: typeof PassengerRouteWithChildren
+  RideRequestIdRoute: typeof RideRequestIdRoute
   TrackTripIdRoute: typeof TrackTripIdRoute
   ApiPublicGetBillingRateRoute: typeof ApiPublicGetBillingRateRoute
   ApiPublicGetPortalCredentialRoute: typeof ApiPublicGetPortalCredentialRoute
@@ -608,6 +621,13 @@ declare module '@tanstack/react-router' {
       path: '/track/$tripId'
       fullPath: '/track/$tripId'
       preLoaderRoute: typeof TrackTripIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ride/$requestId': {
+      id: '/ride/$requestId'
+      path: '/ride/$requestId'
+      fullPath: '/ride/$requestId'
+      preLoaderRoute: typeof RideRequestIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/passenger/safety': {
@@ -972,6 +992,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DriverRoute: DriverRouteWithChildren,
   PassengerRoute: PassengerRouteWithChildren,
+  RideRequestIdRoute: RideRequestIdRoute,
   TrackTripIdRoute: TrackTripIdRoute,
   ApiPublicGetBillingRateRoute: ApiPublicGetBillingRateRoute,
   ApiPublicGetPortalCredentialRoute: ApiPublicGetPortalCredentialRoute,

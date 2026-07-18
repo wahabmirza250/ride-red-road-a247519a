@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ export const Route = createFileRoute("/passenger/apply")({
 
 function ApplyForRide() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const submit = useServerFn(submitRideRequest);
   const submitAuthed = useServerFn(passengerRequestRide);
   const search = Route.useSearch();
@@ -70,13 +71,12 @@ function ApplyForRide() {
             contact_phone: f.contact_phone || null,
           },
         });
-        setDispatchMsg(
-          res.assigned
-            ? "Driver found — waiting for them to accept."
-            : res.reason === "no_drivers_available"
-              ? "No drivers available nearby right now. We'll keep trying and notify dispatch."
-              : "Request submitted.",
-        );
+        if (typeof window !== "undefined" && f.contact_phone) {
+          window.localStorage.setItem("passenger_phone", f.contact_phone);
+        }
+        // Go straight into the live ride view — searching → matched → tracking all happen there.
+        void navigate({ to: "/ride/$requestId", params: { requestId: res.request_id } });
+        return;
       } else {
         await submit({ data: f });
         setDispatchMsg(null);
