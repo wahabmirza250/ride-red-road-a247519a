@@ -39,14 +39,17 @@ export function BillingDetailSheet({
   const fetchDetail = useServerFn(getBillingRecord);
   const approveFn = useServerFn(approveBillingRecord);
   const requestFixFn = useServerFn(requestFix);
-  
+
   const markApprovedFn = useServerFn(markApproved);
   const markRejectedFn = useServerFn(markRejected);
   const regeneratePdfFn = useServerFn(regenerateBillingPdf);
   const checkRobotFn = useServerFn(checkRobotJobStatus);
+  const startRobotFn = useServerFn(startRobotForRecord);
+  const markSubmittedFn = useServerFn(markPortalSubmitted);
 
   const [fixNotes, setFixNotes] = useState("");
   const [rejectReason, setRejectReason] = useState("");
+  const [confirmationNumber, setConfirmationNumber] = useState("");
 
   const detail = useQuery({
     queryKey: ["billing_detail", id],
