@@ -73,10 +73,11 @@ function RidePage() {
   const [retrying, setRetrying] = useState(false);
   const [now, setNow] = useState(Date.now());
 
-  // Load + subscribe to ride_request row.
+  // Load + subscribe + poll the ride_request row. Poll acts as a fallback in
+  // case realtime is delayed or filtered.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const load = async (initial = false) => {
       const { data, error } = await supabase
         .from("ride_requests")
         .select(
@@ -86,12 +87,14 @@ function RidePage() {
         .maybeSingle();
       if (cancelled) return;
       if (error || !data) {
-        setNotFound(true);
+        if (initial) setNotFound(true);
       } else {
         setReq(data as RideRequestRow);
       }
-      setLoading(false);
-    })();
+      if (initial) setLoading(false);
+    };
+    void load(true);
+    const poll = window.setInterval(() => void load(false), 3000);
 
     const ch = supabase
       .channel(`ride-req-${requestId}`)
@@ -106,6 +109,7 @@ function RidePage() {
 
     return () => {
       cancelled = true;
+      window.clearInterval(poll);
       supabase.removeChannel(ch);
     };
   }, [requestId]);
