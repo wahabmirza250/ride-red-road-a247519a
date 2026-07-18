@@ -3,16 +3,24 @@ import { cn } from "@/lib/utils";
 
 export function Avatar({
   path,
+  bucket = "avatars",
+  fallbackPath,
+  fallbackBucket = "avatars",
   name,
   size = 40,
   className,
 }: {
   path?: string | null;
+  bucket?: string;
+  fallbackPath?: string | null;
+  fallbackBucket?: string;
   name?: string | null;
   size?: number;
   className?: string;
 }) {
-  const url = useSignedUrl("avatars", path ?? null);
+  const primaryUrl = useSignedUrl(bucket, path ?? null);
+  const fallbackUrl = useSignedUrl(fallbackBucket, fallbackPath ?? null);
+  const url = primaryUrl ?? fallbackUrl;
   const initials =
     (name ?? "")
       .split(" ")
