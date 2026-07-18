@@ -15,8 +15,7 @@ const DEFAULT_ZOOM = 11;
 type DriverRow = {
   id: string;
   user_id: string;
-  is_online: boolean;
-  status: string;
+  status: "available" | "busy" | "offline";
   current_lat: number | null;
   current_lng: number | null;
   name?: string;
