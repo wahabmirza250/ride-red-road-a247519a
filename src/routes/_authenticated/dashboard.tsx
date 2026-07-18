@@ -199,7 +199,7 @@ function DashboardPage() {
 
   const trip = useCurrentTrip(selectedId);
   const vehiclePhoto = useSignedImage("vehicle-photos", selected?.vehicle_photo_path ?? null);
-  const driverPhoto = useSignedImage("profiles", selected?.profile?.avatar_url ?? null);
+  const driverPhoto = useSignedImage("avatars", selected?.profile?.avatar_url ?? null);
 
   const filteredDrivers = useMemo(() => {
     const list = drivers.data ?? [];
