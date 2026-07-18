@@ -1699,6 +1699,7 @@ export type Database = {
         }[]
       }
       get_public_trip_track: { Args: { _trip_id: string }; Returns: Json }
+      get_ride_request_view: { Args: { _request_id: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
