@@ -30,6 +30,7 @@ import {
   driverCreatePassenger,
   driverSearchPassengers,
 } from "@/lib/passenger.functions";
+import { declineRideOffer } from "@/lib/dispatch.functions";
 
 export const Route = createFileRoute("/driver/")({
   component: DriverHome,
