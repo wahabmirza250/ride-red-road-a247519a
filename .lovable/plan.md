@@ -1,76 +1,91 @@
-# Ship RedArt as two Android apps (Passenger + Driver)
+This is a large scope — 5 major sections spanning schema, driver app UI, media capture, and multi-passenger booking. I'll plan the work in dependency order, then implement section-by-section, testing each before moving on.
 
-Goal: produce two installable Android apps — **RedArt Rides** (passenger) and **RedArt Driver** — from the existing web app, using Capacitor. Play Store‑ready builds plus a step‑by‑step publishing walkthrough. Web app keeps working unchanged.
+## Scope confirmation
 
-## Approach
+Before I start, two quick clarifications will save rework:
 
-The current web app stays the single source of truth. Each Android app is a thin native shell that loads the live site (`https://redartdigital.com/passenger` or `/driver`) inside a native WebView, plus native plugins for GPS, push, camera, and background behavior. This means:
+1. **Clock in/out vs online/offline** — you asked me to clarify. My proposal: **tie them together** (going Online = clock in, Offline = clock out). Simpler for drivers, one source of truth for paid hours. A separate clock adds a second toggle they'll forget. OK to proceed on that basis?
 
-- No rewrite of screens, auth, dispatch, maps, or realtime.
-- Any UI change you push to the web instantly appears in both apps (no Play Store re-review for content changes).
-- Play Store re‑submission only needed when native plugins or app version bumps.
+2. **Dual-camera recording** — browsers cannot record front + rear cameras simultaneously on iOS Safari (hard platform limitation), and even on Android Chrome recording continuously for a full trip while the app is backgrounded is unreliable. Realistic options:
+   - **(a)** Record from the currently-selected camera only, driver can switch; upload chunks every ~30s. Works on all mobile browsers.
+   - **(b)** Skip continuous recording, instead prompt for a short "cabin video clip" at pickup + dropoff (5-10s each). Reliable, still gives incident evidence.
+   - **(c)** Defer this to the native Capacitor app where dual-camera plugins exist; stub the UI now.
+   
+   Which do you want? I'd recommend (b) for reliability today, with (c) as the eventual real solution.
 
-## What gets built
+## Section 1 — Earnings & time tracking
 
-### 1. Two Capacitor projects in the repo
-```text
-android/
-  passenger/     → RedArt Rides       (com.redart.rides)
-  driver/        → RedArt Driver      (com.redart.driver)
-```
-Each has its own icon, splash screen, app name, package ID, and signing key.
+**Schema**
+- `drivers`: add `pay_type` ('per_hour' | 'commission'), `hourly_rate numeric`
+- `driver_shifts`: `id, driver_id, clock_in_at, clock_out_at, start_odometer, end_odometer, miles_driven, hours_worked (generated), earnings (generated from hourly_rate)`
+- `gas_receipts`: `id, driver_id, shift_id?, amount, gallons?, photo_path, submitted_at, notes`
+- Storage bucket `gas-receipts` (private, driver read own + admin read all)
 
-### 2. Native capabilities wired in
+**Server fns** (`src/lib/shifts.functions.ts`, `src/lib/gasReceipts.functions.ts`)
+- `clockIn`, `clockOut`, `getCurrentShift`, `getShiftHistory`, `uploadGasReceipt`, `listGasReceipts`
 
-| Capability | Passenger app | Driver app |
-|---|---|---|
-| Geolocation (foreground) | ✓ pickup pin | ✓ |
-| **Background GPS** | — | ✓ keeps sending location when screen off |
-| **Push notifications (FCM)** | ✓ "Driver arriving" | ✓ "New ride request" |
-| Camera / photo picker | — | ✓ vehicle photos |
-| Deep links (`redartdigital.com/…`) | ✓ | ✓ |
-| Keep-awake while on trip | — | ✓ |
-| Call/SMS passenger | — | ✓ |
+**UI**
+- Driver profile: hourly rate visible (read-only for driver, editable for admin on `_authenticated/drivers`)
+- Driver dashboard cards: Today's hours, Today's miles, Live speedometer (from `watchPosition` speed), Earnings today, Clock in/out button
+- Gas receipts page (`/driver/expenses`) with photo upload
+- Admin drivers table: pay type + hourly rate columns editable; gas receipts tab per driver
 
-### 3. Small web-side additions
+## Section 2 — ETA fix + dashboard
 
-- A tiny bridge module that detects "am I running inside the native app?" and, when true, uses Capacitor's native Geolocation/Camera/Push plugins instead of browser APIs. Same React components, better native behavior.
-- Register the device's FCM token against the signed-in user so the existing dispatch code can target pushes.
-- A new `/api/public/fcm-send` server route the dispatcher calls to fan out ride-request pushes to matched drivers.
+- Fix `? min` on incoming ride card: compute `haversine(driver.current_lat/lng, request.pickup)` / 40 km/h, display as `~N min`. Add to the ride offer payload the driver already reads.
+- Redesign `/driver` home to use stat cards from Section 1 above the offers list — a real dashboard grid, not a bare status pill.
 
-### 4. Firebase project (for push)
-You create one free Firebase project → I wire the `google-services.json` into both apps and add the FCM server key as a Lovable Cloud secret. No Firebase code you have to maintain — just the credential.
+## Section 3 — Trip documentation
 
-### 5. Play Store publishing walkthrough
-A written guide covering: creating a Google Play Console account ($25 one‑time), generating upload keys, filling out the two store listings (screenshots, descriptions, privacy policy URL, data‑safety form — background location requires a short justification video, I'll give you a script), uploading the `.aab`, closed testing → production rollout.
+**Schema**
+- `ride_requests` + `trips`: `ride_purpose text` (enum-ish: doctor, dialysis, therapy, pharmacy, other)
+- `trips`: `pickup_odometer_photo_path`, `dropoff_odometer_photo_path`, `signature_captured_at timestamptz`, `signature_path` (if not already)
+- `trip_media`: `id, trip_id, kind (cabin_video_pickup|cabin_video_dropoff|other), storage_path, captured_at`
+- Storage bucket `trip-media` (private)
 
-## Deliverables
+**UI**
+- Passenger booking flow: add "Purpose of ride" required select on pickup or vehicle step
+- Driver active-trip flow: odometer photo required at "Arrived / Start" and at "Complete", short cabin video clip prompt at pickup + dropoff (option b above unless you pick different)
+- Signature timestamp: ensure `signature_captured_at = now()` is written server-side when signature uploaded
+- **Proof Report**: `/_authenticated/trips/$tripId/proof` — a printable page showing odometer photos, signature + timestamp, GPS route map/coords, purpose, times. PDF export via existing `medicaidPdf.ts` pattern.
 
-1. `android/passenger/` and `android/driver/` — buildable Android Studio projects.
-2. Signed **debug APKs** for both apps you can sideload today to test on your own phone.
-3. Signed **release AABs** ready to upload to Play Console.
-4. Firebase + FCM integration end-to-end (driver receives push when a request is dispatched to them).
-5. Background driver GPS that continues when the app is minimized or screen is off.
-6. `PUBLISHING.md` in the repo — full Play Store submission walkthrough, including the background-location justification.
+## Section 4 — Mid-ride stops
 
-## What I need from you (before / during build)
+**Schema**
+- `trip_stops`: `id, trip_id, sequence, address, lat, lng, arrived_at, departed_at, wait_seconds (generated), added_by (driver|passenger|dispatcher)`
 
-- Confirm package IDs `com.redart.rides` and `com.redart.driver` (or give me your preferred ones).
-- Create a free Firebase project and share `google-services.json` (I'll tell you exactly where to click).
-- A privacy policy URL (required by Play Store — I can also generate a hosted `/privacy` page for you).
+**UI**
+- Driver active-trip screen: "Add stop" button → address autocomplete → inserts stop before dropoff, updates nav
+- Passenger tracking screen: "Request a quick stop" → notifies driver
+- Trip completion sums total wait time and shows stops on the Proof Report
 
-## Out of scope for this plan
+## Section 5 — Group rides
 
-- iOS build (Android only, as requested).
-- Admin dashboard as an app (stays web-only — admins use browser).
-- Rewriting screens in React Native.
+**Schema**
+- `ride_requests`: `is_group boolean`, `group_size int`
+- `ride_passengers`: `id, request_id/trip_id, name, medicaid_id, phone, pickup_address, pickup_lat/lng, dropoff_address, dropoff_lat/lng, pickup_sequence, dropoff_sequence, picked_up_at, dropped_off_at`
+- `trip_stops` (from Section 4) doubles as the sequenced stop list
 
-## Rough sequencing
+**Server fn**
+- `sequenceGroupStops`: nearest-neighbor from pickup point through all dropoffs (simple, good enough)
 
-1. Add Capacitor + create both Android projects + icons/splash.
-2. Native geolocation + camera bridge, tested against live site.
-3. Firebase/FCM: token registration, dispatcher fan‑out, driver receive.
-4. Background GPS plugin + battery-safe tracking.
-5. Signed release builds + `PUBLISHING.md`.
+**UI**
+- Dispatcher `/live-ops`: "New group ride" wizard — add passengers one by one, each with pickup+dropoff, then submit
+- Passenger app: "Book for a group" toggle on the pickup screen → repeatable passenger cards
+- Driver active-trip screen: shows the ordered stop list with "Pick up [name]" / "Drop off [name]" checkpoints
 
-Approve this and I'll start with step 1.
+## Testing per section
+
+- **S1** — clock in via Playwright as driver, verify `driver_shifts` row + earnings displayed
+- **S2** — spawn a ride request from DB, load `/driver` with fake GPS, assert ETA text is not `? min`
+- **S3** — verify purpose select renders on `/passenger/book/pickup`, camera permission prompt fires (getUserMedia call visible in console), proof report route renders with seeded trip
+- **S4** — call `addTripStop` server fn, verify it appears in driver UI ordered list
+- **S5** — create a group ride via dispatcher form, verify `sequenceGroupStops` returns nearest-first order
+
+## Reporting
+
+After each section I'll post a short "Built + tested" note before starting the next, per your instruction.
+
+---
+
+Please answer the two clarifications above and I'll start with Section 1.
