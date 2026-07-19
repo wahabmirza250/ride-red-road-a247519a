@@ -51,7 +51,6 @@ function StaffSignupPage() {
           first_name: firstName,
           last_name: lastName,
           phone,
-          role,
           invite_code: inviteCode,
         },
       });
