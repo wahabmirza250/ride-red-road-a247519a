@@ -311,7 +311,7 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
         dropoff_lng: req.dropoff_lng,
         estimated_fare: req.estimated_fare,
         scheduled_pickup_time: req.requested_pickup_time || new Date().toISOString(),
-        assignment_type: "automatic",
+        assignment_type: "auto",
       })
       .select("id")
       .single();
