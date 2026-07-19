@@ -315,7 +315,13 @@ function RidePage() {
 
 /* ---------- Sub-blocks ---------- */
 
-function SearchingBlock({ waitedSec }: { waitedSec: number }) {
+function SearchingBlock({
+  waitedSec,
+  dispatchPhone,
+}: {
+  waitedSec: number;
+  dispatchPhone: string | null;
+}) {
   return (
     <div>
       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
@@ -323,13 +329,13 @@ function SearchingBlock({ waitedSec }: { waitedSec: number }) {
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
         </span>
-        Searching
+        Submitted to dispatch
       </div>
       <h1 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
         Finding your driver…
       </h1>
       <p className="mt-0.5 text-sm text-muted-foreground">
-        We're matching you with the closest available driver. This usually takes under a minute.
+        Your request has been submitted to dispatch — we'll assign you a driver soon.
       </p>
 
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -344,9 +350,20 @@ function SearchingBlock({ waitedSec }: { waitedSec: number }) {
           {formatMMSS(waitedSec)}
         </span>
       </div>
+
+      {dispatchPhone && (
+        <a
+          href={`tel:${dispatchPhone.replace(/[^+\d]/g, "")}`}
+          className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-background text-sm font-semibold text-foreground transition hover:bg-accent"
+        >
+          <Phone className="h-4 w-4" />
+          Call dispatch · {dispatchPhone}
+        </a>
+      )}
     </div>
   );
 }
+
 
 function SkeletonPulse() {
   return (
