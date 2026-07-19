@@ -478,44 +478,54 @@ function MatchedBlock({
 function NoDriverBlock({
   retrying,
   onRetry,
+  dispatchPhone,
 }: {
   retrying: boolean;
   onRetry: () => void;
+  dispatchPhone: string | null;
 }) {
+  const phone = dispatchPhone ?? "+1 (800) 555-1234";
   return (
     <div>
       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-500">
         <AlertTriangle className="h-3.5 w-3.5" />
-        No match yet
+        Dispatch is handling it
       </div>
       <h1 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-        No drivers available right now
+        Your request has been submitted to dispatch
       </h1>
       <p className="mt-0.5 text-sm text-muted-foreground">
-        We couldn't reach a nearby driver. You can retry or contact dispatch and we'll take it
-        from here.
+        We'll assign you a driver soon. If you need to update or cancel your ride, please call
+        dispatch below.
       </p>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <a
+        href={`tel:${phone.replace(/[^+\d]/g, "")}`}
+        className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
+      >
+        <Phone className="h-4 w-4" />
+        Call dispatch · {phone}
+      </a>
+
+      <div className="mt-2 grid grid-cols-1 gap-2">
         <button
           onClick={onRetry}
           disabled={retrying}
-          className="flex h-11 items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110 disabled:opacity-60"
+          className="flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-background text-sm font-semibold text-foreground transition hover:bg-accent disabled:opacity-60"
         >
           {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Retry
+          Try matching again
         </button>
-        <a
-          href="tel:+18005551234"
-          className="flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-background text-sm font-semibold text-foreground transition hover:bg-accent"
-        >
-          <LifeBuoy className="h-4 w-4" />
-          Call support
-        </a>
+      </div>
+
+      <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+        <LifeBuoy className="h-3.5 w-3.5" />
+        Reference #{/* short id shown to help dispatch look you up */}
       </div>
     </div>
   );
 }
+
 
 /* ---------- utils ---------- */
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
