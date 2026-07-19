@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS passengers_device_id_key ON public.passengers (device_id) WHERE device_id IS NOT NULL;
