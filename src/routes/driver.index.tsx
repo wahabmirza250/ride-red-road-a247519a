@@ -97,15 +97,18 @@ function DriverHome() {
   }, [user]);
 
   const online = driver ? driver.status !== "offline" : false;
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   const pushLoc = useCallback(
     async (p: { lat: number; lng: number }) => {
       if (!driver) return;
+      setGeoError(null);
       await supabase.from("drivers").update({ current_lat: p.lat, current_lng: p.lng }).eq("id", driver.id);
     },
     [driver],
   );
-  useLocationBroadcast(online, pushLoc, 5000);
+  const handleGeoError = useCallback((msg: string) => setGeoError(msg), []);
+  useLocationBroadcast(online, pushLoc, 15000, handleGeoError);
 
   const loadRequests = useCallback(async () => {
     if (!driver) return;
