@@ -173,6 +173,177 @@ export const expireRideOffer = createServerFn({ method: "POST" })
     return { ok: true, expired: true };
   });
 
+/** Driver accepts an assigned offer. Runs server-side so the request, driver,
+ * passenger row, trip row, and driver status stay consistent. */
+export const acceptRideOffer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { request_id: string }) => {
+    if (!input?.request_id) throw new Error("request_id required");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const { data: isDriver } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "driver",
+    });
+    if (!isDriver) throw new Error("Driver only");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: driver, error: driverError } = await supabaseAdmin
+      .from("drivers")
+      .select("id")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (driverError) throw new Error(driverError.message);
+    if (!driver) throw new Error("Driver profile not found");
+
+    const { data: req, error: reqError } = await supabaseAdmin
+      .from("ride_requests")
+      .select(
+        "id, passenger_id, contact_name, contact_phone, contact_medicaid, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng, requested_pickup_time, estimated_fare, status, driver_id, offer_expires_at, trip_id",
+      )
+      .eq("id", data.request_id)
+      .maybeSingle();
+    if (reqError) throw new Error(reqError.message);
+    if (!req) throw new Error("Ride request not found");
+
+    if (req.status === "accepted" && req.driver_id === driver.id && req.trip_id) {
+      return { ok: true, trip_id: req.trip_id };
+    }
+    if (req.status !== "pending") throw new Error("Ride request is no longer available");
+    if (req.driver_id && req.driver_id !== driver.id) {
+      throw new Error("This ride is assigned to another driver");
+    }
+    if (req.offer_expires_at && new Date(req.offer_expires_at) < new Date()) {
+      throw new Error("This ride offer expired");
+    }
+
+    let passengerId = req.passenger_id ?? null;
+
+    if (passengerId) {
+      const { data: byId } = await supabaseAdmin
+        .from("passengers")
+        .select("id")
+        .eq("id", passengerId)
+        .maybeSingle();
+      if (byId?.id) {
+        passengerId = byId.id;
+      } else {
+        const { data: byUser } = await supabaseAdmin
+          .from("passengers")
+          .select("id")
+          .eq("user_id", passengerId)
+          .maybeSingle();
+        passengerId = byUser?.id ?? null;
+      }
+    }
+
+    if (!passengerId && req.contact_medicaid) {
+      const { data: byMedicaid } = await supabaseAdmin
+        .from("passengers")
+        .select("id")
+        .eq("medicaid_id", req.contact_medicaid)
+        .maybeSingle();
+      passengerId = byMedicaid?.id ?? null;
+    }
+
+    if (!passengerId && req.contact_phone) {
+      const { data: byPhone } = await supabaseAdmin
+        .from("passengers")
+        .select("id")
+        .eq("phone", req.contact_phone)
+        .maybeSingle();
+      passengerId = byPhone?.id ?? null;
+    }
+
+    if (!passengerId) {
+      let profile: {
+        first_name: string | null;
+        last_name: string | null;
+        phone: string | null;
+        email: string | null;
+      } | null = null;
+
+      if (req.passenger_id) {
+        const { data: profileRow } = await supabaseAdmin
+          .from("profiles")
+          .select("first_name, last_name, phone, email")
+          .eq("id", req.passenger_id)
+          .maybeSingle();
+        profile = profileRow;
+      }
+
+      const nameParts = (req.contact_name ?? "").trim().split(/\s+/).filter(Boolean);
+      const firstName = profile?.first_name?.trim() || nameParts[0] || "Passenger";
+      const lastName =
+        profile?.last_name?.trim() ||
+        (nameParts.length > 1 ? nameParts.slice(1).join(" ") : "Guest");
+
+      const { data: insertedPassenger, error: passengerError } = await supabaseAdmin
+        .from("passengers")
+        .insert({
+          user_id: req.passenger_id || null,
+          first_name: firstName,
+          last_name: lastName,
+          phone: req.contact_phone || profile?.phone || null,
+          email: profile?.email || null,
+          medicaid_id: req.contact_medicaid || null,
+          is_active: true,
+        })
+        .select("id")
+        .single();
+      if (passengerError) throw new Error(passengerError.message);
+      passengerId = insertedPassenger.id;
+    }
+
+    const { data: trip, error: tripError } = await supabaseAdmin
+      .from("trips")
+      .insert({
+        driver_id: driver.id,
+        passenger_id: passengerId,
+        status: "assigned",
+        pickup_address: req.pickup_address,
+        pickup_lat: req.pickup_lat,
+        pickup_lng: req.pickup_lng,
+        dropoff_address: req.dropoff_address,
+        dropoff_lat: req.dropoff_lat,
+        dropoff_lng: req.dropoff_lng,
+        estimated_fare: req.estimated_fare,
+        scheduled_pickup_time: req.requested_pickup_time || new Date().toISOString(),
+        assignment_type: "auto",
+      })
+      .select("id")
+      .single();
+    if (tripError || !trip) throw new Error(tripError?.message ?? "Failed to create trip");
+
+    const { data: linked, error: linkError } = await supabaseAdmin
+      .from("ride_requests")
+      .update({
+        status: "accepted",
+        driver_id: driver.id,
+        trip_id: trip.id,
+        offer_expires_at: null,
+      })
+      .eq("id", req.id)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+
+    if (linkError || !linked) {
+      await supabaseAdmin.from("trips").delete().eq("id", trip.id);
+      throw new Error(linkError?.message ?? "Ride request is no longer available");
+    }
+
+    const { error: statusError } = await supabaseAdmin
+      .from("drivers")
+      .update({ status: "busy" })
+      .eq("id", driver.id);
+    if (statusError) throw new Error(statusError.message);
+
+    return { ok: true, trip_id: trip.id };
+  });
+
 /** Signed-in passenger books a ride. Auto-dispatches to nearest driver. */
 export const passengerRequestRide = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
