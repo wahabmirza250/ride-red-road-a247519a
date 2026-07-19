@@ -89,6 +89,11 @@ function DriverSignIn() {
                 className="h-11 rounded-xl"
               />
             </div>
+            {errorMsg && (
+              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+                {errorMsg}
+              </p>
+            )}
             <Button
               type="submit"
               disabled={submitting}
