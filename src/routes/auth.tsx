@@ -49,10 +49,10 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-surface-muted to-background px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center text-center">
-          <Link to="/" className="inline-flex items-center gap-2">
-            <BrandMark className="h-10 w-10 rounded-2xl shadow-soft ring-1 ring-border/50" />
-            <BrandWordmark className="h-6" />
+          <Link to="/" className="inline-flex items-center">
+            <BrandWordmark className="h-10" />
           </Link>
+
           <p className="mt-3 text-sm text-muted-foreground">
             Dispatch &amp; admin sign in
           </p>
