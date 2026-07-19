@@ -31,6 +31,9 @@ export function AddressAutocomplete({
   placeholder,
   className,
   autoFocus,
+  biasLat,
+  biasLng,
+  regionCode = "us",
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -39,7 +42,11 @@ export function AddressAutocomplete({
   placeholder?: string;
   className?: string;
   autoFocus?: boolean;
+  biasLat?: number;
+  biasLng?: number;
+  regionCode?: string;
 }) {
+
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
