@@ -100,7 +100,7 @@ export function AddressAutocomplete({
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [value, runAutocomplete]);
+  }, [value, runAutocomplete, biasLat, biasLng, regionCode]);
 
   async function selectSuggestion(s: Suggestion) {
     try {
