@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseBrowser";
+
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Car, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
+import { signInAsRole } from "@/lib/roleGuardedSignIn";
 
 export const Route = createFileRoute("/driver/signin")({
   component: DriverSignIn,
@@ -15,29 +16,29 @@ export const Route = createFileRoute("/driver/signin")({
 
 function DriverSignIn() {
   const nav = useNavigate();
-  const { user, loading, isDriver, isAdmin } = useAuth();
+  const { user, loading, isDriver } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Only auto-navigate if the signed-in account is actually a driver.
   useEffect(() => {
     if (loading || !user) return;
     if (isDriver) nav({ to: "/driver", replace: true });
-    else if (isAdmin) nav({ to: "/dashboard", replace: true });
-  }, [loading, user, isDriver, isAdmin, nav]);
+  }, [loading, user, isDriver, nav]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    setErrorMsg(null);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
-      if (error) throw error;
+      await signInAsRole(email, password, "driver");
       toast.success("Welcome");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sign in failed");
+      const msg = err instanceof Error ? err.message : "Sign in failed";
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -88,6 +89,11 @@ function DriverSignIn() {
                 className="h-11 rounded-xl"
               />
             </div>
+            {errorMsg && (
+              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+                {errorMsg}
+              </p>
+            )}
             <Button
               type="submit"
               disabled={submitting}

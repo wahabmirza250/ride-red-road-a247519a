@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrandMark, BrandWordmark } from "@/components/Brand";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { signInAsRole } from "@/lib/roleGuardedSignIn";
 
 export const Route = createFileRoute("/passenger/signup")({
   ssr: false,
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/passenger/signup")({
 
 function PassengerAuthPage() {
   const navigate = useNavigate();
-  const { user, loading, isAdmin, isDriver, isPassenger } = useAuth();
+  const { user, loading, isPassenger } = useAuth();
   const [mode, setMode] = useState<"signup" | "signin">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,14 +27,13 @@ function PassengerAuthPage() {
   const [phone, setPhone] = useState("");
   const [medicaidId, setMedicaidId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Once signed in, land on the right app.
+  // Only auto-navigate if the signed-in account is actually a passenger.
   useEffect(() => {
     if (loading || !user) return;
-    if (isAdmin) navigate({ to: "/dashboard", replace: true });
-    else if (isDriver && !isPassenger) navigate({ to: "/driver", replace: true });
-    else navigate({ to: "/passenger", replace: true });
-  }, [loading, user, isAdmin, isDriver, isPassenger, navigate]);
+    if (isPassenger) navigate({ to: "/passenger", replace: true });
+  }, [loading, user, isPassenger, navigate]);
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
@@ -76,15 +76,14 @@ function PassengerAuthPage() {
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    setErrorMsg(null);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
-      if (error) throw error;
+      await signInAsRole(email, password, "passenger");
       toast.success("Signed in");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sign in failed");
+      const msg = err instanceof Error ? err.message : "Sign in failed";
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -198,6 +197,11 @@ function PassengerAuthPage() {
                     required
                   />
                 </div>
+                {errorMsg && (
+                  <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+                    {errorMsg}
+                  </p>
+                )}
                 <Button type="submit" disabled={submitting} className="w-full rounded-full">
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
                 </Button>
