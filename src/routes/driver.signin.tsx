@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Car, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
+import { signInAsRole } from "@/lib/roleGuardedSignIn";
 
 export const Route = createFileRoute("/driver/signin")({
   component: DriverSignIn,
