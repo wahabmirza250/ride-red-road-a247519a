@@ -6,8 +6,7 @@ type StaffSignupInput = {
   first_name: string;
   last_name: string;
   phone: string;
-  role: "admin" | "dispatch";
-  invite_code: string;
+  role: "admin";
 };
 
 export const staffSignupWithCode = createServerFn({ method: "POST" })
