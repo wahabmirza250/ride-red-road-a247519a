@@ -1,40 +1,33 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
-  MapPin,
-  Navigation,
-  Power,
-  Car,
-  CheckCircle2,
-  Phone,
-  UserPlus,
-  Search,
-  Loader2,
-  PenLine,
-  XCircle,
+  MapPin, Navigation, Power, Car, CheckCircle2, Phone, UserPlus, Search,
+  Loader2, PenLine, XCircle, Plus, Fuel, FileCheck,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { useLocationBroadcast, requestCurrentPosition } from "@/lib/useGeolocation";
 import { openNavigation as openMapsNav } from "@/lib/mapsDeepLink";
-import { fmtMoney } from "@/lib/rideMath";
+import { fmtMoney, haversineKm } from "@/lib/rideMath";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SignaturePad } from "@/components/driver/SignaturePad";
-import {
-  driverCreatePassenger,
-  driverSearchPassengers,
-} from "@/lib/passenger.functions";
+import { StatsGrid } from "@/components/driver/StatsGrid";
+import { CabinClipRecorder } from "@/components/driver/CabinClipRecorder";
+import { OdometerPhotoButton } from "@/components/driver/OdometerPhotoButton";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { driverCreatePassenger, driverSearchPassengers } from "@/lib/passenger.functions";
 import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
+import { clockIn, clockOut, getShiftStats, addShiftMiles } from "@/lib/shifts.functions";
+import { recordTripMedia } from "@/lib/tripMedia.functions";
+import { addTripStop, markStopArrived, markStopDeparted } from "@/lib/tripStops.functions";
 
-export const Route = createFileRoute("/driver/")({
-  component: DriverHome,
-});
+export const Route = createFileRoute("/driver/")({ component: DriverHome });
 
 type DriverRow = {
   id: string;
@@ -42,7 +35,6 @@ type DriverRow = {
   current_lat: number | null;
   current_lng: number | null;
 };
-
 type Request = {
   id: string;
   passenger_id: string;
@@ -58,113 +50,138 @@ type Request = {
   status: string;
   trip_id: string | null;
   driver_id: string | null;
+  ride_purpose?: string | null;
+};
+type PaxRow = { id: string; first_name: string; last_name: string; phone: string | null; medicaid_id: string | null };
+type Stop = {
+  id: string; sequence: number; kind: string; address: string;
+  arrived_at: string | null; departed_at: string | null; passenger_name: string | null;
 };
 
-type PaxRow = {
-  id: string;
-  first_name: string;
-  last_name: string;
-  phone: string | null;
-  medicaid_id: string | null;
+const PURPOSE_LABEL: Record<string, string> = {
+  doctor: "Doctor appointment", dialysis: "Dialysis", physical_therapy: "Physical therapy",
+  pharmacy: "Pharmacy", mental_health: "Mental health", other: "Other",
 };
 
 function DriverHome() {
   const acceptFn = useServerFn(acceptRideOffer);
   const declineFn = useServerFn(declineRideOffer);
+  const clockInFn = useServerFn(clockIn);
+  const clockOutFn = useServerFn(clockOut);
+  const statsFn = useServerFn(getShiftStats);
+  const addMilesFn = useServerFn(addShiftMiles);
+  const recordMediaFn = useServerFn(recordTripMedia);
+  const addStopFn = useServerFn(addTripStop);
+  const arrivedFn = useServerFn(markStopArrived);
+  const departedFn = useServerFn(markStopDeparted);
+
   const { user } = useAuth();
   const [driver, setDriver] = useState<DriverRow | null>(null);
   const [pending, setPending] = useState<Request[]>([]);
   const [active, setActive] = useState<Request | null>(null);
   const [tripStatus, setTripStatus] = useState<string>("");
   const [passenger, setPassenger] = useState<PaxRow | null>(null);
+  const [stops, setStops] = useState<Stop[]>([]);
 
   const [showSign, setShowSign] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const [signerName, setSignerName] = useState("");
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-
   const [showPicker, setShowPicker] = useState(false);
+  const [showAddStop, setShowAddStop] = useState(false);
+  const [pickupOdoDone, setPickupOdoDone] = useState(false);
+  const [dropoffOdoDone, setDropoffOdoDone] = useState(false);
+
+  // Live speed + odometer accumulation (client-side GPS-derived miles).
+  const [speedMph, setSpeedMph] = useState<number | null>(null);
+  const lastFixRef = useRef<{ lat: number; lng: number; t: number } | null>(null);
+  const milesBufferRef = useRef(0);
+
+  // Shift stats
+  const [stats, setStats] = useState({
+    today_hours: 0, today_miles: 0, today_earnings: 0, hourly_rate: 0,
+  });
+  const refreshStats = useCallback(async () => {
+    try {
+      const r = await statsFn();
+      setStats(r);
+    } catch { /* ignore */ }
+  }, [statsFn]);
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("drivers")
-      .select("id,status,current_lat,current_lng")
-      .eq("user_id", user.id)
-      .maybeSingle()
+    supabase.from("drivers").select("id,status,current_lat,current_lng")
+      .eq("user_id", user.id).maybeSingle()
       .then(({ data }) => data && setDriver(data as DriverRow));
-  }, [user]);
+    void refreshStats();
+    const t = window.setInterval(refreshStats, 30000);
+    return () => window.clearInterval(t);
+  }, [user, refreshStats]);
 
   const online = driver ? driver.status !== "offline" : false;
   const [geoError, setGeoError] = useState<string | null>(null);
 
-  const pushLoc = useCallback(
-    async (p: { lat: number; lng: number }) => {
-      if (!driver) return;
-      setGeoError(null);
-      await supabase.from("drivers").update({ current_lat: p.lat, current_lng: p.lng }).eq("id", driver.id);
-    },
-    [driver],
-  );
+  const pushLoc = useCallback(async (p: { lat: number; lng: number }) => {
+    if (!driver) return;
+    setGeoError(null);
+    // Accumulate GPS miles for the current shift.
+    const now = Date.now();
+    const last = lastFixRef.current;
+    if (last) {
+      const km = haversineKm({ lat: last.lat, lng: last.lng }, p);
+      const dtSec = Math.max(1, (now - last.t) / 1000);
+      const mph = (km * 0.621371) / (dtSec / 3600);
+      if (isFinite(mph) && mph < 120) setSpeedMph(mph);
+      // Filter GPS jitter: only count segments longer than 15 m
+      if (km * 1000 > 15) {
+        milesBufferRef.current += km * 0.621371;
+        if (milesBufferRef.current > 0.25) {
+          const delta = milesBufferRef.current;
+          milesBufferRef.current = 0;
+          addMilesFn({ data: { delta_miles: delta } }).catch(() => {});
+          void refreshStats();
+        }
+      }
+    }
+    lastFixRef.current = { lat: p.lat, lng: p.lng, t: now };
+    await supabase.from("drivers").update({ current_lat: p.lat, current_lng: p.lng }).eq("id", driver.id);
+  }, [driver, addMilesFn, refreshStats]);
   const handleGeoError = useCallback((msg: string) => setGeoError(msg), []);
-  useLocationBroadcast(online, pushLoc, 15000, handleGeoError);
+  useLocationBroadcast(online, pushLoc, 10000, handleGeoError);
 
   const loadRequests = useCallback(async () => {
     if (!driver) return;
     const nowIso = new Date().toISOString();
     const { data: pend } = await supabase
-      .from("ride_requests")
-      .select("*")
-      .eq("status", "pending")
+      .from("ride_requests").select("*").eq("status", "pending")
       .or(`driver_id.eq.${driver.id},driver_id.is.null`)
       .or(`offer_expires_at.is.null,offer_expires_at.gt.${nowIso}`)
-      .order("created_at", { ascending: false })
-      .limit(5);
+      .order("created_at", { ascending: false }).limit(5);
     setPending((pend ?? []) as Request[]);
 
-    // Active from ride_requests (driver-accepted flow)
     const { data: act } = await supabase
-      .from("ride_requests")
-      .select("*")
-      .eq("driver_id", driver.id)
-      .eq("status", "accepted")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .from("ride_requests").select("*")
+      .eq("driver_id", driver.id).eq("status", "accepted")
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
 
     let activeTripId: string | null = act?.trip_id ?? null;
     let synthetic: Request | null = (act ?? null) as Request | null;
 
-    // Fallback: admin-assigned trip (no matching ride_request)
     if (!synthetic) {
       const { data: t } = await supabase
-        .from("trips")
-        .select(
-          "id,passenger_id,pickup_address,pickup_lat,pickup_lng,dropoff_address,dropoff_lat,dropoff_lng,estimated_fare,status",
-        )
+        .from("trips").select("id,passenger_id,pickup_address,pickup_lat,pickup_lng,dropoff_address,dropoff_lat,dropoff_lng,estimated_fare,status,ride_purpose")
         .eq("driver_id", driver.id)
         .in("status", ["assigned", "driver_en_route_to_pickup", "arrived_at_pickup", "in_progress"])
-        .order("scheduled_pickup_time", { ascending: true })
-        .limit(1)
-        .maybeSingle();
+        .order("scheduled_pickup_time", { ascending: true }).limit(1).maybeSingle();
       if (t) {
         activeTripId = t.id;
         synthetic = {
-          id: `trip-${t.id}`,
-          passenger_id: t.passenger_id,
-          pickup_address: t.pickup_address,
-          pickup_lat: Number(t.pickup_lat ?? 0),
-          pickup_lng: Number(t.pickup_lng ?? 0),
-          dropoff_address: t.dropoff_address,
-          dropoff_lat: Number(t.dropoff_lat ?? 0),
-          dropoff_lng: Number(t.dropoff_lng ?? 0),
-          distance_km: null,
-          estimated_fare: t.estimated_fare,
-          estimated_minutes: null,
-          status: "accepted",
-          trip_id: t.id,
-          driver_id: driver.id,
+          id: `trip-${t.id}`, passenger_id: t.passenger_id,
+          pickup_address: t.pickup_address, pickup_lat: Number(t.pickup_lat ?? 0), pickup_lng: Number(t.pickup_lng ?? 0),
+          dropoff_address: t.dropoff_address, dropoff_lat: Number(t.dropoff_lat ?? 0), dropoff_lng: Number(t.dropoff_lng ?? 0),
+          distance_km: null, estimated_fare: t.estimated_fare, estimated_minutes: null,
+          status: "accepted", trip_id: t.id, driver_id: driver.id, ride_purpose: t.ride_purpose,
         };
       }
     }
@@ -172,75 +189,67 @@ function DriverHome() {
     setActive(synthetic);
 
     if (activeTripId) {
-      const { data: t } = await supabase
-        .from("trips")
-        .select("status, passenger_id")
-        .eq("id", activeTripId)
-        .maybeSingle();
+      const { data: t } = await supabase.from("trips")
+        .select("status, passenger_id, odometer_start_photo, odometer_end_photo")
+        .eq("id", activeTripId).maybeSingle();
       setTripStatus(t?.status ?? "");
+      setPickupOdoDone(!!t?.odometer_start_photo);
+      setDropoffOdoDone(!!t?.odometer_end_photo);
       if (t?.passenger_id) {
-        const { data: p } = await supabase
-          .from("passengers")
-          .select("id, first_name, last_name, phone, medicaid_id")
-          .eq("id", t.passenger_id)
-          .maybeSingle();
+        const { data: p } = await supabase.from("passengers")
+          .select("id, first_name, last_name, phone, medicaid_id").eq("id", t.passenger_id).maybeSingle();
         setPassenger((p as PaxRow) ?? null);
       }
+      const { data: sr } = await supabase.from("trip_stops")
+        .select("id, sequence, kind, address, arrived_at, departed_at, passenger_name")
+        .eq("trip_id", activeTripId).order("sequence");
+      setStops((sr as Stop[]) ?? []);
     } else {
-      setTripStatus("");
-      setPassenger(null);
+      setTripStatus(""); setPassenger(null); setStops([]);
+      setPickupOdoDone(false); setDropoffOdoDone(false);
     }
   }, [driver]);
 
-  useEffect(() => {
-    void loadRequests();
-  }, [loadRequests]);
+  useEffect(() => { void loadRequests(); }, [loadRequests]);
 
   useEffect(() => {
     if (!driver) return;
-    const ch = supabase
-      .channel(`driver-${driver.id}`)
+    const ch = supabase.channel(`driver-${driver.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "ride_requests" }, () => loadRequests())
       .on("postgres_changes", { event: "*", schema: "public", table: "trips" }, () => loadRequests())
+      .on("postgres_changes", { event: "*", schema: "public", table: "trip_stops" }, () => loadRequests())
       .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
+    return () => { supabase.removeChannel(ch); };
   }, [driver, loadRequests]);
 
   async function toggleOnline() {
     if (!driver) return;
     const next = !online;
-
     if (next) {
-      // Prove we can read the device's location before flipping online, so
-      // dispatch never sees an "online" driver with NULL coords.
       let pos: { lat: number; lng: number };
-      try {
-        pos = await requestCurrentPosition();
-      } catch (e) {
+      try { pos = await requestCurrentPosition(); }
+      catch (e) {
         const msg = e instanceof Error ? e.message : "Could not get location";
-        setGeoError(msg);
-        toast.error(msg);
-        return;
+        setGeoError(msg); toast.error(msg); return;
       }
-      const { error } = await supabase
-        .from("drivers")
+      const { error } = await supabase.from("drivers")
         .update({ status: "available", current_lat: pos.lat, current_lng: pos.lng })
         .eq("id", driver.id);
       if (error) return toast.error(error.message);
       setDriver({ ...driver, status: "available", current_lat: pos.lat, current_lng: pos.lng });
       setGeoError(null);
-      toast.success("You're online");
+      try { await clockInFn({ data: {} }); toast.success("You're online — clocked in"); }
+      catch (e) { toast.error(e instanceof Error ? e.message : "Could not clock in"); }
+      void refreshStats();
     } else {
-      const { error } = await supabase
-        .from("drivers")
-        .update({ status: "offline", current_lat: null, current_lng: null })
-        .eq("id", driver.id);
+      const { error } = await supabase.from("drivers")
+        .update({ status: "offline", current_lat: null, current_lng: null }).eq("id", driver.id);
       if (error) return toast.error(error.message);
       setDriver({ ...driver, status: "offline", current_lat: null, current_lng: null });
-      setGeoError(null);
-      toast.success("Went offline");
+      setGeoError(null); setSpeedMph(null); lastFixRef.current = null;
+      try { await clockOutFn({ data: {} }); toast.success("Clocked out"); }
+      catch (e) { toast.error(e instanceof Error ? e.message : "Could not clock out"); }
+      void refreshStats();
     }
   }
 
@@ -251,34 +260,21 @@ function DriverHome() {
       setDriver({ ...driver, status: "busy" });
       toast.success("Trip accepted");
       void loadRequests();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to accept");
-    }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to accept"); }
   }
 
-  async function setStatus(
-    next: "driver_en_route_to_pickup" | "arrived_at_pickup" | "in_progress" | "completed",
-  ) {
+  async function setStatus(next: "driver_en_route_to_pickup" | "arrived_at_pickup" | "in_progress" | "completed") {
     if (!active?.trip_id) return;
-    const patch: {
-      status: typeof next;
-      actual_pickup_time?: string;
-      actual_dropoff_time?: string;
-    } = { status: next };
+    const patch: { status: typeof next; actual_pickup_time?: string; actual_dropoff_time?: string } = { status: next };
     if (next === "in_progress") patch.actual_pickup_time = new Date().toISOString();
     if (next === "completed") patch.actual_dropoff_time = new Date().toISOString();
     const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
     if (error) return toast.error(error.message);
-    if (next === "driver_en_route_to_pickup") toast.success("Dispatcher notified — pickup started");
-    if (next === "arrived_at_pickup") toast.success("Marked arrived at pickup");
     if (next === "completed") {
-      await supabase
-        .from("ride_requests")
-        .update({ status: "cancelled" })
-        .eq("id", active.id)
-        .neq("status", "cancelled");
+      await supabase.from("ride_requests").update({ status: "cancelled" })
+        .eq("id", active.id).neq("status", "cancelled");
       if (driver) await supabase.from("drivers").update({ status: "available" }).eq("id", driver.id);
-      toast.success("Trip completed — collect fare");
+      toast.success("Trip completed — proof report available in trip history");
     }
     void loadRequests();
   }
@@ -292,30 +288,19 @@ function DriverHome() {
       const blob = await (await fetch(signature)).blob();
       const path = `${user.id}/${active.trip_id}-${Date.now()}.png`;
       const up = await supabase.storage.from("signatures").upload(path, blob, {
-        contentType: "image/png",
-        upsert: false,
+        contentType: "image/png", upsert: false,
       });
       if (up.error) throw up.error;
-      const { error } = await supabase
-        .from("trips")
-        .update({
-          signature_url: path,
-          signed_at: new Date().toISOString(),
-          signer_name: signerName.trim(),
-          patient_confirmed: true,
-          patient_confirmed_at: new Date().toISOString(),
-        })
-        .eq("id", active.trip_id);
+      const now = new Date().toISOString();
+      const { error } = await supabase.from("trips").update({
+        signature_url: path, signed_at: now, signer_name: signerName.trim(),
+        patient_confirmed: true, patient_confirmed_at: now,
+      }).eq("id", active.trip_id);
       if (error) throw error;
-      setShowSign(false);
-      setSignature(null);
-      setSignerName("");
+      setShowSign(false); setSignature(null); setSignerName("");
       await setStatus("in_progress");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to save signature");
-    } finally {
-      setSaving(false);
-    }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to save signature"); }
+    finally { setSaving(false); }
   }
 
   async function cancelActiveTrip() {
@@ -323,49 +308,25 @@ function DriverHome() {
     if (!window.confirm("Cancel this ride?")) return;
     setCancelling(true);
     try {
-      const { error: tripError } = await supabase
-        .from("trips")
-        .update({ status: "cancelled" })
-        .eq("id", active.trip_id)
-        .eq("driver_id", driver.id);
-      if (tripError) throw tripError;
-
+      await supabase.from("trips").update({ status: "cancelled" })
+        .eq("id", active.trip_id).eq("driver_id", driver.id);
       if (!active.id.startsWith("trip-")) {
-        const { error: requestError } = await supabase
-          .from("ride_requests")
-          .update({ status: "cancelled" })
-          .eq("id", active.id)
-          .eq("driver_id", driver.id);
-        if (requestError) throw requestError;
+        await supabase.from("ride_requests").update({ status: "cancelled" })
+          .eq("id", active.id).eq("driver_id", driver.id);
       }
-
-      const { error: driverError } = await supabase
-        .from("drivers")
-        .update({ status: online ? "available" : "offline" })
-        .eq("id", driver.id);
-      if (driverError) throw driverError;
-
+      await supabase.from("drivers").update({ status: online ? "available" : "offline" }).eq("id", driver.id);
       toast.success("Ride cancelled");
-      setActive(null);
-      setTripStatus("");
-      setPassenger(null);
+      setActive(null); setTripStatus(""); setPassenger(null);
       void loadRequests();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to cancel ride");
-    } finally {
-      setCancelling(false);
-    }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to cancel ride"); }
+    finally { setCancelling(false); }
   }
 
   async function switchPassenger(pax: PaxRow) {
     if (!active?.trip_id) return;
-    const { error } = await supabase
-      .from("trips")
-      .update({ passenger_id: pax.id })
-      .eq("id", active.trip_id);
+    const { error } = await supabase.from("trips").update({ passenger_id: pax.id }).eq("id", active.trip_id);
     if (error) return toast.error(error.message);
-    setPassenger(pax);
-    setShowPicker(false);
+    setPassenger(pax); setShowPicker(false);
     toast.success(`Switched to ${pax.first_name} ${pax.last_name}`);
   }
 
@@ -379,44 +340,91 @@ function DriverHome() {
     });
   }
 
-  if (!driver) {
-    return (
-      <div className="rounded-2xl border border-border bg-surface p-6 text-sm text-muted-foreground">
-        Setting up your driver profile…
-      </div>
-    );
+  async function uploadOdometer(file: File, which: "start" | "end") {
+    if (!active?.trip_id || !user) return;
+    const path = `${user.id}/${active.trip_id}/odo_${which}_${Date.now()}.jpg`;
+    const up = await supabase.storage.from("odometers").upload(path, file, {
+      contentType: file.type || "image/jpeg", upsert: false,
+    });
+    if (up.error) throw new Error(up.error.message);
+    const patch = which === "start" ? { odometer_start_photo: path } : { odometer_end_photo: path };
+    const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
+    if (error) throw new Error(error.message);
+    if (which === "start") setPickupOdoDone(true); else setDropoffOdoDone(true);
+    toast.success("Odometer photo saved");
   }
+
+  async function uploadCabinClip(blob: Blob, kind: "cabin_video_pickup" | "cabin_video_dropoff", mimeType: string) {
+    if (!active?.trip_id || !user) return;
+    const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+    const path = `${user.id}/${active.trip_id}/cabin_${kind}_${Date.now()}.${ext}`;
+    const up = await supabase.storage.from("trip-media").upload(path, blob, {
+      contentType: mimeType, upsert: false,
+    });
+    if (up.error) throw new Error(up.error.message);
+    await recordMediaFn({ data: { trip_id: active.trip_id, kind, storage_path: path } });
+  }
+
+  async function addStop(address: string, coords: { lat: number; lng: number } | null) {
+    if (!active?.trip_id) return;
+    try {
+      await addStopFn({ data: { trip_id: active.trip_id, address, lat: coords?.lat ?? null, lng: coords?.lng ?? null, added_by: "driver" } });
+      setShowAddStop(false);
+      toast.success("Stop added to trip");
+      void loadRequests();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to add stop"); }
+  }
+
+  if (!driver) {
+    return <div className="rounded-2xl border border-border bg-surface p-6 text-sm text-muted-foreground">Setting up your driver profile…</div>;
+  }
+
+  const showOffers = !active && online;
 
   return (
     <div className="space-y-4">
-      {/* Online toggle */}
+      {/* Header: status + earnings dashboard */}
       <div className="flex items-center justify-between rounded-2xl border border-border bg-surface p-5 shadow-soft">
         <div>
           <div className="text-sm text-muted-foreground">Status</div>
           <div className="text-lg font-semibold">
-            {online ? "Online — receiving trips" : "Offline"}
+            {online ? "Online — clocked in" : "Offline — clocked out"}
           </div>
         </div>
-        <Button
-          onClick={toggleOnline}
-          className={`h-14 w-14 rounded-full ${online ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}
-        >
+        <Button onClick={toggleOnline}
+          className={`h-14 w-14 rounded-full ${online ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}>
           <Power className="h-6 w-6" />
         </Button>
+      </div>
+
+      <StatsGrid
+        todayHours={stats.today_hours} todayMiles={stats.today_miles}
+        todayEarnings={stats.today_earnings} hourlyRate={stats.hourly_rate}
+        speedMph={online ? speedMph : null} onShift={online}
+      />
+
+      <div className="grid grid-cols-3 gap-2">
+        <Link to="/driver/expenses"
+          className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface py-2 text-xs">
+          <Fuel className="h-3.5 w-3.5" /> Gas
+        </Link>
+        <Link to="/driver/earnings"
+          className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface py-2 text-xs">
+          Earnings
+        </Link>
+        <Link to="/driver/history"
+          className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface py-2 text-xs">
+          History
+        </Link>
       </div>
 
       {geoError && (
         <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">
           <div className="font-medium">Location problem</div>
           <div>{geoError}</div>
-          <div className="mt-1 text-xs opacity-80">
-            Dispatch can't send you rides until your location updates.
-          </div>
+          <div className="mt-1 text-xs opacity-80">Dispatch can't send you rides until your location updates.</div>
         </div>
       )}
-
-
-
 
       {/* Active trip */}
       {active && (
@@ -428,20 +436,20 @@ function DriverHome() {
             <Badge>{fmtMoney(active.estimated_fare)}</Badge>
           </div>
 
-          {/* Passenger */}
+          {active.ride_purpose && (
+            <div className="rounded-lg bg-surface px-3 py-2 text-xs">
+              <span className="text-muted-foreground">Purpose: </span>
+              <span className="font-medium">{PURPOSE_LABEL[active.ride_purpose] ?? active.ride_purpose}</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between rounded-xl bg-surface px-3 py-2">
             <div>
               <div className="text-xs text-muted-foreground">Passenger</div>
-              <div className="font-medium">
-                {passenger ? `${passenger.first_name} ${passenger.last_name}` : "Unknown"}
-              </div>
-              {passenger?.phone && (
-                <div className="text-xs text-muted-foreground">{passenger.phone}</div>
-              )}
+              <div className="font-medium">{passenger ? `${passenger.first_name} ${passenger.last_name}` : "Unknown"}</div>
+              {passenger?.phone && <div className="text-xs text-muted-foreground">{passenger.phone}</div>}
             </div>
-            <Button size="sm" variant="ghost" onClick={() => setShowPicker(true)}>
-              Change
-            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowPicker(true)}>Change</Button>
           </div>
 
           <div className="space-y-2">
@@ -452,6 +460,28 @@ function DriverHome() {
                 <div>{active.pickup_address}</div>
               </div>
             </div>
+            {stops.length > 0 && (
+              <div className="space-y-1 border-l-2 border-dashed border-primary/40 pl-3">
+                {stops.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between text-xs">
+                    <div>
+                      <span className="mr-1 rounded bg-primary/10 px-1 py-0.5 text-[10px] uppercase text-primary">{s.kind}</span>
+                      {s.passenger_name ? `${s.passenger_name} · ` : ""}{s.address}
+                    </div>
+                    <div className="flex gap-1">
+                      {!s.arrived_at && (
+                        <button className="text-primary underline"
+                          onClick={() => arrivedFn({ data: { stop_id: s.id } }).then(() => loadRequests())}>Arrived</button>
+                      )}
+                      {s.arrived_at && !s.departed_at && (
+                        <button className="text-primary underline"
+                          onClick={() => departedFn({ data: { stop_id: s.id } }).then(() => loadRequests())}>Depart</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex gap-2 text-sm">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
               <div>
@@ -460,58 +490,66 @@ function DriverHome() {
               </div>
             </div>
           </div>
+
+          {/* Odometer + cabin clips */}
+          {(tripStatus === "arrived_at_pickup" || tripStatus === "assigned" || tripStatus === "driver_en_route_to_pickup") && (
+            <div className="space-y-2 rounded-xl border border-dashed border-primary/30 bg-surface p-3">
+              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Pickup documentation</div>
+              <OdometerPhotoButton label="Pickup odometer photo" captured={pickupOdoDone}
+                onCaptured={(f) => uploadOdometer(f, "start")} />
+              <CabinClipRecorder label="Pickup cabin clip"
+                onSaved={(b, m) => uploadCabinClip(b, "cabin_video_pickup", m)} />
+            </div>
+          )}
+          {tripStatus === "in_progress" && (
+            <div className="space-y-2 rounded-xl border border-dashed border-primary/30 bg-surface p-3">
+              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Drop-off documentation</div>
+              <OdometerPhotoButton label="Drop-off odometer photo" captured={dropoffOdoDone}
+                onCaptured={(f) => uploadOdometer(f, "end")} />
+              <CabinClipRecorder label="Drop-off cabin clip"
+                onSaved={(b, m) => uploadCabinClip(b, "cabin_video_dropoff", m)} />
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2 pt-2">
             <Button variant="outline" className="rounded-full" onClick={openNavigation}>
               <Navigation className="mr-1 h-4 w-4" /> Navigate
             </Button>
-            <Link
-              to="/driver/trip/new"
-              search={{ tripId: active.trip_id ?? undefined } as { tripId?: string }}
-              className="inline-flex h-10 items-center justify-center rounded-full border border-input bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              <PenLine className="mr-1 h-4 w-4" /> Trip report
-            </Link>
-            <Button
-              variant="destructive"
-              className="rounded-full"
-              onClick={cancelActiveTrip}
-              disabled={cancelling}
-            >
-              {cancelling ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />}
-              Cancel
+            <Button variant="outline" className="rounded-full" onClick={() => setShowAddStop(true)}>
+              <Plus className="mr-1 h-4 w-4" /> Add stop
+            </Button>
+            {active.trip_id && (
+              <Link to="/trips/$tripId/proof" params={{ tripId: active.trip_id }}
+                className="inline-flex h-10 items-center justify-center rounded-full border border-input bg-background px-4 py-2 text-sm font-medium">
+                <FileCheck className="mr-1 h-4 w-4" /> Proof
+              </Link>
+            )}
+            <Button variant="destructive" className="rounded-full" onClick={cancelActiveTrip} disabled={cancelling}>
+              {cancelling ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />} Cancel
             </Button>
             {tripStatus === "assigned" && (
-              <Button
-                className="rounded-full bg-primary"
-                onClick={() => {
-                  setStatus("driver_en_route_to_pickup");
-                  openNavigation();
-                }}
-              >
+              <Button className="rounded-full bg-primary col-span-2"
+                onClick={() => { setStatus("driver_en_route_to_pickup"); openNavigation(); }}>
                 <Navigation className="mr-1 h-4 w-4" /> Start Pickup
               </Button>
             )}
             {tripStatus === "driver_en_route_to_pickup" && (
-              <Button className="rounded-full" onClick={() => setStatus("arrived_at_pickup")}>
+              <Button className="rounded-full col-span-2" onClick={() => setStatus("arrived_at_pickup")}>
                 <Car className="mr-1 h-4 w-4" /> I've Arrived
               </Button>
             )}
             {tripStatus === "arrived_at_pickup" && (
-              <Button
-                className="rounded-full"
+              <Button className="rounded-full col-span-2"
                 onClick={() => {
                   setSignerName(passenger ? `${passenger.first_name} ${passenger.last_name}` : "");
                   setShowSign(true);
-                }}
-              >
-                <PenLine className="mr-1 h-4 w-4" /> Get signature
+                }}>
+                <PenLine className="mr-1 h-4 w-4" /> Get signature & start
               </Button>
             )}
             {tripStatus === "in_progress" && (
-              <Button
-                className="rounded-full bg-emerald-500 hover:bg-emerald-600"
-                onClick={() => setStatus("completed")}
-              >
+              <Button className="rounded-full bg-emerald-500 hover:bg-emerald-600 col-span-2"
+                onClick={() => setStatus("completed")}>
                 <CheckCircle2 className="mr-1 h-4 w-4" /> Complete
               </Button>
             )}
@@ -519,51 +557,51 @@ function DriverHome() {
         </div>
       )}
 
-      {/* Pending requests */}
-      {!active && online && (
+      {showOffers && (
         <div className="space-y-3">
-          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Incoming requests
-          </div>
+          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Incoming requests</div>
           {pending.length === 0 && (
             <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
               Waiting for ride requests…
             </div>
           )}
-          {pending.map((r) => (
-            <div key={r.id} className="space-y-3 rounded-2xl border border-border bg-surface p-4 shadow-soft">
-              <div className="flex items-center justify-between">
-                <div className="font-semibold">
-                  {r.distance_km ? `${r.distance_km.toFixed(1)} km` : ""} · {r.estimated_minutes ?? "?"} min
+          {pending.map((r) => {
+            const etaMin = etaMinutesFor(driver, r);
+            return (
+              <div key={r.id} className="space-y-3 rounded-2xl border border-border bg-surface p-4 shadow-soft">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold">
+                    {r.distance_km ? `${r.distance_km.toFixed(1)} km · ` : ""}
+                    {etaMin != null ? `~${etaMin} min to pickup` : "pickup ETA unknown"}
+                  </div>
+                  <div className="text-lg font-bold">{fmtMoney(r.estimated_fare)}</div>
                 </div>
-                <div className="text-lg font-bold">{fmtMoney(r.estimated_fare)}</div>
+                {r.ride_purpose && (
+                  <div className="text-xs text-muted-foreground">
+                    Purpose: <span className="font-medium text-foreground">{PURPOSE_LABEL[r.ride_purpose] ?? r.ride_purpose}</span>
+                  </div>
+                )}
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <div className="truncate">↑ {r.pickup_address}</div>
+                  <div className="truncate">↓ {r.dropoff_address}</div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" className="rounded-full"
+                    onClick={() => declineFn({ data: { request_id: r.id } }).then(() => loadRequests())}>Decline</Button>
+                  <Button className="rounded-full" onClick={() => accept(r)}>Accept</Button>
+                </div>
               </div>
-              <div className="space-y-1 text-sm text-muted-foreground">
-                <div className="truncate">↑ {r.pickup_address}</div>
-                <div className="truncate">↓ {r.dropoff_address}</div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  className="rounded-full"
-                  onClick={() => declineFn({ data: { request_id: r.id } }).then(() => loadRequests())}
-                >
-                  Decline
-                </Button>
-                <Button className="rounded-full" onClick={() => accept(r)}>
-                  Accept
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {!online && (
         <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          Tap the power button to go online and start receiving trips.
+          Tap the power button to go online (clocks you in) and start receiving trips.
         </div>
       )}
+
       <div className="flex items-center gap-2 rounded-2xl border border-border bg-surface p-4 text-xs text-muted-foreground">
         <Phone className="h-4 w-4" /> Allow location permissions for live tracking to work.
       </div>
@@ -571,15 +609,16 @@ function DriverHome() {
       {/* Signature dialog */}
       <Dialog open={showSign} onOpenChange={setShowSign}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Passenger signature</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Passenger signature</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="signer">Signer name</Label>
               <Input id="signer" value={signerName} onChange={(e) => setSignerName(e.target.value)} placeholder="Full name" />
             </div>
             <SignaturePad onChange={setSignature} />
+            <div className="text-[11px] text-muted-foreground">
+              Timestamp will be recorded automatically at save time.
+            </div>
             <Button className="w-full rounded-full" onClick={saveSignatureAndStart} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & start trip"}
             </Button>
@@ -587,20 +626,57 @@ function DriverHome() {
         </DialogContent>
       </Dialog>
 
+      {/* Add-stop dialog */}
+      <AddStopDialog open={showAddStop} onOpenChange={setShowAddStop} onAdd={addStop} />
+
       {/* Passenger picker */}
-      <PassengerPickerDialog
-        open={showPicker}
-        onOpenChange={setShowPicker}
-        onPick={switchPassenger}
-      />
+      <PassengerPickerDialog open={showPicker} onOpenChange={setShowPicker} onPick={switchPassenger} />
     </div>
   );
 }
 
+function etaMinutesFor(driver: DriverRow | null, r: Request): number | null {
+  if (!driver?.current_lat || !driver?.current_lng) return r.estimated_minutes ?? null;
+  const km = haversineKm(
+    { lat: driver.current_lat, lng: driver.current_lng },
+    { lat: r.pickup_lat, lng: r.pickup_lng },
+  );
+  const mins = Math.max(1, Math.round((km / 40) * 60));
+  return mins;
+}
+
+function AddStopDialog({
+  open, onOpenChange, onAdd,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onAdd: (address: string, coords: { lat: number; lng: number } | null) => void;
+}) {
+  const [addr, setAddr] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  useEffect(() => { if (!open) { setAddr(""); setCoords(null); } }, [open]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Add a mid-ride stop</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <AddressAutocomplete
+            value={addr}
+            onChange={(v) => { setAddr(v); setCoords(null); }}
+            onResolve={(p) => { setAddr(p.address); setCoords({ lat: p.lat, lng: p.lng }); }}
+            placeholder="Pharmacy, ATM, etc."
+          />
+          <Button className="w-full rounded-full" onClick={() => addr && onAdd(addr, coords)} disabled={!addr}>
+            Add stop
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PassengerPickerDialog({
-  open,
-  onOpenChange,
-  onPick,
+  open, onOpenChange, onPick,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -620,13 +696,8 @@ function PassengerPickerDialog({
 
   useEffect(() => {
     if (!open) {
-      setQ("");
-      setResults([]);
-      setMode("search");
-      setFirstName("");
-      setLastName("");
-      setPhone("");
-      setMedicaid("");
+      setQ(""); setResults([]); setMode("search");
+      setFirstName(""); setLastName(""); setPhone(""); setMedicaid("");
     }
   }, [open]);
 
@@ -637,11 +708,8 @@ function PassengerPickerDialog({
       try {
         const r = await search({ data: { q } });
         setResults(r as PaxRow[]);
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Search failed");
-      } finally {
-        setSearching(false);
-      }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "Search failed"); }
+      finally { setSearching(false); }
     }, 300);
     return () => clearTimeout(t);
   }, [q, mode, search]);
@@ -650,23 +718,16 @@ function PassengerPickerDialog({
     if (!firstName.trim() || !lastName.trim()) return toast.error("Enter first and last name");
     setCreating(true);
     try {
-      const p = await createPax({
-        data: { first_name: firstName, last_name: lastName, phone, medicaid_id: medicaid },
-      });
+      const p = await createPax({ data: { first_name: firstName, last_name: lastName, phone, medicaid_id: medicaid } });
       onPick(p as PaxRow);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to add passenger");
-    } finally {
-      setCreating(false);
-    }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to add passenger"); }
+    finally { setCreating(false); }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Passenger</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>Passenger</DialogTitle></DialogHeader>
         <div className="flex gap-2">
           <Button size="sm" variant={mode === "search" ? "default" : "outline"} onClick={() => setMode("search")} className="flex-1 rounded-full">
             <Search className="mr-1 h-4 w-4" /> Search
@@ -684,18 +745,11 @@ function PassengerPickerDialog({
                 <div className="text-center text-xs text-muted-foreground">No matches. Try "Add new".</div>
               )}
               {results.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => onPick(p)}
-                  className="flex w-full items-center justify-between rounded-xl border border-border p-3 text-left hover:bg-accent"
-                >
+                <button key={p.id} onClick={() => onPick(p)}
+                  className="flex w-full items-center justify-between rounded-xl border border-border p-3 text-left hover:bg-accent">
                   <div>
-                    <div className="font-medium">
-                      {p.first_name} {p.last_name}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {p.phone ?? "no phone"} · {p.medicaid_id ?? ""}
-                    </div>
+                    <div className="font-medium">{p.first_name} {p.last_name}</div>
+                    <div className="text-xs text-muted-foreground">{p.phone ?? "no phone"} · {p.medicaid_id ?? ""}</div>
                   </div>
                 </button>
               ))}
@@ -704,23 +758,11 @@ function PassengerPickerDialog({
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1.5">
-                <Label>First name</Label>
-                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Last name</Label>
-                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
-              </div>
+              <div className="space-y-1.5"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
+              <div className="space-y-1.5"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Phone</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Medicaid ID (optional)</Label>
-              <Input value={medicaid} onChange={(e) => setMedicaid(e.target.value)} />
-            </div>
+            <div className="space-y-1.5"><Label>Phone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>Medicaid ID (optional)</Label><Input value={medicaid} onChange={(e) => setMedicaid(e.target.value)} /></div>
             <Button className="w-full rounded-full" onClick={handleCreate} disabled={creating}>
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add & use"}
             </Button>

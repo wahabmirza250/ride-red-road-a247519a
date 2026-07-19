@@ -31,6 +31,7 @@ import { Route as DriverSigninRouteImport } from './routes/driver.signin'
 import { Route as DriverProfileRouteImport } from './routes/driver.profile'
 import { Route as DriverMessagesRouteImport } from './routes/driver.messages'
 import { Route as DriverHistoryRouteImport } from './routes/driver.history'
+import { Route as DriverExpensesRouteImport } from './routes/driver.expenses'
 import { Route as DriverEarningsRouteImport } from './routes/driver.earnings'
 import { Route as AuthSignupRouteImport } from './routes/auth.signup'
 import { Route as AuthenticatedTripsRouteImport } from './routes/_authenticated/trips'
@@ -58,6 +59,7 @@ import { Route as ApiPublicGetPortalCredentialRouteImport } from './routes/api/p
 import { Route as ApiPublicGetBillingRateRouteImport } from './routes/api/public/get-billing-rate'
 import { Route as AuthenticatedPayrollDriverIdRouteImport } from './routes/_authenticated/payroll.$driverId'
 import { Route as AuthenticatedMedicaidTripsNewRouteImport } from './routes/_authenticated/medicaid-trips.new'
+import { Route as AuthenticatedTripsTripIdProofRouteImport } from './routes/_authenticated/trips.$tripId.proof'
 
 const PassengerRoute = PassengerRouteImport.update({
   id: '/passenger',
@@ -166,6 +168,11 @@ const DriverMessagesRoute = DriverMessagesRouteImport.update({
 const DriverHistoryRoute = DriverHistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => DriverRoute,
+} as any)
+const DriverExpensesRoute = DriverExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
   getParentRoute: () => DriverRoute,
 } as any)
 const DriverEarningsRoute = DriverEarningsRouteImport.update({
@@ -309,6 +316,12 @@ const AuthenticatedMedicaidTripsNewRoute =
     path: '/new',
     getParentRoute: () => AuthenticatedMedicaidTripsRoute,
   } as any)
+const AuthenticatedTripsTripIdProofRoute =
+  AuthenticatedTripsTripIdProofRouteImport.update({
+    id: '/$tripId/proof',
+    path: '/$tripId/proof',
+    getParentRoute: () => AuthenticatedTripsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -331,9 +344,10 @@ export interface FileRoutesByFullPath {
   '/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/team': typeof AuthenticatedTeamRoute
-  '/trips': typeof AuthenticatedTripsRoute
+  '/trips': typeof AuthenticatedTripsRouteWithChildren
   '/auth/signup': typeof AuthSignupRoute
   '/driver/earnings': typeof DriverEarningsRoute
+  '/driver/expenses': typeof DriverExpensesRoute
   '/driver/history': typeof DriverHistoryRoute
   '/driver/messages': typeof DriverMessagesRoute
   '/driver/profile': typeof DriverProfileRoute
@@ -359,6 +373,7 @@ export interface FileRoutesByFullPath {
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
   '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
+  '/trips/$tripId/proof': typeof AuthenticatedTripsTripIdProofRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -379,9 +394,10 @@ export interface FileRoutesByTo {
   '/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/team': typeof AuthenticatedTeamRoute
-  '/trips': typeof AuthenticatedTripsRoute
+  '/trips': typeof AuthenticatedTripsRouteWithChildren
   '/auth/signup': typeof AuthSignupRoute
   '/driver/earnings': typeof DriverEarningsRoute
+  '/driver/expenses': typeof DriverExpensesRoute
   '/driver/history': typeof DriverHistoryRoute
   '/driver/messages': typeof DriverMessagesRoute
   '/driver/profile': typeof DriverProfileRoute
@@ -407,6 +423,7 @@ export interface FileRoutesByTo {
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
   '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
+  '/trips/$tripId/proof': typeof AuthenticatedTripsTripIdProofRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -431,9 +448,10 @@ export interface FileRoutesById {
   '/_authenticated/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
   '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
-  '/_authenticated/trips': typeof AuthenticatedTripsRoute
+  '/_authenticated/trips': typeof AuthenticatedTripsRouteWithChildren
   '/auth/signup': typeof AuthSignupRoute
   '/driver/earnings': typeof DriverEarningsRoute
+  '/driver/expenses': typeof DriverExpensesRoute
   '/driver/history': typeof DriverHistoryRoute
   '/driver/messages': typeof DriverMessagesRoute
   '/driver/profile': typeof DriverProfileRoute
@@ -459,6 +477,7 @@ export interface FileRoutesById {
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
   '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
+  '/_authenticated/trips/$tripId/proof': typeof AuthenticatedTripsTripIdProofRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -486,6 +505,7 @@ export interface FileRouteTypes {
     | '/trips'
     | '/auth/signup'
     | '/driver/earnings'
+    | '/driver/expenses'
     | '/driver/history'
     | '/driver/messages'
     | '/driver/profile'
@@ -511,6 +531,7 @@ export interface FileRouteTypes {
     | '/driver/trip/new'
     | '/passenger/book/pickup'
     | '/passenger/book/vehicle'
+    | '/trips/$tripId/proof'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -534,6 +555,7 @@ export interface FileRouteTypes {
     | '/trips'
     | '/auth/signup'
     | '/driver/earnings'
+    | '/driver/expenses'
     | '/driver/history'
     | '/driver/messages'
     | '/driver/profile'
@@ -559,6 +581,7 @@ export interface FileRouteTypes {
     | '/driver/trip/new'
     | '/passenger/book/pickup'
     | '/passenger/book/vehicle'
+    | '/trips/$tripId/proof'
   id:
     | '__root__'
     | '/'
@@ -585,6 +608,7 @@ export interface FileRouteTypes {
     | '/_authenticated/trips'
     | '/auth/signup'
     | '/driver/earnings'
+    | '/driver/expenses'
     | '/driver/history'
     | '/driver/messages'
     | '/driver/profile'
@@ -610,6 +634,7 @@ export interface FileRouteTypes {
     | '/driver/trip/new'
     | '/passenger/book/pickup'
     | '/passenger/book/vehicle'
+    | '/_authenticated/trips/$tripId/proof'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -779,6 +804,13 @@ declare module '@tanstack/react-router' {
       path: '/history'
       fullPath: '/driver/history'
       preLoaderRoute: typeof DriverHistoryRouteImport
+      parentRoute: typeof DriverRoute
+    }
+    '/driver/expenses': {
+      id: '/driver/expenses'
+      path: '/expenses'
+      fullPath: '/driver/expenses'
+      preLoaderRoute: typeof DriverExpensesRouteImport
       parentRoute: typeof DriverRoute
     }
     '/driver/earnings': {
@@ -970,6 +1002,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMedicaidTripsNewRouteImport
       parentRoute: typeof AuthenticatedMedicaidTripsRoute
     }
+    '/_authenticated/trips/$tripId/proof': {
+      id: '/_authenticated/trips/$tripId/proof'
+      path: '/$tripId/proof'
+      fullPath: '/trips/$tripId/proof'
+      preLoaderRoute: typeof AuthenticatedTripsTripIdProofRouteImport
+      parentRoute: typeof AuthenticatedTripsRoute
+    }
   }
 }
 
@@ -986,6 +1025,17 @@ const AuthenticatedMedicaidTripsRouteWithChildren =
   AuthenticatedMedicaidTripsRoute._addFileChildren(
     AuthenticatedMedicaidTripsRouteChildren,
   )
+
+interface AuthenticatedTripsRouteChildren {
+  AuthenticatedTripsTripIdProofRoute: typeof AuthenticatedTripsTripIdProofRoute
+}
+
+const AuthenticatedTripsRouteChildren: AuthenticatedTripsRouteChildren = {
+  AuthenticatedTripsTripIdProofRoute: AuthenticatedTripsTripIdProofRoute,
+}
+
+const AuthenticatedTripsRouteWithChildren =
+  AuthenticatedTripsRoute._addFileChildren(AuthenticatedTripsRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -1004,7 +1054,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRewardsSettingsRoute: typeof AuthenticatedRewardsSettingsRoute
   AuthenticatedSchedulesRoute: typeof AuthenticatedSchedulesRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
-  AuthenticatedTripsRoute: typeof AuthenticatedTripsRoute
+  AuthenticatedTripsRoute: typeof AuthenticatedTripsRouteWithChildren
   AuthenticatedPayrollDriverIdRoute: typeof AuthenticatedPayrollDriverIdRoute
 }
 
@@ -1025,7 +1075,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRewardsSettingsRoute: AuthenticatedRewardsSettingsRoute,
   AuthenticatedSchedulesRoute: AuthenticatedSchedulesRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
-  AuthenticatedTripsRoute: AuthenticatedTripsRoute,
+  AuthenticatedTripsRoute: AuthenticatedTripsRouteWithChildren,
   AuthenticatedPayrollDriverIdRoute: AuthenticatedPayrollDriverIdRoute,
 }
 
@@ -1044,6 +1094,7 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface DriverRouteChildren {
   DriverEarningsRoute: typeof DriverEarningsRoute
+  DriverExpensesRoute: typeof DriverExpensesRoute
   DriverHistoryRoute: typeof DriverHistoryRoute
   DriverMessagesRoute: typeof DriverMessagesRoute
   DriverProfileRoute: typeof DriverProfileRoute
@@ -1054,6 +1105,7 @@ interface DriverRouteChildren {
 
 const DriverRouteChildren: DriverRouteChildren = {
   DriverEarningsRoute: DriverEarningsRoute,
+  DriverExpensesRoute: DriverExpensesRoute,
   DriverHistoryRoute: DriverHistoryRoute,
   DriverMessagesRoute: DriverMessagesRoute,
   DriverProfileRoute: DriverProfileRoute,
