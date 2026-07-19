@@ -75,8 +75,15 @@ export function AddressAutocomplete({
         setLoading(true);
         if (!sessionRef.current) sessionRef.current = newSessionToken();
         const result = await runAutocomplete({
-          data: { input: value.trim(), sessionToken: sessionRef.current },
+          data: {
+            input: value.trim(),
+            sessionToken: sessionRef.current,
+            lat: biasLat,
+            lng: biasLng,
+            regionCode,
+          },
         });
+
         if (myReq !== reqIdRef.current) return; // stale
         setSuggestions(result);
         setOpen(result.length > 0);
