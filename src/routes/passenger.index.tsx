@@ -4,10 +4,13 @@ import { Search, CalendarClock, MapPin, PlusCircle, Navigation, ArrowRight } fro
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { useCurrentPosition } from "@/lib/useGeolocation";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 export const Route = createFileRoute("/passenger/")({
+  ssr: false,
   component: PassengerHome,
 });
+
 
 type RecentTrip = { id: string; dropoff_address: string; created_at: string };
 
@@ -53,13 +56,14 @@ function PassengerHome() {
     return true;
   });
 
-  function goToSearch() {
-    void navigate({ to: "/passenger/book/pickup" });
+  function goToSearch(extra?: { dropoff?: string; dLat?: number; dLng?: number }) {
+    void navigate({ to: "/passenger/book/pickup", search: extra ?? {} });
   }
 
   function pickRecent(addr: string) {
     void navigate({ to: "/passenger/book/pickup", search: { dropoff: addr } });
   }
+
 
   return (
     <div className="space-y-6 pb-6">
@@ -68,20 +72,12 @@ function PassengerHome() {
         <p className="text-sm text-muted-foreground">Where would you like to go today?</p>
       </div>
 
-      {/* Big "Where are you going?" search bar */}
-      <button
-        onClick={goToSearch}
-        className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-4 text-left shadow-soft transition hover:border-primary/60 hover:shadow-lift"
-      >
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Search className="h-5 w-5" />
-        </span>
-        <span className="flex-1">
-          <span className="block text-base font-semibold text-foreground">Where are you going?</span>
-          <span className="block text-xs text-muted-foreground">Tap to enter a destination</span>
-        </span>
-        <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
-      </button>
+      {/* Big "Where are you going?" search bar with live autocomplete */}
+      <DestinationSearch
+        onPick={(addr, lat, lng) => goToSearch({ dropoff: addr, dLat: lat, dLng: lng })}
+        onOpen={() => goToSearch()}
+      />
+
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3">
@@ -119,7 +115,7 @@ function PassengerHome() {
         <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">
           {uniqueRecent.length === 0 ? (
             <button
-              onClick={goToSearch}
+              onClick={() => goToSearch()}
               className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-surface-muted"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -188,3 +184,39 @@ function PassengerHome() {
     </div>
   );
 }
+
+function DestinationSearch({
+  onPick,
+  onOpen,
+}: {
+  onPick: (address: string, lat: number, lng: number) => void;
+  onOpen: () => void;
+}) {
+  const [value, setValue] = useState("");
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-3 shadow-soft">
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Search className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <AddressAutocomplete
+            value={value}
+            onChange={setValue}
+            onResolve={(p) => onPick(p.address, p.lat, p.lng)}
+            placeholder="Where are you going?"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="hidden shrink-0 items-center gap-1 rounded-lg px-2 py-2 text-xs text-muted-foreground transition hover:text-foreground sm:inline-flex"
+          aria-label="Open full booking"
+        >
+          <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
