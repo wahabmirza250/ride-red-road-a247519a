@@ -16,31 +16,31 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { user, loading, isAdmin, isDriver, isPassenger } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Only auto-redirect if the already-signed-in user actually is an admin.
+  // A signed-in non-admin viewing this page can sign out and try again;
+  // we never bounce them into another app's surface from here.
   useEffect(() => {
     if (loading || !user) return;
     if (isAdmin) navigate({ to: "/dashboard", replace: true });
-    else if (isDriver) navigate({ to: "/driver", replace: true });
-    else if (isPassenger) navigate({ to: "/passenger", replace: true });
-    else navigate({ to: "/passenger", replace: true });
-  }, [loading, user, isAdmin, isDriver, isPassenger, navigate]);
+  }, [loading, user, isAdmin, navigate]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    setErrorMsg(null);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
-      if (error) throw error;
+      await signInAsRole(email, password, "admin");
       toast.success("Signed in");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sign in failed");
+      const msg = err instanceof Error ? err.message : "Sign in failed";
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
