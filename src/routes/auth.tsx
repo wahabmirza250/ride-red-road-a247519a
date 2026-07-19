@@ -86,7 +86,10 @@ function AuthPage() {
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
             </Button>
             <p className="text-center text-[11px] text-muted-foreground">
-              Dispatch and driver accounts are created by an admin.
+              Need a dispatch or admin account?{" "}
+              <Link to="/auth/signup" className="font-medium text-foreground hover:underline">
+                Create one with an invite code
+              </Link>
             </p>
           </form>
         </div>
