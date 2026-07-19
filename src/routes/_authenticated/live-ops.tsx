@@ -356,6 +356,4 @@ function DispatchPhoneCard() {
   );
 }
 
-    </div>
-  );
-}
+
