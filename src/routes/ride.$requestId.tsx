@@ -299,12 +299,13 @@ function RidePage() {
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
 
             {noDriverYet ? (
-              <NoDriverBlock retrying={retrying} onRetry={handleRetry} />
+              <NoDriverBlock retrying={retrying} onRetry={handleRetry} dispatchPhone={dispatchPhone} />
             ) : hasMatch ? (
               <MatchedBlock driver={driver!} driverName={driverName!} etaMin={etaMin} />
             ) : (
-              <SearchingBlock waitedSec={Math.floor(waited / 1000)} />
+              <SearchingBlock waitedSec={Math.floor(waited / 1000)} dispatchPhone={dispatchPhone} />
             )}
+
           </div>
         </div>
       </div>
