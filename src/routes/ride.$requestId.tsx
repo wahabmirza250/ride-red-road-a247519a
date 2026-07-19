@@ -518,10 +518,10 @@ function NoDriverBlock({
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-        <LifeBuoy className="h-3.5 w-3.5" />
-        Reference #{/* short id shown to help dispatch look you up */}
-      </div>
+    </div>
+  );
+}
+
     </div>
   );
 }
