@@ -30,7 +30,7 @@ import {
   driverCreatePassenger,
   driverSearchPassengers,
 } from "@/lib/passenger.functions";
-import { declineRideOffer } from "@/lib/dispatch.functions";
+import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
 
 export const Route = createFileRoute("/driver/")({
   component: DriverHome,
@@ -69,6 +69,7 @@ type PaxRow = {
 };
 
 function DriverHome() {
+  const acceptFn = useServerFn(acceptRideOffer);
   const declineFn = useServerFn(declineRideOffer);
   const { user } = useAuth();
   const [driver, setDriver] = useState<DriverRow | null>(null);
@@ -219,33 +220,14 @@ function DriverHome() {
 
   async function accept(req: Request) {
     if (!driver) return;
-    const { data: trip, error: tErr } = await supabase
-      .from("trips")
-      .insert({
-        driver_id: driver.id,
-        passenger_id: req.passenger_id,
-        status: "assigned",
-        pickup_address: req.pickup_address,
-        pickup_lat: req.pickup_lat,
-        pickup_lng: req.pickup_lng,
-        dropoff_address: req.dropoff_address,
-        dropoff_lat: req.dropoff_lat,
-        dropoff_lng: req.dropoff_lng,
-        estimated_fare: req.estimated_fare,
-        scheduled_pickup_time: new Date().toISOString(),
-      })
-      .select("id")
-      .single();
-    if (tErr || !trip) return toast.error(tErr?.message ?? "Failed to accept");
-    const { error } = await supabase
-      .from("ride_requests")
-      .update({ status: "accepted", driver_id: driver.id, trip_id: trip.id })
-      .eq("id", req.id)
-      .eq("status", "pending");
-    if (error) return toast.error(error.message);
-    await supabase.from("drivers").update({ status: "busy" }).eq("id", driver.id);
-    toast.success("Trip accepted");
-    void loadRequests();
+    try {
+      await acceptFn({ data: { request_id: req.id } });
+      setDriver({ ...driver, status: "busy" });
+      toast.success("Trip accepted");
+      void loadRequests();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to accept");
+    }
   }
 
   async function setStatus(
