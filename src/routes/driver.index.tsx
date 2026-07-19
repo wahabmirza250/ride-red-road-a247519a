@@ -211,14 +211,37 @@ function DriverHome() {
   async function toggleOnline() {
     if (!driver) return;
     const next = !online;
-    const nextStatus: "available" | "offline" = next ? "available" : "offline";
-    const { error } = await supabase
-      .from("drivers")
-      .update({ status: nextStatus })
-      .eq("id", driver.id);
-    if (error) return toast.error(error.message);
-    setDriver({ ...driver, status: nextStatus });
-    toast.success(next ? "You're online" : "Went offline");
+
+    if (next) {
+      // Prove we can read the device's location before flipping online, so
+      // dispatch never sees an "online" driver with NULL coords.
+      let pos: { lat: number; lng: number };
+      try {
+        pos = await requestCurrentPosition();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Could not get location";
+        setGeoError(msg);
+        toast.error(msg);
+        return;
+      }
+      const { error } = await supabase
+        .from("drivers")
+        .update({ status: "available", current_lat: pos.lat, current_lng: pos.lng })
+        .eq("id", driver.id);
+      if (error) return toast.error(error.message);
+      setDriver({ ...driver, status: "available", current_lat: pos.lat, current_lng: pos.lng });
+      setGeoError(null);
+      toast.success("You're online");
+    } else {
+      const { error } = await supabase
+        .from("drivers")
+        .update({ status: "offline", current_lat: null, current_lng: null })
+        .eq("id", driver.id);
+      if (error) return toast.error(error.message);
+      setDriver({ ...driver, status: "offline", current_lat: null, current_lng: null });
+      setGeoError(null);
+      toast.success("Went offline");
+    }
   }
 
   async function accept(req: Request) {
