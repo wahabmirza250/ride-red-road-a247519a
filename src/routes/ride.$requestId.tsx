@@ -72,6 +72,24 @@ function RidePage() {
   const [notFound, setNotFound] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [dispatchPhone, setDispatchPhone] = useState<string | null>(null);
+
+  // Fetch dispatch phone from app_settings (public readable).
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "dispatch_phone_number")
+        .maybeSingle();
+      if (!cancelled && data?.value) setDispatchPhone(data.value);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   // Load + subscribe + poll the ride_request row. Poll acts as a fallback in
   // case realtime is delayed or filtered.
