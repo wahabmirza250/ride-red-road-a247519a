@@ -56,13 +56,14 @@ function PassengerHome() {
     return true;
   });
 
-  function goToSearch() {
-    void navigate({ to: "/passenger/book/pickup" });
+  function goToSearch(extra?: { dropoff?: string; dLat?: number; dLng?: number }) {
+    void navigate({ to: "/passenger/book/pickup", search: extra ?? {} });
   }
 
   function pickRecent(addr: string) {
     void navigate({ to: "/passenger/book/pickup", search: { dropoff: addr } });
   }
+
 
   return (
     <div className="space-y-6 pb-6">
