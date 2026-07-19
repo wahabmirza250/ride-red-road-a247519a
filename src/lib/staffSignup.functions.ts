@@ -20,9 +20,6 @@ export const staffSignupWithCode = createServerFn({ method: "POST" })
     if (!data.email || !data.password || data.password.length < 8) {
       throw new Error("Email and a password of at least 8 characters are required");
     }
-    if (data.role !== "admin" && data.role !== "dispatch") {
-      throw new Error("Invalid role");
-    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -34,18 +31,18 @@ export const staffSignupWithCode = createServerFn({ method: "POST" })
         first_name: data.first_name.trim(),
         last_name: data.last_name.trim(),
         phone: data.phone.trim(),
-        role: data.role,
+        role: "admin",
       },
     });
     if (error || !created.user) throw new Error(error?.message ?? "Failed to create account");
 
     const userId = created.user.id;
 
-    // handle_new_user trigger defaults to 'passenger' — override with requested role.
+    // handle_new_user trigger defaults to 'passenger' — force admin.
     await supabaseAdmin
       .from("user_roles")
-      .upsert({ user_id: userId, role: data.role }, { onConflict: "user_id,role" });
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).neq("role", data.role);
+      .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).neq("role", "admin");
 
     await supabaseAdmin
       .from("profiles")
