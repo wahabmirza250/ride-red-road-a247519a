@@ -115,7 +115,7 @@ function PassengerHome() {
         <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">
           {uniqueRecent.length === 0 ? (
             <button
-              onClick={goToSearch}
+              onClick={() => goToSearch()}
               className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-surface-muted"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
