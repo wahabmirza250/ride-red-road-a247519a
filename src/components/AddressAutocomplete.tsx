@@ -19,15 +19,20 @@ export function AddressAutocomplete({
   value,
   onChange,
   onResolve,
+  onSubmit,
   placeholder,
   className,
+  autoFocus,
 }: {
   value: string;
   onChange: (v: string) => void;
   onResolve: (p: ResolvedPlace) => void;
+  onSubmit?: (raw: string) => void;
   placeholder?: string;
   className?: string;
+  autoFocus?: boolean;
 }) {
+
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
