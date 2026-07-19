@@ -23,11 +23,14 @@ type DriverRow = {
 type Req = {
   id: string;
   status: string;
+  driver_id: string | null;
   pickup_address: string;
   dropoff_address: string;
+  contact_phone: string | null;
   estimated_fare: number | null;
   created_at: string;
 };
+
 
 function LiveOps() {
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
