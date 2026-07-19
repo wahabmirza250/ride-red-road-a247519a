@@ -72,6 +72,24 @@ function RidePage() {
   const [notFound, setNotFound] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [dispatchPhone, setDispatchPhone] = useState<string | null>(null);
+
+  // Fetch dispatch phone from app_settings (public readable).
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "dispatch_phone_number")
+        .maybeSingle();
+      if (!cancelled && data?.value) setDispatchPhone(data.value);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   // Load + subscribe + poll the ride_request row. Poll acts as a fallback in
   // case realtime is delayed or filtered.
@@ -281,12 +299,13 @@ function RidePage() {
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
 
             {noDriverYet ? (
-              <NoDriverBlock retrying={retrying} onRetry={handleRetry} />
+              <NoDriverBlock retrying={retrying} onRetry={handleRetry} dispatchPhone={dispatchPhone} />
             ) : hasMatch ? (
               <MatchedBlock driver={driver!} driverName={driverName!} etaMin={etaMin} />
             ) : (
-              <SearchingBlock waitedSec={Math.floor(waited / 1000)} />
+              <SearchingBlock waitedSec={Math.floor(waited / 1000)} dispatchPhone={dispatchPhone} />
             )}
+
           </div>
         </div>
       </div>
@@ -296,7 +315,13 @@ function RidePage() {
 
 /* ---------- Sub-blocks ---------- */
 
-function SearchingBlock({ waitedSec }: { waitedSec: number }) {
+function SearchingBlock({
+  waitedSec,
+  dispatchPhone,
+}: {
+  waitedSec: number;
+  dispatchPhone: string | null;
+}) {
   return (
     <div>
       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
@@ -304,13 +329,13 @@ function SearchingBlock({ waitedSec }: { waitedSec: number }) {
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
         </span>
-        Searching
+        Submitted to dispatch
       </div>
       <h1 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
         Finding your driver…
       </h1>
       <p className="mt-0.5 text-sm text-muted-foreground">
-        We're matching you with the closest available driver. This usually takes under a minute.
+        Your request has been submitted to dispatch — we'll assign you a driver soon.
       </p>
 
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -325,9 +350,20 @@ function SearchingBlock({ waitedSec }: { waitedSec: number }) {
           {formatMMSS(waitedSec)}
         </span>
       </div>
+
+      {dispatchPhone && (
+        <a
+          href={`tel:${dispatchPhone.replace(/[^+\d]/g, "")}`}
+          className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-background text-sm font-semibold text-foreground transition hover:bg-accent"
+        >
+          <Phone className="h-4 w-4" />
+          Call dispatch · {dispatchPhone}
+        </a>
+      )}
     </div>
   );
 }
+
 
 function SkeletonPulse() {
   return (
@@ -442,44 +478,52 @@ function MatchedBlock({
 function NoDriverBlock({
   retrying,
   onRetry,
+  dispatchPhone,
 }: {
   retrying: boolean;
   onRetry: () => void;
+  dispatchPhone: string | null;
 }) {
+  const phone = dispatchPhone ?? "+1 (800) 555-1234";
   return (
     <div>
       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-500">
         <AlertTriangle className="h-3.5 w-3.5" />
-        No match yet
+        Dispatch is handling it
       </div>
       <h1 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-        No drivers available right now
+        Your request has been submitted to dispatch
       </h1>
       <p className="mt-0.5 text-sm text-muted-foreground">
-        We couldn't reach a nearby driver. You can retry or contact dispatch and we'll take it
-        from here.
+        We'll assign you a driver soon. If you need to update or cancel your ride, please call
+        dispatch below.
       </p>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <a
+        href={`tel:${phone.replace(/[^+\d]/g, "")}`}
+        className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
+      >
+        <Phone className="h-4 w-4" />
+        Call dispatch · {phone}
+      </a>
+
+      <div className="mt-2 grid grid-cols-1 gap-2">
         <button
           onClick={onRetry}
           disabled={retrying}
-          className="flex h-11 items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110 disabled:opacity-60"
+          className="flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-background text-sm font-semibold text-foreground transition hover:bg-accent disabled:opacity-60"
         >
           {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Retry
+          Try matching again
         </button>
-        <a
-          href="tel:+18005551234"
-          className="flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-background text-sm font-semibold text-foreground transition hover:bg-accent"
-        >
-          <LifeBuoy className="h-4 w-4" />
-          Call support
-        </a>
       </div>
+
     </div>
   );
 }
+
+
+
 
 /* ---------- utils ---------- */
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
