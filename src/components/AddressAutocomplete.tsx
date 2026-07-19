@@ -31,6 +31,9 @@ export function AddressAutocomplete({
   placeholder,
   className,
   autoFocus,
+  biasLat,
+  biasLng,
+  regionCode = "us",
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -39,7 +42,11 @@ export function AddressAutocomplete({
   placeholder?: string;
   className?: string;
   autoFocus?: boolean;
+  biasLat?: number;
+  biasLng?: number;
+  regionCode?: string;
 }) {
+
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -68,8 +75,15 @@ export function AddressAutocomplete({
         setLoading(true);
         if (!sessionRef.current) sessionRef.current = newSessionToken();
         const result = await runAutocomplete({
-          data: { input: value.trim(), sessionToken: sessionRef.current },
+          data: {
+            input: value.trim(),
+            sessionToken: sessionRef.current,
+            lat: biasLat,
+            lng: biasLng,
+            regionCode,
+          },
         });
+
         if (myReq !== reqIdRef.current) return; // stale
         setSuggestions(result);
         setOpen(result.length > 0);
@@ -86,7 +100,7 @@ export function AddressAutocomplete({
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [value, runAutocomplete]);
+  }, [value, runAutocomplete, biasLat, biasLng, regionCode]);
 
   async function selectSuggestion(s: Suggestion) {
     try {
