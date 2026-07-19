@@ -16,29 +16,29 @@ export const Route = createFileRoute("/driver/signin")({
 
 function DriverSignIn() {
   const nav = useNavigate();
-  const { user, loading, isDriver, isAdmin } = useAuth();
+  const { user, loading, isDriver } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Only auto-navigate if the signed-in account is actually a driver.
   useEffect(() => {
     if (loading || !user) return;
     if (isDriver) nav({ to: "/driver", replace: true });
-    else if (isAdmin) nav({ to: "/dashboard", replace: true });
-  }, [loading, user, isDriver, isAdmin, nav]);
+  }, [loading, user, isDriver, nav]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    setErrorMsg(null);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
-      if (error) throw error;
+      await signInAsRole(email, password, "driver");
       toast.success("Welcome");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sign in failed");
+      const msg = err instanceof Error ? err.message : "Sign in failed";
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
