@@ -36,7 +36,7 @@ export function loadGoogleMaps(): Promise<typeof google> {
       libraries: "places",
       loading: "async",
       callback: "__lovableGmapsCb",
-      ...(channel ? { channel } : {}),
+      ...(useChannel ? { channel: channel! } : {}),
     });
     s.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
     s.async = true;
