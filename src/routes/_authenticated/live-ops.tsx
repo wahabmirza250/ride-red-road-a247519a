@@ -42,10 +42,11 @@ function LiveOps() {
       supabase.from("drivers").select("id,user_id,status,current_lat,current_lng"),
       supabase
         .from("ride_requests")
-        .select("id,status,pickup_address,dropoff_address,estimated_fare,created_at")
+        .select("id,status,driver_id,pickup_address,dropoff_address,contact_phone,estimated_fare,created_at")
         .in("status", ["pending", "accepted"])
         .order("created_at", { ascending: false })
         .limit(50),
+
     ]);
     const rows = (d ?? []) as DriverRow[];
     const ids = rows.map((x) => x.user_id);
