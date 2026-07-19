@@ -76,15 +76,14 @@ function PassengerAuthPage() {
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    setErrorMsg(null);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
-      if (error) throw error;
+      await signInAsRole(email, password, "passenger");
       toast.success("Signed in");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sign in failed");
+      const msg = err instanceof Error ? err.message : "Sign in failed";
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
