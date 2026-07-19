@@ -4,10 +4,13 @@ import { Search, CalendarClock, MapPin, PlusCircle, Navigation, ArrowRight } fro
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { useCurrentPosition } from "@/lib/useGeolocation";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 export const Route = createFileRoute("/passenger/")({
+  ssr: false,
   component: PassengerHome,
 });
+
 
 type RecentTrip = { id: string; dropoff_address: string; created_at: string };
 
