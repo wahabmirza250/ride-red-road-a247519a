@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Home, PlusCircle, Newspaper, Sparkles, UserCircle2, LogOut, Trophy } from "lucide-react";
@@ -37,16 +37,8 @@ function getOrCreateDeviceId(): string {
 
 function PassengerLayout() {
   const loc = useLocation();
-  const navigate = useNavigate();
   const track = useServerFn(trackVisitor);
-  const { user, loading, isAdmin, isDriver, isPassenger } = useAuth();
-
-  // Signed-in admins/drivers should never see the passenger app — route them home.
-  useEffect(() => {
-    if (loading || !user) return;
-    if (isAdmin) navigate({ to: "/dashboard", replace: true });
-    else if (isDriver && !isPassenger) navigate({ to: "/driver", replace: true });
-  }, [loading, user, isAdmin, isDriver, isPassenger, navigate]);
+  const { user } = useAuth();
 
   useEffect(() => {
     // Auto-subscribe signed-in passengers to push (idempotent, one-time prompt).
