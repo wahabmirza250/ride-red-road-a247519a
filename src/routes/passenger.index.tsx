@@ -75,8 +75,9 @@ function PassengerHome() {
       {/* Big "Where are you going?" search bar with live autocomplete */}
       <DestinationSearch
         onPick={(addr, lat, lng) => goToSearch({ dropoff: addr, dLat: lat, dLng: lng })}
-        onOpen={() => goToSearch()}
+        onSubmitRaw={(text) => goToSearch({ dropoff: text })}
       />
+
 
 
       {/* Quick actions */}
@@ -187,15 +188,16 @@ function PassengerHome() {
 
 function DestinationSearch({
   onPick,
-  onOpen,
+  onSubmitRaw,
 }: {
   onPick: (address: string, lat: number, lng: number) => void;
-  onOpen: () => void;
+  onSubmitRaw: (text: string) => void;
 }) {
   const [value, setValue] = useState("");
+  const canSubmit = value.trim().length >= 3;
   return (
     <div className="rounded-2xl border border-border bg-surface p-3 shadow-soft">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Search className="h-5 w-5" />
         </span>
@@ -204,19 +206,25 @@ function DestinationSearch({
             value={value}
             onChange={setValue}
             onResolve={(p) => onPick(p.address, p.lat, p.lng)}
+            onSubmit={(raw) => onSubmitRaw(raw)}
             placeholder="Where are you going?"
           />
         </div>
         <button
           type="button"
-          onClick={onOpen}
-          className="hidden shrink-0 items-center gap-1 rounded-lg px-2 py-2 text-xs text-muted-foreground transition hover:text-foreground sm:inline-flex"
-          aria-label="Open full booking"
+          onClick={() => (canSubmit ? onSubmitRaw(value.trim()) : null)}
+          disabled={!canSubmit}
+          className="shrink-0 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition disabled:opacity-40"
+          aria-label="Search destination"
         >
-          <ArrowRight className="h-4 w-4" />
+          Go
         </button>
       </div>
+      <p className="mt-2 px-1 text-[11px] text-muted-foreground">
+        Pick a suggestion, tap Go, or press Enter — we'll look it up for you.
+      </p>
     </div>
   );
 }
+
 

@@ -19,15 +19,20 @@ export function AddressAutocomplete({
   value,
   onChange,
   onResolve,
+  onSubmit,
   placeholder,
   className,
+  autoFocus,
 }: {
   value: string;
   onChange: (v: string) => void;
   onResolve: (p: ResolvedPlace) => void;
+  onSubmit?: (raw: string) => void;
   placeholder?: string;
   className?: string;
+  autoFocus?: boolean;
 }) {
+
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -110,7 +115,20 @@ export function AddressAutocomplete({
         placeholder={placeholder ?? "Start typing an address…"}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+        autoFocus={autoFocus}
+        enterKeyHint="search"
+        inputMode="search"
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          if (suggestions[0]) {
+            void selectSuggestion(suggestions[0]);
+          } else if (onSubmit && value.trim()) {
+            onSubmit(value.trim());
+          }
+        }}
       />
+
       {open && suggestions.length > 0 && (
         <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-border bg-popover shadow-lg">
           {suggestions.map((s) => (
