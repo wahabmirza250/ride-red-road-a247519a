@@ -386,6 +386,56 @@ export type Database = {
           },
         ]
       }
+      driver_shifts: {
+        Row: {
+          clock_in_at: string
+          clock_out_at: string | null
+          created_at: string
+          driver_id: string
+          earnings: number
+          end_odometer: number | null
+          gps_miles: number
+          hourly_rate_snapshot: number
+          id: string
+          start_odometer: number | null
+          updated_at: string
+        }
+        Insert: {
+          clock_in_at?: string
+          clock_out_at?: string | null
+          created_at?: string
+          driver_id: string
+          earnings?: number
+          end_odometer?: number | null
+          gps_miles?: number
+          hourly_rate_snapshot?: number
+          id?: string
+          start_odometer?: number | null
+          updated_at?: string
+        }
+        Update: {
+          clock_in_at?: string
+          clock_out_at?: string | null
+          created_at?: string
+          driver_id?: string
+          earnings?: number
+          end_odometer?: number | null
+          gps_miles?: number
+          hourly_rate_snapshot?: number
+          id?: string
+          start_odometer?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_shifts_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           created_at: string
@@ -396,9 +446,11 @@ export type Database = {
             | Database["public"]["Enums"]["nemt_vehicle_type"]
             | null
           default_vin: string | null
+          hourly_rate: number
           id: string
           last_location_at: string | null
           license_number: string | null
+          pay_type: Database["public"]["Enums"]["driver_pay_type"]
           photo_url: string | null
           rating: number
           status: Database["public"]["Enums"]["driver_status"]
@@ -422,9 +474,11 @@ export type Database = {
             | Database["public"]["Enums"]["nemt_vehicle_type"]
             | null
           default_vin?: string | null
+          hourly_rate?: number
           id?: string
           last_location_at?: string | null
           license_number?: string | null
+          pay_type?: Database["public"]["Enums"]["driver_pay_type"]
           photo_url?: string | null
           rating?: number
           status?: Database["public"]["Enums"]["driver_status"]
@@ -448,9 +502,11 @@ export type Database = {
             | Database["public"]["Enums"]["nemt_vehicle_type"]
             | null
           default_vin?: string | null
+          hourly_rate?: number
           id?: string
           last_location_at?: string | null
           license_number?: string | null
+          pay_type?: Database["public"]["Enums"]["driver_pay_type"]
           photo_url?: string | null
           rating?: number
           status?: Database["public"]["Enums"]["driver_status"]
@@ -603,6 +659,57 @@ export type Database = {
           url?: string
         }
         Relationships: []
+      }
+      gas_receipts: {
+        Row: {
+          amount: number
+          created_at: string
+          driver_id: string
+          gallons: number | null
+          id: string
+          notes: string | null
+          photo_path: string
+          shift_id: string | null
+          submitted_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          driver_id: string
+          gallons?: number | null
+          id?: string
+          notes?: string | null
+          photo_path: string
+          shift_id?: string | null
+          submitted_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          driver_id?: string
+          gallons?: number | null
+          id?: string
+          notes?: string | null
+          photo_path?: string
+          shift_id?: string | null
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gas_receipts_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gas_receipts_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "driver_shifts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       incidents: {
         Row: {
@@ -1194,6 +1301,81 @@ export type Database = {
         }
         Relationships: []
       }
+      ride_passengers: {
+        Row: {
+          created_at: string
+          dropoff_address: string
+          dropoff_lat: number | null
+          dropoff_lng: number | null
+          dropoff_sequence: number | null
+          dropped_off_at: string | null
+          id: string
+          medicaid_id: string | null
+          name: string
+          phone: string | null
+          picked_up_at: string | null
+          pickup_address: string
+          pickup_lat: number | null
+          pickup_lng: number | null
+          pickup_sequence: number | null
+          request_id: string | null
+          trip_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          dropoff_address: string
+          dropoff_lat?: number | null
+          dropoff_lng?: number | null
+          dropoff_sequence?: number | null
+          dropped_off_at?: string | null
+          id?: string
+          medicaid_id?: string | null
+          name: string
+          phone?: string | null
+          picked_up_at?: string | null
+          pickup_address: string
+          pickup_lat?: number | null
+          pickup_lng?: number | null
+          pickup_sequence?: number | null
+          request_id?: string | null
+          trip_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          dropoff_address?: string
+          dropoff_lat?: number | null
+          dropoff_lng?: number | null
+          dropoff_sequence?: number | null
+          dropped_off_at?: string | null
+          id?: string
+          medicaid_id?: string | null
+          name?: string
+          phone?: string | null
+          picked_up_at?: string | null
+          pickup_address?: string
+          pickup_lat?: number | null
+          pickup_lng?: number | null
+          pickup_sequence?: number | null
+          request_id?: string | null
+          trip_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ride_passengers_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "ride_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ride_passengers_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ride_requests: {
         Row: {
           contact_medicaid: string | null
@@ -1208,7 +1390,9 @@ export type Database = {
           dropoff_lng: number | null
           estimated_fare: number | null
           estimated_minutes: number | null
+          group_size: number
           id: string
+          is_group: boolean
           notes: string | null
           offer_expires_at: string | null
           passenger_id: string | null
@@ -1216,6 +1400,7 @@ export type Database = {
           pickup_lat: number | null
           pickup_lng: number | null
           requested_pickup_time: string | null
+          ride_purpose: string | null
           source: string
           status: string
           trip_id: string | null
@@ -1234,7 +1419,9 @@ export type Database = {
           dropoff_lng?: number | null
           estimated_fare?: number | null
           estimated_minutes?: number | null
+          group_size?: number
           id?: string
+          is_group?: boolean
           notes?: string | null
           offer_expires_at?: string | null
           passenger_id?: string | null
@@ -1242,6 +1429,7 @@ export type Database = {
           pickup_lat?: number | null
           pickup_lng?: number | null
           requested_pickup_time?: string | null
+          ride_purpose?: string | null
           source?: string
           status?: string
           trip_id?: string | null
@@ -1260,7 +1448,9 @@ export type Database = {
           dropoff_lng?: number | null
           estimated_fare?: number | null
           estimated_minutes?: number | null
+          group_size?: number
           id?: string
+          is_group?: boolean
           notes?: string | null
           offer_expires_at?: string | null
           passenger_id?: string | null
@@ -1268,6 +1458,7 @@ export type Database = {
           pickup_lat?: number | null
           pickup_lng?: number | null
           requested_pickup_time?: string | null
+          ride_purpose?: string | null
           source?: string
           status?: string
           trip_id?: string | null
@@ -1531,6 +1722,97 @@ export type Database = {
           },
         ]
       }
+      trip_media: {
+        Row: {
+          captured_at: string
+          created_at: string
+          id: string
+          kind: string
+          storage_path: string
+          trip_id: string
+        }
+        Insert: {
+          captured_at?: string
+          created_at?: string
+          id?: string
+          kind: string
+          storage_path: string
+          trip_id: string
+        }
+        Update: {
+          captured_at?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          storage_path?: string
+          trip_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_media_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trip_stops: {
+        Row: {
+          added_by: string
+          address: string
+          arrived_at: string | null
+          created_at: string
+          departed_at: string | null
+          id: string
+          kind: string
+          lat: number | null
+          lng: number | null
+          passenger_medicaid_id: string | null
+          passenger_name: string | null
+          sequence: number
+          trip_id: string
+        }
+        Insert: {
+          added_by?: string
+          address: string
+          arrived_at?: string | null
+          created_at?: string
+          departed_at?: string | null
+          id?: string
+          kind?: string
+          lat?: number | null
+          lng?: number | null
+          passenger_medicaid_id?: string | null
+          passenger_name?: string | null
+          sequence?: number
+          trip_id: string
+        }
+        Update: {
+          added_by?: string
+          address?: string
+          arrived_at?: string | null
+          created_at?: string
+          departed_at?: string | null
+          id?: string
+          kind?: string
+          lat?: number | null
+          lng?: number | null
+          passenger_medicaid_id?: string | null
+          passenger_name?: string | null
+          sequence?: number
+          trip_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_stops_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trips: {
         Row: {
           actual_dropoff_time: string | null
@@ -1566,6 +1848,7 @@ export type Database = {
           pickup_lat: number | null
           pickup_lng: number | null
           problem_reason: string | null
+          ride_purpose: string | null
           scheduled_pickup_time: string
           signature_url: string | null
           signed_at: string | null
@@ -1608,6 +1891,7 @@ export type Database = {
           pickup_lat?: number | null
           pickup_lng?: number | null
           problem_reason?: string | null
+          ride_purpose?: string | null
           scheduled_pickup_time: string
           signature_url?: string | null
           signed_at?: string | null
@@ -1650,6 +1934,7 @@ export type Database = {
           pickup_lat?: number | null
           pickup_lng?: number | null
           problem_reason?: string | null
+          ride_purpose?: string | null
           scheduled_pickup_time?: string
           signature_url?: string | null
           signed_at?: string | null
@@ -1757,6 +2042,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "driver" | "passenger"
       billing_status: "pending" | "submitted" | "paid" | "rejected"
+      driver_pay_type: "per_hour" | "commission"
       driver_status: "available" | "busy" | "offline"
       incident_status: "open" | "reviewed" | "closed"
       incident_type:
@@ -1918,6 +2204,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "driver", "passenger"],
       billing_status: ["pending", "submitted", "paid", "rejected"],
+      driver_pay_type: ["per_hour", "commission"],
       driver_status: ["available", "busy", "offline"],
       incident_status: ["open", "reviewed", "closed"],
       incident_type: [

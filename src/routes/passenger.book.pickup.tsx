@@ -19,6 +19,7 @@ export const Route = createFileRoute("/passenger/book/pickup")({
     pLat: typeof s.pLat === "number" ? s.pLat : undefined,
     pLng: typeof s.pLng === "number" ? s.pLng : undefined,
     notes: typeof s.notes === "string" ? s.notes : undefined,
+    purpose: typeof s.purpose === "string" ? s.purpose : undefined,
   }),
   component: ConfirmPickup,
 });
@@ -40,6 +41,7 @@ function ConfirmPickup() {
     search.pLat != null && search.pLng != null ? { lat: search.pLat, lng: search.pLng } : null,
   );
   const [note, setNote] = useState(search.notes ?? "");
+  const [purpose, setPurpose] = useState(search.purpose ?? "");
   const [autoLocating, setAutoLocating] = useState(!pickup);
   const [resolving, setResolving] = useState(false);
 
@@ -70,6 +72,10 @@ function ConfirmPickup() {
   async function next() {
     if (!hasPickup || !hasDropoff) {
       toast.error("Please enter both a pickup and destination address.");
+      return;
+    }
+    if (!purpose) {
+      toast.error("Please choose the purpose of this ride.");
       return;
     }
     setResolving(true);
@@ -114,6 +120,7 @@ function ConfirmPickup() {
           dLat: dc.lat,
           dLng: dc.lng,
           notes: note || undefined,
+          purpose,
         },
       });
     } catch (e) {
@@ -204,6 +211,23 @@ function ConfirmPickup() {
               biasLng={pos?.lng ?? pickupCoords?.lng}
             />
 
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Purpose of this ride</Label>
+            <select
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+            >
+              <option value="">Select a purpose…</option>
+              <option value="doctor">Doctor appointment</option>
+              <option value="dialysis">Dialysis</option>
+              <option value="physical_therapy">Physical therapy</option>
+              <option value="pharmacy">Pharmacy</option>
+              <option value="mental_health">Mental health visit</option>
+              <option value="other">Other</option>
+            </select>
           </div>
 
           <details className="rounded-xl border border-border/60 bg-surface/60 px-3 py-2">

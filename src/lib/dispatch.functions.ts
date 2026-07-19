@@ -201,7 +201,7 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
     const { data: req, error: reqError } = await supabaseAdmin
       .from("ride_requests")
       .select(
-        "id, passenger_id, contact_name, contact_phone, contact_medicaid, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng, requested_pickup_time, estimated_fare, status, driver_id, offer_expires_at, trip_id",
+        "id, passenger_id, contact_name, contact_phone, contact_medicaid, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng, requested_pickup_time, estimated_fare, status, driver_id, offer_expires_at, trip_id, ride_purpose, is_group",
       )
       .eq("id", data.request_id)
       .maybeSingle();
@@ -312,6 +312,7 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
         estimated_fare: req.estimated_fare,
         scheduled_pickup_time: req.requested_pickup_time || new Date().toISOString(),
         assignment_type: "auto",
+        ride_purpose: req.ride_purpose ?? null,
       })
       .select("id")
       .single();
@@ -333,6 +334,39 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
     if (linkError || !linked) {
       await supabaseAdmin.from("trips").delete().eq("id", trip.id);
       throw new Error(linkError?.message ?? "Ride request is no longer available");
+    }
+
+
+    // Group ride: attach manifest passengers to the trip and materialize
+    // ordered pickup/dropoff stops from the pickup/dropoff sequence.
+    if (req.is_group) {
+      const { data: manifest } = await supabaseAdmin
+        .from("ride_passengers").select("*").eq("request_id", req.id);
+      if (manifest?.length) {
+        await supabaseAdmin.from("ride_passengers")
+          .update({ trip_id: trip.id }).eq("request_id", req.id);
+        const stops = [
+          ...manifest
+            .slice()
+            .sort((a, b) => (a.pickup_sequence ?? 0) - (b.pickup_sequence ?? 0))
+            .map((m, i) => ({
+              trip_id: trip.id, sequence: i + 1, kind: "pickup",
+              address: m.pickup_address, lat: m.pickup_lat, lng: m.pickup_lng,
+              passenger_name: m.name, passenger_medicaid_id: m.medicaid_id,
+              added_by: "dispatcher",
+            })),
+          ...manifest
+            .slice()
+            .sort((a, b) => (a.dropoff_sequence ?? 0) - (b.dropoff_sequence ?? 0))
+            .map((m, i) => ({
+              trip_id: trip.id, sequence: 100 + i + 1, kind: "dropoff",
+              address: m.dropoff_address, lat: m.dropoff_lat, lng: m.dropoff_lng,
+              passenger_name: m.name, passenger_medicaid_id: m.medicaid_id,
+              added_by: "dispatcher",
+            })),
+        ];
+        await supabaseAdmin.from("trip_stops").insert(stops);
+      }
     }
 
     const { error: statusError } = await supabaseAdmin
@@ -359,6 +393,7 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
       notes?: string | null;
       contact_name?: string | null;
       contact_phone?: string | null;
+      ride_purpose?: string | null;
     }) => {
       const req = (v: unknown, label: string) => {
         if (v == null || (typeof v === "string" && !v.trim()))
@@ -389,6 +424,7 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
         notes: data.notes?.trim() || null,
         contact_name: data.contact_name?.trim() || null,
         contact_phone: data.contact_phone?.trim() || null,
+        ride_purpose: data.ride_purpose ?? null,
         status: "pending",
         source: "passenger_app",
       })
