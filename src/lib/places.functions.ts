@@ -34,11 +34,31 @@ export const autocompletePlaces = createServerFn({ method: "POST" })
       .object({
         input: z.string().trim().min(2).max(200),
         sessionToken: z.string().trim().min(1).max(200).optional(),
+        // Optional location bias (user's current position) to prioritize nearby results.
+        lat: z.number().min(-90).max(90).optional(),
+        lng: z.number().min(-180).max(180).optional(),
+        // ISO 3166-1 alpha-2 country code(s) to restrict results (e.g. "us").
+        regionCode: z.string().trim().length(2).optional(),
       })
       .parse(data),
   )
   .handler(async ({ data }): Promise<PlaceSuggestion[]> => {
     const { lovableKey, gmapsKey } = creds();
+    const body: Record<string, unknown> = {
+      input: data.input,
+      sessionToken: data.sessionToken,
+      // Default to US so a partial query like "12" doesn't return Iran/global results.
+      includedRegionCodes: [data.regionCode?.toLowerCase() ?? "us"],
+      languageCode: "en",
+    };
+    if (data.lat != null && data.lng != null) {
+      body.locationBias = {
+        circle: {
+          center: { latitude: data.lat, longitude: data.lng },
+          radius: 50000, // 50km bias around the user
+        },
+      };
+    }
     const res = await fetch(`${GATEWAY_URL}/places/v1/places:autocomplete`, {
       method: "POST",
       headers: {
@@ -46,14 +66,11 @@ export const autocompletePlaces = createServerFn({ method: "POST" })
         "X-Connection-Api-Key": gmapsKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        input: data.input,
-        sessionToken: data.sessionToken,
-      }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Places autocomplete failed [${res.status}]: ${body}`);
+      const text = await res.text();
+      throw new Error(`Places autocomplete failed [${res.status}]: ${text}`);
     }
     const json = (await res.json()) as {
       suggestions?: Array<{
@@ -77,6 +94,7 @@ export const autocompletePlaces = createServerFn({ method: "POST" })
       }))
       .filter((s) => s.primary);
   });
+
 
 /**
  * Resolve a Google place_id to a formatted address + lat/lng via the gateway.
