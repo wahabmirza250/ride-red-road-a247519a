@@ -202,25 +202,160 @@ function LiveOps() {
       </div>
 
       <div className="rounded-2xl border border-border bg-surface p-4">
-        <div className="mb-3 text-sm font-semibold">Active requests</div>
+        <div className="mb-3 flex items-center justify-between text-sm font-semibold">
+          <span>Active requests</span>
+          {(() => {
+            const unassigned = reqs.filter(
+              (r) => r.status === "pending" && !r.driver_id,
+            ).length;
+            return unassigned > 0 ? (
+              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600">
+                {unassigned} awaiting manual dispatch
+              </span>
+            ) : null;
+          })()}
+        </div>
         <div className="divide-y divide-border">
           {reqs.length === 0 && (
             <div className="py-6 text-center text-sm text-muted-foreground">Nothing active.</div>
           )}
-          {reqs.map((r) => (
-            <div key={r.id} className="flex items-center justify-between py-3 text-sm">
-              <div className="min-w-0 flex-1">
-                <div className="text-xs uppercase tracking-widest text-muted-foreground">
-                  {r.status}
+          {reqs.map((r) => {
+            const ageSec = Math.max(
+              0,
+              Math.floor((Date.now() - new Date(r.created_at).getTime()) / 1000),
+            );
+            const unassigned = r.status === "pending" && !r.driver_id;
+            const stale = unassigned && ageSec > 45;
+            return (
+              <div
+                key={r.id}
+                className={`flex items-center justify-between py-3 text-sm ${
+                  stale ? "bg-amber-500/5" : ""
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
+                    <span>{r.status}</span>
+                    {unassigned && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal ${
+                          stale
+                            ? "bg-amber-500 text-white"
+                            : "bg-amber-500/15 text-amber-600"
+                        }`}
+                      >
+                        {stale ? "Needs manual dispatch" : "Unassigned"}
+                      </span>
+                    )}
+                    <span className="text-muted-foreground/70">
+                      · {ageSec < 60 ? `${ageSec}s` : `${Math.floor(ageSec / 60)}m`} ago
+                    </span>
+                  </div>
+                  <div className="truncate">↑ {r.pickup_address}</div>
+                  <div className="truncate">↓ {r.dropoff_address}</div>
+                  {unassigned && r.contact_phone && (
+                    <a
+                      href={`tel:${r.contact_phone.replace(/[^+\d]/g, "")}`}
+                      className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      Call passenger · {r.contact_phone}
+                    </a>
+                  )}
                 </div>
-                <div className="truncate">↑ {r.pickup_address}</div>
-                <div className="truncate">↓ {r.dropoff_address}</div>
+                <div className="ml-3 font-semibold">{fmtMoney(r.estimated_fare)}</div>
               </div>
-              <div className="ml-3 font-semibold">{fmtMoney(r.estimated_fare)}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
+
+      <DispatchPhoneCard />
+    </div>
+  );
+}
+
+function DispatchPhoneCard() {
+  const [phone, setPhone] = useState<string>("");
+  const [initial, setInitial] = useState<string>("");
+  const [canEdit, setCanEdit] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData?.user?.id;
+      if (uid) {
+        const { data: role } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", uid)
+          .eq("role", "admin")
+          .maybeSingle();
+        setCanEdit(!!role);
+      }
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "dispatch_phone_number")
+        .maybeSingle();
+      const v = data?.value ?? "";
+      setPhone(v);
+      setInitial(v);
+    })();
+  }, []);
+
+  const dirty = phone.trim() !== initial;
+
+  async function save() {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert({ key: "dispatch_phone_number", value: phone.trim() }, { onConflict: "key" });
+      if (error) {
+        toast.error(error.message);
+      } else {
+        setInitial(phone.trim());
+        toast.success("Dispatch phone updated");
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-4">
+      <div className="mb-2 text-sm font-semibold">Dispatch phone number</div>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Shown to passengers when no driver is auto-matched. Use a number that reaches your
+        dispatch team 24/7.
+      </p>
+      <div className="flex gap-2">
+        <input
+          type="tel"
+          value={phone}
+          disabled={!canEdit}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="+1 (800) 555-1234"
+          className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
+        />
+        {canEdit && (
+          <button
+            onClick={save}
+            disabled={!dirty || saving}
+            className="h-10 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        )}
+      </div>
+      {!canEdit && (
+        <p className="mt-2 text-xs text-muted-foreground">Admin access required to edit.</p>
+      )}
+    </div>
+  );
+}
+
     </div>
   );
 }
