@@ -133,34 +133,6 @@ function StaffSignupPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Account type</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRole("dispatch")}
-                  className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                    role === "dispatch"
-                      ? "border-primary bg-primary/10 text-foreground"
-                      : "border-border bg-surface text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Dispatch
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole("admin")}
-                  className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                    role === "admin"
-                      ? "border-primary bg-primary/10 text-foreground"
-                      : "border-border bg-surface text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Admin
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
               <Label>Invite code</Label>
               <Input
                 type="password"
