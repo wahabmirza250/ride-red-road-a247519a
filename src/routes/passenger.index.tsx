@@ -184,3 +184,39 @@ function PassengerHome() {
     </div>
   );
 }
+
+function DestinationSearch({
+  onPick,
+  onOpen,
+}: {
+  onPick: (address: string, lat: number, lng: number) => void;
+  onOpen: () => void;
+}) {
+  const [value, setValue] = useState("");
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-3 shadow-soft">
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Search className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <AddressAutocomplete
+            value={value}
+            onChange={setValue}
+            onResolve={(p) => onPick(p.address, p.lat, p.lng)}
+            placeholder="Where are you going?"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="hidden shrink-0 items-center gap-1 rounded-lg px-2 py-2 text-xs text-muted-foreground transition hover:text-foreground sm:inline-flex"
+          aria-label="Open full booking"
+        >
+          <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
