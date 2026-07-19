@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
-import { useLocationBroadcast } from "@/lib/useGeolocation";
+import { useLocationBroadcast, requestCurrentPosition } from "@/lib/useGeolocation";
 import { openNavigation as openMapsNav } from "@/lib/mapsDeepLink";
 import { fmtMoney } from "@/lib/rideMath";
 import { Button } from "@/components/ui/button";
@@ -97,15 +97,18 @@ function DriverHome() {
   }, [user]);
 
   const online = driver ? driver.status !== "offline" : false;
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   const pushLoc = useCallback(
     async (p: { lat: number; lng: number }) => {
       if (!driver) return;
+      setGeoError(null);
       await supabase.from("drivers").update({ current_lat: p.lat, current_lng: p.lng }).eq("id", driver.id);
     },
     [driver],
   );
-  useLocationBroadcast(online, pushLoc, 5000);
+  const handleGeoError = useCallback((msg: string) => setGeoError(msg), []);
+  useLocationBroadcast(online, pushLoc, 15000, handleGeoError);
 
   const loadRequests = useCallback(async () => {
     if (!driver) return;
@@ -208,14 +211,37 @@ function DriverHome() {
   async function toggleOnline() {
     if (!driver) return;
     const next = !online;
-    const nextStatus: "available" | "offline" = next ? "available" : "offline";
-    const { error } = await supabase
-      .from("drivers")
-      .update({ status: nextStatus })
-      .eq("id", driver.id);
-    if (error) return toast.error(error.message);
-    setDriver({ ...driver, status: nextStatus });
-    toast.success(next ? "You're online" : "Went offline");
+
+    if (next) {
+      // Prove we can read the device's location before flipping online, so
+      // dispatch never sees an "online" driver with NULL coords.
+      let pos: { lat: number; lng: number };
+      try {
+        pos = await requestCurrentPosition();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Could not get location";
+        setGeoError(msg);
+        toast.error(msg);
+        return;
+      }
+      const { error } = await supabase
+        .from("drivers")
+        .update({ status: "available", current_lat: pos.lat, current_lng: pos.lng })
+        .eq("id", driver.id);
+      if (error) return toast.error(error.message);
+      setDriver({ ...driver, status: "available", current_lat: pos.lat, current_lng: pos.lng });
+      setGeoError(null);
+      toast.success("You're online");
+    } else {
+      const { error } = await supabase
+        .from("drivers")
+        .update({ status: "offline", current_lat: null, current_lng: null })
+        .eq("id", driver.id);
+      if (error) return toast.error(error.message);
+      setDriver({ ...driver, status: "offline", current_lat: null, current_lng: null });
+      setGeoError(null);
+      toast.success("Went offline");
+    }
   }
 
   async function accept(req: Request) {
@@ -378,6 +404,16 @@ function DriverHome() {
           <Power className="h-6 w-6" />
         </Button>
       </div>
+
+      {geoError && (
+        <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">
+          <div className="font-medium">Location problem</div>
+          <div>{geoError}</div>
+          <div className="mt-1 text-xs opacity-80">
+            Dispatch can't send you rides until your location updates.
+          </div>
+        </div>
+      )}
 
 
 
