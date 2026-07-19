@@ -159,16 +159,19 @@ export const trackVisitor = createServerFn({ method: "POST" })
 
     const { data: inserted, error } = await supabaseAdmin
       .from("passengers")
-      .insert({
-        first_name: "Guest",
-        last_name: "",
-        device_id: data.device_id,
-        last_ip: ip,
-        approx_city: city,
-        approx_region: region,
-        last_seen_at: new Date().toISOString(),
-        is_active: true,
-      })
+      .upsert(
+        {
+          first_name: "Guest",
+          last_name: "",
+          device_id: data.device_id,
+          last_ip: ip,
+          approx_city: city,
+          approx_region: region,
+          last_seen_at: new Date().toISOString(),
+          is_active: true,
+        },
+        { onConflict: "device_id" },
+      )
       .select("id")
       .single();
     if (error) throw new Error(error.message);
