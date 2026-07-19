@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/admin/NotificationBell";
 import { ensurePushSubscribed } from "@/lib/push";
 import { BrandMark } from "@/components/Brand";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
@@ -121,12 +122,9 @@ function AuthenticatedLayout() {
 
 
   if (loading || !user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingScreen label="Loading your dashboard" />;
   }
+
 
   const NAV = isAdmin ? ADMIN_NAV : isDriver ? DRIVER_NAV : [];
 
