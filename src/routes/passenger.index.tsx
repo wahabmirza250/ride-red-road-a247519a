@@ -72,20 +72,12 @@ function PassengerHome() {
         <p className="text-sm text-muted-foreground">Where would you like to go today?</p>
       </div>
 
-      {/* Big "Where are you going?" search bar */}
-      <button
-        onClick={goToSearch}
-        className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-4 text-left shadow-soft transition hover:border-primary/60 hover:shadow-lift"
-      >
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Search className="h-5 w-5" />
-        </span>
-        <span className="flex-1">
-          <span className="block text-base font-semibold text-foreground">Where are you going?</span>
-          <span className="block text-xs text-muted-foreground">Tap to enter a destination</span>
-        </span>
-        <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
-      </button>
+      {/* Big "Where are you going?" search bar with live autocomplete */}
+      <DestinationSearch
+        onPick={(addr, lat, lng) => goToSearch({ dropoff: addr, dLat: lat, dLng: lng })}
+        onOpen={() => goToSearch()}
+      />
+
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3">
