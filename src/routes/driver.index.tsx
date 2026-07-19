@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
-import { useLocationBroadcast } from "@/lib/useGeolocation";
+import { useLocationBroadcast, requestCurrentPosition } from "@/lib/useGeolocation";
 import { openNavigation as openMapsNav } from "@/lib/mapsDeepLink";
 import { fmtMoney } from "@/lib/rideMath";
 import { Button } from "@/components/ui/button";
