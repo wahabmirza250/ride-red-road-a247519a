@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrandMark, BrandWordmark } from "@/components/Brand";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { signInAsRole } from "@/lib/roleGuardedSignIn";
 
 export const Route = createFileRoute("/passenger/signup")({
   ssr: false,
