@@ -186,6 +186,8 @@ function ConfirmPickup() {
               onChange={(v) => { setPickup(v); setPickupCoords(null); }}
               onResolve={(p) => { setPickup(p.address); setPickupCoords({ lat: p.lat, lng: p.lng }); }}
               placeholder="Start typing or paste an address…"
+              biasLat={pos?.lat}
+              biasLng={pos?.lng}
             />
           </div>
 
@@ -198,7 +200,10 @@ function ConfirmPickup() {
               onChange={(v) => { setDropoff(v); setDropoffCoords(null); }}
               onResolve={(p) => { setDropoff(p.address); setDropoffCoords({ lat: p.lat, lng: p.lng }); }}
               placeholder="Where to?"
+              biasLat={pos?.lat ?? pickupCoords?.lat}
+              biasLng={pos?.lng ?? pickupCoords?.lng}
             />
+
           </div>
 
           <details className="rounded-xl border border-border/60 bg-surface/60 px-3 py-2">
