@@ -83,6 +83,11 @@ function AuthPage() {
                 required
               />
             </div>
+            {errorMsg && (
+              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+                {errorMsg}
+              </p>
+            )}
             <Button type="submit" disabled={submitting} className="w-full rounded-full">
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
             </Button>
