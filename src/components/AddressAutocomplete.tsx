@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { loadGoogleMaps } from "@/lib/googleMapsLoader";
+import { useServerFn } from "@tanstack/react-start";
+import { autocompletePlaces, getPlaceDetails } from "@/lib/places.functions";
 
 export type ResolvedPlace = {
   address: string;
@@ -14,6 +15,13 @@ type Suggestion = {
   primary: string;
   secondary: string;
 };
+
+// Generate a client-side session token (uuid-ish) so all autocomplete
+// requests for a single lookup are billed as one Places session.
+function newSessionToken() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 export function AddressAutocomplete({
   value,
@@ -32,78 +40,79 @@ export function AddressAutocomplete({
   className?: string;
   autoFocus?: boolean;
 }) {
-
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const sessionRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
+  const sessionRef = useRef<string | null>(null);
   const debounceRef = useRef<number | null>(null);
   const skipNextFetchRef = useRef(false);
+  const reqIdRef = useRef(0);
+
+  const runAutocomplete = useServerFn(autocompletePlaces);
+  const runPlaceDetails = useServerFn(getPlaceDetails);
 
   useEffect(() => {
     if (skipNextFetchRef.current) {
       skipNextFetchRef.current = false;
       return;
     }
-    if (!value || value.length < 3) {
+    if (!value || value.trim().length < 3) {
       setSuggestions([]);
+      setOpen(false);
       return;
     }
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
     debounceRef.current = window.setTimeout(async () => {
+      const myReq = ++reqIdRef.current;
       try {
         setLoading(true);
-        const g = await loadGoogleMaps();
-        const { AutocompleteSuggestion, AutocompleteSessionToken } =
-          (await g.maps.importLibrary("places")) as google.maps.PlacesLibrary;
-        if (!sessionRef.current) sessionRef.current = new AutocompleteSessionToken();
-        const { suggestions: raw } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input: value,
-          sessionToken: sessionRef.current,
+        if (!sessionRef.current) sessionRef.current = newSessionToken();
+        const result = await runAutocomplete({
+          data: { input: value.trim(), sessionToken: sessionRef.current },
         });
-        const mapped: Suggestion[] = raw
-          .map((s: google.maps.places.AutocompleteSuggestion) => s.placePrediction)
-          .filter((p): p is google.maps.places.PlacePrediction => !!p)
-          .map((p) => ({
-            placeId: p.placeId,
-            primary: p.mainText?.text ?? p.text.text,
-            secondary: p.secondaryText?.text ?? "",
-          }));
-        setSuggestions(mapped);
-        setOpen(true);
+        if (myReq !== reqIdRef.current) return; // stale
+        setSuggestions(result);
+        setOpen(result.length > 0);
       } catch (e) {
-        console.error("Autocomplete failed", e);
+        if (myReq === reqIdRef.current) {
+          console.error("Autocomplete failed", e);
+          setSuggestions([]);
+          setOpen(false);
+        }
       } finally {
-        setLoading(false);
+        if (myReq === reqIdRef.current) setLoading(false);
       }
-    }, 200);
+    }, 220);
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [value]);
+  }, [value, runAutocomplete]);
 
   async function selectSuggestion(s: Suggestion) {
     try {
-      const g = await loadGoogleMaps();
-      const { Place } = (await g.maps.importLibrary("places")) as google.maps.PlacesLibrary;
-      const place = new Place({ id: s.placeId });
-      await place.fetchFields({ fields: ["location", "formattedAddress", "displayName"] });
-      const loc = place.location;
-      if (!loc) throw new Error("No location");
-      const full = place.formattedAddress ?? `${s.primary}, ${s.secondary}`;
+      const details = await runPlaceDetails({
+        data: { placeId: s.placeId, sessionToken: sessionRef.current ?? undefined },
+      });
+      const full = details?.address ?? `${s.primary}${s.secondary ? `, ${s.secondary}` : ""}`;
       skipNextFetchRef.current = true;
       onChange(full);
-      onResolve({
-        address: full,
-        lat: loc.lat(),
-        lng: loc.lng(),
-        placeId: s.placeId,
-      });
+      if (details) {
+        onResolve({
+          address: full,
+          lat: details.lat,
+          lng: details.lng,
+          placeId: details.placeId,
+        });
+      } else if (onSubmit) {
+        onSubmit(full);
+      }
       setOpen(false);
       setSuggestions([]);
       sessionRef.current = null;
     } catch (e) {
       console.error("Place details failed", e);
+      // Fall back to raw text submit so the user is never stuck.
+      if (onSubmit) onSubmit(`${s.primary}${s.secondary ? `, ${s.secondary}` : ""}`);
     }
   }
 
@@ -118,6 +127,7 @@ export function AddressAutocomplete({
         autoFocus={autoFocus}
         enterKeyHint="search"
         inputMode="search"
+        autoComplete="off"
         onKeyDown={(e) => {
           if (e.key !== "Enter") return;
           e.preventDefault();
@@ -128,15 +138,15 @@ export function AddressAutocomplete({
           }
         }}
       />
-
       {open && suggestions.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-border bg-popover shadow-lg">
+        <div className="absolute z-50 mt-1 max-h-72 w-full overflow-auto rounded-md border border-border bg-popover shadow-lg">
           {suggestions.map((s) => (
             <button
               key={s.placeId}
               type="button"
               className="block w-full px-3 py-2 text-left text-sm hover:bg-muted focus:bg-muted focus:outline-none"
               onMouseDown={(e) => e.preventDefault()}
+              onTouchStart={(e) => e.preventDefault()}
               onClick={() => selectSuggestion(s)}
             >
               <div className="font-medium">{s.primary}</div>
