@@ -16,8 +16,13 @@ export function loadGoogleMaps(): Promise<typeof google> {
   if (window.google?.maps) return Promise.resolve(window.google);
   if (loaderPromise) return loaderPromise;
 
-  const key = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
+  const managed = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
+  const custom = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
+  const host = window.location.hostname;
+  const isLovableHost = /\.lovable\.(app|dev)$/.test(host) || /\.lovableproject\.com$/.test(host);
+  const key = isLovableHost ? (managed || custom) : (custom || managed);
+  const useChannel = isLovableHost && channel;
   if (!key) return Promise.reject(new Error("Google Maps browser key missing"));
 
   loaderPromise = new Promise((resolve, reject) => {
