@@ -121,12 +121,9 @@ function AuthenticatedLayout() {
 
 
   if (loading || !user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingScreen label="Loading your dashboard" />;
   }
+
 
   const NAV = isAdmin ? ADMIN_NAV : isDriver ? DRIVER_NAV : [];
 
