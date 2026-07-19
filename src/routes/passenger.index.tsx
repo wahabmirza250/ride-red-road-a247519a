@@ -75,8 +75,9 @@ function PassengerHome() {
       {/* Big "Where are you going?" search bar with live autocomplete */}
       <DestinationSearch
         onPick={(addr, lat, lng) => goToSearch({ dropoff: addr, dLat: lat, dLng: lng })}
-        onOpen={() => goToSearch()}
+        onSubmitRaw={(text) => goToSearch({ dropoff: text })}
       />
+
 
 
       {/* Quick actions */}
