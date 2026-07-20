@@ -137,7 +137,10 @@ function LandingPage() {
         </div>
 
 
-        <dl className="mt-16 grid w-full max-w-3xl grid-cols-3 divide-x divide-border/60 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur">
+        <dl
+          className="animate-fade-in mt-16 grid w-full max-w-3xl grid-cols-3 divide-x divide-white/10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur"
+          style={{ animationDelay: "340ms", animationFillMode: "both" }}
+        >
           <Stat label="Dispatch" value="Realtime" />
           <Stat label="Drivers" value="On-demand" />
           <Stat label="Coverage" value="Statewide" />
