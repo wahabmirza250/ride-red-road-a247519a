@@ -96,10 +96,12 @@ export async function generateStateFormPdf(
   /* ---------- Member section ---------- */
   setText("Members Name", a.rider?.full_name ?? "");
   setText("Member Health First Colorado ID", a.rider?.medicaid_id ?? "");
-  setRadio(
-    "driver verify member identity",
-    a.identityVerified === false ? "no" : "yes",
-  );
+  // Intentionally NOT auto-filled — left blank for manual entry by the
+  // driver/reviewer before submission:
+  //   • "Did the Driver verify the member's identity?" (yes/no)
+  //   • "Type of Vehicle" (ground ambulance / wheelchair van / stretcher van /
+  //     taxi / mobility-ambulatory vehicle)
+  //   • "Type of Trip" (one way / round trip)
   setText(
     "Trip Date",
     leg1?.leg_date ? new Date(leg1.leg_date).toLocaleDateString() : "",
@@ -118,23 +120,7 @@ export async function generateStateFormPdf(
       .join(" · "),
   );
 
-  const vehicleMap: Record<string, string> = {
-    ground_ambulance: "ground ambulance",
-    wheelchair_van: "wheelchair van",
-    stretcher_van: "stretcher van",
-    taxi: "taxi",
-    ambulatory: "Mobility/Ambulatory vehicle",
-  };
-  if (a.vehicleType && vehicleMap[a.vehicleType]) {
-    setRadio("type of vehicle", vehicleMap[a.vehicleType]);
-  }
 
-  // Trip kind is optional; only stamp the radio when explicitly provided.
-  if (a.tripKind === "one_way") {
-    setRadio("type of trip", "one way");
-  } else if (a.tripKind === "round_trip" || a.tripKind === "group_tour") {
-    setRadio("type of trip", "round trip");
-  }
 
 
   /* ---------- Legs ---------- */
