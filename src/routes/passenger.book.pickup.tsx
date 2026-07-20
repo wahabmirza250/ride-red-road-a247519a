@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ChevronLeft, MapPin, StickyNote, Loader2, Crosshair } from "lucide-react";
+import { ChevronLeft, MapPin, StickyNote, Loader2, Crosshair, Plus, X, CircleDot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,25 @@ import { toast } from "sonner";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { useCurrentPosition } from "@/lib/useGeolocation";
 import { geocodeAddress, reverseGeocode } from "@/lib/geocode.functions";
+
+export type BookingStop = { address: string; lat: number | null; lng: number | null };
+
+function parseStops(v: unknown): BookingStop[] {
+  if (typeof v !== "string" || !v) return [];
+  try {
+    const arr = JSON.parse(v);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((x) => x && typeof x.address === "string")
+      .map((x) => ({
+        address: String(x.address),
+        lat: typeof x.lat === "number" ? x.lat : null,
+        lng: typeof x.lng === "number" ? x.lng : null,
+      }));
+  } catch {
+    return [];
+  }
+}
 
 export const Route = createFileRoute("/passenger/book/pickup")({
   ssr: false,
@@ -20,6 +39,7 @@ export const Route = createFileRoute("/passenger/book/pickup")({
     pLng: typeof s.pLng === "number" ? s.pLng : undefined,
     notes: typeof s.notes === "string" ? s.notes : undefined,
     purpose: typeof s.purpose === "string" ? s.purpose : undefined,
+    stops: typeof s.stops === "string" ? s.stops : undefined,
   }),
   component: ConfirmPickup,
 });
