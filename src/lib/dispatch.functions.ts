@@ -394,6 +394,7 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
       contact_name?: string | null;
       contact_phone?: string | null;
       ride_purpose?: string | null;
+      stops?: Array<{ address: string; lat: number; lng: number }> | null;
     }) => {
       const req = (v: unknown, label: string) => {
         if (v == null || (typeof v === "string" && !v.trim()))
@@ -405,7 +406,14 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
       req(input.pickup_lng, "Pickup coordinates");
       req(input.dropoff_lat, "Drop-off coordinates");
       req(input.dropoff_lng, "Drop-off coordinates");
-      return input;
+      // Normalize stops: keep only well-formed rows.
+      const cleanStops = Array.isArray(input.stops)
+        ? input.stops
+            .filter((s) => s && typeof s.address === "string" && s.address.trim()
+              && typeof s.lat === "number" && typeof s.lng === "number")
+            .map((s) => ({ address: s.address.trim(), lat: s.lat, lng: s.lng }))
+        : [];
+      return { ...input, stops: cleanStops };
     },
   )
   .handler(async ({ data, context }) => {
@@ -425,6 +433,7 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
         contact_name: data.contact_name?.trim() || null,
         contact_phone: data.contact_phone?.trim() || null,
         ride_purpose: data.ride_purpose ?? null,
+        stops: data.stops ?? [],
         status: "pending",
         source: "passenger_app",
       })
