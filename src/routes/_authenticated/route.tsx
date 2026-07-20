@@ -155,7 +155,7 @@ function AuthenticatedLayout() {
   const meta = user.user_metadata as { first_name?: string; last_name?: string } | undefined;
 
   return (
-    <div className="flex min-h-screen bg-surface-muted">
+    <div className="surface-blue flex min-h-screen bg-surface-muted">
       {/* Sidebar */}
       <aside className="hidden w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar lg:flex">
         <div className="flex h-16 w-full items-center justify-center">
