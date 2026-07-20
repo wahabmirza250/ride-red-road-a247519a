@@ -89,6 +89,19 @@ function VehicleSelect() {
       // Vehicle type flows through notes as a leading tag so existing dispatch
       // logic keeps working without a schema change. Drivers see the human note.
       const taggedNote = `[VEHICLE:${selected}]${s.notes ? `\n${s.notes}` : ""}`;
+      let parsedStops: Array<{ address: string; lat: number; lng: number }> = [];
+      if (s.stops) {
+        try {
+          const arr = JSON.parse(s.stops);
+          if (Array.isArray(arr)) {
+            parsedStops = arr
+              .filter((x) => x && typeof x.address === "string" && typeof x.lat === "number" && typeof x.lng === "number")
+              .map((x) => ({ address: x.address, lat: x.lat, lng: x.lng }));
+          }
+        } catch {
+          // ignore malformed stops param
+        }
+      }
       const res = await request({
         data: {
           pickup_address: s.pickup,
@@ -101,6 +114,7 @@ function VehicleSelect() {
           contact_name: firstName || null,
           contact_phone: phone || null,
           ride_purpose: s.purpose || null,
+          stops: parsedStops,
         },
       });
       void navigate({ to: "/ride/$requestId", params: { requestId: res.request_id } });
