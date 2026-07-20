@@ -85,41 +85,54 @@ function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-6 pb-20 pt-20 text-center sm:pt-28">
-        <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-surface/70 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground backdrop-blur">
+      <section className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-6 pb-24 pt-24 text-center sm:pt-32">
+        <span
+          className="animate-fade-in inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground backdrop-blur"
+          style={{ animationDelay: "0ms", animationFillMode: "both" }}
+        >
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
           NEMT · Colorado
         </span>
 
-        <h1 className="mt-6 max-w-4xl font-display text-[12vw] font-semibold leading-[0.95] tracking-tight sm:text-6xl md:text-7xl lg:text-[5.25rem]">
+        <h1
+          className="animate-fade-in mt-6 max-w-4xl font-display text-[12vw] font-semibold leading-[0.95] tracking-tight sm:text-6xl md:text-7xl lg:text-[5.25rem]"
+          style={{ animationDelay: "80ms", animationFillMode: "both" }}
+        >
           Non-emergency transport,
           <br />
-          <span className="bg-gradient-to-r from-primary via-primary to-foreground bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-primary via-primary/90 to-white/80 bg-clip-text text-transparent">
             reimagined for the road.
           </span>
         </h1>
 
-        <p className="mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+        <p
+          className="animate-fade-in mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
+          style={{ animationDelay: "180ms", animationFillMode: "both" }}
+        >
           RedArt is one platform for dispatch, drivers, and riders — purpose-built
           for Medicaid transport. Ride requests in, clean claims out, everything
           tracked in between.
         </p>
 
-        <div className="mt-10 flex w-full max-w-md flex-col items-stretch gap-3 sm:flex-row sm:justify-center">
+        <div
+          className="animate-fade-in mt-10 flex w-full max-w-md flex-col items-stretch gap-3 sm:flex-row sm:justify-center"
+          style={{ animationDelay: "260ms", animationFillMode: "both" }}
+        >
           <a
             href="#product"
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition hover:-translate-y-0.5"
+            className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_40px_-12px_color-mix(in_oklab,var(--primary)_70%,transparent)]"
           >
             See the product
-            <ArrowUpRight className="h-4 w-4" />
+            <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </a>
           <a
             href="#contact"
-            className="inline-flex items-center justify-center rounded-full border border-border/70 bg-surface/60 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40 hover:bg-surface"
+            className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition-all duration-300 hover:border-primary/40 hover:bg-white/[0.06]"
           >
             Talk to us
           </a>
         </div>
+
 
         <dl className="mt-16 grid w-full max-w-3xl grid-cols-3 divide-x divide-border/60 rounded-2xl border border-border/60 bg-surface/40 backdrop-blur">
           <Stat label="Dispatch" value="Realtime" />
