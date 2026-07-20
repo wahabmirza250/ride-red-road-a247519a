@@ -85,7 +85,7 @@ function PassengerLayout() {
     !!window.localStorage.getItem("passenger_device_id");
 
   return (
-    <div className="relative min-h-screen bg-background pb-24 text-foreground">
+    <div className="surface-green relative min-h-screen bg-background pb-24 text-foreground">
       <AuroraBackdrop />
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/70 px-4 backdrop-blur-xl">
         <Link to="/passenger" className="flex items-center">
