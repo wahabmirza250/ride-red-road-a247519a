@@ -369,6 +369,33 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
       }
     }
 
+    // Passenger-added intermediate stops (optional, ordered).
+    // Sequence 10..99 sits between pickup (implicit at trip origin) and dropoff.
+    const passengerStops = Array.isArray(req.stops) ? req.stops : [];
+    if (passengerStops.length) {
+      const stopRows = passengerStops
+        .filter((s: unknown): s is { address: string; lat: number; lng: number } =>
+          !!s && typeof (s as { address?: unknown }).address === "string"
+          && typeof (s as { lat?: unknown }).lat === "number"
+          && typeof (s as { lng?: unknown }).lng === "number",
+        )
+        .map((s, i) => ({
+          trip_id: trip.id,
+          sequence: 10 + i,
+          kind: "stop",
+          address: s.address,
+          lat: s.lat,
+          lng: s.lng,
+          added_by: "passenger",
+        }));
+      if (stopRows.length) {
+        const { error: stopsErr } = await supabaseAdmin.from("trip_stops").insert(stopRows);
+        if (stopsErr) console.warn("[acceptRideOffer] failed to insert passenger stops", stopsErr);
+      }
+    }
+
+
+
     const { error: statusError } = await supabaseAdmin
       .from("drivers")
       .update({ status: "busy" })
