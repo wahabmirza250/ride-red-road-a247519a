@@ -1,6 +1,8 @@
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowUpRight } from "lucide-react";
+import { BrandWordmark } from "@/components/Brand";
 import {
-  ArrowUpRight,
   Car,
   Users,
   Radio,
@@ -12,7 +14,8 @@ import {
   BadgeDollarSign,
   HeartPulse,
 } from "lucide-react";
-import { BrandWordmark } from "@/components/Brand";
+
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -40,19 +43,24 @@ function LandingPage() {
   const year = new Date().getFullYear();
 
   return (
-    <div className="relative isolate min-h-screen overflow-hidden bg-background text-foreground">
-      {/* Atmospheric layers */}
+    <div className="dark relative isolate min-h-screen overflow-hidden bg-[#07070a] text-foreground antialiased">
+      {/* Atmospheric layers — deep, minimal */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[80rem] bg-[radial-gradient(80%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_22%,transparent),transparent_65%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[70rem] bg-[radial-gradient(70%_55%_at_50%_0%,color-mix(in_oklab,var(--primary)_16%,transparent),transparent_70%)]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.04] [background-image:linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] [background-size:56px_56px]"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,transparent_0%,#07070a_85%)]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.035] [background-image:linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] [background-size:64px_64px] [mask-image:radial-gradient(60%_50%_at_50%_20%,#000,transparent)]"
       />
 
+
       {/* Top bar */}
-      <header className="sticky top-0 z-20 border-b border-border/40 bg-background/70 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#07070a]/80 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <BrandWordmark className="h-8 w-auto" />
           <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
@@ -80,43 +88,59 @@ function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-6 pb-20 pt-20 text-center sm:pt-28">
-        <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-surface/70 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground backdrop-blur">
+      <section className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-6 pb-24 pt-24 text-center sm:pt-32">
+        <span
+          className="animate-fade-in inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground backdrop-blur"
+          style={{ animationDelay: "0ms", animationFillMode: "both" }}
+        >
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
           NEMT · Colorado
         </span>
 
-        <h1 className="mt-6 max-w-4xl font-display text-[12vw] font-semibold leading-[0.95] tracking-tight sm:text-6xl md:text-7xl lg:text-[5.25rem]">
+        <h1
+          className="animate-fade-in mt-6 max-w-4xl font-display text-[12vw] font-semibold leading-[0.95] tracking-tight sm:text-6xl md:text-7xl lg:text-[5.25rem]"
+          style={{ animationDelay: "80ms", animationFillMode: "both" }}
+        >
           Non-emergency transport,
           <br />
-          <span className="bg-gradient-to-r from-primary via-primary to-foreground bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-primary via-primary/90 to-white/80 bg-clip-text text-transparent">
             reimagined for the road.
           </span>
         </h1>
 
-        <p className="mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+        <p
+          className="animate-fade-in mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
+          style={{ animationDelay: "180ms", animationFillMode: "both" }}
+        >
           RedArt is one platform for dispatch, drivers, and riders — purpose-built
           for Medicaid transport. Ride requests in, clean claims out, everything
           tracked in between.
         </p>
 
-        <div className="mt-10 flex w-full max-w-md flex-col items-stretch gap-3 sm:flex-row sm:justify-center">
+        <div
+          className="animate-fade-in mt-10 flex w-full max-w-md flex-col items-stretch gap-3 sm:flex-row sm:justify-center"
+          style={{ animationDelay: "260ms", animationFillMode: "both" }}
+        >
           <a
             href="#product"
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition hover:-translate-y-0.5"
+            className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_40px_-12px_color-mix(in_oklab,var(--primary)_70%,transparent)]"
           >
             See the product
-            <ArrowUpRight className="h-4 w-4" />
+            <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </a>
           <a
             href="#contact"
-            className="inline-flex items-center justify-center rounded-full border border-border/70 bg-surface/60 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40 hover:bg-surface"
+            className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition-all duration-300 hover:border-primary/40 hover:bg-white/[0.06]"
           >
             Talk to us
           </a>
         </div>
 
-        <dl className="mt-16 grid w-full max-w-3xl grid-cols-3 divide-x divide-border/60 rounded-2xl border border-border/60 bg-surface/40 backdrop-blur">
+
+        <dl
+          className="animate-fade-in mt-16 grid w-full max-w-3xl grid-cols-3 divide-x divide-white/10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur"
+          style={{ animationDelay: "340ms", animationFillMode: "both" }}
+        >
           <Stat label="Dispatch" value="Realtime" />
           <Stat label="Drivers" value="On-demand" />
           <Stat label="Coverage" value="Statewide" />
@@ -125,155 +149,163 @@ function LandingPage() {
 
       {/* What we do */}
       <section className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
-        <SectionHeader
-          kicker="What we do"
-          title="One platform. Every side of the ride."
-          copy="We replace the patchwork of scheduling spreadsheets, driver texts, and paper trip logs with a single system your team, drivers, and riders can actually use."
-        />
+        <Reveal>
+          <SectionHeader
+            kicker="What we do"
+            title="One platform. Every side of the ride."
+            copy="We replace the patchwork of scheduling spreadsheets, driver texts, and paper trip logs with a single system your team, drivers, and riders can actually use."
+          />
+        </Reveal>
       </section>
 
       {/* Product */}
       <section id="product" className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-20">
         <div className="grid gap-5 md:grid-cols-3">
-          <ProductCard
-            icon={Radio}
-            name="Dispatch Console"
-            desc="Live map of every driver and ride, auto-matching by proximity and vehicle type, with instant fallback to a human dispatcher."
-          />
-          <ProductCard
-            icon={Car}
-            name="Driver App"
-            desc="Go online with one tap, accept offers, navigate turn-by-turn, log stops and cabin-clips, and submit gas receipts from the phone."
-          />
-          <ProductCard
-            icon={Users}
-            name="Rider App"
-            desc="Rideshare-quality booking with address autocomplete, live ETA, driver tracking, and guest-friendly flows for family members."
-          />
-          <ProductCard
-            icon={FileCheck2}
-            name="Medicaid Billing"
-            desc="Trip data auto-fills the HCPF portal. Review, submit, and track claims from Pending Review through Submitted in one queue."
-            wide
-          />
-          <ProductCard
-            icon={HeartPulse}
-            name="Compliance & Proof"
-            desc="Vehicle inspections, driver documents, and per-trip proof (odometer, signatures, photos) captured and stored automatically."
-            wide
-          />
+          <Reveal delay={0}>
+            <ProductCard
+              icon={Radio}
+              name="Dispatch Console"
+              desc="Live map of every driver and ride, auto-matching by proximity and vehicle type, with instant fallback to a human dispatcher."
+            />
+          </Reveal>
+          <Reveal delay={80}>
+            <ProductCard
+              icon={Car}
+              name="Driver App"
+              desc="Go online with one tap, accept offers, navigate turn-by-turn, log stops and cabin-clips, and submit gas receipts from the phone."
+            />
+          </Reveal>
+          <Reveal delay={160}>
+            <ProductCard
+              icon={Users}
+              name="Rider App"
+              desc="Rideshare-quality booking with address autocomplete, live ETA, driver tracking, and guest-friendly flows for family members."
+            />
+          </Reveal>
+          <Reveal delay={0} className="md:col-span-3">
+            <ProductCard
+              icon={FileCheck2}
+              name="Medicaid Billing"
+              desc="Trip data auto-fills the HCPF portal. Review, submit, and track claims from Pending Review through Submitted in one queue."
+            />
+          </Reveal>
+          <Reveal delay={80} className="md:col-span-3">
+            <ProductCard
+              icon={HeartPulse}
+              name="Compliance & Proof"
+              desc="Vehicle inspections, driver documents, and per-trip proof (odometer, signatures, photos) captured and stored automatically."
+            />
+          </Reveal>
         </div>
       </section>
 
       {/* Benefits */}
       <section id="benefits" className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
-        <SectionHeader
-          kicker="Benefits"
-          title="Built to save hours and unlock revenue."
-          copy="Every feature exists to remove a step that used to require a phone call, a spreadsheet, or a stack of paper."
-        />
+        <Reveal>
+          <SectionHeader
+            kicker="Benefits"
+            title="Built to save hours and unlock revenue."
+            copy="Every feature exists to remove a step that used to require a phone call, a spreadsheet, or a stack of paper."
+          />
+        </Reveal>
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          <Benefit
-            icon={Clock}
-            title="Hours back weekly"
-            desc="Auto-dispatch and auto-billing eliminate manual matching and claim entry."
-          />
-          <Benefit
-            icon={BadgeDollarSign}
-            title="More clean claims"
-            desc="Structured trip data means fewer rejections and faster reimbursement."
-          />
-          <Benefit
-            icon={MapPin}
-            title="Real visibility"
-            desc="One live map of drivers, rides, and status — no more group texts."
-          />
-          <Benefit
-            icon={ShieldCheck}
-            title="Audit-ready"
-            desc="Every trip carries proof: GPS, signatures, photos, and documents."
-          />
+          {[
+            { icon: Clock, title: "Hours back weekly", desc: "Auto-dispatch and auto-billing eliminate manual matching and claim entry." },
+            { icon: BadgeDollarSign, title: "More clean claims", desc: "Structured trip data means fewer rejections and faster reimbursement." },
+            { icon: MapPin, title: "Real visibility", desc: "One live map of drivers, rides, and status — no more group texts." },
+            { icon: ShieldCheck, title: "Audit-ready", desc: "Every trip carries proof: GPS, signatures, photos, and documents." },
+          ].map((b, i) => (
+            <Reveal key={b.title} delay={i * 90}>
+              <Benefit {...b} />
+            </Reveal>
+          ))}
         </div>
       </section>
 
+
       {/* Why join */}
       <section id="why-join" className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
-        <div className="overflow-hidden rounded-3xl border border-border/60 bg-surface/60 p-8 backdrop-blur sm:p-14">
-          <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr]">
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
-                <Sparkles className="h-3 w-3" />
-                Why join RedArt
-              </span>
-              <h2 className="mt-5 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
-                We're building the operating system for NEMT.
-              </h2>
-              <p className="mt-4 text-muted-foreground">
-                Whether you drive, dispatch, or run a transport provider, RedArt
-                gives you the tools bigger rideshare platforms have — tuned for
-                the reality of medical transport and Medicaid billing.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  to="/driver/signin"
-                  className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition hover:-translate-y-0.5"
-                >
-                  Drive with us
-                </Link>
-                <Link
-                  to="/auth"
-                  className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background/40 px-5 py-2.5 text-sm font-semibold text-foreground transition hover:border-primary/40"
-                >
-                  Dispatch sign in
-                </Link>
+        <Reveal>
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur sm:p-14">
+            <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr]">
+              <div>
+                <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
+                  <Sparkles className="h-3 w-3" />
+                  Why join RedArt
+                </span>
+                <h2 className="mt-5 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+                  We're building the operating system for NEMT.
+                </h2>
+                <p className="mt-4 text-muted-foreground">
+                  Whether you drive, dispatch, or run a transport provider, RedArt
+                  gives you the tools bigger rideshare platforms have — tuned for
+                  the reality of medical transport and Medicaid billing.
+                </p>
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <Link
+                    to="/driver/signin"
+                    className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition hover:-translate-y-0.5"
+                  >
+                    Drive with us
+                  </Link>
+                  <Link
+                    to="/auth"
+                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.02] px-5 py-2.5 text-sm font-semibold text-foreground transition hover:border-primary/40"
+                  >
+                    Dispatch sign in
+                  </Link>
+                </div>
               </div>
+              <ul className="space-y-4">
+                <Reason title="Steady, predictable work" desc="Recurring Medicaid trips with clear pay — not surge-price roulette." />
+                <Reason title="Tools that actually work" desc="A driver app built by people who ride along, not from a slide deck." />
+                <Reason title="Fast onboarding" desc="Upload documents once, get dispatched the same week you're approved." />
+                <Reason title="Human support" desc="Real dispatch phone number. Real people. No infinite chatbots." />
+              </ul>
             </div>
-            <ul className="space-y-4">
-              <Reason title="Steady, predictable work" desc="Recurring Medicaid trips with clear pay — not surge-price roulette." />
-              <Reason title="Tools that actually work" desc="A driver app built by people who ride along, not from a slide deck." />
-              <Reason title="Fast onboarding" desc="Upload documents once, get dispatched the same week you're approved." />
-              <Reason title="Human support" desc="Real dispatch phone number. Real people. No infinite chatbots." />
-            </ul>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* CTA / contact */}
       <section id="contact" className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-24 pt-4">
-        <div className="rounded-3xl border border-primary/30 bg-[radial-gradient(80%_120%_at_50%_0%,color-mix(in_oklab,var(--primary)_20%,transparent),transparent_70%)] p-10 text-center sm:p-16">
-          <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
-            Ready to move.
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Book a ride, apply to drive, or sign in to dispatch. Everything you
-            need lives on one platform.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link
-              to="/passenger"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition hover:-translate-y-0.5"
-            >
-              Book a ride
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
-            <Link
-              to="/driver/signin"
-              className="inline-flex items-center justify-center rounded-full border border-border/70 bg-surface/60 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40"
-            >
-              Driver sign in
-            </Link>
-            <Link
-              to="/auth"
-              className="inline-flex items-center justify-center rounded-full border border-border/70 bg-surface/60 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40"
-            >
-              Dispatch sign in
-            </Link>
+        <Reveal>
+          <div className="rounded-3xl border border-primary/30 bg-[radial-gradient(80%_120%_at_50%_0%,color-mix(in_oklab,var(--primary)_20%,transparent),transparent_70%)] p-10 text-center sm:p-16">
+            <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
+              Ready to move.
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
+              Book a ride, apply to drive, or sign in to dispatch. Everything you
+              need lives on one platform.
+            </p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <Link
+                to="/passenger"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition-all duration-300 hover:-translate-y-0.5"
+              >
+                Book a ride
+                <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </Link>
+              <Link
+                to="/driver/signin"
+                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40 hover:bg-white/[0.06]"
+              >
+                Driver sign in
+              </Link>
+              <Link
+                to="/auth"
+                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40 hover:bg-white/[0.06]"
+              >
+                Dispatch sign in
+              </Link>
+            </div>
           </div>
-        </div>
+        </Reveal>
       </section>
 
+
       {/* Footer */}
-      <footer className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 border-t border-border/40 px-6 py-8 text-[11px] text-muted-foreground sm:flex-row">
+      <footer className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 border-t border-white/10 px-6 py-8 text-[11px] text-muted-foreground sm:flex-row">
         <span>© {year} RedArt LLC · All rights reserved</span>
         <span className="tracking-widest uppercase">Colorado · NEMT</span>
       </footer>
@@ -329,7 +361,7 @@ function ProductCard({
 }) {
   return (
     <div
-      className={`group relative overflow-hidden rounded-2xl border border-border/60 bg-surface/60 p-6 backdrop-blur transition hover:border-primary/40 hover:bg-surface ${
+      className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur transition hover:border-primary/40 hover:bg-white/[0.05] ${
         wide ? "md:col-span-3 lg:col-span-3" : ""
       }`}
     >
@@ -359,7 +391,7 @@ function Benefit({
   desc: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-surface/40 p-6 backdrop-blur transition hover:border-primary/40">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 backdrop-blur transition hover:border-primary/40">
       <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 text-primary">
         <Icon className="h-5 w-5" />
       </div>
@@ -380,3 +412,52 @@ function Reason({ title, desc }: { title: string; desc: string }) {
     </li>
   );
 }
+
+function Reveal({
+  children,
+  delay = 0,
+  className = "",
+}: {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setShown(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            setShown(true);
+            io.disconnect();
+            break;
+          }
+        }
+      },
+      { threshold: 0.15, rootMargin: "0px 0px -60px 0px" },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={`${className} transition-all duration-700 ease-out will-change-transform ${
+        shown ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+      }`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
+
