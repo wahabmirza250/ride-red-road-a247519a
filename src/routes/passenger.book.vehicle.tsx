@@ -136,7 +136,7 @@ function VehicleSelect() {
             search={{
               pickup: s.pickup, pLat: s.pLat, pLng: s.pLng,
               dropoff: s.dropoff, dLat: s.dLat, dLng: s.dLng,
-              notes: s.notes, purpose: s.purpose,
+              notes: s.notes, purpose: s.purpose, stops: s.stops,
             }}
             className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-foreground"
             aria-label="Edit locations"
@@ -147,7 +147,7 @@ function VehicleSelect() {
             onClick={() => navigate({ to: "/passenger/book/pickup", search: {
               pickup: s.pickup, pLat: s.pLat, pLng: s.pLng,
               dropoff: s.dropoff, dLat: s.dLat, dLng: s.dLng,
-              notes: s.notes, purpose: s.purpose,
+              notes: s.notes, purpose: s.purpose, stops: s.stops,
             } })}
             className="flex min-w-0 flex-1 items-start gap-3 rounded-2xl border border-border/60 bg-surface/70 p-3 text-left transition hover:bg-surface"
           >
