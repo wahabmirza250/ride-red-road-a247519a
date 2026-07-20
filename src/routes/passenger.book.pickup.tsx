@@ -165,6 +165,25 @@ function ConfirmPickup() {
         setDropoffCoords(dc);
       }
 
+      // Resolve any stops that don't have coordinates yet.
+      const resolvedStops: BookingStop[] = [];
+      for (const s of stops) {
+        const addr = s.address.trim();
+        if (!addr) continue; // skip empty stop rows
+        if (s.lat != null && s.lng != null) {
+          resolvedStops.push({ address: addr, lat: s.lat, lng: s.lng });
+          continue;
+        }
+        const g = await geocodeAddress({ data: { address: addr } });
+        if (!g) {
+          toast.error(`We couldn't find the stop "${addr}". Try a more specific address.`);
+          setResolving(false);
+          return;
+        }
+        resolvedStops.push({ address: g.address, lat: g.lat, lng: g.lng });
+      }
+      setStops(resolvedStops);
+
       void navigate({
         to: "/passenger/book/vehicle",
         search: {
@@ -176,6 +195,7 @@ function ConfirmPickup() {
           dLng: dc.lng,
           notes: note || undefined,
           purpose,
+          stops: resolvedStops.length ? JSON.stringify(resolvedStops) : undefined,
         },
       });
     } catch (e) {
