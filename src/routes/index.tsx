@@ -1,6 +1,20 @@
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowUpRight } from "lucide-react";
+import { BrandWordmark } from "@/components/Brand";
 import {
-  ArrowUpRight,
+  Car,
+  Users,
+  Radio,
+  ShieldCheck,
+  Clock,
+  MapPin,
+  FileCheck2,
+  Sparkles,
+  BadgeDollarSign,
+  HeartPulse,
+} from "lucide-react";
+
   Car,
   Users,
   Radio,
