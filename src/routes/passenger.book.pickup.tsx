@@ -62,8 +62,23 @@ function ConfirmPickup() {
   );
   const [note, setNote] = useState(search.notes ?? "");
   const [purpose, setPurpose] = useState(search.purpose ?? "");
+  const [stops, setStops] = useState<BookingStop[]>(() => parseStops(search.stops));
   const [autoLocating, setAutoLocating] = useState(!pickup);
   const [resolving, setResolving] = useState(false);
+
+  function addStop() {
+    if (stops.length >= 3) {
+      toast.error("You can add up to 3 stops.");
+      return;
+    }
+    setStops((prev) => [...prev, { address: "", lat: null, lng: null }]);
+  }
+  function removeStop(i: number) {
+    setStops((prev) => prev.filter((_, idx) => idx !== i));
+  }
+  function updateStop(i: number, patch: Partial<BookingStop>) {
+    setStops((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  }
 
   // Reverse-geocode the passenger's current position → real street address.
   useEffect(() => {
