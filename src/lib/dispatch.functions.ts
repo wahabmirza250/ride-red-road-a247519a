@@ -201,7 +201,7 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
     const { data: req, error: reqError } = await supabaseAdmin
       .from("ride_requests")
       .select(
-        "id, passenger_id, contact_name, contact_phone, contact_medicaid, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng, requested_pickup_time, estimated_fare, status, driver_id, offer_expires_at, trip_id, ride_purpose, is_group",
+        "id, passenger_id, contact_name, contact_phone, contact_medicaid, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng, requested_pickup_time, estimated_fare, status, driver_id, offer_expires_at, trip_id, ride_purpose, is_group, stops",
       )
       .eq("id", data.request_id)
       .maybeSingle();
