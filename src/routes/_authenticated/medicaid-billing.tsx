@@ -151,7 +151,7 @@ function MedicaidBillingPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="surface-red space-y-6">
       <PageHeader
         title="Medicaid Billing"
         description="Review driver-submitted trips, batch-send them to the automation robot, then confirm the state's receipt number after human portal submission."
