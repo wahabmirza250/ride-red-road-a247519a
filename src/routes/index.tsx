@@ -225,79 +225,84 @@ function LandingPage() {
 
       {/* Why join */}
       <section id="why-join" className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
-        <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur sm:p-14">
-          <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr]">
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
-                <Sparkles className="h-3 w-3" />
-                Why join RedArt
-              </span>
-              <h2 className="mt-5 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
-                We're building the operating system for NEMT.
-              </h2>
-              <p className="mt-4 text-muted-foreground">
-                Whether you drive, dispatch, or run a transport provider, RedArt
-                gives you the tools bigger rideshare platforms have — tuned for
-                the reality of medical transport and Medicaid billing.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  to="/driver/signin"
-                  className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition hover:-translate-y-0.5"
-                >
-                  Drive with us
-                </Link>
-                <Link
-                  to="/auth"
-                  className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.02] px-5 py-2.5 text-sm font-semibold text-foreground transition hover:border-primary/40"
-                >
-                  Dispatch sign in
-                </Link>
+        <Reveal>
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur sm:p-14">
+            <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr]">
+              <div>
+                <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
+                  <Sparkles className="h-3 w-3" />
+                  Why join RedArt
+                </span>
+                <h2 className="mt-5 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+                  We're building the operating system for NEMT.
+                </h2>
+                <p className="mt-4 text-muted-foreground">
+                  Whether you drive, dispatch, or run a transport provider, RedArt
+                  gives you the tools bigger rideshare platforms have — tuned for
+                  the reality of medical transport and Medicaid billing.
+                </p>
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <Link
+                    to="/driver/signin"
+                    className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition hover:-translate-y-0.5"
+                  >
+                    Drive with us
+                  </Link>
+                  <Link
+                    to="/auth"
+                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.02] px-5 py-2.5 text-sm font-semibold text-foreground transition hover:border-primary/40"
+                  >
+                    Dispatch sign in
+                  </Link>
+                </div>
               </div>
+              <ul className="space-y-4">
+                <Reason title="Steady, predictable work" desc="Recurring Medicaid trips with clear pay — not surge-price roulette." />
+                <Reason title="Tools that actually work" desc="A driver app built by people who ride along, not from a slide deck." />
+                <Reason title="Fast onboarding" desc="Upload documents once, get dispatched the same week you're approved." />
+                <Reason title="Human support" desc="Real dispatch phone number. Real people. No infinite chatbots." />
+              </ul>
             </div>
-            <ul className="space-y-4">
-              <Reason title="Steady, predictable work" desc="Recurring Medicaid trips with clear pay — not surge-price roulette." />
-              <Reason title="Tools that actually work" desc="A driver app built by people who ride along, not from a slide deck." />
-              <Reason title="Fast onboarding" desc="Upload documents once, get dispatched the same week you're approved." />
-              <Reason title="Human support" desc="Real dispatch phone number. Real people. No infinite chatbots." />
-            </ul>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* CTA / contact */}
       <section id="contact" className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-24 pt-4">
-        <div className="rounded-3xl border border-primary/30 bg-[radial-gradient(80%_120%_at_50%_0%,color-mix(in_oklab,var(--primary)_20%,transparent),transparent_70%)] p-10 text-center sm:p-16">
-          <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
-            Ready to move.
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Book a ride, apply to drive, or sign in to dispatch. Everything you
-            need lives on one platform.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link
-              to="/passenger"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition hover:-translate-y-0.5"
-            >
-              Book a ride
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
-            <Link
-              to="/driver/signin"
-              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40"
-            >
-              Driver sign in
-            </Link>
-            <Link
-              to="/auth"
-              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40"
-            >
-              Dispatch sign in
-            </Link>
+        <Reveal>
+          <div className="rounded-3xl border border-primary/30 bg-[radial-gradient(80%_120%_at_50%_0%,color-mix(in_oklab,var(--primary)_20%,transparent),transparent_70%)] p-10 text-center sm:p-16">
+            <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
+              Ready to move.
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
+              Book a ride, apply to drive, or sign in to dispatch. Everything you
+              need lives on one platform.
+            </p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <Link
+                to="/passenger"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition-all duration-300 hover:-translate-y-0.5"
+              >
+                Book a ride
+                <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </Link>
+              <Link
+                to="/driver/signin"
+                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40 hover:bg-white/[0.06]"
+              >
+                Driver sign in
+              </Link>
+              <Link
+                to="/auth"
+                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40 hover:bg-white/[0.06]"
+              >
+                Dispatch sign in
+              </Link>
+            </div>
           </div>
-        </div>
+        </Reveal>
       </section>
+
 
       {/* Footer */}
       <footer className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 border-t border-white/10 px-6 py-8 text-[11px] text-muted-foreground sm:flex-row">
