@@ -45,7 +45,7 @@ function DriverSignIn() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
+    <div className="surface-yellow relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
       <AuroraBackdrop />
       <div className="w-full max-w-md animate-rise-in">
         <div className="mb-8 text-center">
