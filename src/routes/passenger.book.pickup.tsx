@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { useCurrentPosition } from "@/lib/useGeolocation";
-import { geocodeAddress } from "@/lib/geocode.functions";
+import { geocodeAddress, reverseGeocode } from "@/lib/geocode.functions";
 
 export const Route = createFileRoute("/passenger/book/pickup")({
   ssr: false,
