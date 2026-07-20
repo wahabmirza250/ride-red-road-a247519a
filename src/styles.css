@@ -226,6 +226,35 @@
   --sidebar-ring: oklch(0.68 0.19 18 / 0.5);
 }
 
+/* Per-surface accent switches — set on the outermost route wrapper.
+   These rewrite the surface-accent tokens for the subtree so shared
+   components (kickers, icon tiles, hover borders) pick up the identity
+   color of whichever app the user is in. */
+.surface-red {
+  --surface-accent: var(--brand-red);
+  --surface-accent-foreground: var(--brand-red-foreground);
+}
+.surface-blue {
+  --surface-accent: var(--brand-blue);
+  --surface-accent-foreground: var(--brand-blue-foreground);
+}
+.surface-green {
+  --surface-accent: var(--brand-green);
+  --surface-accent-foreground: var(--brand-green-foreground);
+}
+.surface-yellow {
+  /* Yellow is unreadable as text on white, so use the darker
+     ink variant for the accent color in light mode. */
+  --surface-accent: var(--brand-yellow-ink);
+  --surface-accent-foreground: oklch(0.99 0 0);
+}
+.dark .surface-yellow {
+  --surface-accent: var(--brand-yellow);
+  --surface-accent-foreground: var(--brand-yellow-foreground);
+}
+
+
+
 
 @layer base {
   * {
