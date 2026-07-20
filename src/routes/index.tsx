@@ -60,7 +60,7 @@ function LandingPage() {
 
 
       {/* Top bar */}
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-background/70 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#07070a]/80 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <BrandWordmark className="h-8 w-auto" />
           <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
