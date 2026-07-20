@@ -1403,6 +1403,7 @@ export type Database = {
           ride_purpose: string | null
           source: string
           status: string
+          stops: Json
           trip_id: string | null
           updated_at: string
         }
@@ -1432,6 +1433,7 @@ export type Database = {
           ride_purpose?: string | null
           source?: string
           status?: string
+          stops?: Json
           trip_id?: string | null
           updated_at?: string
         }
@@ -1461,6 +1463,7 @@ export type Database = {
           ride_purpose?: string | null
           source?: string
           status?: string
+          stops?: Json
           trip_id?: string | null
           updated_at?: string
         }
