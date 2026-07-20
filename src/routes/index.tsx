@@ -15,7 +15,15 @@ import {
   HeartPulse,
 } from "lucide-react";
 
+// RedArt logo palette — mixed across the page for a branded, non-monochrome feel.
+const BRAND = {
+  yellow: "#F4C430",
+  red: "#C8354E",
+  blue: "#1E6FB8",
+  green: "#1F9D6A",
+} as const;
 
+type BrandColor = keyof typeof BRAND;
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -44,10 +52,18 @@ function LandingPage() {
 
   return (
     <div className="dark relative isolate min-h-screen overflow-hidden bg-[#07070a] text-foreground antialiased">
-      {/* Atmospheric layers — deep, minimal */}
+      {/* Atmospheric layers — mixed logo colors, deep and minimal */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[70rem] bg-[radial-gradient(70%_55%_at_50%_0%,color-mix(in_oklab,var(--primary)_16%,transparent),transparent_70%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[70rem]"
+        style={{
+          background: `
+            radial-gradient(38% 32% at 18% 8%, ${BRAND.yellow}22, transparent 70%),
+            radial-gradient(42% 34% at 82% 4%, ${BRAND.blue}2b, transparent 72%),
+            radial-gradient(46% 38% at 50% 22%, ${BRAND.red}26, transparent 70%),
+            radial-gradient(34% 30% at 88% 42%, ${BRAND.green}22, transparent 72%)
+          `,
+        }}
       />
       <div
         aria-hidden
@@ -57,7 +73,6 @@ function LandingPage() {
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 opacity-[0.035] [background-image:linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] [background-size:64px_64px] [mask-image:radial-gradient(60%_50%_at_50%_20%,#000,transparent)]"
       />
-
 
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b border-white/10 bg-[#07070a]/80 backdrop-blur">
@@ -79,7 +94,10 @@ function LandingPage() {
           </nav>
           <Link
             to="/passenger"
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-[0_8px_24px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition hover:-translate-y-0.5"
+            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold text-white shadow-[0_8px_24px_-10px_rgba(200,53,78,0.6)] transition hover:-translate-y-0.5"
+            style={{
+              background: `linear-gradient(135deg, ${BRAND.red} 0%, ${BRAND.yellow} 100%)`,
+            }}
           >
             Book a ride
             <ArrowUpRight className="h-3.5 w-3.5" />
@@ -93,7 +111,10 @@ function LandingPage() {
           className="animate-fade-in inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground backdrop-blur"
           style={{ animationDelay: "0ms", animationFillMode: "both" }}
         >
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+          <span
+            className="h-1.5 w-1.5 animate-pulse rounded-full"
+            style={{ backgroundColor: BRAND.red }}
+          />
           NEMT · Colorado
         </span>
 
@@ -103,7 +124,12 @@ function LandingPage() {
         >
           Non-emergency transport,
           <br />
-          <span className="bg-gradient-to-r from-primary via-primary/90 to-white/80 bg-clip-text text-transparent">
+          <span
+            className="bg-clip-text text-transparent"
+            style={{
+              backgroundImage: `linear-gradient(100deg, ${BRAND.yellow} 0%, ${BRAND.red} 38%, ${BRAND.blue} 72%, ${BRAND.green} 100%)`,
+            }}
+          >
             reimagined for the road.
           </span>
         </h1>
@@ -123,27 +149,29 @@ function LandingPage() {
         >
           <a
             href="#product"
-            className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_40px_-12px_color-mix(in_oklab,var(--primary)_70%,transparent)]"
+            className="group inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(200,53,78,0.6)] transition-all duration-300 hover:-translate-y-0.5"
+            style={{
+              background: `linear-gradient(135deg, ${BRAND.red} 0%, ${BRAND.yellow} 100%)`,
+            }}
           >
             See the product
             <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </a>
           <a
             href="#contact"
-            className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition-all duration-300 hover:border-primary/40 hover:bg-white/[0.06]"
+            className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition-all duration-300 hover:border-white/20 hover:bg-white/[0.06]"
           >
             Talk to us
           </a>
         </div>
 
-
         <dl
           className="animate-fade-in mt-16 grid w-full max-w-3xl grid-cols-3 divide-x divide-white/10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur"
           style={{ animationDelay: "340ms", animationFillMode: "both" }}
         >
-          <Stat label="Dispatch" value="Realtime" />
-          <Stat label="Drivers" value="On-demand" />
-          <Stat label="Coverage" value="Statewide" />
+          <Stat label="Dispatch" value="Realtime" accent="blue" />
+          <Stat label="Drivers" value="On-demand" accent="yellow" />
+          <Stat label="Coverage" value="Statewide" accent="green" />
         </dl>
       </section>
 
@@ -154,6 +182,7 @@ function LandingPage() {
             kicker="What we do"
             title="One platform. Every side of the ride."
             copy="We replace the patchwork of scheduling spreadsheets, driver texts, and paper trip logs with a single system your team, drivers, and riders can actually use."
+            accent="blue"
           />
         </Reveal>
       </section>
@@ -166,6 +195,7 @@ function LandingPage() {
               icon={Radio}
               name="Dispatch Console"
               desc="Live map of every driver and ride, auto-matching by proximity and vehicle type, with instant fallback to a human dispatcher."
+              accent="blue"
             />
           </Reveal>
           <Reveal delay={80}>
@@ -173,6 +203,7 @@ function LandingPage() {
               icon={Car}
               name="Driver App"
               desc="Go online with one tap, accept offers, navigate turn-by-turn, log stops and cabin-clips, and submit gas receipts from the phone."
+              accent="yellow"
             />
           </Reveal>
           <Reveal delay={160}>
@@ -180,6 +211,7 @@ function LandingPage() {
               icon={Users}
               name="Rider App"
               desc="Rideshare-quality booking with address autocomplete, live ETA, driver tracking, and guest-friendly flows for family members."
+              accent="green"
             />
           </Reveal>
           <Reveal delay={0} className="md:col-span-3">
@@ -187,6 +219,7 @@ function LandingPage() {
               icon={FileCheck2}
               name="Medicaid Billing"
               desc="Trip data auto-fills the HCPF portal. Review, submit, and track claims from Pending Review through Submitted in one queue."
+              accent="red"
             />
           </Reveal>
           <Reveal delay={80} className="md:col-span-3">
@@ -194,6 +227,7 @@ function LandingPage() {
               icon={HeartPulse}
               name="Compliance & Proof"
               desc="Vehicle inspections, driver documents, and per-trip proof (odometer, signatures, photos) captured and stored automatically."
+              accent="green"
             />
           </Reveal>
         </div>
@@ -206,14 +240,15 @@ function LandingPage() {
             kicker="Benefits"
             title="Built to save hours and unlock revenue."
             copy="Every feature exists to remove a step that used to require a phone call, a spreadsheet, or a stack of paper."
+            accent="yellow"
           />
         </Reveal>
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {[
-            { icon: Clock, title: "Hours back weekly", desc: "Auto-dispatch and auto-billing eliminate manual matching and claim entry." },
-            { icon: BadgeDollarSign, title: "More clean claims", desc: "Structured trip data means fewer rejections and faster reimbursement." },
-            { icon: MapPin, title: "Real visibility", desc: "One live map of drivers, rides, and status — no more group texts." },
-            { icon: ShieldCheck, title: "Audit-ready", desc: "Every trip carries proof: GPS, signatures, photos, and documents." },
+            { icon: Clock, title: "Hours back weekly", desc: "Auto-dispatch and auto-billing eliminate manual matching and claim entry.", accent: "yellow" as BrandColor },
+            { icon: BadgeDollarSign, title: "More clean claims", desc: "Structured trip data means fewer rejections and faster reimbursement.", accent: "green" as BrandColor },
+            { icon: MapPin, title: "Real visibility", desc: "One live map of drivers, rides, and status — no more group texts.", accent: "blue" as BrandColor },
+            { icon: ShieldCheck, title: "Audit-ready", desc: "Every trip carries proof: GPS, signatures, photos, and documents.", accent: "red" as BrandColor },
           ].map((b, i) => (
             <Reveal key={b.title} delay={i * 90}>
               <Benefit {...b} />
@@ -222,14 +257,20 @@ function LandingPage() {
         </div>
       </section>
 
-
       {/* Why join */}
       <section id="why-join" className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
         <Reveal>
           <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur sm:p-14">
             <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr]">
               <div>
-                <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
+                <span
+                  className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em]"
+                  style={{
+                    borderColor: `${BRAND.red}55`,
+                    backgroundColor: `${BRAND.red}18`,
+                    color: BRAND.red,
+                  }}
+                >
                   <Sparkles className="h-3 w-3" />
                   Why join RedArt
                 </span>
@@ -244,23 +285,26 @@ function LandingPage() {
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Link
                     to="/driver/signin"
-                    className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition hover:-translate-y-0.5"
+                    className="inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(30,111,184,0.6)] transition hover:-translate-y-0.5"
+                    style={{
+                      background: `linear-gradient(135deg, ${BRAND.blue} 0%, ${BRAND.green} 100%)`,
+                    }}
                   >
                     Drive with us
                   </Link>
                   <Link
                     to="/auth"
-                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.02] px-5 py-2.5 text-sm font-semibold text-foreground transition hover:border-primary/40"
+                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.02] px-5 py-2.5 text-sm font-semibold text-foreground transition hover:border-white/20"
                   >
                     Dispatch sign in
                   </Link>
                 </div>
               </div>
               <ul className="space-y-4">
-                <Reason title="Steady, predictable work" desc="Recurring Medicaid trips with clear pay — not surge-price roulette." />
-                <Reason title="Tools that actually work" desc="A driver app built by people who ride along, not from a slide deck." />
-                <Reason title="Fast onboarding" desc="Upload documents once, get dispatched the same week you're approved." />
-                <Reason title="Human support" desc="Real dispatch phone number. Real people. No infinite chatbots." />
+                <Reason accent="yellow" title="Steady, predictable work" desc="Recurring Medicaid trips with clear pay — not surge-price roulette." />
+                <Reason accent="red" title="Tools that actually work" desc="A driver app built by people who ride along, not from a slide deck." />
+                <Reason accent="blue" title="Fast onboarding" desc="Upload documents once, get dispatched the same week you're approved." />
+                <Reason accent="green" title="Human support" desc="Real dispatch phone number. Real people. No infinite chatbots." />
               </ul>
             </div>
           </div>
@@ -270,9 +314,28 @@ function LandingPage() {
       {/* CTA / contact */}
       <section id="contact" className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-24 pt-4">
         <Reveal>
-          <div className="rounded-3xl border border-primary/30 bg-[radial-gradient(80%_120%_at_50%_0%,color-mix(in_oklab,var(--primary)_20%,transparent),transparent_70%)] p-10 text-center sm:p-16">
+          <div
+            className="rounded-3xl border p-10 text-center sm:p-16"
+            style={{
+              borderColor: "rgba(255,255,255,0.08)",
+              background: `
+                radial-gradient(60% 100% at 15% 0%, ${BRAND.yellow}1f, transparent 70%),
+                radial-gradient(60% 100% at 85% 0%, ${BRAND.blue}22, transparent 70%),
+                radial-gradient(80% 120% at 50% 100%, ${BRAND.red}22, transparent 70%)
+              `,
+            }}
+          >
             <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
-              Ready to move.
+              Ready to{" "}
+              <span
+                className="bg-clip-text text-transparent"
+                style={{
+                  backgroundImage: `linear-gradient(100deg, ${BRAND.yellow}, ${BRAND.red}, ${BRAND.blue}, ${BRAND.green})`,
+                }}
+              >
+                move
+              </span>
+              .
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
               Book a ride, apply to drive, or sign in to dispatch. Everything you
@@ -281,20 +344,26 @@ function LandingPage() {
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link
                 to="/passenger"
-                className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition-all duration-300 hover:-translate-y-0.5"
+                className="group inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(200,53,78,0.6)] transition-all duration-300 hover:-translate-y-0.5"
+                style={{
+                  background: `linear-gradient(135deg, ${BRAND.red} 0%, ${BRAND.yellow} 100%)`,
+                }}
               >
                 Book a ride
                 <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </Link>
               <Link
                 to="/driver/signin"
-                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40 hover:bg-white/[0.06]"
+                className="inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(30,111,184,0.55)] transition hover:-translate-y-0.5"
+                style={{
+                  background: `linear-gradient(135deg, ${BRAND.blue} 0%, ${BRAND.green} 100%)`,
+                }}
               >
                 Driver sign in
               </Link>
               <Link
                 to="/auth"
-                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40 hover:bg-white/[0.06]"
+                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-white/20 hover:bg-white/[0.06]"
               >
                 Dispatch sign in
               </Link>
@@ -303,20 +372,30 @@ function LandingPage() {
         </Reveal>
       </section>
 
-
       {/* Footer */}
       <footer className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 border-t border-white/10 px-6 py-8 text-[11px] text-muted-foreground sm:flex-row">
-        <span>© {year} RedArt LLC · All rights reserved</span>
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BRAND.yellow }} />
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BRAND.red }} />
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BRAND.blue }} />
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BRAND.green }} />
+          </span>
+          <span>© {year} RedArt LLC · All rights reserved</span>
+        </div>
         <span className="tracking-widest uppercase">Colorado · NEMT</span>
       </footer>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, accent }: { label: string; value: string; accent: BrandColor }) {
   return (
     <div className="flex flex-col items-center gap-1 px-4 py-5">
-      <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+      <dt
+        className="text-[10px] font-medium uppercase tracking-[0.22em]"
+        style={{ color: BRAND[accent] }}
+      >
         {label}
       </dt>
       <dd className="text-sm font-semibold text-foreground sm:text-base">{value}</dd>
@@ -328,14 +407,19 @@ function SectionHeader({
   kicker,
   title,
   copy,
+  accent = "red",
 }: {
   kicker: string;
   title: string;
   copy: string;
+  accent?: BrandColor;
 }) {
   return (
     <div className="mx-auto max-w-2xl text-center">
-      <span className="text-[11px] font-medium uppercase tracking-[0.24em] text-primary">
+      <span
+        className="text-[11px] font-medium uppercase tracking-[0.24em]"
+        style={{ color: BRAND[accent] }}
+      >
         {kicker}
       </span>
       <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl md:text-5xl">
@@ -352,22 +436,41 @@ function ProductCard({
   icon: Icon,
   name,
   desc,
-  wide,
+  accent,
 }: {
   icon: IconType;
   name: string;
   desc: string;
-  wide?: boolean;
+  accent: BrandColor;
 }) {
+  const color = BRAND[accent];
   return (
     <div
-      className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur transition hover:border-primary/40 hover:bg-white/[0.05] ${
-        wide ? "md:col-span-3 lg:col-span-3" : ""
-      }`}
+      className="group relative h-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur transition hover:bg-white/[0.05]"
+      style={{
+        // subtle accent border tint on hover via box-shadow inset ring
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = `${color}66`;
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = "";
+      }}
     >
-      <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-primary/10 blur-3xl transition group-hover:bg-primary/20" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full blur-3xl transition group-hover:opacity-80"
+        style={{ backgroundColor: `${color}33` }}
+      />
       <div className="relative flex items-start gap-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 text-primary">
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
+          style={{
+            borderColor: `${color}55`,
+            backgroundColor: `${color}1a`,
+            color,
+          }}
+        >
           <Icon className="h-5 w-5" />
         </div>
         <div>
@@ -385,14 +488,32 @@ function Benefit({
   icon: Icon,
   title,
   desc,
+  accent,
 }: {
   icon: IconType;
   title: string;
   desc: string;
+  accent: BrandColor;
 }) {
+  const color = BRAND[accent];
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 backdrop-blur transition hover:border-primary/40">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 text-primary">
+    <div
+      className="h-full rounded-2xl border border-white/10 bg-white/[0.02] p-6 backdrop-blur transition"
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = `${color}55`;
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = "";
+      }}
+    >
+      <div
+        className="flex h-10 w-10 items-center justify-center rounded-xl border"
+        style={{
+          borderColor: `${color}55`,
+          backgroundColor: `${color}1a`,
+          color,
+        }}
+      >
         <Icon className="h-5 w-5" />
       </div>
       <h3 className="mt-4 text-base font-semibold text-foreground">{title}</h3>
@@ -401,10 +522,21 @@ function Benefit({
   );
 }
 
-function Reason({ title, desc }: { title: string; desc: string }) {
+function Reason({
+  title,
+  desc,
+  accent,
+}: {
+  title: string;
+  desc: string;
+  accent: BrandColor;
+}) {
   return (
     <li className="flex gap-3">
-      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+      <span
+        className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: BRAND[accent] }}
+      />
       <div>
         <p className="text-sm font-semibold text-foreground">{title}</p>
         <p className="mt-0.5 text-sm text-muted-foreground">{desc}</p>
@@ -460,4 +592,3 @@ function Reveal({
     </div>
   );
 }
-
