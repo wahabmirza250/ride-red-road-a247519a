@@ -45,25 +45,45 @@ function ConfirmPickup() {
   const [autoLocating, setAutoLocating] = useState(!pickup);
   const [resolving, setResolving] = useState(false);
 
-  // Reverse-geocode the passenger's current position → default pickup address (best effort).
+  // Reverse-geocode the passenger's current position → real street address.
   useEffect(() => {
     if (pickup || !pos) return;
     setPickupCoords({ lat: pos.lat, lng: pos.lng });
     setPickup(`Current location (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})`);
     setAutoLocating(false);
+    (async () => {
+      try {
+        const r = await reverseGeocode({ data: { lat: pos.lat, lng: pos.lng } });
+        if (r) {
+          setPickup(r.address);
+          setPickupCoords({ lat: r.lat, lng: r.lng });
+        }
+      } catch (e) {
+        console.warn("Reverse geocode failed", e);
+      }
+    })();
   }, [pos, pickup]);
 
   useEffect(() => {
     if (!pos && geoErr) setAutoLocating(false);
   }, [pos, geoErr]);
 
-  function useCurrentLocation() {
+  async function useCurrentLocation() {
     if (!pos) {
       toast.error(geoErr ?? "Location unavailable. Please allow location access or type an address.");
       return;
     }
     setPickupCoords({ lat: pos.lat, lng: pos.lng });
     setPickup(`Current location (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})`);
+    try {
+      const r = await reverseGeocode({ data: { lat: pos.lat, lng: pos.lng } });
+      if (r) {
+        setPickup(r.address);
+        setPickupCoords({ lat: r.lat, lng: r.lng });
+      }
+    } catch (e) {
+      console.warn("Reverse geocode failed", e);
+    }
   }
 
   const hasPickup = !!pickup.trim();
