@@ -205,6 +205,14 @@
   --brand-green-foreground: oklch(0.14 0.01 260);
   --brand-ink: oklch(0.08 0.005 260);
 
+  /* Dark-mode yellow already has enough contrast against dark surfaces */
+  --brand-yellow-ink: var(--brand-yellow);
+
+  --surface-accent: var(--brand-red);
+  --surface-accent-foreground: var(--brand-red-foreground);
+
+
+
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.68 0.19 18 / 0.5);
