@@ -20,6 +20,7 @@ export const Route = createFileRoute("/passenger/book/vehicle")({
     dLng: typeof s.dLng === "number" ? s.dLng : 0,
     notes: typeof s.notes === "string" ? s.notes : undefined,
     purpose: typeof s.purpose === "string" ? s.purpose : undefined,
+    stops: typeof s.stops === "string" ? s.stops : undefined,
   }),
   component: VehicleSelect,
 });
