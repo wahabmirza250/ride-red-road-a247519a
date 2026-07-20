@@ -60,7 +60,7 @@ function LandingPage() {
 
 
       {/* Top bar */}
-      <header className="sticky top-0 z-20 border-b border-border/40 bg-background/70 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-background/70 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <BrandWordmark className="h-8 w-auto" />
           <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
@@ -137,7 +137,7 @@ function LandingPage() {
         </div>
 
 
-        <dl className="mt-16 grid w-full max-w-3xl grid-cols-3 divide-x divide-border/60 rounded-2xl border border-border/60 bg-surface/40 backdrop-blur">
+        <dl className="mt-16 grid w-full max-w-3xl grid-cols-3 divide-x divide-border/60 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur">
           <Stat label="Dispatch" value="Realtime" />
           <Stat label="Drivers" value="On-demand" />
           <Stat label="Coverage" value="Statewide" />
@@ -219,7 +219,7 @@ function LandingPage() {
 
       {/* Why join */}
       <section id="why-join" className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
-        <div className="overflow-hidden rounded-3xl border border-border/60 bg-surface/60 p-8 backdrop-blur sm:p-14">
+        <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur sm:p-14">
           <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr]">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
@@ -243,7 +243,7 @@ function LandingPage() {
                 </Link>
                 <Link
                   to="/auth"
-                  className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background/40 px-5 py-2.5 text-sm font-semibold text-foreground transition hover:border-primary/40"
+                  className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.02] px-5 py-2.5 text-sm font-semibold text-foreground transition hover:border-primary/40"
                 >
                   Dispatch sign in
                 </Link>
@@ -279,13 +279,13 @@ function LandingPage() {
             </Link>
             <Link
               to="/driver/signin"
-              className="inline-flex items-center justify-center rounded-full border border-border/70 bg-surface/60 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40"
+              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40"
             >
               Driver sign in
             </Link>
             <Link
               to="/auth"
-              className="inline-flex items-center justify-center rounded-full border border-border/70 bg-surface/60 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40"
+              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-primary/40"
             >
               Dispatch sign in
             </Link>
@@ -294,7 +294,7 @@ function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 border-t border-border/40 px-6 py-8 text-[11px] text-muted-foreground sm:flex-row">
+      <footer className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 border-t border-white/10 px-6 py-8 text-[11px] text-muted-foreground sm:flex-row">
         <span>© {year} RedArt LLC · All rights reserved</span>
         <span className="tracking-widest uppercase">Colorado · NEMT</span>
       </footer>
@@ -350,7 +350,7 @@ function ProductCard({
 }) {
   return (
     <div
-      className={`group relative overflow-hidden rounded-2xl border border-border/60 bg-surface/60 p-6 backdrop-blur transition hover:border-primary/40 hover:bg-surface ${
+      className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur transition hover:border-primary/40 hover:bg-white/[0.05] ${
         wide ? "md:col-span-3 lg:col-span-3" : ""
       }`}
     >
@@ -380,7 +380,7 @@ function Benefit({
   desc: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-surface/40 p-6 backdrop-blur transition hover:border-primary/40">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 backdrop-blur transition hover:border-primary/40">
       <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 text-primary">
         <Icon className="h-5 w-5" />
       </div>
