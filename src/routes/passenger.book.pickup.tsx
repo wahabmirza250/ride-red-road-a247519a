@@ -273,6 +273,43 @@ function ConfirmPickup() {
             />
           </div>
 
+          {/* Optional intermediate stops */}
+          {stops.map((s, i) => (
+            <div key={i} className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5 text-xs">
+                  <CircleDot className="h-4 w-4 text-amber-500" /> Stop {i + 1}
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => removeStop(i)}
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-rose-500"
+                  aria-label={`Remove stop ${i + 1}`}
+                >
+                  <X className="h-3.5 w-3.5" /> Remove
+                </button>
+              </div>
+              <AddressAutocomplete
+                value={s.address}
+                onChange={(v) => updateStop(i, { address: v, lat: null, lng: null })}
+                onResolve={(p) => updateStop(i, { address: p.address, lat: p.lat, lng: p.lng })}
+                placeholder="Add a stop along the way…"
+                biasLat={pos?.lat ?? pickupCoords?.lat}
+                biasLng={pos?.lng ?? pickupCoords?.lng}
+              />
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={addStop}
+            disabled={stops.length >= 3}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-surface/40 px-3 py-2 text-xs font-medium text-muted-foreground transition hover:border-primary/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add a stop {stops.length > 0 ? `(${stops.length}/3)` : "(optional)"}
+          </button>
+
+
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5 text-xs">
               <MapPin className="h-4 w-4 text-rose-500" /> Destination
