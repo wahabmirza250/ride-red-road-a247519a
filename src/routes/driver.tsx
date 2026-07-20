@@ -54,7 +54,7 @@ function DriverLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-muted pb-20">
+    <div className="surface-yellow min-h-screen bg-surface-muted pb-20">
       <header className="glass sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border px-4">
         <div className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
