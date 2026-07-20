@@ -68,7 +68,7 @@ function StaffSignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-surface-muted to-background px-4 py-10">
+    <div className="surface-blue flex min-h-screen items-center justify-center bg-gradient-to-b from-surface-muted to-background px-4 py-10">
       <div className="w-full max-w-md">
         <Link
           to="/auth"

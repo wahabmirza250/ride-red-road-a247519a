@@ -22,10 +22,12 @@ export function LoadingScreen({
       )}
     >
       <div className="flex items-end gap-2">
-        <span className="h-3 w-3 animate-loading-bounce rounded-full bg-primary [animation-delay:-0.32s]" />
-        <span className="h-3 w-3 animate-loading-bounce rounded-full bg-primary [animation-delay:-0.16s]" />
-        <span className="h-3 w-3 animate-loading-bounce rounded-full bg-primary" />
+        <span className="h-3 w-3 animate-loading-bounce rounded-full bg-brand-yellow [animation-delay:-0.48s]" />
+        <span className="h-3 w-3 animate-loading-bounce rounded-full bg-brand-red [animation-delay:-0.32s]" />
+        <span className="h-3 w-3 animate-loading-bounce rounded-full bg-brand-blue [animation-delay:-0.16s]" />
+        <span className="h-3 w-3 animate-loading-bounce rounded-full bg-brand-green" />
       </div>
+
       <p className="text-sm font-medium tracking-wide text-muted-foreground">
         {label}
         <span className="sr-only"> please wait</span>

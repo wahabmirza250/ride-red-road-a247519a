@@ -13,7 +13,7 @@ export function StatCard({
   value: ReactNode;
   hint?: ReactNode;
   icon?: ReactNode;
-  accent?: "primary" | "success" | "info" | "warning";
+  accent?: "primary" | "success" | "info" | "warning" | "surface";
   className?: string;
 }) {
   const ring =
@@ -25,7 +25,10 @@ export function StatCard({
           ? "text-info"
           : accent === "warning"
             ? "text-warning-foreground"
-            : "text-muted-foreground";
+            : accent === "surface"
+              ? "text-surface-accent"
+              : "text-muted-foreground";
+
   return (
     <div
       className={cn(

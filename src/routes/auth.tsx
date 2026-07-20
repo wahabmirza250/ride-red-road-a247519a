@@ -47,7 +47,7 @@ function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-surface-muted to-background px-4 py-10">
+    <div className="surface-blue flex min-h-screen items-center justify-center bg-gradient-to-b from-surface-muted to-background px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center text-center">
           <Link to="/" className="inline-flex items-center">
