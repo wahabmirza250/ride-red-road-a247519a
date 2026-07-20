@@ -40,16 +40,21 @@ function LandingPage() {
   const year = new Date().getFullYear();
 
   return (
-    <div className="relative isolate min-h-screen overflow-hidden bg-background text-foreground">
-      {/* Atmospheric layers */}
+    <div className="dark relative isolate min-h-screen overflow-hidden bg-[#07070a] text-foreground antialiased">
+      {/* Atmospheric layers — deep, minimal */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[80rem] bg-[radial-gradient(80%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_22%,transparent),transparent_65%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[70rem] bg-[radial-gradient(70%_55%_at_50%_0%,color-mix(in_oklab,var(--primary)_16%,transparent),transparent_70%)]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.04] [background-image:linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] [background-size:56px_56px]"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,transparent_0%,#07070a_85%)]"
       />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.035] [background-image:linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] [background-size:64px_64px] [mask-image:radial-gradient(60%_50%_at_50%_20%,#000,transparent)]"
+      />
+
 
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b border-border/40 bg-background/70 backdrop-blur">
