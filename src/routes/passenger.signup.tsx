@@ -101,7 +101,7 @@ function PassengerAuthPage() {
 
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="flex items-center gap-2">
-            <BrandMark className="h-10 w-10 rounded-2xl shadow-soft ring-1 ring-border/50" />
+            <BrandMark className="h-10 w-10" />
             <BrandWordmark className="h-6" />
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
