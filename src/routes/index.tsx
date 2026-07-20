@@ -15,18 +15,7 @@ import {
   HeartPulse,
 } from "lucide-react";
 
-  Car,
-  Users,
-  Radio,
-  ShieldCheck,
-  Clock,
-  MapPin,
-  FileCheck2,
-  Sparkles,
-  BadgeDollarSign,
-  HeartPulse,
-} from "lucide-react";
-import { BrandWordmark } from "@/components/Brand";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
