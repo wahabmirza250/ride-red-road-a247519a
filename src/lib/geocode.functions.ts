@@ -13,43 +13,49 @@ export type GeocodeResult = {
   lng: number;
 };
 
-/**
- * Server-side geocoding via the Google Maps connector gateway.
- * Used as a fallback when a passenger types an address without picking an
- * autocomplete suggestion. The browser key is not authorized for the Geocoding
- * API, so this must run server-side through the gateway.
- */
+async function callGoogleGeocode(qs: string): Promise<GeocodeResult | null> {
+  const lovableKey = process.env.LOVABLE_API_KEY;
+  const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!lovableKey || !gmapsKey) {
+    throw new Error("Google Maps connector is not configured");
+  }
+  const res = await fetch(`${GATEWAY_URL}/maps/api/geocode/json?${qs}`, {
+    headers: {
+      Authorization: `Bearer ${lovableKey}`,
+      "X-Connection-Api-Key": gmapsKey,
+    },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Geocoding failed [${res.status}]: ${body}`);
+  }
+  const json = (await res.json()) as {
+    status: string;
+    results?: Array<{
+      formatted_address: string;
+      geometry: { location: { lat: number; lng: number } };
+    }>;
+  };
+  if (json.status !== "OK" || !json.results?.length) return null;
+  const first = json.results[0];
+  return {
+    address: first.formatted_address,
+    lat: first.geometry.location.lat,
+    lng: first.geometry.location.lng,
+  };
+}
+
+/** Forward-geocode a typed address into coordinates. */
 export const geocodeAddress = createServerFn({ method: "POST" })
   .inputValidator((data) => InputSchema.parse(data))
-  .handler(async ({ data }): Promise<GeocodeResult | null> => {
-    const lovableKey = process.env.LOVABLE_API_KEY;
-    const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
-    if (!lovableKey || !gmapsKey) {
-      throw new Error("Google Maps connector is not configured");
-    }
-    const url = `${GATEWAY_URL}/maps/api/geocode/json?address=${encodeURIComponent(data.address)}`;
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": gmapsKey,
-      },
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Geocoding failed [${res.status}]: ${body}`);
-    }
-    const json = (await res.json()) as {
-      status: string;
-      results?: Array<{
-        formatted_address: string;
-        geometry: { location: { lat: number; lng: number } };
-      }>;
-    };
-    if (json.status !== "OK" || !json.results?.length) return null;
-    const first = json.results[0];
-    return {
-      address: first.formatted_address,
-      lat: first.geometry.location.lat,
-      lng: first.geometry.location.lng,
-    };
-  });
+  .handler(async ({ data }) => callGoogleGeocode(`address=${encodeURIComponent(data.address)}`));
+
+const ReverseInputSchema = z.object({
+  lat: z.number().gte(-90).lte(90),
+  lng: z.number().gte(-180).lte(180),
+});
+
+/** Reverse-geocode lat/lng into a street address. */
+export const reverseGeocode = createServerFn({ method: "POST" })
+  .inputValidator((data) => ReverseInputSchema.parse(data))
+  .handler(async ({ data }) => callGoogleGeocode(`latlng=${data.lat},${data.lng}`));
