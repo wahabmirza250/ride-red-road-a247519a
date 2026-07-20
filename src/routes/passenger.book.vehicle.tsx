@@ -20,6 +20,7 @@ export const Route = createFileRoute("/passenger/book/vehicle")({
     dLng: typeof s.dLng === "number" ? s.dLng : 0,
     notes: typeof s.notes === "string" ? s.notes : undefined,
     purpose: typeof s.purpose === "string" ? s.purpose : undefined,
+    stops: typeof s.stops === "string" ? s.stops : undefined,
   }),
   component: VehicleSelect,
 });
@@ -88,6 +89,19 @@ function VehicleSelect() {
       // Vehicle type flows through notes as a leading tag so existing dispatch
       // logic keeps working without a schema change. Drivers see the human note.
       const taggedNote = `[VEHICLE:${selected}]${s.notes ? `\n${s.notes}` : ""}`;
+      let parsedStops: Array<{ address: string; lat: number; lng: number }> = [];
+      if (s.stops) {
+        try {
+          const arr = JSON.parse(s.stops);
+          if (Array.isArray(arr)) {
+            parsedStops = arr
+              .filter((x) => x && typeof x.address === "string" && typeof x.lat === "number" && typeof x.lng === "number")
+              .map((x) => ({ address: x.address, lat: x.lat, lng: x.lng }));
+          }
+        } catch {
+          // ignore malformed stops param
+        }
+      }
       const res = await request({
         data: {
           pickup_address: s.pickup,
@@ -100,6 +114,7 @@ function VehicleSelect() {
           contact_name: firstName || null,
           contact_phone: phone || null,
           ride_purpose: s.purpose || null,
+          stops: parsedStops,
         },
       });
       void navigate({ to: "/ride/$requestId", params: { requestId: res.request_id } });
@@ -121,7 +136,7 @@ function VehicleSelect() {
             search={{
               pickup: s.pickup, pLat: s.pLat, pLng: s.pLng,
               dropoff: s.dropoff, dLat: s.dLat, dLng: s.dLng,
-              notes: s.notes, purpose: s.purpose,
+              notes: s.notes, purpose: s.purpose, stops: s.stops,
             }}
             className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-foreground"
             aria-label="Edit locations"
@@ -132,7 +147,7 @@ function VehicleSelect() {
             onClick={() => navigate({ to: "/passenger/book/pickup", search: {
               pickup: s.pickup, pLat: s.pLat, pLng: s.pLng,
               dropoff: s.dropoff, dLat: s.dLat, dLng: s.dLng,
-              notes: s.notes, purpose: s.purpose,
+              notes: s.notes, purpose: s.purpose, stops: s.stops,
             } })}
             className="flex min-w-0 flex-1 items-start gap-3 rounded-2xl border border-border/60 bg-surface/70 p-3 text-left transition hover:bg-surface"
           >

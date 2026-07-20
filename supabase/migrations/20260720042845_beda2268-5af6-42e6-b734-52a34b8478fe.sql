@@ -1,0 +1,1 @@
+ALTER TABLE public.ride_requests ADD COLUMN IF NOT EXISTS stops jsonb NOT NULL DEFAULT '[]'::jsonb;

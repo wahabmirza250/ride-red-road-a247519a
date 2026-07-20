@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ChevronLeft, MapPin, StickyNote, Loader2, Crosshair } from "lucide-react";
+import { ChevronLeft, MapPin, StickyNote, Loader2, Crosshair, Plus, X, CircleDot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,25 @@ import { toast } from "sonner";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { useCurrentPosition } from "@/lib/useGeolocation";
 import { geocodeAddress, reverseGeocode } from "@/lib/geocode.functions";
+
+export type BookingStop = { address: string; lat: number | null; lng: number | null };
+
+function parseStops(v: unknown): BookingStop[] {
+  if (typeof v !== "string" || !v) return [];
+  try {
+    const arr = JSON.parse(v);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((x) => x && typeof x.address === "string")
+      .map((x) => ({
+        address: String(x.address),
+        lat: typeof x.lat === "number" ? x.lat : null,
+        lng: typeof x.lng === "number" ? x.lng : null,
+      }));
+  } catch {
+    return [];
+  }
+}
 
 export const Route = createFileRoute("/passenger/book/pickup")({
   ssr: false,
@@ -20,6 +39,7 @@ export const Route = createFileRoute("/passenger/book/pickup")({
     pLng: typeof s.pLng === "number" ? s.pLng : undefined,
     notes: typeof s.notes === "string" ? s.notes : undefined,
     purpose: typeof s.purpose === "string" ? s.purpose : undefined,
+    stops: typeof s.stops === "string" ? s.stops : undefined,
   }),
   component: ConfirmPickup,
 });
@@ -42,8 +62,23 @@ function ConfirmPickup() {
   );
   const [note, setNote] = useState(search.notes ?? "");
   const [purpose, setPurpose] = useState(search.purpose ?? "");
+  const [stops, setStops] = useState<BookingStop[]>(() => parseStops(search.stops));
   const [autoLocating, setAutoLocating] = useState(!pickup);
   const [resolving, setResolving] = useState(false);
+
+  function addStop() {
+    if (stops.length >= 3) {
+      toast.error("You can add up to 3 stops.");
+      return;
+    }
+    setStops((prev) => [...prev, { address: "", lat: null, lng: null }]);
+  }
+  function removeStop(i: number) {
+    setStops((prev) => prev.filter((_, idx) => idx !== i));
+  }
+  function updateStop(i: number, patch: Partial<BookingStop>) {
+    setStops((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  }
 
   // Reverse-geocode the passenger's current position → real street address.
   useEffect(() => {
@@ -130,6 +165,25 @@ function ConfirmPickup() {
         setDropoffCoords(dc);
       }
 
+      // Resolve any stops that don't have coordinates yet.
+      const resolvedStops: BookingStop[] = [];
+      for (const s of stops) {
+        const addr = s.address.trim();
+        if (!addr) continue; // skip empty stop rows
+        if (s.lat != null && s.lng != null) {
+          resolvedStops.push({ address: addr, lat: s.lat, lng: s.lng });
+          continue;
+        }
+        const g = await geocodeAddress({ data: { address: addr } });
+        if (!g) {
+          toast.error(`We couldn't find the stop "${addr}". Try a more specific address.`);
+          setResolving(false);
+          return;
+        }
+        resolvedStops.push({ address: g.address, lat: g.lat, lng: g.lng });
+      }
+      setStops(resolvedStops);
+
       void navigate({
         to: "/passenger/book/vehicle",
         search: {
@@ -141,6 +195,7 @@ function ConfirmPickup() {
           dLng: dc.lng,
           notes: note || undefined,
           purpose,
+          stops: resolvedStops.length ? JSON.stringify(resolvedStops) : undefined,
         },
       });
     } catch (e) {
@@ -217,6 +272,43 @@ function ConfirmPickup() {
               biasLng={pos?.lng}
             />
           </div>
+
+          {/* Optional intermediate stops */}
+          {stops.map((s, i) => (
+            <div key={i} className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5 text-xs">
+                  <CircleDot className="h-4 w-4 text-amber-500" /> Stop {i + 1}
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => removeStop(i)}
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-rose-500"
+                  aria-label={`Remove stop ${i + 1}`}
+                >
+                  <X className="h-3.5 w-3.5" /> Remove
+                </button>
+              </div>
+              <AddressAutocomplete
+                value={s.address}
+                onChange={(v) => updateStop(i, { address: v, lat: null, lng: null })}
+                onResolve={(p) => updateStop(i, { address: p.address, lat: p.lat, lng: p.lng })}
+                placeholder="Add a stop along the way…"
+                biasLat={pos?.lat ?? pickupCoords?.lat}
+                biasLng={pos?.lng ?? pickupCoords?.lng}
+              />
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={addStop}
+            disabled={stops.length >= 3}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-surface/40 px-3 py-2 text-xs font-medium text-muted-foreground transition hover:border-primary/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add a stop {stops.length > 0 ? `(${stops.length}/3)` : "(optional)"}
+          </button>
+
 
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5 text-xs">

@@ -201,7 +201,7 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
     const { data: req, error: reqError } = await supabaseAdmin
       .from("ride_requests")
       .select(
-        "id, passenger_id, contact_name, contact_phone, contact_medicaid, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng, requested_pickup_time, estimated_fare, status, driver_id, offer_expires_at, trip_id, ride_purpose, is_group",
+        "id, passenger_id, contact_name, contact_phone, contact_medicaid, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng, requested_pickup_time, estimated_fare, status, driver_id, offer_expires_at, trip_id, ride_purpose, is_group, stops",
       )
       .eq("id", data.request_id)
       .maybeSingle();
@@ -369,6 +369,33 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
       }
     }
 
+    // Passenger-added intermediate stops (optional, ordered).
+    // Sequence 10..99 sits between pickup (implicit at trip origin) and dropoff.
+    const passengerStops = Array.isArray(req.stops) ? req.stops : [];
+    if (passengerStops.length) {
+      const stopRows = passengerStops
+        .filter((s: unknown): s is { address: string; lat: number; lng: number } =>
+          !!s && typeof (s as { address?: unknown }).address === "string"
+          && typeof (s as { lat?: unknown }).lat === "number"
+          && typeof (s as { lng?: unknown }).lng === "number",
+        )
+        .map((s, i) => ({
+          trip_id: trip.id,
+          sequence: 10 + i,
+          kind: "stop",
+          address: s.address,
+          lat: s.lat,
+          lng: s.lng,
+          added_by: "passenger",
+        }));
+      if (stopRows.length) {
+        const { error: stopsErr } = await supabaseAdmin.from("trip_stops").insert(stopRows);
+        if (stopsErr) console.warn("[acceptRideOffer] failed to insert passenger stops", stopsErr);
+      }
+    }
+
+
+
     const { error: statusError } = await supabaseAdmin
       .from("drivers")
       .update({ status: "busy" })
@@ -394,6 +421,7 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
       contact_name?: string | null;
       contact_phone?: string | null;
       ride_purpose?: string | null;
+      stops?: Array<{ address: string; lat: number; lng: number }> | null;
     }) => {
       const req = (v: unknown, label: string) => {
         if (v == null || (typeof v === "string" && !v.trim()))
@@ -405,7 +433,14 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
       req(input.pickup_lng, "Pickup coordinates");
       req(input.dropoff_lat, "Drop-off coordinates");
       req(input.dropoff_lng, "Drop-off coordinates");
-      return input;
+      // Normalize stops: keep only well-formed rows.
+      const cleanStops = Array.isArray(input.stops)
+        ? input.stops
+            .filter((s) => s && typeof s.address === "string" && s.address.trim()
+              && typeof s.lat === "number" && typeof s.lng === "number")
+            .map((s) => ({ address: s.address.trim(), lat: s.lat, lng: s.lng }))
+        : [];
+      return { ...input, stops: cleanStops };
     },
   )
   .handler(async ({ data, context }) => {
@@ -425,6 +460,7 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
         contact_name: data.contact_name?.trim() || null,
         contact_phone: data.contact_phone?.trim() || null,
         ride_purpose: data.ride_purpose ?? null,
+        stops: data.stops ?? [],
         status: "pending",
         source: "passenger_app",
       })
