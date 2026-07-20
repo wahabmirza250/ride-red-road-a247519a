@@ -90,7 +90,7 @@ function PassengerLayout() {
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/70 px-4 backdrop-blur-xl">
         <Link to="/passenger" className="flex items-center">
           <BrandWordmark className="hidden h-7 sm:block" />
-          <BrandMark className="h-8 w-8 rounded-xl shadow-soft ring-1 ring-border/50 sm:hidden" />
+          <BrandMark className="h-8 w-8 sm:hidden" />
         </Link>
 
         {user ? (
