@@ -33,7 +33,48 @@ export const geocodeAddress = createServerFn({ method: "POST" })
         Authorization: `Bearer ${lovableKey}`,
         "X-Connection-Api-Key": gmapsKey,
       },
+  });
+
+const ReverseInputSchema = z.object({
+  lat: z.number().gte(-90).lte(90),
+  lng: z.number().gte(-180).lte(180),
+});
+
+/** Reverse-geocode lat/lng into a street address via the Maps connector gateway. */
+export const reverseGeocode = createServerFn({ method: "POST" })
+  .inputValidator((data) => ReverseInputSchema.parse(data))
+  .handler(async ({ data }): Promise<GeocodeResult | null> => {
+    const lovableKey = process.env.LOVABLE_API_KEY;
+    const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!lovableKey || !gmapsKey) {
+      throw new Error("Google Maps connector is not configured");
+    }
+    const url = `${GATEWAY_URL}/maps/api/geocode/json?latlng=${data.lat},${data.lng}`;
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": gmapsKey,
+      },
     });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Reverse geocoding failed [${res.status}]: ${body}`);
+    }
+    const json = (await res.json()) as {
+      status: string;
+      results?: Array<{
+        formatted_address: string;
+        geometry: { location: { lat: number; lng: number } };
+      }>;
+    };
+    if (json.status !== "OK" || !json.results?.length) return null;
+    const first = json.results[0];
+    return {
+      address: first.formatted_address,
+      lat: first.geometry.location.lat,
+      lng: first.geometry.location.lng,
+    };
+  });
     if (!res.ok) {
       const body = await res.text();
       throw new Error(`Geocoding failed [${res.status}]: ${body}`);
