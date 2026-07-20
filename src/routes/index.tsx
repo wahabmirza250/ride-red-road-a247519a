@@ -149,76 +149,79 @@ function LandingPage() {
 
       {/* What we do */}
       <section className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
-        <SectionHeader
-          kicker="What we do"
-          title="One platform. Every side of the ride."
-          copy="We replace the patchwork of scheduling spreadsheets, driver texts, and paper trip logs with a single system your team, drivers, and riders can actually use."
-        />
+        <Reveal>
+          <SectionHeader
+            kicker="What we do"
+            title="One platform. Every side of the ride."
+            copy="We replace the patchwork of scheduling spreadsheets, driver texts, and paper trip logs with a single system your team, drivers, and riders can actually use."
+          />
+        </Reveal>
       </section>
 
       {/* Product */}
       <section id="product" className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-20">
         <div className="grid gap-5 md:grid-cols-3">
-          <ProductCard
-            icon={Radio}
-            name="Dispatch Console"
-            desc="Live map of every driver and ride, auto-matching by proximity and vehicle type, with instant fallback to a human dispatcher."
-          />
-          <ProductCard
-            icon={Car}
-            name="Driver App"
-            desc="Go online with one tap, accept offers, navigate turn-by-turn, log stops and cabin-clips, and submit gas receipts from the phone."
-          />
-          <ProductCard
-            icon={Users}
-            name="Rider App"
-            desc="Rideshare-quality booking with address autocomplete, live ETA, driver tracking, and guest-friendly flows for family members."
-          />
-          <ProductCard
-            icon={FileCheck2}
-            name="Medicaid Billing"
-            desc="Trip data auto-fills the HCPF portal. Review, submit, and track claims from Pending Review through Submitted in one queue."
-            wide
-          />
-          <ProductCard
-            icon={HeartPulse}
-            name="Compliance & Proof"
-            desc="Vehicle inspections, driver documents, and per-trip proof (odometer, signatures, photos) captured and stored automatically."
-            wide
-          />
+          <Reveal delay={0}>
+            <ProductCard
+              icon={Radio}
+              name="Dispatch Console"
+              desc="Live map of every driver and ride, auto-matching by proximity and vehicle type, with instant fallback to a human dispatcher."
+            />
+          </Reveal>
+          <Reveal delay={80}>
+            <ProductCard
+              icon={Car}
+              name="Driver App"
+              desc="Go online with one tap, accept offers, navigate turn-by-turn, log stops and cabin-clips, and submit gas receipts from the phone."
+            />
+          </Reveal>
+          <Reveal delay={160}>
+            <ProductCard
+              icon={Users}
+              name="Rider App"
+              desc="Rideshare-quality booking with address autocomplete, live ETA, driver tracking, and guest-friendly flows for family members."
+            />
+          </Reveal>
+          <Reveal delay={0} className="md:col-span-3">
+            <ProductCard
+              icon={FileCheck2}
+              name="Medicaid Billing"
+              desc="Trip data auto-fills the HCPF portal. Review, submit, and track claims from Pending Review through Submitted in one queue."
+            />
+          </Reveal>
+          <Reveal delay={80} className="md:col-span-3">
+            <ProductCard
+              icon={HeartPulse}
+              name="Compliance & Proof"
+              desc="Vehicle inspections, driver documents, and per-trip proof (odometer, signatures, photos) captured and stored automatically."
+            />
+          </Reveal>
         </div>
       </section>
 
       {/* Benefits */}
       <section id="benefits" className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
-        <SectionHeader
-          kicker="Benefits"
-          title="Built to save hours and unlock revenue."
-          copy="Every feature exists to remove a step that used to require a phone call, a spreadsheet, or a stack of paper."
-        />
+        <Reveal>
+          <SectionHeader
+            kicker="Benefits"
+            title="Built to save hours and unlock revenue."
+            copy="Every feature exists to remove a step that used to require a phone call, a spreadsheet, or a stack of paper."
+          />
+        </Reveal>
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          <Benefit
-            icon={Clock}
-            title="Hours back weekly"
-            desc="Auto-dispatch and auto-billing eliminate manual matching and claim entry."
-          />
-          <Benefit
-            icon={BadgeDollarSign}
-            title="More clean claims"
-            desc="Structured trip data means fewer rejections and faster reimbursement."
-          />
-          <Benefit
-            icon={MapPin}
-            title="Real visibility"
-            desc="One live map of drivers, rides, and status — no more group texts."
-          />
-          <Benefit
-            icon={ShieldCheck}
-            title="Audit-ready"
-            desc="Every trip carries proof: GPS, signatures, photos, and documents."
-          />
+          {[
+            { icon: Clock, title: "Hours back weekly", desc: "Auto-dispatch and auto-billing eliminate manual matching and claim entry." },
+            { icon: BadgeDollarSign, title: "More clean claims", desc: "Structured trip data means fewer rejections and faster reimbursement." },
+            { icon: MapPin, title: "Real visibility", desc: "One live map of drivers, rides, and status — no more group texts." },
+            { icon: ShieldCheck, title: "Audit-ready", desc: "Every trip carries proof: GPS, signatures, photos, and documents." },
+          ].map((b, i) => (
+            <Reveal key={b.title} delay={i * 90}>
+              <Benefit {...b} />
+            </Reveal>
+          ))}
         </div>
       </section>
+
 
       {/* Why join */}
       <section id="why-join" className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
