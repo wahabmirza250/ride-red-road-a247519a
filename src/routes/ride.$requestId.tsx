@@ -324,7 +324,7 @@ function RidePage() {
             {noDriverYet ? (
               <NoDriverBlock retrying={retrying} onRetry={handleRetry} dispatchPhone={dispatchPhone} />
             ) : hasMatch ? (
-              <MatchedBlock driver={driver!} driverName={driverName!} etaMin={etaMin} />
+              <MatchedBlock driver={driver!} driverName={driverName!} etaMin={etaMin} tripId={req?.trip_id ?? null} />
             ) : (
               <SearchingBlock waitedSec={Math.floor(waited / 1000)} dispatchPhone={dispatchPhone} />
             )}
