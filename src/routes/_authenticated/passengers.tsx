@@ -166,6 +166,52 @@ function PassengerFormDialog({
   });
   const [saving, setSaving] = useState(false);
 
+  // Live typeahead against existing passengers by name or phone. Skips when
+  // editing an existing record — only used to prevent duplicates on Add.
+  const [suggestions, setSuggestions] = useState<Passenger[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const lookup = `${form.first_name} ${form.last_name}`.trim();
+  const phoneDigits = form.phone.replace(/\D/g, "");
+  useEffect(() => {
+    if (existing) return;
+    const q = lookup;
+    if (q.length < 2 && phoneDigits.length < 4) {
+      setSuggestions([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      const filters: string[] = [];
+      if (q.length >= 2) {
+        filters.push(`first_name.ilike.%${q}%`);
+        filters.push(`last_name.ilike.%${q}%`);
+      }
+      if (phoneDigits.length >= 4) filters.push(`phone.ilike.%${phoneDigits}%`);
+      const { data } = await supabase
+        .from("passengers")
+        .select("*")
+        .or(filters.join(","))
+        .limit(5);
+      setSuggestions((data as Passenger[]) ?? []);
+    }, 220);
+    return () => clearTimeout(t);
+  }, [existing, lookup, phoneDigits]);
+
+  function autofillFrom(p: Passenger) {
+    setForm({
+      first_name: p.first_name ?? "",
+      last_name: p.last_name ?? "",
+      medicaid_id: p.medicaid_id ?? "",
+      date_of_birth: p.date_of_birth ?? "",
+      phone: p.phone ?? "",
+      email: p.email ?? "",
+      county: p.county ?? "",
+      address: p.address ?? "",
+      notes: p.notes ?? "",
+    });
+    setSuggestions([]);
+    toast.info(`Loaded ${p.first_name} ${p.last_name}`.trim());
+  }
+
   async function submit() {
     setSaving(true);
     try {
@@ -199,11 +245,50 @@ function PassengerFormDialog({
     }
   }
 
+  const visibleSuggestions = suggestions.filter((s) => !dismissedIds.has(s.id));
+
   return (
     <DialogContent className="max-w-lg">
       <DialogHeader>
         <DialogTitle>{existing ? "Edit passenger" : "Add passenger"}</DialogTitle>
       </DialogHeader>
+      {!existing && visibleSuggestions.length > 0 && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+          <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary">
+            <span>Existing matches</span>
+            <button
+              type="button"
+              className="text-[10px] font-normal normal-case text-muted-foreground underline"
+              onClick={() => setDismissedIds(new Set(visibleSuggestions.map((s) => s.id)))}
+            >
+              Dismiss all
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            {visibleSuggestions.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => autofillFrom(p)}
+                className="flex w-full items-center justify-between rounded-lg bg-background px-3 py-2 text-left text-sm shadow-soft transition hover:bg-accent"
+              >
+                <div>
+                  <div className="font-medium">{p.first_name} {p.last_name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {p.medicaid_id || "no HFC ID"}{p.phone ? ` · ${p.phone}` : ""}
+                  </div>
+                </div>
+                <span className="text-xs font-medium text-primary">Use</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {existing && (
+        <div className="rounded-xl border border-border bg-surface-muted/40 p-3">
+          <VerifyMedicaidButton passengerId={existing.id} />
+        </div>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         <F label="First name">
           <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
@@ -214,6 +299,7 @@ function PassengerFormDialog({
         <F label="Medicaid ID" className="sm:col-span-2">
           <Input value={form.medicaid_id} onChange={(e) => setForm({ ...form, medicaid_id: e.target.value })} />
         </F>
+
         <F label="Date of birth">
           <Input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
         </F>
