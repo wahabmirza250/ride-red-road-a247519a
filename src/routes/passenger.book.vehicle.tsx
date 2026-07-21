@@ -49,12 +49,22 @@ function VehicleSelect() {
   const { user } = useAuth();
   const request = useServerFn(passengerRequestRide);
   const etas = useServerFn(getVehicleEtas);
+  const fetchIdentity = useServerFn(getPassengerIdentity);
+  const saveIdentity = useServerFn(updatePassengerIdentity);
 
   const [selected, setSelected] = useState<VehicleKey>("ambulatory");
   const [etaMap, setEtaMap] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
   const [phone, setPhone] = useState<string>("");
   const [firstName, setFirstName] = useState<string>("");
+
+  // Identity requirement: Medicaid ID OR (SSN + DOB).
+  const [identityLoaded, setIdentityLoaded] = useState(false);
+  const [hasIdentity, setHasIdentity] = useState(false);
+  const [idMode, setIdMode] = useState<"medicaid" | "ssn">("medicaid");
+  const [medicaidId, setMedicaidId] = useState("");
+  const [ssn, setSsn] = useState("");
+  const [dob, setDob] = useState("");
 
   const missingCoords = !s.pLat || !s.pLng || !s.dLat || !s.dLng;
 
@@ -78,6 +88,28 @@ function VehicleSelect() {
       });
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    void fetchIdentity()
+      .then((r) => {
+        setHasIdentity(r.has_identity);
+        if (r.medicaid_id) {
+          setMedicaidId(r.medicaid_id);
+          setIdMode("medicaid");
+        } else if (r.ssn_last4 && r.date_of_birth) {
+          setDob(r.date_of_birth);
+          setIdMode("ssn");
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIdentityLoaded(true));
+  }, [user, fetchIdentity]);
+
+  const identityReady =
+    hasIdentity ||
+    (idMode === "medicaid" && medicaidId.trim().length >= 3) ||
+    (idMode === "ssn" && ssn.replace(/\D/g, "").length === 9 && /^\d{4}-\d{2}-\d{2}$/.test(dob));
+
   async function book() {
     if (missingCoords) {
       toast.error("Missing pickup/dropoff. Please go back and pick both.");
@@ -88,10 +120,22 @@ function VehicleSelect() {
       void navigate({ to: "/passenger/signup" });
       return;
     }
+    if (!identityReady) {
+      toast.error("Enter your Medicaid ID, or full SSN + date of birth.");
+      return;
+    }
     setSubmitting(true);
     try {
-      // Vehicle type flows through notes as a leading tag so existing dispatch
-      // logic keeps working without a schema change. Drivers see the human note.
+      // Save/refresh identity if not already on file (or if user just edited it).
+      if (!hasIdentity) {
+        if (idMode === "medicaid") {
+          await saveIdentity({ data: { medicaid_id: medicaidId.trim() } });
+        } else {
+          await saveIdentity({ data: { ssn, date_of_birth: dob } });
+        }
+        setHasIdentity(true);
+      }
+
       const taggedNote = `[VEHICLE:${selected}]${s.notes ? `\n${s.notes}` : ""}`;
       let parsedStops: Array<{ address: string; lat: number; lng: number }> = [];
       if (s.stops) {
@@ -121,6 +165,10 @@ function VehicleSelect() {
           stops: parsedStops,
         },
       });
+      // Clear persisted booking draft — successfully submitted.
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("passenger_booking_draft");
+      }
       void navigate({ to: "/ride/$requestId", params: { requestId: res.request_id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not book ride");
@@ -129,6 +177,7 @@ function VehicleSelect() {
   }
 
   const selectedLabel = VEHICLES.find((v) => v.key === selected)?.label ?? "";
+
 
   return (
     <div className="-mx-4 -mt-4 min-h-[calc(100dvh-3.5rem)] bg-background pb-40">
