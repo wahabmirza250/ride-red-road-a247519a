@@ -173,6 +173,57 @@ export const expireRideOffer = createServerFn({ method: "POST" })
     return { ok: true, expired: true };
   });
 
+/** Cancel a ride request at any point in its lifecycle. Public by design:
+ * anyone with the ride_request id (the passenger link) may cancel — same trust
+ * model as the passenger tracking page. Marks the ride_request cancelled, any
+ * linked trip cancelled, and frees the assigned driver back to available. */
+export const cancelRideRequest = createServerFn({ method: "POST" })
+  .inputValidator((input: { request_id: string; reason?: string }) => {
+    if (!input?.request_id) throw new Error("request_id required");
+    return input;
+  })
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: req } = await supabaseAdmin
+      .from("ride_requests")
+      .select("id, status, driver_id, trip_id")
+      .eq("id", data.request_id)
+      .maybeSingle();
+    if (!req) throw new Error("Ride request not found");
+    if (req.status === "cancelled" || req.status === "completed") {
+      return { ok: true, already: true };
+    }
+
+    await supabaseAdmin
+      .from("ride_requests")
+      .update({
+        status: "cancelled",
+        driver_id: null,
+        offer_expires_at: null,
+        cancellation_reason: data.reason ?? "Cancelled by passenger",
+      })
+      .eq("id", req.id);
+
+    if (req.trip_id) {
+      await supabaseAdmin
+        .from("trips")
+        .update({ status: "cancelled" })
+        .eq("id", req.trip_id);
+    }
+
+    if (req.driver_id) {
+      await supabaseAdmin
+        .from("drivers")
+        .update({ status: "available" })
+        .eq("id", req.driver_id)
+        .eq("status", "busy");
+    }
+
+    return { ok: true, already: false };
+  });
+
+
+
 /** Driver accepts an assigned offer. Runs server-side so the request, driver,
  * passenger row, trip row, and driver status stay consistent. */
 export const acceptRideOffer = createServerFn({ method: "POST" })
