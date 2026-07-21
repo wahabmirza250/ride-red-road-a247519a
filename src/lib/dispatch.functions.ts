@@ -496,6 +496,32 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Auto-save / refresh the passenger profile on every booking so first-time
+    // passengers become permanent records without a separate "create profile"
+    // step. Identity (Medicaid ID / SSN+DOB) is written by
+    // updatePassengerIdentity and is NOT overwritten here.
+    const name = (data.contact_name ?? "").trim();
+    const nameParts = name.split(/\s+/).filter(Boolean);
+    const first = nameParts[0] ?? "";
+    const last = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+    const phone = data.contact_phone?.trim() || null;
+
+    const { data: paxRow } = await supabaseAdmin
+      .from("passengers")
+      .select("id, first_name, last_name, phone")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (paxRow?.id) {
+      const patch: Record<string, string | null> = {};
+      if (first && !paxRow.first_name) patch.first_name = first;
+      if (last && !paxRow.last_name) patch.last_name = last;
+      if (phone && paxRow.phone !== phone) patch.phone = phone;
+      if (Object.keys(patch).length) {
+        await supabaseAdmin.from("passengers").update(patch).eq("id", paxRow.id);
+      }
+    }
+
     const { data: inserted, error } = await supabaseAdmin
       .from("ride_requests")
       .insert({
@@ -508,8 +534,8 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
         dropoff_lng: data.dropoff_lng,
         requested_pickup_time: data.requested_pickup_time || null,
         notes: data.notes?.trim() || null,
-        contact_name: data.contact_name?.trim() || null,
-        contact_phone: data.contact_phone?.trim() || null,
+        contact_name: name || null,
+        contact_phone: phone,
         ride_purpose: data.ride_purpose ?? null,
         stops: data.stops ?? [],
         status: "pending",
