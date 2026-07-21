@@ -153,10 +153,15 @@ function DriverHome() {
   const loadRequests = useCallback(async () => {
     if (!driver) return;
     const nowIso = new Date().toISOString();
+    // Show: (a) any pending offer explicitly assigned to me — regardless of
+    // TTL, so a stale-but-still-pending offer stays visible until it's
+    // formally expired/re-dispatched — plus (b) unassigned pending requests
+    // whose offer window hasn't lapsed.
     const { data: pend } = await supabase
       .from("ride_requests").select("*").eq("status", "pending")
-      .or(`driver_id.eq.${driver.id},driver_id.is.null`)
-      .or(`offer_expires_at.is.null,offer_expires_at.gt.${nowIso}`)
+      .or(
+        `driver_id.eq.${driver.id},and(driver_id.is.null,or(offer_expires_at.is.null,offer_expires_at.gt.${nowIso}))`,
+      )
       .order("created_at", { ascending: false }).limit(5);
     setPending((pend ?? []) as Request[]);
 
