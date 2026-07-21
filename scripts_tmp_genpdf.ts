@@ -55,14 +55,16 @@ const bytes = await generateStateFormPdf({
   vehicleType: null,
   escortName: null,
   identityVerified: true,
-  tripKind: 'round_trip',
+  tripKind: 'one_way',
   legs: [
-    { leg_index: 1, leg_date: '2026-07-15', pickup_time: '08:30', pickup_odometer: 45210, pickup_address: '123 Main St, Colo Spgs CO', dropoff_time: '09:05', dropoff_odometer: 45225, dropoff_address: '500 Boulder St, Colo Spgs CO — mid-trip stop: Kings Soopers Pharmacy (10 min)' },
-    { leg_index: 2, leg_date: '2026-07-15', pickup_time: '14:15', pickup_odometer: 45240, pickup_address: '500 Boulder St, Colo Spgs CO', dropoff_time: '14:55', dropoff_odometer: 45258, dropoff_address: '123 Main St, Colo Spgs CO' },
+    // Leg 1: Home -> Pharmacy (mid-trip stop on the way to the clinic)
+    { leg_index: 1, leg_date: '2026-07-15', pickup_time: '08:30', pickup_odometer: 45210, pickup_address: '123 Main St, Colorado Springs CO 80903', dropoff_time: '08:52', dropoff_odometer: 45218, dropoff_address: 'Kings Soopers Pharmacy, 1750 W Uintah St, Colorado Springs CO 80904' },
+    // Leg 2: Pharmacy -> Clinic (final destination)
+    { leg_index: 2, leg_date: '2026-07-15', pickup_time: '09:05', pickup_odometer: 45218, pickup_address: 'Kings Soopers Pharmacy, 1750 W Uintah St, Colorado Springs CO 80904', dropoff_time: '09:22', dropoff_odometer: 45225, dropoff_address: 'UCHealth Primary Care Clinic, 175 S Union Blvd, Colorado Springs CO 80910' },
   ],
   signatureName: 'Jane Q. Patient',
   signatureUrl: 'http://local/sig.png',
   signedByEscort: false,
 });
-await writeFile('/mnt/documents/one_stop_trip_filled_v3.pdf', bytes);
+await writeFile('/mnt/documents/one_stop_trip_filled_v4.pdf', bytes);
 console.log('wrote', bytes.length);
