@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/lib/supabaseBrowser";
 import { TrackMap } from "@/components/nemt/useClientMap";
-import { dispatchRideRequest } from "@/lib/dispatch.functions";
+import { dispatchRideRequest, expireRideOffer } from "@/lib/dispatch.functions";
 import {
   Loader2,
   ChevronLeft,
@@ -66,6 +66,7 @@ function RidePage() {
   const { requestId } = Route.useParams();
   const navigate = useNavigate();
   const redispatch = useServerFn(dispatchRideRequest);
+  const expireOffer = useServerFn(expireRideOffer);
 
   const [req, setReq] = useState<RideRequestRow | null>(null);
   const [loading, setLoading] = useState(true);
