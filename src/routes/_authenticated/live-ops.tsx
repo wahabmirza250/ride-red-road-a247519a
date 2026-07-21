@@ -282,7 +282,25 @@ function LiveOps() {
                     </a>
                   )}
                 </div>
-                <div className="ml-3 font-semibold">{fmtMoney(r.estimated_fare)}</div>
+                <div className="ml-3 flex flex-col items-end gap-2">
+                  <div className="font-semibold">{fmtMoney(r.estimated_fare)}</div>
+                  <select
+                    className="max-w-[140px] rounded-md border border-border bg-background px-2 py-1 text-xs"
+                    value={r.driver_id ?? ""}
+                    disabled={reassigning === r.id}
+                    onChange={(e) => onReassign(r.id, e.target.value)}
+                    title="Reassign driver"
+                  >
+                    <option value="" disabled>
+                      {r.driver_id ? "Change driver…" : "Assign driver…"}
+                    </option>
+                    {drivers.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} · {d.status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             );
           })}
