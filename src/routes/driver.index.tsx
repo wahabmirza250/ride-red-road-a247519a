@@ -448,14 +448,25 @@ function DriverHome() {
             </div>
           )}
 
-          <div className="flex items-center justify-between rounded-xl bg-surface px-3 py-2">
-            <div>
-              <div className="text-xs text-muted-foreground">Passenger</div>
-              <div className="font-medium">{passenger ? `${passenger.first_name} ${passenger.last_name}` : "Unknown"}</div>
-              {passenger?.phone && <div className="text-xs text-muted-foreground">{passenger.phone}</div>}
+          <div className="rounded-xl bg-surface px-3 py-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-muted-foreground">Passenger</div>
+                <div className="font-medium">{passenger ? `${passenger.first_name} ${passenger.last_name}` : "Unknown"}</div>
+                {passenger?.phone && <div className="text-xs text-muted-foreground">{passenger.phone}</div>}
+                {passenger?.medicaid_id && (
+                  <div className="text-[11px] text-muted-foreground">HFC ID: {passenger.medicaid_id}</div>
+                )}
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => setShowPicker(true)}>Change</Button>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => setShowPicker(true)}>Change</Button>
+            {passenger?.id && (
+              <div className="mt-2 border-t border-border/60 pt-2">
+                <VerifyMedicaidButton passengerId={passenger.id} />
+              </div>
+            )}
           </div>
+
 
           <div className="space-y-2">
             <div className="flex gap-2 text-sm">
