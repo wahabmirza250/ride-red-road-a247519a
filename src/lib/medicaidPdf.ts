@@ -231,15 +231,19 @@ export async function generateStateFormPdf(
           pdf.getPages().find((pg) => pg.ref === pageRef) ?? pdf.getPage(0);
         drawHandwrittenValue(page, value, rect, handwritingFont, HANDWRITING_SIZE, INK);
       }
+      // Clear the field value so the subsequent flatten() does not re-render
+      // the same text through the widget's default appearance stream and
+      // produce a doubled/offset ghost of the value on the page.
       try {
-        form.removeField(field);
+        field.setText("");
       } catch {
-        /* older pdf-lib */
+        /* ignore */
       }
     }
   } catch {
     /* fall through to flatten */
   }
+
 
   try {
     form.flatten();
