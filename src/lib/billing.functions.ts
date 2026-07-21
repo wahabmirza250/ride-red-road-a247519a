@@ -214,7 +214,7 @@ export const regenerateBillingPdf = createServerFn({ method: "POST" })
     const { data: rec, error } = await supabase
       .from("billing_records")
       .select(
-        `id, trip_id, medicaid_trips(*, riders(full_name, medicaid_id, dob, phone, address), medicaid_trip_legs(*))`,
+        `id, trip_id, medicaid_trips(*, riders(id, full_name, medicaid_id, dob, phone, address, last_4_ssn), medicaid_trip_legs(*))`,
       )
       .eq("id", data.id)
       .single();
@@ -242,10 +242,27 @@ export const regenerateBillingPdf = createServerFn({ method: "POST" })
         : "";
     }
 
+    // If the rider was booked with SSN+DOB, decrypt the full SSN and write it
+    // into the same "Member Health First Colorado ID #" field.
+    let riderForPdf = trip.riders ?? null;
+    if (riderForPdf?.id) {
+      const raw = (riderForPdf.medicaid_id ?? "").trim();
+      const isPlaceholder = raw.startsWith("SSN-") || raw.startsWith("WALK-");
+      if (!raw || isPlaceholder) {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: ssn } = await supabaseAdmin.rpc("get_decrypted_rider_ssn", {
+          _rider_id: riderForPdf.id,
+        });
+        if (ssn && typeof ssn === "string") {
+          riderForPdf = { ...riderForPdf, medicaid_id: ssn };
+        }
+      }
+    }
+
     const legs = normalizeTripLegs(trip);
     const pdfBytes = await generateStateFormPdf(
       {
-        rider: trip.riders ?? null,
+        rider: riderForPdf,
         driverName,
         vehiclePlate: trip.vehicle_plate ?? null,
         vehicleVin: trip.vehicle_vin ?? null,
@@ -254,12 +271,13 @@ export const regenerateBillingPdf = createServerFn({ method: "POST" })
         identityVerified: trip.identity_verified !== false,
         tripKind: trip.trip_kind ?? "one_way",
         legs,
-        signatureName: trip.signature_name ?? trip.riders?.full_name ?? null,
+        signatureName: trip.signature_name ?? riderForPdf?.full_name ?? null,
         signatureUrl: sig.signedUrl,
         signedByEscort: trip.signed_by_escort ?? false,
       },
       { templateBaseUrl: getRequestOrigin() },
     );
+
 
     const pdfPath = trip.state_pdf_path || `${trip.driver_id}/${trip.id}.pdf`;
     const { error: uploadError } = await supabase.storage
