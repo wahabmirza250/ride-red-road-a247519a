@@ -392,6 +392,17 @@ function RidePage() {
               <SearchingBlock waitedSec={Math.floor(waited / 1000)} dispatchPhone={dispatchPhone} />
             )}
 
+            {/* Passenger may cancel at any point until completion. */}
+            {req.status !== "completed" && req.status !== "cancelled" && (
+              <button
+                onClick={handleCancel}
+                disabled={cancelling}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-red-500/40 bg-red-500/10 text-sm font-semibold text-red-600 transition hover:bg-red-500/20 disabled:opacity-60"
+              >
+                {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                Cancel ride
+              </button>
+            )}
           </div>
         </div>
       </div>
