@@ -217,9 +217,18 @@ function NewNemtTripWizard() {
         .select()
         .single();
       if (error) return toast.error(error.message);
+      // If the source passenger has an encrypted full SSN on file, copy it
+      // over so the state PDF can fill the ID field with the full SSN.
+      if (!medicaid) {
+        await supabase.rpc("copy_passenger_ssn_to_rider", {
+          _passenger_id: r.id,
+          _rider_id: data.id,
+        });
+      }
       addRiderSlot(data as Rider);
       return;
     }
+
     addRiderSlot(r);
   }
 
