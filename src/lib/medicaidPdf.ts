@@ -285,7 +285,7 @@ function drawHandwrittenValue(
   const maxTextWidth = Math.max(1, availAlong - padding * 2);
   // Shrink if it overflows the line
   let textWidth = font.widthOfTextAtSize(value, fs);
-  while (textWidth > maxTextWidth && fs > 8) {
+  while (textWidth > maxTextWidth && fs > 6) {
     fs -= 1;
     textWidth = font.widthOfTextAtSize(value, fs);
   }
