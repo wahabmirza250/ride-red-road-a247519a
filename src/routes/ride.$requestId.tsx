@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseBrowser";
 // TrackMap: use Google Maps embed iframe (same pattern as pickup screen) —
 // reliable across dev/prod and no API key required for the classic embed URL.
 
-import { dispatchRideRequest, expireRideOffer } from "@/lib/dispatch.functions";
+import { dispatchRideRequest, expireRideOffer, cancelRideRequest } from "@/lib/dispatch.functions";
 import {
   Loader2,
   ChevronLeft,
@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   RefreshCw,
   LifeBuoy,
+  X,
 } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useSignedUrl } from "@/lib/signedUrl";
@@ -111,6 +112,8 @@ function RidePage() {
   const navigate = useNavigate();
   const redispatch = useServerFn(dispatchRideRequest);
   const expireOffer = useServerFn(expireRideOffer);
+  const cancelFn = useServerFn(cancelRideRequest);
+  const [cancelling, setCancelling] = useState(false);
 
   const [req, setReq] = useState<RideRequestRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -288,6 +291,22 @@ function RidePage() {
     }
   }
 
+  async function handleCancel() {
+    if (!req) return;
+    if (!window.confirm("Cancel this ride?")) return;
+    setCancelling(true);
+    try {
+      await cancelFn({ data: { request_id: req.id } });
+      void navigate({ to: "/passenger" });
+    } catch (e) {
+      const { toast } = await import("sonner");
+      toast.error(e instanceof Error ? e.message : "Cancel failed");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -373,6 +392,17 @@ function RidePage() {
               <SearchingBlock waitedSec={Math.floor(waited / 1000)} dispatchPhone={dispatchPhone} />
             )}
 
+            {/* Passenger may cancel at any point until completion. */}
+            {req.status !== "completed" && req.status !== "cancelled" && (
+              <button
+                onClick={handleCancel}
+                disabled={cancelling}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-red-500/40 bg-red-500/10 text-sm font-semibold text-red-600 transition hover:bg-red-500/20 disabled:opacity-60"
+              >
+                {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                Cancel ride
+              </button>
+            )}
           </div>
         </div>
       </div>

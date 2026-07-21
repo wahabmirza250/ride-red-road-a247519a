@@ -18,8 +18,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SignaturePad } from "@/components/driver/SignaturePad";
 import { StatsGrid } from "@/components/driver/StatsGrid";
-import { CabinClipRecorder } from "@/components/driver/CabinClipRecorder";
-import { OdometerPhotoButton } from "@/components/driver/OdometerPhotoButton";
+// Pickup/drop-off documentation now reuses the odometer photo captured on the
+// trip finalize form — no separate CabinClipRecorder / OdometerPhotoButton here.
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { driverCreatePassenger, driverSearchPassengers } from "@/lib/passenger.functions";
 import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
@@ -496,25 +496,10 @@ function DriverHome() {
             </div>
           </div>
 
-          {/* Odometer + cabin clips */}
-          {(tripStatus === "arrived_at_pickup" || tripStatus === "assigned" || tripStatus === "driver_en_route_to_pickup") && (
-            <div className="space-y-2 rounded-xl border border-dashed border-primary/30 bg-surface p-3">
-              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Pickup documentation</div>
-              <OdometerPhotoButton label="Pickup odometer photo" captured={pickupOdoDone}
-                onCaptured={(f) => uploadOdometer(f, "start")} />
-              <CabinClipRecorder label="Pickup cabin clip"
-                onSaved={(b, m) => uploadCabinClip(b, "cabin_video_pickup", m)} />
-            </div>
-          )}
-          {tripStatus === "in_progress" && (
-            <div className="space-y-2 rounded-xl border border-dashed border-primary/30 bg-surface p-3">
-              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Drop-off documentation</div>
-              <OdometerPhotoButton label="Drop-off odometer photo" captured={dropoffOdoDone}
-                onCaptured={(f) => uploadOdometer(f, "end")} />
-              <CabinClipRecorder label="Drop-off cabin clip"
-                onSaved={(b, m) => uploadCabinClip(b, "cabin_video_dropoff", m)} />
-            </div>
-          )}
+          {/* Pickup/drop-off odometer + cabin video are captured on the trip
+              finalize form (driver.trip.new) — no separate step needed here. */}
+
+
 
           <div className="grid grid-cols-2 gap-2 pt-2">
             <Button variant="outline" className="rounded-full" onClick={openNavigation}>

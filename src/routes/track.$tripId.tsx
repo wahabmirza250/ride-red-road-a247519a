@@ -1,8 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/lib/supabaseBrowser";
-import { TrackMap } from "@/components/nemt/useClientMap";
+import { cancelRideRequest } from "@/lib/dispatch.functions";
+import { RideChatSheet } from "@/components/chat/RideChatSheet";
 import {
   Loader2,
   Phone,
@@ -14,14 +16,52 @@ import {
   Clock,
   MapPin,
   CircleDot,
+  X,
 } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/track/$tripId")({
   ssr: false,
   component: TrackPage,
 });
+
+/** Inline Google Maps embed — same pattern as pickup/ride screens. Renders
+ * driver → pickup directions while en route, pickup → dropoff during the trip,
+ * or a centered pin when only one coord is known. */
+function TrackMapEmbed({
+  pickup,
+  dropoff,
+  driver,
+  center,
+}: {
+  pickup: [number, number] | null;
+  dropoff: [number, number] | null;
+  driver: [number, number] | null;
+  center: [number, number];
+}) {
+  const fmt = (p: [number, number]) => `${p[0]},${p[1]}`;
+  let src: string;
+  if (driver && pickup) {
+    src = `https://www.google.com/maps?saddr=${fmt(driver)}&daddr=${fmt(pickup)}&output=embed`;
+  } else if (pickup && dropoff) {
+    src = `https://www.google.com/maps?saddr=${fmt(pickup)}&daddr=${fmt(dropoff)}&output=embed`;
+  } else {
+    const c = driver ?? pickup ?? dropoff ?? center;
+    src = `https://www.google.com/maps?q=${fmt(c)}&z=14&output=embed`;
+  }
+  return (
+    <iframe
+      title="Live ride tracking"
+      src={src}
+      className="h-full w-full border-0"
+      loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
+    />
+  );
+}
+
 
 /* ---------- Status → human copy + timeline stage ---------- */
 type StageKey = "assigned" | "en_route" | "arrived" | "in_progress" | "completed";
@@ -101,6 +141,7 @@ type PublicTrip = {
   driver_id: string | null;
   _driver: {
     id: string;
+    user_id: string;
     current_lat: number | null;
     current_lng: number | null;
     vehicle_make: string | null;
@@ -114,6 +155,47 @@ type PublicTrip = {
 
 function TrackPage() {
   const { tripId } = Route.useParams();
+  const navigate = useNavigate();
+  const cancelFn = useServerFn(cancelRideRequest);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [requestId, setRequestId] = useState<string | null>(null);
+
+  // Find the ride_request tied to this trip so we can cancel it.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("ride_requests")
+        .select("id")
+        .eq("trip_id", tripId)
+        .maybeSingle();
+      if (!cancelled && data?.id) setRequestId(data.id);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tripId]);
+
+  async function handleCancel() {
+    const target = requestId;
+    if (!target) {
+      toast.error("Cancel unavailable — request id missing");
+      return;
+    }
+    if (!window.confirm("Cancel this ride?")) return;
+    setCancelling(true);
+    try {
+      await cancelFn({ data: { request_id: target } });
+      toast.success("Ride cancelled");
+      void navigate({ to: "/passenger" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Cancel failed");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
 
   const trip = useQuery({
     queryKey: ["public-trip", tripId],
@@ -254,7 +336,7 @@ function TrackPage() {
     <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
       {/* Full-screen map layer */}
       <div className="absolute inset-0">
-        <TrackMap
+        <TrackMapEmbed
           center={center}
           pickup={t.pickup_lat && t.pickup_lng ? [t.pickup_lat, t.pickup_lng] : null}
           dropoff={t.dropoff_lat && t.dropoff_lng ? [t.dropoff_lat, t.dropoff_lng] : null}
@@ -383,6 +465,7 @@ function TrackPage() {
                   </a>
                 )}
                 <button
+                  onClick={() => setChatOpen(true)}
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-foreground transition hover:bg-accent"
                   aria-label="Message driver"
                   title="Message driver"
@@ -397,21 +480,50 @@ function TrackPage() {
               </div>
             )}
 
-            {/* Primary action */}
-            <button
-              className={cn(
-                "mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm font-semibold shadow-soft transition",
-                meta.stage === "completed"
-                  ? "bg-emerald-600 text-white hover:brightness-110"
-                  : "bg-primary text-primary-foreground hover:brightness-110",
-              )}
-            >
-              <Clock className="h-4 w-4" />
-              {meta.cta}
-            </button>
+            {/* Primary action — Cancel is always available until the trip
+                completes or is already cancelled. Passengers may cancel at any
+                point in the ride lifecycle. */}
+            {t.status === "completed" ? (
+              <Link
+                to="/passenger"
+                className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-emerald-600 text-sm font-semibold text-white shadow-soft transition hover:brightness-110"
+              >
+                <Clock className="h-4 w-4" />
+                {meta.cta}
+              </Link>
+            ) : t.status === "cancelled" ? (
+              <Link
+                to="/passenger"
+                className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
+              >
+                Back to rides
+              </Link>
+            ) : (
+              <button
+                onClick={handleCancel}
+                disabled={cancelling || !requestId}
+                className={cn(
+                  "mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm font-semibold shadow-soft transition",
+                  "bg-red-600 text-white hover:brightness-110 disabled:opacity-60",
+                )}
+              >
+                {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                Cancel ride
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {driver && (
+        <RideChatSheet
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+          driverUserId={driver.user_id}
+          tripId={t.id}
+          driverName={driverName ?? "Your driver"}
+        />
+      )}
     </div>
   );
 }
