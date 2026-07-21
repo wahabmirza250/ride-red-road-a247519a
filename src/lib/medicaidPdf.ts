@@ -281,6 +281,7 @@ function drawHandwrittenValue(
   font: any,
   size: number,
   color: ReturnType<typeof rgb>,
+  alignTop = false,
 ) {
   const rotation = ((page.getRotation().angle % 360) + 360) % 360;
   // Fit size to the smaller field dimension so long values still land inside.
@@ -295,9 +296,12 @@ function drawHandwrittenValue(
     fs -= 1;
     textWidth = font.widthOfTextAtSize(value, fs);
   }
-  // Vertical: sit slightly above baseline of the field line
+  // Vertical: either hug the top visible line (fields whose label sits above
+  // the value on the same line, like "Date:") or center within the cell.
   const ascent = font.heightAtSize(fs, { descender: false });
-  const acrossOffset = Math.max(1, (availAcross - ascent) / 2);
+  const acrossOffset = alignTop
+    ? Math.max(1, availAcross - ascent - padding)
+    : Math.max(1, (availAcross - ascent) / 2);
 
   if (rotation === 90) {
     page.drawText(value, {
