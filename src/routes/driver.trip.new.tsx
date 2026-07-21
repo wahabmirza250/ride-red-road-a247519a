@@ -34,7 +34,9 @@ import {
   detectOdometerFromImage,
 } from "@/lib/nemtTrip.functions";
 import { generateStateFormPdf } from "@/lib/medicaidPdf";
+import { getRiderIdentifierForPdf } from "@/lib/rider.functions";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
+
 
 export const Route = createFileRoute("/driver/trip/new")({
   validateSearch: (search) => ({
