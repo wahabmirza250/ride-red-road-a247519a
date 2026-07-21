@@ -215,23 +215,42 @@ export async function generateStateFormPdf(
     }
   }
 
-  /* ---------- Apply handwriting font to filled text, then flatten ---------- */
+  /* ---------- Render filled values as blue ballpoint handwriting ---------- */
+  const INK = rgb(0.09, 0.15, 0.55); // ballpoint blue
+  const HANDWRITING_SIZE = 18;
   try {
     for (const field of form.getFields()) {
-      if (field instanceof PDFTextField) {
-        field.setFontSize(14);
-        field.updateAppearances(handwritingFont);
+      if (!(field instanceof PDFTextField)) continue;
+      const value = field.getText();
+      if (!value) continue;
+      const widgets = field.acroField.getWidgets();
+      for (const widget of widgets) {
+        const rect = widget.getRectangle();
+        const pageRef = widget.P();
+        const page =
+          pdf.getPages().find((pg) => pg.ref === pageRef) ?? pdf.getPage(0);
+        drawHandwrittenValue(page, value, rect, handwritingFont, HANDWRITING_SIZE, INK);
+      }
+      // Clear the field value so the subsequent flatten() does not re-render
+      // the same text through the widget's default appearance stream and
+      // produce a doubled/offset ghost of the value on the page.
+      try {
+        field.setText("");
+      } catch {
+        /* ignore */
       }
     }
   } catch {
-    /* If appearance regeneration fails, keep default font rather than throw. */
+    /* fall through to flatten */
   }
+
 
   try {
     form.flatten();
   } catch {
     /* flatten can fail on exotic field types — leave form editable rather than throw */
   }
+
 
 
   return await pdf.save();
@@ -249,8 +268,63 @@ function resolveAssetUrl(url: string, baseUrl?: string): string {
 }
 
 
+function drawHandwrittenValue(
+  page: any,
+  value: string,
+  rect: PdfRect,
+  font: any,
+  size: number,
+  color: ReturnType<typeof rgb>,
+) {
+  const rotation = ((page.getRotation().angle % 360) + 360) % 360;
+  // Fit size to the smaller field dimension so long values still land inside.
+  const availAlong = rotation === 90 || rotation === 270 ? rect.height : rect.width;
+  const availAcross = rotation === 90 || rotation === 270 ? rect.width : rect.height;
+  let fs = size;
+  const padding = 3;
+  const maxTextWidth = Math.max(1, availAlong - padding * 2);
+  // Shrink if it overflows the line
+  let textWidth = font.widthOfTextAtSize(value, fs);
+  while (textWidth > maxTextWidth && fs > 8) {
+    fs -= 1;
+    textWidth = font.widthOfTextAtSize(value, fs);
+  }
+  // Vertical: sit slightly above baseline of the field line
+  const ascent = font.heightAtSize(fs, { descender: false });
+  const acrossOffset = Math.max(1, (availAcross - ascent) / 2);
+
+  if (rotation === 90) {
+    page.drawText(value, {
+      x: rect.x + rect.width - acrossOffset,
+      y: rect.y + padding,
+      size: fs,
+      font,
+      color,
+      rotate: degrees(90),
+    });
+  } else if (rotation === 270) {
+    page.drawText(value, {
+      x: rect.x + acrossOffset,
+      y: rect.y + rect.height - padding,
+      size: fs,
+      font,
+      color,
+      rotate: degrees(270),
+    });
+  } else {
+    page.drawText(value, {
+      x: rect.x + padding,
+      y: rect.y + acrossOffset,
+      size: fs,
+      font,
+      color,
+    });
+  }
+}
+
 function drawSignatureImage(page: any, img: any, rect: PdfRect) {
   const rotation = ((page.getRotation().angle % 360) + 360) % 360;
+
   const inset = 2;
 
   // The Colorado template is a landscape page stored as a portrait PDF rotated
