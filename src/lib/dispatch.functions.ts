@@ -513,7 +513,7 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .maybeSingle();
     if (paxRow?.id) {
-      const patch: Record<string, string | null> = {};
+      const patch: { first_name?: string; last_name?: string; phone?: string | null } = {};
       if (first && !paxRow.first_name) patch.first_name = first;
       if (last && !paxRow.last_name) patch.last_name = last;
       if (phone && paxRow.phone !== phone) patch.phone = phone;
