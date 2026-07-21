@@ -301,7 +301,7 @@ function drawHandwrittenValue(
   const ascent = font.heightAtSize(fs, { descender: false });
   // Extra upward lift for top-aligned fields (Date on Box 1/Box 2) so the value
   // snaps flush next to "Date:" and clears the "Actual Pick-up Time:" row below.
-  const TOP_EXTRA_LIFT = 12;
+  const TOP_EXTRA_LIFT = -18;
   const acrossOffset = alignTop
     ? Math.max(1, availAcross - ascent - padding + TOP_EXTRA_LIFT)
     : Math.max(1, (availAcross - ascent) / 2);
