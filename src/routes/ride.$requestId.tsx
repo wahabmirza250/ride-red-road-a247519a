@@ -2,7 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/lib/supabaseBrowser";
-import { TrackMap } from "@/components/nemt/useClientMap";
+// TrackMap: use Google Maps embed iframe (same pattern as pickup screen) —
+// reliable across dev/prod and no API key required for the classic embed URL.
+
 import { dispatchRideRequest, expireRideOffer } from "@/lib/dispatch.functions";
 import {
   Loader2,
@@ -62,6 +64,47 @@ type DriverRow = {
     avatar_url: string | null;
   } | null;
 };
+
+/**
+ * Live tracking map — Google Maps embed iframe. When we have both a driver
+ * position and a pickup, render turn-by-turn directions from driver → pickup
+ * (or pickup → dropoff when the driver is already at pickup). Falls back to a
+ * centered pin when only one point is known. Uses the classic `google.com/maps`
+ * embed which works without an API key and matches the pickup-confirm screen.
+ */
+function TrackMap({
+  pickup,
+  dropoff,
+  driver,
+  center,
+}: {
+  pickup: [number, number] | null;
+  dropoff: [number, number] | null;
+  driver: [number, number] | null;
+  center: [number, number];
+}) {
+  const fmt = (p: [number, number]) => `${p[0]},${p[1]}`;
+  let src: string;
+  if (driver && pickup) {
+    src = `https://www.google.com/maps?saddr=${fmt(driver)}&daddr=${fmt(pickup)}&output=embed`;
+  } else if (pickup && dropoff) {
+    src = `https://www.google.com/maps?saddr=${fmt(pickup)}&daddr=${fmt(dropoff)}&output=embed`;
+  } else {
+    const c = driver ?? pickup ?? dropoff ?? center;
+    src = `https://www.google.com/maps?q=${fmt(c)}&z=14&output=embed`;
+  }
+  return (
+    <iframe
+      title="Live ride tracking"
+      src={src}
+      className="h-full w-full border-0"
+      loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
+    />
+  );
+}
+
+
 
 function RidePage() {
   const { requestId } = Route.useParams();
@@ -269,8 +312,9 @@ function RidePage() {
     <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
       {/* Map layer */}
       <div className="absolute inset-0">
-        <TrackMap center={center} pickup={pickup} dropoff={dropoff} driver={driverPos} />
+        <TrackMap pickup={pickup} dropoff={dropoff} driver={driverPos} center={center} />
       </div>
+
 
       {/* Searching overlay pulse (only when still searching) */}
       {!hasMatch && !noDriverYet && (
