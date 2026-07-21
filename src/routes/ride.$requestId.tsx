@@ -271,8 +271,9 @@ function RidePage() {
     <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
       {/* Map layer */}
       <div className="absolute inset-0">
-        <TrackMap center={center} pickup={pickup} dropoff={dropoff} driver={driverPos} />
+        <TrackMap pickup={pickup} dropoff={dropoff} driver={driverPos} center={center} />
       </div>
+
 
       {/* Searching overlay pulse (only when still searching) */}
       {!hasMatch && !noDriverYet && (
