@@ -291,6 +291,22 @@ function RidePage() {
     }
   }
 
+  async function handleCancel() {
+    if (!req) return;
+    if (!window.confirm("Cancel this ride?")) return;
+    setCancelling(true);
+    try {
+      await cancelFn({ data: { request_id: req.id } });
+      void navigate({ to: "/passenger" });
+    } catch (e) {
+      const { toast } = await import("sonner");
+      toast.error(e instanceof Error ? e.message : "Cancel failed");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
