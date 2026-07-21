@@ -531,9 +531,20 @@ function NewNemtTripWizard() {
           },
         });
 
-        // 2. Generate the filled Colorado NEMT Trip Log PDF
+        // 2. Generate the filled Colorado NEMT Trip Log PDF.
+        //    Resolve the ID field server-side: uses real Medicaid ID if
+        //    present, else decrypts the passenger's full SSN from Vault.
+        let riderForPdf = slot.rider;
+        try {
+          const { identifier } = await getRiderIdentifierForPdf({
+            data: { rider_id: slot.rider.id, trip_id: tripId },
+          });
+          if (identifier) riderForPdf = { ...slot.rider, medicaid_id: identifier };
+        } catch {
+          // Fall back to whatever's on the rider row (last-4 placeholder).
+        }
         const pdfBytes = await generateStateFormPdf({
-          rider: slot.rider,
+          rider: riderForPdf,
           driverName: driverFullName || user.email || "",
           vehiclePlate: plate,
           vehicleVin: vin || null,
@@ -546,6 +557,7 @@ function NewNemtTripWizard() {
           signatureUrl: slot.signature_data_url,
           signedByEscort: slot.signed_by_escort,
         });
+
 
         // 3. Upload PDF to state-pdfs bucket
         const pdfPath = `${user.id}/${tripId}.pdf`;
