@@ -155,6 +155,47 @@ type PublicTrip = {
 
 function TrackPage() {
   const { tripId } = Route.useParams();
+  const navigate = useNavigate();
+  const cancelFn = useServerFn(cancelRideRequest);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [requestId, setRequestId] = useState<string | null>(null);
+
+  // Find the ride_request tied to this trip so we can cancel it.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("ride_requests")
+        .select("id")
+        .eq("trip_id", tripId)
+        .maybeSingle();
+      if (!cancelled && data?.id) setRequestId(data.id);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tripId]);
+
+  async function handleCancel() {
+    const target = requestId;
+    if (!target) {
+      toast.error("Cancel unavailable — request id missing");
+      return;
+    }
+    if (!window.confirm("Cancel this ride?")) return;
+    setCancelling(true);
+    try {
+      await cancelFn({ data: { request_id: target } });
+      toast.success("Ride cancelled");
+      void navigate({ to: "/passenger" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Cancel failed");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
 
   const trip = useQuery({
     queryKey: ["public-trip", tripId],
