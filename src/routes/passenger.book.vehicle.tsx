@@ -2,12 +2,16 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ChevronLeft, Car, Accessibility, Ambulance, Loader2, MapPin, CircleDot, Users } from "lucide-react";
+import { ChevronLeft, Car, Accessibility, Ambulance, Loader2, MapPin, CircleDot, Users, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { passengerRequestRide, getVehicleEtas } from "@/lib/dispatch.functions";
+import { getPassengerIdentity, updatePassengerIdentity } from "@/lib/passenger.functions";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseBrowser";
 import { cn } from "@/lib/utils";
+
 
 export const Route = createFileRoute("/passenger/book/vehicle")({
   ssr: false,
