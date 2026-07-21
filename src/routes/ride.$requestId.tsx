@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/lib/supabaseBrowser";
 import { TrackMap } from "@/components/nemt/useClientMap";
-import { dispatchRideRequest } from "@/lib/dispatch.functions";
+import { dispatchRideRequest, expireRideOffer } from "@/lib/dispatch.functions";
 import {
   Loader2,
   ChevronLeft,
@@ -66,6 +66,7 @@ function RidePage() {
   const { requestId } = Route.useParams();
   const navigate = useNavigate();
   const redispatch = useServerFn(dispatchRideRequest);
+  const expireOffer = useServerFn(expireRideOffer);
 
   const [req, setReq] = useState<RideRequestRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -177,11 +178,32 @@ function RidePage() {
 
   const created = req?.created_at ? new Date(req.created_at).getTime() : now;
   const waited = now - created;
+  const offerExpired =
+    !!req?.offer_expires_at && new Date(req.offer_expires_at).getTime() < now;
   const noDriverYet =
     !!req &&
     req.status === "pending" &&
-    !req.driver_id &&
+    (!req.driver_id || offerExpired) &&
     waited > OFFER_WAIT_MS;
+
+  // Auto-expire a stale offer so dispatch can move on to the next driver
+  // (or surface "no drivers available"). Without this, an unaccepted offer
+  // leaves driver_id pinned forever and the driver app hides the request.
+  useEffect(() => {
+    if (!req || req.status !== "pending" || !req.driver_id || !offerExpired) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await expireOffer({ data: { request_id: req.id } });
+      } catch {
+        // Idempotent; safe to retry on next tick.
+      }
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [req, offerExpired, expireOffer]);
 
   const pickup: [number, number] | null =
     req?.pickup_lat != null && req?.pickup_lng != null
