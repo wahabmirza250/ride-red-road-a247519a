@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useSignedUrl } from "@/lib/signedUrl";
+import { RideChatSheet } from "@/components/chat/RideChatSheet";
 
 export const Route = createFileRoute("/ride/$requestId")({
   ssr: false,
