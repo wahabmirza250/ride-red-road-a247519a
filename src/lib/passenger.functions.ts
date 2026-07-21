@@ -129,3 +129,107 @@ export const driverCreatePassenger = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return inserted;
   });
+
+/**
+ * PASSENGER-ONLY — set/refresh the passenger's own identity used on the
+ * state PDF's "Member Health First Colorado ID #" field. The passenger
+ * must provide EITHER a Medicaid ID OR (a full 9-digit SSN + DOB).
+ * SSN is stored encrypted in Supabase Vault via `set_passenger_ssn`.
+ */
+export const updatePassengerIdentity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { medicaid_id?: string; ssn?: string; date_of_birth?: string }) => {
+    const medicaid_id = (input.medicaid_id ?? "").trim();
+    const ssn = (input.ssn ?? "").replace(/\D/g, "");
+    const date_of_birth = (input.date_of_birth ?? "").trim();
+    if (medicaid_id) return { medicaid_id, ssn: "", date_of_birth: "" };
+    if (ssn.length !== 9) {
+      throw new Error("Enter a Medicaid ID, or a full 9-digit SSN plus date of birth.");
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth)) {
+      throw new Error("Date of birth must be in YYYY-MM-DD format.");
+    }
+    return { medicaid_id: "", ssn, date_of_birth };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Find or create this user's passenger row.
+    const { data: existing } = await supabase
+      .from("passengers")
+      .select("id, first_name, last_name, email, phone")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    let passengerId = existing?.id ?? null;
+    if (!passengerId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name, last_name, email, phone")
+        .eq("id", userId)
+        .maybeSingle();
+      const { data: created, error: insErr } = await supabaseAdmin
+        .from("passengers")
+        .insert({
+          user_id: userId,
+          first_name: profile?.first_name ?? "",
+          last_name: profile?.last_name ?? "",
+          email: profile?.email ?? null,
+          phone: profile?.phone ?? "",
+          medicaid_id: data.medicaid_id || `SELF-${userId.slice(0, 8)}`,
+        })
+        .select("id")
+        .single();
+      if (insErr) throw new Error(insErr.message);
+      passengerId = created.id;
+    }
+
+    if (data.medicaid_id) {
+      const { error: updErr } = await supabaseAdmin
+        .from("passengers")
+        .update({ medicaid_id: data.medicaid_id })
+        .eq("id", passengerId);
+      if (updErr) throw new Error(updErr.message);
+      return { ok: true, passenger_id: passengerId, path: "medicaid" as const };
+    }
+
+    // SSN + DOB path: store DOB in plain column, encrypt SSN into Vault.
+    const { error: dobErr } = await supabaseAdmin
+      .from("passengers")
+      .update({ date_of_birth: data.date_of_birth })
+      .eq("id", passengerId);
+    if (dobErr) throw new Error(dobErr.message);
+
+    const { error: ssnErr } = await supabase.rpc("set_passenger_ssn", {
+      _passenger_id: passengerId,
+      _ssn: data.ssn,
+    });
+    if (ssnErr) throw new Error(ssnErr.message);
+
+    return { ok: true, passenger_id: passengerId, path: "ssn_dob" as const };
+  });
+
+/** PASSENGER-ONLY — quick check of what identity the passenger has on file. */
+export const getPassengerIdentity = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data } = await supabase
+      .from("passengers")
+      .select("id, medicaid_id, date_of_birth, ssn_last4, ssn_secret_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const medicaidId = (data?.medicaid_id ?? "").trim();
+    const hasRealMedicaid =
+      !!medicaidId && !medicaidId.startsWith("SELF-") && !medicaidId.startsWith("WALK-");
+    const hasSsnDob = !!data?.ssn_secret_id && !!data?.date_of_birth;
+    return {
+      passenger_id: data?.id ?? null,
+      medicaid_id: hasRealMedicaid ? medicaidId : "",
+      date_of_birth: data?.date_of_birth ?? "",
+      ssn_last4: data?.ssn_last4 ?? "",
+      has_identity: hasRealMedicaid || hasSsnDob,
+    };
+  });
+

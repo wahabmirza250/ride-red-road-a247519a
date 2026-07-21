@@ -1123,6 +1123,7 @@ export type Database = {
           notes: string | null
           phone: string | null
           ssn_last4: string | null
+          ssn_secret_id: string | null
           updated_at: string
           user_id: string | null
         }
@@ -1145,6 +1146,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           ssn_last4?: string | null
+          ssn_secret_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1167,6 +1169,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           ssn_last4?: string | null
+          ssn_secret_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1496,6 +1499,7 @@ export type Database = {
           medicaid_id: string
           notes: string | null
           phone: string | null
+          ssn_secret_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1509,6 +1513,7 @@ export type Database = {
           medicaid_id: string
           notes?: string | null
           phone?: string | null
+          ssn_secret_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1522,6 +1527,7 @@ export type Database = {
           medicaid_id?: string
           notes?: string | null
           phone?: string | null
+          ssn_secret_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1989,6 +1995,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      copy_passenger_ssn_to_rider: {
+        Args: { _passenger_id: string; _rider_id: string }
+        Returns: undefined
+      }
       current_user_has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
@@ -1997,6 +2007,11 @@ export type Database = {
         Args: { _passenger_id: string }
         Returns: boolean
       }
+      get_decrypted_passenger_ssn: {
+        Args: { _passenger_id: string }
+        Returns: string
+      }
+      get_decrypted_rider_ssn: { Args: { _rider_id: string }; Returns: string }
       get_portal_credential_for_submission: {
         Args: { _company_id?: string; _portal_id: string }
         Returns: {
@@ -2018,6 +2033,14 @@ export type Database = {
       }
       set_default_billing_portal: {
         Args: { _company_id?: string; _portal_id: string }
+        Returns: undefined
+      }
+      set_passenger_ssn: {
+        Args: { _passenger_id: string; _ssn: string }
+        Returns: undefined
+      }
+      set_rider_ssn: {
+        Args: { _rider_id: string; _ssn: string }
         Returns: undefined
       }
       upsert_portal_credential:

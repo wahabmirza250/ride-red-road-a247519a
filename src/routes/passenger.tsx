@@ -52,12 +52,9 @@ function PassengerLayout() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const deviceId = getOrCreateDeviceId();
-    // Throttle: only ping once per hour per device.
-    const lastPing = Number(window.localStorage.getItem("passenger_last_ping") ?? "0");
-    if (Date.now() - lastPing < 60 * 60_000) return;
+    // No session expiration — guests can return any time to finish booking.
     track({ data: { device_id: deviceId } })
       .then((r) => {
-        window.localStorage.setItem("passenger_last_ping", String(Date.now()));
         if (r.city || r.region) {
           window.localStorage.setItem(
             "passenger_location",
@@ -69,6 +66,7 @@ function PassengerLayout() {
         // Silent — the app works fine without tracking.
       });
   }, [track]);
+
 
   function forget() {
     if (typeof window !== "undefined") {

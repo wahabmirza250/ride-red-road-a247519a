@@ -2,12 +2,16 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ChevronLeft, Car, Accessibility, Ambulance, Loader2, MapPin, CircleDot, Users } from "lucide-react";
+import { ChevronLeft, Car, Accessibility, Ambulance, Loader2, MapPin, CircleDot, Users, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { passengerRequestRide, getVehicleEtas } from "@/lib/dispatch.functions";
+import { getPassengerIdentity, updatePassengerIdentity } from "@/lib/passenger.functions";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseBrowser";
 import { cn } from "@/lib/utils";
+
 
 export const Route = createFileRoute("/passenger/book/vehicle")({
   ssr: false,
@@ -45,12 +49,22 @@ function VehicleSelect() {
   const { user } = useAuth();
   const request = useServerFn(passengerRequestRide);
   const etas = useServerFn(getVehicleEtas);
+  const fetchIdentity = useServerFn(getPassengerIdentity);
+  const saveIdentity = useServerFn(updatePassengerIdentity);
 
   const [selected, setSelected] = useState<VehicleKey>("ambulatory");
   const [etaMap, setEtaMap] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
   const [phone, setPhone] = useState<string>("");
   const [firstName, setFirstName] = useState<string>("");
+
+  // Identity requirement: Medicaid ID OR (SSN + DOB).
+  const [identityLoaded, setIdentityLoaded] = useState(false);
+  const [hasIdentity, setHasIdentity] = useState(false);
+  const [idMode, setIdMode] = useState<"medicaid" | "ssn">("medicaid");
+  const [medicaidId, setMedicaidId] = useState("");
+  const [ssn, setSsn] = useState("");
+  const [dob, setDob] = useState("");
 
   const missingCoords = !s.pLat || !s.pLng || !s.dLat || !s.dLng;
 
@@ -74,6 +88,28 @@ function VehicleSelect() {
       });
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    void fetchIdentity()
+      .then((r) => {
+        setHasIdentity(r.has_identity);
+        if (r.medicaid_id) {
+          setMedicaidId(r.medicaid_id);
+          setIdMode("medicaid");
+        } else if (r.ssn_last4 && r.date_of_birth) {
+          setDob(r.date_of_birth);
+          setIdMode("ssn");
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIdentityLoaded(true));
+  }, [user, fetchIdentity]);
+
+  const identityReady =
+    hasIdentity ||
+    (idMode === "medicaid" && medicaidId.trim().length >= 3) ||
+    (idMode === "ssn" && ssn.replace(/\D/g, "").length === 9 && /^\d{4}-\d{2}-\d{2}$/.test(dob));
+
   async function book() {
     if (missingCoords) {
       toast.error("Missing pickup/dropoff. Please go back and pick both.");
@@ -84,10 +120,22 @@ function VehicleSelect() {
       void navigate({ to: "/passenger/signup" });
       return;
     }
+    if (!identityReady) {
+      toast.error("Enter your Medicaid ID, or full SSN + date of birth.");
+      return;
+    }
     setSubmitting(true);
     try {
-      // Vehicle type flows through notes as a leading tag so existing dispatch
-      // logic keeps working without a schema change. Drivers see the human note.
+      // Save/refresh identity if not already on file (or if user just edited it).
+      if (!hasIdentity) {
+        if (idMode === "medicaid") {
+          await saveIdentity({ data: { medicaid_id: medicaidId.trim() } });
+        } else {
+          await saveIdentity({ data: { ssn, date_of_birth: dob } });
+        }
+        setHasIdentity(true);
+      }
+
       const taggedNote = `[VEHICLE:${selected}]${s.notes ? `\n${s.notes}` : ""}`;
       let parsedStops: Array<{ address: string; lat: number; lng: number }> = [];
       if (s.stops) {
@@ -117,6 +165,10 @@ function VehicleSelect() {
           stops: parsedStops,
         },
       });
+      // Clear persisted booking draft — successfully submitted.
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("passenger_booking_draft");
+      }
       void navigate({ to: "/ride/$requestId", params: { requestId: res.request_id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not book ride");
@@ -125,6 +177,7 @@ function VehicleSelect() {
   }
 
   const selectedLabel = VEHICLES.find((v) => v.key === selected)?.label ?? "";
+
 
   return (
     <div className="-mx-4 -mt-4 min-h-[calc(100dvh-3.5rem)] bg-background pb-40">
@@ -216,22 +269,99 @@ function VehicleSelect() {
         </p>
       </div>
 
+      {/* Identity — Medicaid ID OR (SSN + DOB). Hidden once on file. */}
+      {user && identityLoaded && !hasIdentity && (
+        <div className="mx-auto max-w-2xl px-4 pb-4">
+          <div className="rounded-2xl border border-border bg-surface p-4 shadow-soft">
+            <div className="mb-2 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-500" />
+              <h3 className="text-sm font-semibold">Verify your Medicaid coverage</h3>
+            </div>
+            <p className="mb-3 text-[11px] text-muted-foreground">
+              Required by Health First Colorado. Your SSN is stored encrypted and only used to
+              generate your trip report.
+            </p>
+
+            <div className="mb-3 grid grid-cols-2 gap-2 rounded-full bg-surface-muted p-1 text-xs font-medium">
+              <button
+                type="button"
+                onClick={() => setIdMode("medicaid")}
+                className={cn(
+                  "rounded-full py-1.5 transition",
+                  idMode === "medicaid" ? "bg-background shadow-soft" : "text-muted-foreground",
+                )}
+              >
+                Medicaid ID
+              </button>
+              <button
+                type="button"
+                onClick={() => setIdMode("ssn")}
+                className={cn(
+                  "rounded-full py-1.5 transition",
+                  idMode === "ssn" ? "bg-background shadow-soft" : "text-muted-foreground",
+                )}
+              >
+                SSN + DOB
+              </button>
+            </div>
+
+            {idMode === "medicaid" ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Health First Colorado ID</Label>
+                <Input
+                  value={medicaidId}
+                  onChange={(e) => setMedicaidId(e.target.value)}
+                  placeholder="e.g. A123456789"
+                  autoComplete="off"
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Social Security Number</Label>
+                  <Input
+                    value={ssn}
+                    onChange={(e) => setSsn(e.target.value.replace(/[^\d-]/g, ""))}
+                    placeholder="XXX-XX-XXXX"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={11}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Date of birth</Label>
+                  <Input
+                    type="date"
+                    value={dob}
+                    onChange={(e) => setDob(e.target.value)}
+                    max={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Sticky confirm */}
       <div className="fixed inset-x-0 bottom-20 z-20 px-4 pb-2">
         <div className="mx-auto max-w-2xl">
           <Button
             onClick={book}
-            disabled={submitting || missingCoords}
+            disabled={submitting || missingCoords || !identityReady}
             className="h-14 w-full rounded-full text-base font-semibold shadow-lift"
           >
             {submitting ? (
               <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Requesting…</>
+            ) : !identityReady ? (
+              <>Enter Medicaid ID or SSN + DOB</>
             ) : (
               <>Select {selectedLabel}</>
             )}
           </Button>
         </div>
       </div>
+
     </div>
   );
 }

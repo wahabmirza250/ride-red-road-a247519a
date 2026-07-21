@@ -34,7 +34,9 @@ import {
   detectOdometerFromImage,
 } from "@/lib/nemtTrip.functions";
 import { generateStateFormPdf } from "@/lib/medicaidPdf";
+import { getRiderIdentifierForPdf } from "@/lib/rider.functions";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
+
 
 export const Route = createFileRoute("/driver/trip/new")({
   validateSearch: (search) => ({
@@ -217,9 +219,18 @@ function NewNemtTripWizard() {
         .select()
         .single();
       if (error) return toast.error(error.message);
+      // If the source passenger has an encrypted full SSN on file, copy it
+      // over so the state PDF can fill the ID field with the full SSN.
+      if (!medicaid) {
+        await supabase.rpc("copy_passenger_ssn_to_rider", {
+          _passenger_id: r.id,
+          _rider_id: data.id,
+        });
+      }
       addRiderSlot(data as Rider);
       return;
     }
+
     addRiderSlot(r);
   }
 
@@ -520,9 +531,20 @@ function NewNemtTripWizard() {
           },
         });
 
-        // 2. Generate the filled Colorado NEMT Trip Log PDF
+        // 2. Generate the filled Colorado NEMT Trip Log PDF.
+        //    Resolve the ID field server-side: uses real Medicaid ID if
+        //    present, else decrypts the passenger's full SSN from Vault.
+        let riderForPdf = slot.rider;
+        try {
+          const { identifier } = await getRiderIdentifierForPdf({
+            data: { rider_id: slot.rider.id, trip_id: tripId },
+          });
+          if (identifier) riderForPdf = { ...slot.rider, medicaid_id: identifier };
+        } catch {
+          // Fall back to whatever's on the rider row (last-4 placeholder).
+        }
         const pdfBytes = await generateStateFormPdf({
-          rider: slot.rider,
+          rider: riderForPdf,
           driverName: driverFullName || user.email || "",
           vehiclePlate: plate,
           vehicleVin: vin || null,
@@ -535,6 +557,7 @@ function NewNemtTripWizard() {
           signatureUrl: slot.signature_data_url,
           signedByEscort: slot.signed_by_escort,
         });
+
 
         // 3. Upload PDF to state-pdfs bucket
         const pdfPath = `${user.id}/${tripId}.pdf`;
