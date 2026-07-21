@@ -1,20 +1,29 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export type VerifyStatus =
+  | "matched"
+  | "fuzzy"
+  | "no_match"
+  | "unconfigured"
+  | "error";
+
 export type VerifyResult = {
-  status: "matched" | "no_match" | "unconfigured" | "error";
+  status: VerifyStatus;
   message: string;
+  portal_name?: string | null;
   matched_name?: string | null;
   medicaid_id?: string | null;
+  match_confidence?: number | null;
   used_identifier: "medicaid_id" | "ssn_dob" | "none";
 };
 
 /**
- * Verify the passenger's Medicaid ID (or SSN+DOB fallback) against the state
- * portal via the automation robot. READ-ONLY — never submits a claim.
+ * READ-ONLY identity verification against the HCPF portal via the automation
+ * robot's `verify_member` action. Never submits or touches a claim.
  *
- * Callable by admins and drivers. Drivers must have an active/assigned trip
- * with this passenger; admins can verify anyone.
+ * Callable by admins and by drivers who currently have a trip with the
+ * passenger.
  */
 export const verifyPassengerIdentity = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -25,12 +34,13 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<VerifyResult> => {
     const { supabase, userId } = context;
 
-    // Authorization: admin OR a driver who currently has a trip with this passenger.
+    // AuthZ: admin OR a driver who currently has a trip with this passenger.
     const { data: isAdmin } = await supabase.rpc("has_role", {
       _user_id: userId,
       _role: "admin",
     });
     let allowed = !!isAdmin;
+    let providerUserId = userId;
     if (!allowed) {
       const { data: isDriver } = await supabase.rpc("has_role", {
         _user_id: userId,
@@ -74,6 +84,8 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
         ? "ssn_dob"
         : "none";
 
+    const expectedName = `${pax.first_name ?? ""} ${pax.last_name ?? ""}`.trim();
+
     if (usedIdentifier === "none") {
       return {
         status: "error",
@@ -83,12 +95,21 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
       };
     }
 
-    const url = process.env.MEDICAID_VERIFY_URL;
+    // If we pick up a provider record (single-provider default), use its owner
+    // as provider_id so the robot loads the right portal credentials.
+    const { data: providerRow } = await supabaseAdmin
+      .from("billing_rate_settings")
+      .select("provider_id")
+      .limit(1)
+      .maybeSingle();
+    if (providerRow?.provider_id) providerUserId = providerRow.provider_id;
+
+    const url = process.env.ROBOT_VERIFY_URL;
     if (!url) {
       return {
         status: "unconfigured",
         message:
-          "Verification endpoint is not configured yet. Set MEDICAID_VERIFY_URL to enable live lookups.",
+          "Verification endpoint is not configured yet. Ask an admin to set the ROBOT_VERIFY_URL secret.",
         used_identifier: usedIdentifier,
         medicaid_id: hasRealMedicaid ? medicaidRaw : null,
       };
@@ -109,53 +130,80 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
+          "X-Robot-Api-Key": apiKey,
         },
         body: JSON.stringify({
-          first_name: pax.first_name ?? "",
-          last_name: pax.last_name ?? "",
-          medicaid_id: hasRealMedicaid ? medicaidRaw : null,
+          provider_id: providerUserId,
+          expected_name: expectedName,
+          member_id: hasRealMedicaid ? medicaidRaw : null,
           ssn: hasRealMedicaid ? null : ssn,
           date_of_birth: hasRealMedicaid ? null : pax.date_of_birth,
         }),
       });
 
       if (!res.ok) {
-        const text = await res.text().catch(() => "");
         return {
           status: "error",
-          message: `Verification endpoint returned ${res.status}. ${text.slice(0, 200)}`,
+          message: "Verification unavailable, try again.",
           used_identifier: usedIdentifier,
         };
       }
 
       const body = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        portal_name?: string | null;
         matched?: boolean;
-        matched_name?: string;
-        medicaid_id?: string;
-        message?: string;
+        match_confidence?: number | null;
       };
 
-      if (body.matched) {
+      if (!body.ok) {
+        return {
+          status: "error",
+          message: "Verification unavailable, try again.",
+          used_identifier: usedIdentifier,
+        };
+      }
+
+      const portalName = body.portal_name ?? null;
+      const confidence =
+        typeof body.match_confidence === "number" ? body.match_confidence : null;
+
+      // Exact = matched true AND confidence >= 0.95 (or null with matched=true)
+      // Fuzzy = matched true but confidence < 0.95
+      // No match = matched false
+      if (body.matched && (confidence === null || confidence >= 0.95)) {
         return {
           status: "matched",
-          message: `Verified — matches ${body.matched_name ?? `${pax.first_name} ${pax.last_name}`.trim()}`,
-          matched_name: body.matched_name ?? `${pax.first_name} ${pax.last_name}`.trim(),
-          medicaid_id: body.medicaid_id ?? (hasRealMedicaid ? medicaidRaw : null),
+          message: `Verified — matches ${portalName ?? expectedName}`,
+          portal_name: portalName,
+          matched_name: portalName ?? expectedName,
+          medicaid_id: hasRealMedicaid ? medicaidRaw : null,
+          match_confidence: confidence,
+          used_identifier: usedIdentifier,
+        };
+      }
+      if (body.matched) {
+        return {
+          status: "fuzzy",
+          message: `Possible match — please double-check spelling (${portalName ?? "unknown"})`,
+          portal_name: portalName,
+          matched_name: portalName,
+          medicaid_id: hasRealMedicaid ? medicaidRaw : null,
+          match_confidence: confidence,
           used_identifier: usedIdentifier,
         };
       }
       return {
         status: "no_match",
-        message:
-          body.message ??
-          "No match found — please confirm the passenger's name, Medicaid ID, or SSN+DOB.",
+        message: "No match found — please confirm passenger details.",
+        portal_name: portalName,
+        match_confidence: confidence,
         used_identifier: usedIdentifier,
       };
-    } catch (err) {
+    } catch {
       return {
         status: "error",
-        message: err instanceof Error ? err.message : "Verification request failed",
+        message: "Verification unavailable, try again.",
         used_identifier: usedIdentifier,
       };
     }
