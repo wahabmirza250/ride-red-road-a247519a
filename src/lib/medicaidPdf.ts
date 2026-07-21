@@ -215,16 +215,30 @@ export async function generateStateFormPdf(
     }
   }
 
-  /* ---------- Apply handwriting font to filled text, then flatten ---------- */
+  /* ---------- Render filled values as blue ballpoint handwriting ---------- */
+  const INK = rgb(0.09, 0.15, 0.55); // ballpoint blue
+  const HANDWRITING_SIZE = 18;
   try {
     for (const field of form.getFields()) {
-      if (field instanceof PDFTextField) {
-        field.setFontSize(14);
-        field.updateAppearances(handwritingFont);
+      if (!(field instanceof PDFTextField)) continue;
+      const value = field.getText();
+      if (!value) continue;
+      const widgets = field.acroField.getWidgets();
+      for (const widget of widgets) {
+        const rect = widget.getRectangle();
+        const pageRef = widget.P();
+        const page =
+          pdf.getPages().find((pg) => pg.ref === pageRef) ?? pdf.getPage(0);
+        drawHandwrittenValue(page, value, rect, handwritingFont, HANDWRITING_SIZE, INK);
+      }
+      try {
+        form.removeField(field);
+      } catch {
+        /* older pdf-lib */
       }
     }
   } catch {
-    /* If appearance regeneration fails, keep default font rather than throw. */
+    /* fall through to flatten */
   }
 
   try {
@@ -232,6 +246,7 @@ export async function generateStateFormPdf(
   } catch {
     /* flatten can fail on exotic field types — leave form editable rather than throw */
   }
+
 
 
   return await pdf.save();
