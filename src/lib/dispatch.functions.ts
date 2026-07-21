@@ -200,9 +200,9 @@ export const cancelRideRequest = createServerFn({ method: "POST" })
         status: "cancelled",
         driver_id: null,
         offer_expires_at: null,
-        cancellation_reason: data.reason ?? "Cancelled by passenger",
       })
       .eq("id", req.id);
+
 
     if (req.trip_id) {
       await supabaseAdmin
