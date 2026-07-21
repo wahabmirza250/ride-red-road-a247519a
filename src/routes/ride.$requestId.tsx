@@ -490,6 +490,7 @@ function MatchedBlock({
           </a>
         )}
         <button
+          onClick={() => setChatOpen(true)}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-foreground transition hover:bg-accent"
           aria-label="Message driver"
           title="Message driver"
@@ -497,6 +498,13 @@ function MatchedBlock({
           <MessageSquare className="h-4 w-4" />
         </button>
       </div>
+      <RideChatSheet
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        driverUserId={driver.user_id}
+        tripId={tripId}
+        driverName={driverName}
+      />
     </div>
   );
 }
