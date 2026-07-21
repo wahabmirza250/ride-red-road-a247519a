@@ -336,7 +336,7 @@ function TrackPage() {
     <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
       {/* Full-screen map layer */}
       <div className="absolute inset-0">
-        <TrackMap
+        <TrackMapEmbed
           center={center}
           pickup={t.pickup_lat && t.pickup_lng ? [t.pickup_lat, t.pickup_lng] : null}
           dropoff={t.dropoff_lat && t.dropoff_lng ? [t.dropoff_lat, t.dropoff_lng] : null}
