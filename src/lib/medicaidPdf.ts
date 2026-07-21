@@ -264,7 +264,61 @@ function resolveAssetUrl(url: string, baseUrl?: string): string {
 }
 
 
-function drawSignatureImage(page: any, img: any, rect: PdfRect) {
+function drawHandwrittenValue(
+  page: any,
+  value: string,
+  rect: PdfRect,
+  font: any,
+  size: number,
+  color: ReturnType<typeof rgb>,
+) {
+  const rotation = ((page.getRotation().angle % 360) + 360) % 360;
+  // Fit size to the smaller field dimension so long values still land inside.
+  const availAlong = rotation === 90 || rotation === 270 ? rect.height : rect.width;
+  const availAcross = rotation === 90 || rotation === 270 ? rect.width : rect.height;
+  let fs = size;
+  const padding = 3;
+  const maxTextWidth = Math.max(1, availAlong - padding * 2);
+  // Shrink if it overflows the line
+  let textWidth = font.widthOfTextAtSize(value, fs);
+  while (textWidth > maxTextWidth && fs > 8) {
+    fs -= 1;
+    textWidth = font.widthOfTextAtSize(value, fs);
+  }
+  // Vertical: sit slightly above baseline of the field line
+  const ascent = font.heightAtSize(fs, { descender: false });
+  const acrossOffset = Math.max(1, (availAcross - ascent) / 2);
+
+  if (rotation === 90) {
+    page.drawText(value, {
+      x: rect.x + rect.width - acrossOffset,
+      y: rect.y + padding,
+      size: fs,
+      font,
+      color,
+      rotate: degrees(90),
+    });
+  } else if (rotation === 270) {
+    page.drawText(value, {
+      x: rect.x + acrossOffset,
+      y: rect.y + rect.height - padding,
+      size: fs,
+      font,
+      color,
+      rotate: degrees(270),
+    });
+  } else {
+    page.drawText(value, {
+      x: rect.x + padding,
+      y: rect.y + acrossOffset,
+      size: fs,
+      font,
+      color,
+    });
+  }
+}
+
+
   const rotation = ((page.getRotation().angle % 360) + 360) % 360;
   const inset = 2;
 
