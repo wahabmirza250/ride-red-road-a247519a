@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   RefreshCw,
   LifeBuoy,
+  X,
 } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useSignedUrl } from "@/lib/signedUrl";
