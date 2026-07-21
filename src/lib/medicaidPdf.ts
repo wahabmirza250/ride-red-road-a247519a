@@ -219,17 +219,23 @@ export async function generateStateFormPdf(
   const INK = rgb(0.09, 0.15, 0.55); // ballpoint blue
   const HANDWRITING_SIZE = 18;
   try {
+    // The two "Date" widgets share the top line of their leg box with the
+    // printed "Date:" label. Anchor them to the top of the widget rect rather
+    // than vertically centering, so the value sits on the underline next to
+    // "Date:" instead of drifting toward the middle of the tall cell.
+    const TOP_ALIGNED_FIELDS = new Set(["Date", "Date_2"]);
     for (const field of form.getFields()) {
       if (!(field instanceof PDFTextField)) continue;
       const value = field.getText();
       if (!value) continue;
+      const alignTop = TOP_ALIGNED_FIELDS.has(field.getName());
       const widgets = field.acroField.getWidgets();
       for (const widget of widgets) {
         const rect = widget.getRectangle();
         const pageRef = widget.P();
         const page =
           pdf.getPages().find((pg) => pg.ref === pageRef) ?? pdf.getPage(0);
-        drawHandwrittenValue(page, value, rect, handwritingFont, HANDWRITING_SIZE, INK);
+        drawHandwrittenValue(page, value, rect, handwritingFont, HANDWRITING_SIZE, INK, alignTop);
       }
       // Clear the field value so the subsequent flatten() does not re-render
       // the same text through the widget's default appearance stream and
@@ -275,6 +281,7 @@ function drawHandwrittenValue(
   font: any,
   size: number,
   color: ReturnType<typeof rgb>,
+  alignTop = false,
 ) {
   const rotation = ((page.getRotation().angle % 360) + 360) % 360;
   // Fit size to the smaller field dimension so long values still land inside.
@@ -289,9 +296,12 @@ function drawHandwrittenValue(
     fs -= 1;
     textWidth = font.widthOfTextAtSize(value, fs);
   }
-  // Vertical: sit slightly above baseline of the field line
+  // Vertical: either hug the top visible line (fields whose label sits above
+  // the value on the same line, like "Date:") or center within the cell.
   const ascent = font.heightAtSize(fs, { descender: false });
-  const acrossOffset = Math.max(1, (availAcross - ascent) / 2);
+  const acrossOffset = alignTop
+    ? Math.max(1, availAcross - ascent - padding)
+    : Math.max(1, (availAcross - ascent) / 2);
 
   if (rotation === 90) {
     page.drawText(value, {
