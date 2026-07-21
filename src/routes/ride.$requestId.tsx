@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseBrowser";
 // TrackMap: use Google Maps embed iframe (same pattern as pickup screen) —
 // reliable across dev/prod and no API key required for the classic embed URL.
 
-import { dispatchRideRequest, expireRideOffer } from "@/lib/dispatch.functions";
+import { dispatchRideRequest, expireRideOffer, cancelRideRequest } from "@/lib/dispatch.functions";
 import {
   Loader2,
   ChevronLeft,
