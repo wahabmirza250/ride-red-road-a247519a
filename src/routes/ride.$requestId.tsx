@@ -112,6 +112,8 @@ function RidePage() {
   const navigate = useNavigate();
   const redispatch = useServerFn(dispatchRideRequest);
   const expireOffer = useServerFn(expireRideOffer);
+  const cancelFn = useServerFn(cancelRideRequest);
+  const [cancelling, setCancelling] = useState(false);
 
   const [req, setReq] = useState<RideRequestRow | null>(null);
   const [loading, setLoading] = useState(true);
