@@ -219,17 +219,23 @@ export async function generateStateFormPdf(
   const INK = rgb(0.09, 0.15, 0.55); // ballpoint blue
   const HANDWRITING_SIZE = 18;
   try {
+    // The two "Date" widgets share the top line of their leg box with the
+    // printed "Date:" label. Anchor them to the top of the widget rect rather
+    // than vertically centering, so the value sits on the underline next to
+    // "Date:" instead of drifting toward the middle of the tall cell.
+    const TOP_ALIGNED_FIELDS = new Set(["Date", "Date_2"]);
     for (const field of form.getFields()) {
       if (!(field instanceof PDFTextField)) continue;
       const value = field.getText();
       if (!value) continue;
+      const alignTop = TOP_ALIGNED_FIELDS.has(field.getName());
       const widgets = field.acroField.getWidgets();
       for (const widget of widgets) {
         const rect = widget.getRectangle();
         const pageRef = widget.P();
         const page =
           pdf.getPages().find((pg) => pg.ref === pageRef) ?? pdf.getPage(0);
-        drawHandwrittenValue(page, value, rect, handwritingFont, HANDWRITING_SIZE, INK);
+        drawHandwrittenValue(page, value, rect, handwritingFont, HANDWRITING_SIZE, INK, alignTop);
       }
       // Clear the field value so the subsequent flatten() does not re-render
       // the same text through the widget's default appearance stream and
