@@ -141,6 +141,7 @@ type PublicTrip = {
   driver_id: string | null;
   _driver: {
     id: string;
+    user_id: string;
     current_lat: number | null;
     current_lng: number | null;
     vehicle_make: string | null;
