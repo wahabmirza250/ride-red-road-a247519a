@@ -465,6 +465,7 @@ function TrackPage() {
                   </a>
                 )}
                 <button
+                  onClick={() => setChatOpen(true)}
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-foreground transition hover:bg-accent"
                   aria-label="Message driver"
                   title="Message driver"
@@ -479,21 +480,50 @@ function TrackPage() {
               </div>
             )}
 
-            {/* Primary action */}
-            <button
-              className={cn(
-                "mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm font-semibold shadow-soft transition",
-                meta.stage === "completed"
-                  ? "bg-emerald-600 text-white hover:brightness-110"
-                  : "bg-primary text-primary-foreground hover:brightness-110",
-              )}
-            >
-              <Clock className="h-4 w-4" />
-              {meta.cta}
-            </button>
+            {/* Primary action — Cancel is always available until the trip
+                completes or is already cancelled. Passengers may cancel at any
+                point in the ride lifecycle. */}
+            {t.status === "completed" ? (
+              <Link
+                to="/passenger"
+                className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-emerald-600 text-sm font-semibold text-white shadow-soft transition hover:brightness-110"
+              >
+                <Clock className="h-4 w-4" />
+                {meta.cta}
+              </Link>
+            ) : t.status === "cancelled" ? (
+              <Link
+                to="/passenger"
+                className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
+              >
+                Back to rides
+              </Link>
+            ) : (
+              <button
+                onClick={handleCancel}
+                disabled={cancelling || !requestId}
+                className={cn(
+                  "mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm font-semibold shadow-soft transition",
+                  "bg-red-600 text-white hover:brightness-110 disabled:opacity-60",
+                )}
+              >
+                {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                Cancel ride
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {driver && (
+        <RideChatSheet
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+          driverUserId={driver.user_id}
+          tripId={t.id}
+          driverName={driverName ?? "Your driver"}
+        />
+      )}
     </div>
   );
 }
