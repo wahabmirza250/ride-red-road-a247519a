@@ -1,7 +1,22 @@
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { generateStateFormPdf } from "../src/lib/medicaidPdf";
 
+const templateBytes = readFileSync("/tmp/template.pdf");
+const fontBytes = readFileSync("/tmp/hw.ttf");
+const origFetch = globalThis.fetch;
+globalThis.fetch = (async (input: any, init?: any) => {
+  const url = typeof input === "string" ? input : input.url;
+  if (url.includes("nemt_trip_report_template")) {
+    return new Response(templateBytes) as any;
+  }
+  if (url.includes("JustAnotherHand")) {
+    return new Response(fontBytes) as any;
+  }
+  return origFetch(input, init);
+}) as any;
+
 const BASE = "http://localhost:8080/";
+
 
 const bytes = await generateStateFormPdf(
   {
