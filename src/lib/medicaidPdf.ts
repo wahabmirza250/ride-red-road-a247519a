@@ -318,8 +318,9 @@ function drawHandwrittenValue(
   }
 }
 
-
+function drawSignatureImage(page: any, img: any, rect: PdfRect) {
   const rotation = ((page.getRotation().angle % 360) + 360) % 360;
+
   const inset = 2;
 
   // The Colorado template is a landscape page stored as a portrait PDF rotated
