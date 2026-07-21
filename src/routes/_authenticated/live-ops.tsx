@@ -38,6 +38,24 @@ function LiveOps() {
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [reqs, setReqs] = useState<Req[]>([]);
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom?: number; id?: string } | null>(null);
+  const [reassigning, setReassigning] = useState<string | null>(null);
+  const reassign = useServerFn(adminReassignDriver);
+
+  const onReassign = useCallback(
+    async (requestId: string, driverId: string) => {
+      if (!driverId) return;
+      setReassigning(requestId);
+      try {
+        await reassign({ data: { request_id: requestId, driver_id: driverId } });
+        toast.success("Driver reassigned");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Reassignment failed");
+      } finally {
+        setReassigning(null);
+      }
+    },
+    [reassign],
+  );
 
   const load = useCallback(async () => {
     const [{ data: d }, { data: r }] = await Promise.all([
