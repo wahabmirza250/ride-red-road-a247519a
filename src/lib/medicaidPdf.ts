@@ -299,8 +299,11 @@ function drawHandwrittenValue(
   // Vertical: either hug the top visible line (fields whose label sits above
   // the value on the same line, like "Date:") or center within the cell.
   const ascent = font.heightAtSize(fs, { descender: false });
+  // Extra upward lift for top-aligned fields (Date on Box 1/Box 2) so the value
+  // snaps flush next to "Date:" and clears the "Actual Pick-up Time:" row below.
+  const TOP_EXTRA_LIFT = 12;
   const acrossOffset = alignTop
-    ? Math.max(1, availAcross - ascent - padding)
+    ? Math.max(1, availAcross - ascent - padding + TOP_EXTRA_LIFT)
     : Math.max(1, (availAcross - ascent) / 2);
 
   if (rotation === 90) {
