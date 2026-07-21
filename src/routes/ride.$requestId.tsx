@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useSignedUrl } from "@/lib/signedUrl";
+import { RideChatSheet } from "@/components/chat/RideChatSheet";
 
 export const Route = createFileRoute("/ride/$requestId")({
   ssr: false,
@@ -323,7 +324,7 @@ function RidePage() {
             {noDriverYet ? (
               <NoDriverBlock retrying={retrying} onRetry={handleRetry} dispatchPhone={dispatchPhone} />
             ) : hasMatch ? (
-              <MatchedBlock driver={driver!} driverName={driverName!} etaMin={etaMin} />
+              <MatchedBlock driver={driver!} driverName={driverName!} etaMin={etaMin} tripId={req?.trip_id ?? null} />
             ) : (
               <SearchingBlock waitedSec={Math.floor(waited / 1000)} dispatchPhone={dispatchPhone} />
             )}
@@ -397,11 +398,14 @@ function MatchedBlock({
   driver,
   driverName,
   etaMin,
+  tripId,
 }: {
   driver: DriverRow;
   driverName: string;
   etaMin: number | null;
+  tripId: string | null;
 }) {
+  const [chatOpen, setChatOpen] = useState(false);
   const initials = `${(driver.profile?.first_name ?? "?")[0] ?? ""}${(driver.profile?.last_name ?? "")[0] ?? ""}`;
   const vehicleDesc = [driver.vehicle_year, driver.vehicle_color, driver.vehicle_make, driver.vehicle_model]
     .filter(Boolean)
@@ -486,6 +490,7 @@ function MatchedBlock({
           </a>
         )}
         <button
+          onClick={() => setChatOpen(true)}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-foreground transition hover:bg-accent"
           aria-label="Message driver"
           title="Message driver"
@@ -493,6 +498,13 @@ function MatchedBlock({
           <MessageSquare className="h-4 w-4" />
         </button>
       </div>
+      <RideChatSheet
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        driverUserId={driver.user_id}
+        tripId={tripId}
+        driverName={driverName}
+      />
     </div>
   );
 }

@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseBrowser";
 import { GoogleFleetMap, type FleetMarker } from "@/components/nemt/GoogleFleetMap";
 import { fmtMoney } from "@/lib/rideMath";
+import { adminReassignDriver } from "@/lib/dispatchAdmin.functions";
 
 export const Route = createFileRoute("/_authenticated/live-ops")({
   component: LiveOps,
@@ -36,6 +38,24 @@ function LiveOps() {
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [reqs, setReqs] = useState<Req[]>([]);
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom?: number; id?: string } | null>(null);
+  const [reassigning, setReassigning] = useState<string | null>(null);
+  const reassign = useServerFn(adminReassignDriver);
+
+  const onReassign = useCallback(
+    async (requestId: string, driverId: string) => {
+      if (!driverId) return;
+      setReassigning(requestId);
+      try {
+        await reassign({ data: { request_id: requestId, driver_id: driverId } });
+        toast.success("Driver reassigned");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Reassignment failed");
+      } finally {
+        setReassigning(null);
+      }
+    },
+    [reassign],
+  );
 
   const load = useCallback(async () => {
     const [{ data: d }, { data: r }] = await Promise.all([
@@ -262,7 +282,25 @@ function LiveOps() {
                     </a>
                   )}
                 </div>
-                <div className="ml-3 font-semibold">{fmtMoney(r.estimated_fare)}</div>
+                <div className="ml-3 flex flex-col items-end gap-2">
+                  <div className="font-semibold">{fmtMoney(r.estimated_fare)}</div>
+                  <select
+                    className="max-w-[140px] rounded-md border border-border bg-background px-2 py-1 text-xs"
+                    value={r.driver_id ?? ""}
+                    disabled={reassigning === r.id}
+                    onChange={(e) => onReassign(r.id, e.target.value)}
+                    title="Reassign driver"
+                  >
+                    <option value="" disabled>
+                      {r.driver_id ? "Change driver…" : "Assign driver…"}
+                    </option>
+                    {drivers.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} · {d.status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             );
           })}
