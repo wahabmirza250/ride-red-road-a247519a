@@ -44,27 +44,84 @@ export const Route = createFileRoute("/passenger/book/pickup")({
   component: ConfirmPickup,
 });
 
+const DRAFT_KEY = "passenger_booking_draft";
+type DraftShape = {
+  pickup?: string;
+  pLat?: number | null;
+  pLng?: number | null;
+  dropoff?: string;
+  dLat?: number | null;
+  dLng?: number | null;
+  notes?: string;
+  purpose?: string;
+  stops?: BookingStop[];
+};
+function loadDraft(): DraftShape {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as DraftShape) : {};
+  } catch {
+    return {};
+  }
+}
+function saveDraft(d: DraftShape) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+  } catch {
+    // storage full or blocked — ignore
+  }
+}
+
 function ConfirmPickup() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const { pos, err: geoErr } = useCurrentPosition();
+  const draft = loadDraft();
 
-  // Destination
-  const [dropoff, setDropoff] = useState(search.dropoff ?? "");
+  // Destination — URL search wins, else persisted draft.
+  const [dropoff, setDropoff] = useState(search.dropoff ?? draft.dropoff ?? "");
   const [dropoffCoords, setDropoffCoords] = useState<{ lat: number; lng: number } | null>(
-    search.dLat != null && search.dLng != null ? { lat: search.dLat, lng: search.dLng } : null,
+    search.dLat != null && search.dLng != null
+      ? { lat: search.dLat, lng: search.dLng }
+      : draft.dLat != null && draft.dLng != null
+        ? { lat: draft.dLat, lng: draft.dLng }
+        : null,
   );
 
   // Pickup
-  const [pickup, setPickup] = useState(search.pickup ?? "");
+  const [pickup, setPickup] = useState(search.pickup ?? draft.pickup ?? "");
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(
-    search.pLat != null && search.pLng != null ? { lat: search.pLat, lng: search.pLng } : null,
+    search.pLat != null && search.pLng != null
+      ? { lat: search.pLat, lng: search.pLng }
+      : draft.pLat != null && draft.pLng != null
+        ? { lat: draft.pLat, lng: draft.pLng }
+        : null,
   );
-  const [note, setNote] = useState(search.notes ?? "");
-  const [purpose, setPurpose] = useState(search.purpose ?? "");
-  const [stops, setStops] = useState<BookingStop[]>(() => parseStops(search.stops));
+  const [note, setNote] = useState(search.notes ?? draft.notes ?? "");
+  const [purpose, setPurpose] = useState(search.purpose ?? draft.purpose ?? "");
+  const [stops, setStops] = useState<BookingStop[]>(() =>
+    search.stops ? parseStops(search.stops) : (draft.stops ?? []),
+  );
   const [autoLocating, setAutoLocating] = useState(!pickup);
   const [resolving, setResolving] = useState(false);
+
+  // Persist every change so guests can leave and come back without losing progress.
+  useEffect(() => {
+    saveDraft({
+      pickup,
+      pLat: pickupCoords?.lat ?? null,
+      pLng: pickupCoords?.lng ?? null,
+      dropoff,
+      dLat: dropoffCoords?.lat ?? null,
+      dLng: dropoffCoords?.lng ?? null,
+      notes: note,
+      purpose,
+      stops,
+    });
+  }, [pickup, pickupCoords, dropoff, dropoffCoords, note, purpose, stops]);
+
 
   function addStop() {
     if (stops.length >= 3) {
