@@ -19,6 +19,7 @@ import { Plus, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { createPassengerAccount } from "@/lib/admin.functions";
+import { VerifyMedicaidButton } from "@/components/VerifyMedicaidButton";
 
 export const Route = createFileRoute("/_authenticated/passengers")({
   component: PassengersPage,
