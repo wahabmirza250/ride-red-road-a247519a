@@ -65,6 +65,47 @@ type DriverRow = {
   } | null;
 };
 
+/**
+ * Live tracking map — Google Maps embed iframe. When we have both a driver
+ * position and a pickup, render turn-by-turn directions from driver → pickup
+ * (or pickup → dropoff when the driver is already at pickup). Falls back to a
+ * centered pin when only one point is known. Uses the classic `google.com/maps`
+ * embed which works without an API key and matches the pickup-confirm screen.
+ */
+function TrackMap({
+  pickup,
+  dropoff,
+  driver,
+  center,
+}: {
+  pickup: [number, number] | null;
+  dropoff: [number, number] | null;
+  driver: [number, number] | null;
+  center: [number, number];
+}) {
+  const fmt = (p: [number, number]) => `${p[0]},${p[1]}`;
+  let src: string;
+  if (driver && pickup) {
+    src = `https://www.google.com/maps?saddr=${fmt(driver)}&daddr=${fmt(pickup)}&output=embed`;
+  } else if (pickup && dropoff) {
+    src = `https://www.google.com/maps?saddr=${fmt(pickup)}&daddr=${fmt(dropoff)}&output=embed`;
+  } else {
+    const c = driver ?? pickup ?? dropoff ?? center;
+    src = `https://www.google.com/maps?q=${fmt(c)}&z=14&output=embed`;
+  }
+  return (
+    <iframe
+      title="Live ride tracking"
+      src={src}
+      className="h-full w-full border-0"
+      loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
+    />
+  );
+}
+
+
+
 function RidePage() {
   const { requestId } = Route.useParams();
   const navigate = useNavigate();
