@@ -398,11 +398,14 @@ function MatchedBlock({
   driver,
   driverName,
   etaMin,
+  tripId,
 }: {
   driver: DriverRow;
   driverName: string;
   etaMin: number | null;
+  tripId: string | null;
 }) {
+  const [chatOpen, setChatOpen] = useState(false);
   const initials = `${(driver.profile?.first_name ?? "?")[0] ?? ""}${(driver.profile?.last_name ?? "")[0] ?? ""}`;
   const vehicleDesc = [driver.vehicle_year, driver.vehicle_color, driver.vehicle_make, driver.vehicle_model]
     .filter(Boolean)
