@@ -99,8 +99,11 @@ function DriverHome() {
   const [showPicker, setShowPicker] = useState(false);
   const [showAddStop, setShowAddStop] = useState(false);
   const [showPickupForm, setShowPickupForm] = useState(false);
+  const [showDropoffForm, setShowDropoffForm] = useState(false);
   const [pickupOdoDone, setPickupOdoDone] = useState(false);
   const [dropoffOdoDone, setDropoffOdoDone] = useState(false);
+  const [pickupOdoReading, setPickupOdoReading] = useState<number | null>(null);
+  const [dropoffOdoReading, setDropoffOdoReading] = useState<number | null>(null);
 
   // Live speed + odometer accumulation (client-side GPS-derived miles).
   const [speedMph, setSpeedMph] = useState<number | null>(null);
