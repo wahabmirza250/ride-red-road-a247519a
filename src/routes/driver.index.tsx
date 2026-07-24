@@ -859,16 +859,45 @@ function PickupFormDialog({
   const [preview, setPreview] = useState<string | null>(null);
   const [reading, setReading] = useState("");
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const detectOdo = useServerFn(detectOdometerFromImage);
 
   useEffect(() => {
     if (!open) {
-      setFile(null); setPreview(null); setReading(""); setBusy(false);
+      setFile(null); setPreview(null); setReading(""); setBusy(false); setScanning(false);
     }
   }, [open]);
 
-  function pickFile(f: File | null) {
+  function fileToDataUrl(f: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+      reader.readAsDataURL(f);
+    });
+  }
+
+  async function handleCameraCapture(f: File | null) {
+    if (!f) return;
     setFile(f);
-    setPreview(f ? URL.createObjectURL(f) : null);
+    setPreview(URL.createObjectURL(f));
+    setScanning(true);
+    try {
+      const dataUrl = await fileToDataUrl(f);
+      const res = await detectOdo({ data: { image_data_url: dataUrl } });
+      if (res?.odometer) {
+        setReading(res.odometer);
+        toast.success(`Detected odometer: ${res.odometer}`);
+      } else {
+        toast.message("Couldn't read the odometer — enter it manually.");
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Auto-detect failed";
+      toast.error(msg);
+    } finally {
+      setScanning(false);
+    }
   }
 
   async function handleSubmit() {
@@ -877,9 +906,6 @@ function PickupFormDialog({
     if (!file && !alreadyCaptured) return toast.error("Take the odometer photo");
     setBusy(true);
     try {
-      // If a new photo was picked, use it; otherwise reuse the already-captured
-      // photo with just the reading updated (via a tiny empty-blob upload avoided
-      // by requiring a photo when none exists).
       if (file) await onSubmit(file, n);
     } finally {
       setBusy(false);
@@ -892,37 +918,63 @@ function PickupFormDialog({
         <DialogHeader><DialogTitle>Trip report — start pickup</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Enter the current odometer reading and take a photo of the odometer.
-            This photo doubles as pickup proof — the trip starts when you save.
+            Tap the camera to snap the odometer — the number is read automatically.
+            You can also type it manually. Saving starts the trip.
           </p>
           <div className="space-y-1.5">
             <Label htmlFor="odo">Odometer reading (miles)</Label>
-            <Input
-              id="odo"
-              inputMode="decimal"
-              value={reading}
-              onChange={(e) => setReading(e.target.value.replace(/[^\d.]/g, ""))}
-              placeholder="e.g. 84521"
-            />
+            <div className="flex items-stretch gap-2">
+              <Input
+                id="odo"
+                inputMode="decimal"
+                value={reading}
+                onChange={(e) => setReading(e.target.value.replace(/[^\d.]/g, ""))}
+                placeholder={scanning ? "Reading photo…" : "e.g. 84521"}
+                disabled={scanning}
+                className="flex-1"
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  e.target.value = ""; // allow re-selecting the same file
+                  void handleCameraCapture(f);
+                }}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                className="shrink-0 gap-1.5"
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={scanning || busy}
+                aria-label="Capture odometer with camera"
+                title="Capture odometer with camera"
+              >
+                {scanning
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <Camera className="h-4 w-4" />}
+                <span className="hidden sm:inline text-xs">Camera</span>
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {scanning
+                ? "Detecting number from photo…"
+                : file
+                  ? "Photo captured. Double-check the number is correct."
+                  : "Manual entry is fine too — photo required to start the trip."}
+            </p>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="odo-photo">Odometer photo</Label>
-            <input
-              id="odo-photo"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
-              className="block w-full text-xs file:mr-3 file:rounded-full file:border file:border-border file:bg-surface file:px-3 file:py-1.5 file:text-xs file:font-medium"
-            />
-            {preview && (
-              <img src={preview} alt="Odometer preview" className="mt-2 max-h-40 rounded-lg border border-border" />
-            )}
-          </div>
+          {preview && (
+            <img src={preview} alt="Odometer preview" className="max-h-40 w-full rounded-lg border border-border object-contain" />
+          )}
           <div className="text-[11px] text-muted-foreground">
             Timestamp is recorded automatically at save.
           </div>
-          <Button className="w-full rounded-full" onClick={handleSubmit} disabled={busy}>
+          <Button className="w-full rounded-full" onClick={handleSubmit} disabled={busy || scanning}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & start trip"}
           </Button>
         </div>
