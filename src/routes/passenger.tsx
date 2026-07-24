@@ -11,6 +11,7 @@ import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import { trackVisitor } from "@/lib/passengerPublic.functions";
 import { useAuth } from "@/lib/auth";
 import { ensurePushSubscribed } from "@/lib/push";
+import { AccessDenied } from "@/components/AccessDenied";
 
 export const Route = createFileRoute("/passenger")({
   ssr: false,
@@ -38,7 +39,7 @@ function getOrCreateDeviceId(): string {
 function PassengerLayout() {
   const loc = useLocation();
   const track = useServerFn(trackVisitor);
-  const { user } = useAuth();
+  const { user, isPassenger, isAdmin, isDriver, loading } = useAuth();
 
   useEffect(() => {
     // Auto-subscribe signed-in passengers to push (idempotent, one-time prompt).
