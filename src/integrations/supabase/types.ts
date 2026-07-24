@@ -867,6 +867,7 @@ export type Database = {
           arrived_dropoff_at: string | null
           arrived_pickup_at: string | null
           created_at: string
+          dispatch_trip_id: string | null
           driver_id: string
           dropoff_address: string
           dropoff_lat: number | null
@@ -919,6 +920,7 @@ export type Database = {
           arrived_dropoff_at?: string | null
           arrived_pickup_at?: string | null
           created_at?: string
+          dispatch_trip_id?: string | null
           driver_id: string
           dropoff_address: string
           dropoff_lat?: number | null
@@ -971,6 +973,7 @@ export type Database = {
           arrived_dropoff_at?: string | null
           arrived_pickup_at?: string | null
           created_at?: string
+          dispatch_trip_id?: string | null
           driver_id?: string
           dropoff_address?: string
           dropoff_lat?: number | null
