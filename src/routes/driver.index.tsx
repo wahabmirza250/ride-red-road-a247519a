@@ -923,11 +923,15 @@ function PassengerPickerDialog({
 
 function PickupFormDialog({
   open, onOpenChange, onSubmit, alreadyCaptured,
+  title = "Trip report — start pickup",
+  submitLabel = "Save & start trip",
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSubmit: (file: File, reading: number) => Promise<void>;
   alreadyCaptured: boolean;
+  title?: string;
+  submitLabel?: string;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
