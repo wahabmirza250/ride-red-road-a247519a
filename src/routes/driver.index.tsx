@@ -15,7 +15,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SignaturePad } from "@/components/driver/SignaturePad";
 import { StatsGrid } from "@/components/driver/StatsGrid";
 
@@ -29,6 +37,8 @@ import {
   detectOdometerFromImage,
   finalizeMedicaidFromDispatchTrip,
   ensureDispatchTripStatePdf,
+  getTripReportDraft,
+  saveTripReportDraft,
 } from "@/lib/nemtTrip.functions";
 import { VerifyMedicaidButton } from "@/components/VerifyMedicaidButton";
 
@@ -61,6 +71,22 @@ type PaxRow = { id: string; first_name: string; last_name: string; phone: string
 type Stop = {
   id: string; sequence: number; kind: string; address: string;
   arrived_at: string | null; departed_at: string | null; passenger_name: string | null;
+};
+type TripReportDraftForm = {
+  identity_verified: "yes" | "no" | "";
+  vehicle_type: "ground_ambulance" | "wheelchair_van" | "stretcher_van" | "taxi" | "ambulatory" | "";
+  trip_kind: "one_way" | "round_trip" | "group_tour";
+  escort_name: string;
+  vehicle_plate: string;
+  vehicle_vin: string;
+  leg_date: string;
+  pickup_time: string;
+  pickup_address: string;
+  pickup_odometer: string;
+  dropoff_time: string;
+  dropoff_address: string;
+  dropoff_odometer: string;
+  signed_by_escort: boolean;
 };
 
 const PURPOSE_LABEL: Record<string, string> = {
