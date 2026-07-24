@@ -812,6 +812,7 @@ function DriverHome() {
       <PickupFormDialog
         open={showPickupForm}
         onOpenChange={setShowPickupForm}
+        tripId={active?.trip_id ?? null}
         onSubmit={savePickupForm}
         alreadyCaptured={pickupOdoDone}
         initialReading={pickupOdoReading}
@@ -823,6 +824,7 @@ function DriverHome() {
       <PickupFormDialog
         open={showDropoffForm}
         onOpenChange={setShowDropoffForm}
+        tripId={active?.trip_id ?? null}
         onSubmit={saveDropoffForm}
         alreadyCaptured={dropoffOdoDone}
         initialReading={dropoffOdoReading}
