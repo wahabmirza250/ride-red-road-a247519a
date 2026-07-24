@@ -993,7 +993,7 @@ function PickupFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Trip report — start pickup</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
             Tap the camera to snap the odometer — the number is read automatically.
