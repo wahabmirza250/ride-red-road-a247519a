@@ -458,7 +458,8 @@ function DriverHome() {
       if (!active?.trip_id) return;
       const pickupReading = Number(form.pickup_odometer);
       if (!Number.isFinite(pickupReading) || pickupReading <= 0) {
-        return toast.error("Enter a valid pickup odometer reading");
+        toast.error("Enter a valid pickup odometer reading");
+        return;
       }
       await uploadOdometer(pickupFile, "start", pickupReading);
       if (form.dropoff_odometer) {
@@ -488,10 +489,12 @@ function DriverHome() {
       const pickupReading = Number(form.pickup_odometer);
       const dropoffReading = Number(form.dropoff_odometer);
       if (!Number.isFinite(pickupReading) || pickupReading <= 0) {
-        return toast.error("Enter a valid pickup odometer reading");
+        toast.error("Enter a valid pickup odometer reading");
+        return;
       }
       if (!Number.isFinite(dropoffReading) || dropoffReading <= 0) {
-        return toast.error("Enter a valid drop-off odometer reading");
+        toast.error("Enter a valid drop-off odometer reading");
+        return;
       }
       if (!pickupOdoDone || pickupFile) await uploadOdometer(pickupFile, "start", pickupReading);
       await uploadOdometer(dropoffFile, "end", dropoffReading);
