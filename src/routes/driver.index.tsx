@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   MapPin, Navigation, Power, Car, CheckCircle2, Phone, UserPlus, Search,
-  Loader2, PenLine, XCircle, Plus, Fuel, FileCheck,
+  Loader2, PenLine, XCircle, Plus, Fuel, FileCheck, Camera,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
