@@ -977,34 +977,76 @@ function PassengerPickerDialog({
 }
 
 function PickupFormDialog({
-  open, onOpenChange, onSubmit, alreadyCaptured,
+  open, onOpenChange, tripId, onSubmit, alreadyCaptured,
   initialReading,
   title = "Trip report — start pickup",
   submitLabel = "Save & start trip",
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onSubmit: (file: File | null, reading: number) => Promise<void>;
+  tripId: string | null;
+  onSubmit: (form: TripReportDraftForm, pickupFile: File | null, dropoffFile: File | null) => Promise<void>;
   alreadyCaptured: boolean;
   initialReading?: number | null;
   title?: string;
   submitLabel?: string;
 }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [reading, setReading] = useState("");
+  const emptyForm: TripReportDraftForm = {
+    identity_verified: "",
+    vehicle_type: "",
+    trip_kind: "one_way",
+    escort_name: "",
+    vehicle_plate: "",
+    vehicle_vin: "",
+    leg_date: "",
+    pickup_time: "",
+    pickup_address: "",
+    pickup_odometer: "",
+    dropoff_time: "",
+    dropoff_address: "",
+    dropoff_odometer: "",
+    signed_by_escort: false,
+  };
+  const [form, setForm] = useState<TripReportDraftForm>(emptyForm);
+  const [pickupFile, setPickupFile] = useState<File | null>(null);
+  const [dropoffFile, setDropoffFile] = useState<File | null>(null);
+  const [pickupPreview, setPickupPreview] = useState<string | null>(null);
+  const [dropoffPreview, setDropoffPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const [loadingDraft, setLoadingDraft] = useState(false);
+  const [scanningField, setScanningField] = useState<"pickup" | "dropoff" | null>(null);
+  const pickupCameraRef = useRef<HTMLInputElement | null>(null);
+  const dropoffCameraRef = useRef<HTMLInputElement | null>(null);
   const detectOdo = useServerFn(detectOdometerFromImage);
+  const loadDraft = useServerFn(getTripReportDraft);
 
   useEffect(() => {
     if (!open) {
-      setFile(null); setPreview(null); setReading(""); setBusy(false); setScanning(false);
-    } else if (initialReading != null) {
-      setReading(String(initialReading));
+      setPickupFile(null); setDropoffFile(null); setPickupPreview(null); setDropoffPreview(null);
+      setForm(emptyForm); setBusy(false); setLoadingDraft(false); setScanningField(null);
+      return;
     }
-  }, [open, initialReading]);
+    if (!tripId) return;
+    let cancelled = false;
+    setLoadingDraft(true);
+    loadDraft({ data: { trip_id: tripId } })
+      .then((r) => {
+        if (cancelled) return;
+        const loaded = (r.form_data ?? emptyForm) as TripReportDraftForm;
+        setForm({
+          ...emptyForm,
+          ...loaded,
+          pickup_odometer: initialReading != null ? String(initialReading) : loaded.pickup_odometer ?? "",
+        });
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not load trip report"))
+      .finally(() => { if (!cancelled) setLoadingDraft(false); });
+    return () => { cancelled = true; };
+  }, [open, tripId, initialReading, loadDraft]);
+
+  function setField<K extends keyof TripReportDraftForm>(key: K, value: TripReportDraftForm[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
 
   function fileToDataUrl(f: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -1015,16 +1057,21 @@ function PickupFormDialog({
     });
   }
 
-  async function handleCameraCapture(f: File | null) {
+  async function handleCameraCapture(kind: "pickup" | "dropoff", f: File | null) {
     if (!f) return;
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
-    setScanning(true);
+    if (kind === "pickup") {
+      setPickupFile(f);
+      setPickupPreview(URL.createObjectURL(f));
+    } else {
+      setDropoffFile(f);
+      setDropoffPreview(URL.createObjectURL(f));
+    }
+    setScanningField(kind);
     try {
       const dataUrl = await fileToDataUrl(f);
       const res = await detectOdo({ data: { image_data_url: dataUrl } });
       if (res?.odometer) {
-        setReading(res.odometer);
+        setField(kind === "pickup" ? "pickup_odometer" : "dropoff_odometer", res.odometer as any);
         toast.success(`Detected odometer: ${res.odometer}`);
       } else {
         toast.message("Couldn't read the odometer — enter it manually.");
@@ -1033,16 +1080,16 @@ function PickupFormDialog({
       const msg = e instanceof Error ? e.message : "Auto-detect failed";
       toast.error(msg);
     } finally {
-      setScanning(false);
+      setScanningField(null);
     }
   }
 
   async function handleSubmit() {
-    const n = Number(reading);
-    if (!Number.isFinite(n) || n <= 0) return toast.error("Enter a valid odometer reading");
+    const n = Number(form.pickup_odometer);
+    if (!Number.isFinite(n) || n <= 0) return toast.error("Enter a valid pickup odometer reading");
     setBusy(true);
     try {
-      await onSubmit(file, n);
+      await onSubmit(form, pickupFile, dropoffFile);
     } finally {
       setBusy(false);
     }
@@ -1050,66 +1097,97 @@ function PickupFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Type the odometer reading manually. The camera is optional for photo
-            documentation and auto-detect; if it fails, the typed reading is still saved.
-          </p>
-          <div className="space-y-1.5">
-            <Label htmlFor="odo">Odometer reading (miles)</Label>
-            <div className="flex items-stretch gap-2">
-              <Input
-                id="odo"
-                inputMode="decimal"
-                value={reading}
-                onChange={(e) => setReading(e.target.value.replace(/[^\d.]/g, ""))}
-                placeholder={scanning ? "Auto-reading… (you can still type)" : "e.g. 84521"}
-                className="flex-1"
-              />
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0] ?? null;
-                  e.target.value = ""; // allow re-selecting the same file
-                  void handleCameraCapture(f);
-                }}
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                className="shrink-0 gap-1.5"
-                onClick={() => cameraInputRef.current?.click()}
-                disabled={busy}
-                aria-label="Capture odometer with camera"
-                title="Capture odometer with camera"
-              >
-                {scanning
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <Camera className="h-4 w-4" />}
-                <span className="hidden sm:inline text-xs">
-                  {file ? "Retake" : "Camera"}
-                </span>
-              </Button>
+        <div className="space-y-4">
+          {loadingDraft && <div className="text-xs text-muted-foreground">Loading saved report…</div>}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label>Driver verified identity</Label>
+              <Select value={form.identity_verified || "blank"} onValueChange={(v) => setField("identity_verified", v === "blank" ? "" : v as "yes" | "no")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="blank">Leave blank</SelectItem>
+                  <SelectItem value="yes">Yes</SelectItem>
+                  <SelectItem value="no">No</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              {scanning
-                ? "Detecting number from photo… you can type the reading if you'd rather not wait."
-                : file
-                  ? "Photo captured. Double-check the number — edit it if auto-detect got it wrong."
-                  : "Camera is optional. You can type the number and save without a photo."}
-            </p>
+            <div className="space-y-1.5">
+              <Label>Type of vehicle</Label>
+              <Select value={form.vehicle_type || "blank"} onValueChange={(v) => setField("vehicle_type", v === "blank" ? "" : v as TripReportDraftForm["vehicle_type"])}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="blank">Leave blank</SelectItem>
+                  <SelectItem value="ground_ambulance">Ground ambulance</SelectItem>
+                  <SelectItem value="wheelchair_van">Wheelchair van</SelectItem>
+                  <SelectItem value="stretcher_van">Stretcher van</SelectItem>
+                  <SelectItem value="taxi">Taxi</SelectItem>
+                  <SelectItem value="ambulatory">Mobility / ambulatory</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Type of trip</Label>
+              <Select value={form.trip_kind} onValueChange={(v) => setField("trip_kind", v as TripReportDraftForm["trip_kind"])}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="one_way">One way</SelectItem>
+                  <SelectItem value="round_trip">Round trip</SelectItem>
+                  <SelectItem value="group_tour">Group tour</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          {preview && (
-            <img src={preview} alt="Odometer preview" className="max-h-40 w-full rounded-lg border border-border object-contain" />
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField label="Vehicle plate" value={form.vehicle_plate} onChange={(v) => setField("vehicle_plate", v)} />
+            <TextField label="Vehicle VIN" value={form.vehicle_vin} onChange={(v) => setField("vehicle_vin", v)} />
+            <TextField label="Trip date" type="date" value={form.leg_date} onChange={(v) => setField("leg_date", v)} />
+            <TextField label="Escort name" value={form.escort_name} onChange={(v) => setField("escort_name", v)} />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <OdometerField
+              label="Pickup odometer"
+              value={form.pickup_odometer}
+              onChange={(v) => setField("pickup_odometer", v)}
+              onCamera={() => pickupCameraRef.current?.click()}
+              scanning={scanningField === "pickup"}
+              hasFile={!!pickupFile}
+            />
+            <OdometerField
+              label="Drop-off odometer"
+              value={form.dropoff_odometer}
+              onChange={(v) => setField("dropoff_odometer", v)}
+              onCamera={() => dropoffCameraRef.current?.click()}
+              scanning={scanningField === "dropoff"}
+              hasFile={!!dropoffFile}
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField label="Pickup time" type="time" value={form.pickup_time} onChange={(v) => setField("pickup_time", v)} />
+            <TextField label="Drop-off time" type="time" value={form.dropoff_time} onChange={(v) => setField("dropoff_time", v)} />
+          </div>
+          <TextField label="Pickup address" value={form.pickup_address} onChange={(v) => setField("pickup_address", v)} />
+          <TextField label="Drop-off address" value={form.dropoff_address} onChange={(v) => setField("dropoff_address", v)} />
+
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={form.signed_by_escort} onCheckedChange={(v) => setField("signed_by_escort", v === true)} />
+            Member facility or escort signs instead of member
+          </label>
+
+          <input ref={pickupCameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ""; void handleCameraCapture("pickup", f); }} />
+          <input ref={dropoffCameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ""; void handleCameraCapture("dropoff", f); }} />
+          {(pickupPreview || dropoffPreview) && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {pickupPreview && <img src={pickupPreview} alt="Pickup odometer preview" className="max-h-36 w-full rounded-lg border border-border object-contain" />}
+              {dropoffPreview && <img src={dropoffPreview} alt="Drop-off odometer preview" className="max-h-36 w-full rounded-lg border border-border object-contain" />}
+            </div>
           )}
           <div className="text-[11px] text-muted-foreground">
-            Pickup / drop-off time is stamped automatically from the system clock.
+            All fields are editable before the PDF is generated. Camera capture is optional; manual odometer entry works without a photo.
           </div>
           <Button className="w-full rounded-full" onClick={handleSubmit} disabled={busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : submitLabel}
@@ -1117,5 +1195,44 @@ function PickupFormDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function TextField({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+function OdometerField({
+  label, value, onChange, onCamera, scanning, hasFile,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onCamera: () => void;
+  scanning: boolean;
+  hasFile: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <div className="flex items-stretch gap-2">
+        <Input
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => onChange(e.target.value.replace(/[^\d.]/g, ""))}
+          placeholder={scanning ? "Auto-reading…" : "e.g. 84521"}
+          className="flex-1"
+        />
+        <Button type="button" variant="secondary" className="shrink-0 gap-1.5" onClick={onCamera} aria-label={`Capture ${label} with camera`}>
+          {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+          <span className="hidden sm:inline text-xs">{hasFile ? "Retake" : "Camera"}</span>
+        </Button>
+      </div>
+    </div>
   );
 }
