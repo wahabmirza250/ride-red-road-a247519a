@@ -1078,7 +1078,11 @@ function PickupFormDialog({
       const dataUrl = await fileToDataUrl(f);
       const res = await detectOdo({ data: { image_data_url: dataUrl } });
       if (res?.odometer) {
-        setField(kind === "pickup" ? "pickup_odometer" : "dropoff_odometer", res.odometer as any);
+        if (kind === "pickup") {
+          setField("pickup_odometer", res.odometer);
+        } else {
+          setField("dropoff_odometer", res.odometer);
+        }
         toast.success(`Detected odometer: ${res.odometer}`);
       } else {
         toast.message("Couldn't read the odometer — enter it manually.");
