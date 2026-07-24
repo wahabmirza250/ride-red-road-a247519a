@@ -318,6 +318,13 @@ function LiveOps() {
                       </option>
                     ))}
                   </select>
+                  <button
+                    onClick={() => onCancel(r.id)}
+                    disabled={cancelling === r.id}
+                    className="rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-500/20 disabled:opacity-50"
+                  >
+                    {cancelling === r.id ? "Cancelling…" : "Cancel ride"}
+                  </button>
                 </div>
               </div>
             );
