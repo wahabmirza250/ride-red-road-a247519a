@@ -181,20 +181,13 @@ export const adminCancelTrip = createServerFn({ method: "POST" })
 
     await supabaseAdmin
       .from("ride_requests")
-      .update({
-        status: "cancelled",
-        cancelled_at: new Date().toISOString(),
-        cancel_reason: data.reason ?? "Cancelled by dispatch",
-      })
+      .update({ status: "cancelled" })
       .eq("id", req.id);
 
     if (req.trip_id) {
       await supabaseAdmin
         .from("trips")
-        .update({
-          status: "cancelled",
-          cancellation_reason: data.reason ?? "Cancelled by dispatch",
-        })
+        .update({ status: "cancelled" })
         .eq("id", req.trip_id);
     }
 
