@@ -697,8 +697,12 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
     if (mtErr) throw new Error(mtErr.message);
     if (!mt) throw new Error("No HCPF trip report was created for this ride yet");
 
+    const storageClient = isAdmin
+      ? (await import("@/integrations/supabase/client.server")).supabaseAdmin
+      : supabase;
+
     if (mt.state_pdf_path) {
-      const { data: signed, error: signErr } = await supabase.storage
+      const { data: signed, error: signErr } = await storageClient.storage
         .from("state-pdfs")
         .createSignedUrl(mt.state_pdf_path, 60 * 15);
       if (signErr) throw new Error(signErr.message);
@@ -715,7 +719,7 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
       throw new Error("No saved passenger signature found for this trip");
     }
 
-    const { data: sig, error: sigErr } = await supabase.storage
+    const { data: sig, error: sigErr } = await storageClient.storage
       .from("signatures")
       .createSignedUrl(mt.signature_path, 60 * 15);
     if (sigErr) throw new Error(sigErr.message);
@@ -736,8 +740,7 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
       const needsSsn = !raw || raw.startsWith("SSN-") || raw.startsWith("WALK-") || raw.startsWith("SELF-");
       if (needsSsn) {
         try {
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { data: ssn } = await supabaseAdmin.rpc("get_decrypted_rider_ssn", {
+          const { data: ssn } = await storageClient.rpc("get_decrypted_rider_ssn", {
             _rider_id: riderForPdf.id,
           });
           if (ssn && typeof ssn === "string") riderForPdf = { ...riderForPdf, medicaid_id: ssn };
@@ -767,7 +770,7 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
     );
 
     const pdfPath = `${mt.driver_id}/${mt.id}.pdf`;
-    const { error: uploadErr } = await supabase.storage
+    const { error: uploadErr } = await storageClient.storage
       .from("state-pdfs")
       .upload(pdfPath, new Blob([pdfBytes as BlobPart], { type: "application/pdf" }), {
         upsert: true,
@@ -775,7 +778,7 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
       });
     if (uploadErr) throw new Error(uploadErr.message);
 
-    const { error: updateErr } = await supabase
+    const { error: updateErr } = await storageClient
       .from("medicaid_trips")
       .update({
         state_pdf_path: pdfPath,
@@ -784,7 +787,7 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
       .eq("id", mt.id);
     if (updateErr) throw new Error(updateErr.message);
 
-    const { data: signed, error: signErr } = await supabase.storage
+    const { data: signed, error: signErr } = await storageClient.storage
       .from("state-pdfs")
       .createSignedUrl(pdfPath, 60 * 15);
     if (signErr) throw new Error(signErr.message);
