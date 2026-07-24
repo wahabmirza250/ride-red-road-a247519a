@@ -50,7 +50,7 @@ function VehicleSelect() {
   const { user } = useAuth();
   const request = useServerFn(passengerRequestRide);
   const etas = useServerFn(getVehicleEtas);
-  const fetchIdentity = useServerFn(getPassengerIdentity);
+  const fetchProfile = useServerFn(getMyPassengerProfile);
   const saveIdentity = useServerFn(updatePassengerIdentity);
 
   const [selected, setSelected] = useState<VehicleKey>("ambulatory");
