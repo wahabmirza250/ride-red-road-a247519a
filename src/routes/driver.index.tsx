@@ -609,25 +609,9 @@ function DriverHome() {
             </div>
           </div>
 
-          {/* Drop-off odometer photo is captured inline; pickup odometer is
-              captured inside the Fill Form dialog (Step 4). */}
-          {tripStatus === "in_progress" && (
-            <div className="rounded-xl border border-dashed border-border bg-surface p-3">
-              <div className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Required before completing
-              </div>
-              <OdometerPhotoButton
-                label="Drop-off odometer photo"
-                captured={dropoffOdoDone}
-                onCaptured={(f) => uploadOdometer(f, "end")}
-              />
-              {!dropoffOdoDone && (
-                <div className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
-                  Capture the drop-off odometer before you can complete the trip.
-                </div>
-              )}
-            </div>
-          )}
+          {/* Drop-off odometer is captured inside the Complete-trip dialog
+              (mirrors the pickup Fill-Form step) so the driver captures the
+              photo + reading in the same flow as the signature. */}
 
           {/* Step-by-step primary action. Only ONE main button per step. */}
           <div className="space-y-2 pt-2">
@@ -658,16 +642,7 @@ function DriverHome() {
             {tripStatus === "in_progress" && (
               <Button
                 className="h-12 w-full rounded-full bg-emerald-500 text-base hover:bg-emerald-600"
-                disabled={!dropoffOdoDone}
-                onClick={() => {
-                  if (!dropoffOdoDone) {
-                    toast.error("Capture the drop-off odometer photo first");
-                    return;
-                  }
-                  setSignerName(passenger ? `${passenger.first_name} ${passenger.last_name}` : "");
-                  setSignature(null);
-                  setShowSign(true);
-                }}
+                onClick={() => setShowDropoffForm(true)}
               >
                 <PenLine className="mr-2 h-5 w-5" /> Complete &amp; get signature
               </Button>
