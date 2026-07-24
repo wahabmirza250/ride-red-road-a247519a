@@ -1234,6 +1234,32 @@ function TextField({ label, value, onChange, type = "text" }: { label: string; v
   );
 }
 
+function normalizeTripReportForm(value: unknown, fallback: TripReportDraftForm): TripReportDraftForm {
+  const data = typeof value === "object" && value !== null ? value as Partial<Record<keyof TripReportDraftForm, unknown>> : {};
+  const text = (key: keyof TripReportDraftForm) => typeof data[key] === "string" ? data[key] : fallback[key];
+  const identity = data.identity_verified === "yes" || data.identity_verified === "no" ? data.identity_verified : "";
+  const vehicleTypes = new Set(["ground_ambulance", "wheelchair_van", "stretcher_van", "taxi", "ambulatory", ""]);
+  const vehicleType = typeof data.vehicle_type === "string" && vehicleTypes.has(data.vehicle_type) ? data.vehicle_type : "";
+  const tripKinds = new Set(["one_way", "round_trip", "group_tour"]);
+  const tripKind = typeof data.trip_kind === "string" && tripKinds.has(data.trip_kind) ? data.trip_kind : fallback.trip_kind;
+  return {
+    identity_verified: identity,
+    vehicle_type: vehicleType as TripReportDraftForm["vehicle_type"],
+    trip_kind: tripKind as TripReportDraftForm["trip_kind"],
+    escort_name: text("escort_name") as string,
+    vehicle_plate: text("vehicle_plate") as string,
+    vehicle_vin: text("vehicle_vin") as string,
+    leg_date: text("leg_date") as string,
+    pickup_time: text("pickup_time") as string,
+    pickup_address: text("pickup_address") as string,
+    pickup_odometer: text("pickup_odometer") as string,
+    dropoff_time: text("dropoff_time") as string,
+    dropoff_address: text("dropoff_address") as string,
+    dropoff_odometer: text("dropoff_odometer") as string,
+    signed_by_escort: data.signed_by_escort === true,
+  };
+}
+
 function OdometerField({
   label, value, onChange, onCamera, scanning, hasFile,
 }: {
