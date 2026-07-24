@@ -678,19 +678,28 @@ function DriverHome() {
               </div>
             )}
             {tripStatus === "driver_en_route_to_pickup" && (
-              <Button
-                className="h-12 w-full rounded-full bg-primary text-base"
-                onClick={() => setStatus("arrived_at_pickup")}
-              >
-                <Car className="mr-2 h-5 w-5" /> Arrive at Pickup
-              </Button>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  className="h-12 w-full rounded-full bg-primary text-base"
+                  onClick={() => setStatus("arrived_at_pickup")}
+                >
+                  <Car className="mr-2 h-5 w-5" /> Arrive at Pickup
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-12 w-full rounded-full text-base"
+                  onClick={() => setShowPickupForm(true)}
+                >
+                  <FileCheck className="mr-2 h-5 w-5" /> Fill form
+                </Button>
+              </div>
             )}
             {tripStatus === "arrived_at_pickup" && (
               <Button
                 className="h-12 w-full rounded-full bg-primary text-base"
                 onClick={() => setShowPickupForm(true)}
               >
-                <Camera className="mr-2 h-5 w-5" /> Capture Pickup Odometer &amp; Start Trip
+                <FileCheck className="mr-2 h-5 w-5" /> Fill form &amp; start trip
               </Button>
             )}
             {tripStatus === "in_progress" && (
