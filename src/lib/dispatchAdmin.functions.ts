@@ -151,3 +151,79 @@ export const adminListAssignableDrivers = createServerFn({ method: "GET" })
       name: names.get(d.user_id) ?? "Driver",
     }));
   });
+
+/**
+ * Admin cancels a ride at any stage. Cancels the ride_request, the linked
+ * trip (if one exists), and releases the assigned driver back to "available".
+ */
+export const adminCancelTrip = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { request_id: string; reason?: string }) => {
+    if (!input?.request_id) throw new Error("request_id required");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) throw new Error("Admin only");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: req, error: reqErr } = await supabaseAdmin
+      .from("ride_requests")
+      .select("id, driver_id, trip_id, status")
+      .eq("id", data.request_id)
+      .maybeSingle();
+    if (reqErr) throw new Error(reqErr.message);
+    if (!req) throw new Error("Ride request not found");
+
+    await supabaseAdmin
+      .from("ride_requests")
+      .update({
+        status: "cancelled",
+        cancelled_at: new Date().toISOString(),
+        cancel_reason: data.reason ?? "Cancelled by dispatch",
+      })
+      .eq("id", req.id);
+
+    if (req.trip_id) {
+      await supabaseAdmin
+        .from("trips")
+        .update({
+          status: "cancelled",
+          cancellation_reason: data.reason ?? "Cancelled by dispatch",
+        })
+        .eq("id", req.trip_id);
+    }
+
+    if (req.driver_id) {
+      const { data: drv } = await supabaseAdmin
+        .from("drivers")
+        .select("user_id, status")
+        .eq("id", req.driver_id)
+        .maybeSingle();
+      if (drv && drv.status === "busy") {
+        await supabaseAdmin
+          .from("drivers")
+          .update({ status: "available" })
+          .eq("id", req.driver_id);
+      }
+      if (drv?.user_id) {
+        try {
+          const { sendPushToUsers } = await import("@/lib/pushSend.server");
+          await sendPushToUsers([drv.user_id], {
+            title: "Trip cancelled by dispatch",
+            body: data.reason ?? "This ride was cancelled.",
+            url: "/driver",
+            tag: `ride-${req.id}`,
+          });
+        } catch (e) {
+          console.warn("[adminCancelTrip] push failed", e);
+        }
+      }
+    }
+
+    return { ok: true };
+  });
