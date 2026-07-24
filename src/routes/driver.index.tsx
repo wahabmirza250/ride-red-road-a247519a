@@ -206,11 +206,13 @@ function DriverHome() {
 
     if (activeTripId) {
       const { data: t } = await supabase.from("trips")
-        .select("status, passenger_id, odometer_start_photo, odometer_end_photo")
+        .select("status, passenger_id, odometer_start_photo, odometer_end_photo, odometer_start, odometer_end")
         .eq("id", activeTripId).maybeSingle();
       setTripStatus(t?.status ?? "");
-      setPickupOdoDone(!!t?.odometer_start_photo);
-      setDropoffOdoDone(!!t?.odometer_end_photo);
+      setPickupOdoDone(!!t?.odometer_start_photo || t?.odometer_start != null);
+      setDropoffOdoDone(!!t?.odometer_end_photo || t?.odometer_end != null);
+      setPickupOdoReading(t?.odometer_start != null ? Number(t.odometer_start) : null);
+      setDropoffOdoReading(t?.odometer_end != null ? Number(t.odometer_end) : null);
       if (t?.passenger_id) {
         const { data: p } = await supabase.from("passengers")
           .select("id, first_name, last_name, phone, medicaid_id").eq("id", t.passenger_id).maybeSingle();
@@ -223,6 +225,7 @@ function DriverHome() {
     } else {
       setTripStatus(""); setPassenger(null); setStops([]);
       setPickupOdoDone(false); setDropoffOdoDone(false);
+      setPickupOdoReading(null); setDropoffOdoReading(null);
     }
   }, [driver]);
 
