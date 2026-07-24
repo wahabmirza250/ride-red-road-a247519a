@@ -107,6 +107,7 @@ function DriverHome() {
   const departedFn = useServerFn(markStopDeparted);
   const finalizeFn = useServerFn(finalizeMedicaidFromDispatchTrip);
   const ensurePdfFn = useServerFn(ensureDispatchTripStatePdf);
+  const saveDraftFn = useServerFn(saveTripReportDraft);
 
   const { user } = useAuth();
   const [driver, setDriver] = useState<DriverRow | null>(null);
@@ -451,10 +452,27 @@ function DriverHome() {
     toast.success(file ? "Odometer photo and reading saved" : "Odometer reading saved");
   }
 
-  /** Trip report / pickup form — captures odometer reading, optional photo, then starts the trip. */
-  async function savePickupForm(file: File | null, reading: number) {
+  /** Full HCPF trip report draft — saves all official fields, optional photos, and can start the trip. */
+  async function savePickupForm(form: TripReportDraftForm, pickupFile: File | null, dropoffFile: File | null) {
     try {
-      await uploadOdometer(file, "start", reading);
+      if (!active?.trip_id) return;
+      const pickupReading = Number(form.pickup_odometer);
+      if (!Number.isFinite(pickupReading) || pickupReading <= 0) {
+        return toast.error("Enter a valid pickup odometer reading");
+      }
+      await uploadOdometer(pickupFile, "start", pickupReading);
+      if (form.dropoff_odometer) {
+        const dropoffReading = Number(form.dropoff_odometer);
+        if (Number.isFinite(dropoffReading) && dropoffReading > 0) {
+          await uploadOdometer(dropoffFile, "end", dropoffReading);
+        }
+      }
+      await saveDraftFn({ data: { trip_id: active.trip_id, form_data: form } });
+      if (tripStatus === "assigned" || tripStatus === "driver_en_route_to_pickup") {
+        setShowPickupForm(false);
+        toast.success("Trip report saved");
+        return;
+      }
       await setStatus("in_progress");
       setShowPickupForm(false);
       toast.success("Trip started");
@@ -463,10 +481,21 @@ function DriverHome() {
     }
   }
 
-  /** Drop-off odometer form — captures reading, optional photo before signature. */
-  async function saveDropoffForm(file: File | null, reading: number) {
+  /** Final HCPF trip report save — captures dropoff fields, then opens signature. */
+  async function saveDropoffForm(form: TripReportDraftForm, pickupFile: File | null, dropoffFile: File | null) {
     try {
-      await uploadOdometer(file, "end", reading);
+      if (!active?.trip_id) return;
+      const pickupReading = Number(form.pickup_odometer);
+      const dropoffReading = Number(form.dropoff_odometer);
+      if (!Number.isFinite(pickupReading) || pickupReading <= 0) {
+        return toast.error("Enter a valid pickup odometer reading");
+      }
+      if (!Number.isFinite(dropoffReading) || dropoffReading <= 0) {
+        return toast.error("Enter a valid drop-off odometer reading");
+      }
+      if (!pickupOdoDone || pickupFile) await uploadOdometer(pickupFile, "start", pickupReading);
+      await uploadOdometer(dropoffFile, "end", dropoffReading);
+      await saveDraftFn({ data: { trip_id: active.trip_id, form_data: form } });
       setShowDropoffForm(false);
       // Immediately open signature dialog so completion is one continuous flow.
       setSignerName(passenger ? `${passenger.first_name} ${passenger.last_name}` : "");
