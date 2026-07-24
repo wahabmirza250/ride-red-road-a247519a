@@ -417,3 +417,211 @@ export const getNemtGroup = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return trips ?? [];
   });
+
+/* ---------- finalize a dispatch trip into a medicaid_trips row + PDF payload ---------- */
+
+const FinalizeSchema = z.object({
+  trip_id: z.string().uuid(),
+  odometer_start: z.number().nonnegative(),
+  odometer_end: z.number().nonnegative(),
+  signature_path: z.string().min(1),
+  signer_name: z.string().min(1),
+  signed_by_escort: z.boolean().optional().default(false),
+});
+
+export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => FinalizeSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    // Driver row (for vehicle info + id)
+    const { data: driver, error: dErr } = await supabase
+      .from("drivers")
+      .select("id, default_vehicle_type, default_plate, default_vin, vehicle_plate")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (dErr) throw new Error(dErr.message);
+    if (!driver) throw new Error("Driver profile not found");
+
+    // Trip (verify driver owns it)
+    const { data: trip, error: tErr } = await supabase
+      .from("trips")
+      .select(
+        "id, passenger_id, pickup_address, dropoff_address, actual_pickup_time, actual_dropoff_time, scheduled_pickup_time",
+      )
+      .eq("id", data.trip_id)
+      .eq("driver_id", driver.id)
+      .maybeSingle();
+    if (tErr) throw new Error(tErr.message);
+    if (!trip) throw new Error("Trip not found for this driver");
+
+    // Passenger
+    const { data: passenger, error: pErr } = await supabase
+      .from("passengers")
+      .select("id, first_name, last_name, phone, medicaid_id, date_of_birth, address")
+      .eq("id", trip.passenger_id)
+      .maybeSingle();
+    if (pErr) throw new Error(pErr.message);
+    if (!passenger) throw new Error("Passenger not found");
+
+    const fullName = `${passenger.first_name ?? ""} ${passenger.last_name ?? ""}`.trim() || "Passenger";
+
+    // Find or create rider
+    let riderId: string | null = null;
+    if (passenger.medicaid_id) {
+      const { data: existing } = await supabase
+        .from("riders")
+        .select("id")
+        .eq("medicaid_id", passenger.medicaid_id)
+        .maybeSingle();
+      if (existing) riderId = existing.id;
+    }
+    if (!riderId) {
+      const { data: created, error: rErr } = await supabase
+        .from("riders")
+        .insert({
+          full_name: fullName,
+          medicaid_id: passenger.medicaid_id ?? `SELF-${passenger.id.slice(0, 8)}`,
+          dob: passenger.date_of_birth ?? null,
+          phone: passenger.phone ?? null,
+          address: passenger.address ?? null,
+        })
+        .select("id")
+        .single();
+      if (rErr) throw new Error(rErr.message);
+      riderId = created.id;
+      // Copy SSN from passenger vault secret if present
+      try {
+        await supabase.rpc("copy_passenger_ssn_to_rider", {
+          _passenger_id: passenger.id,
+          _rider_id: riderId,
+        });
+      } catch {
+        /* non-fatal */
+      }
+    }
+
+    // Driver profile name
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("first_name, last_name, email")
+      .eq("id", userId)
+      .maybeSingle();
+    const driverName =
+      `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || profile?.email || "";
+
+    // Persist odometer_end on the trip if missing
+    await supabase
+      .from("trips")
+      .update({ odometer_end: data.odometer_end })
+      .eq("id", trip.id);
+
+    const pickupIso = trip.actual_pickup_time ?? trip.scheduled_pickup_time ?? new Date().toISOString();
+    const dropoffIso = trip.actual_dropoff_time ?? new Date().toISOString();
+    const legDate = pickupIso.slice(0, 10);
+    const pickupHm = pickupIso.slice(11, 16);
+    const dropoffHm = dropoffIso.slice(11, 16);
+    const miles = Math.max(0, Number((data.odometer_end - data.odometer_start).toFixed(1)));
+
+    const plate = driver.default_plate ?? driver.vehicle_plate ?? "";
+    const vin = driver.default_vin ?? null;
+    const vehicleType = driver.default_vehicle_type ?? null;
+
+    // Check for existing medicaid_trips row for this dispatch trip to avoid duplicates
+    // (link via odometer_start/end + pickup_at is fragile; use driver+rider+pickup_at)
+    const { data: existingMt } = await supabase
+      .from("medicaid_trips")
+      .select("id")
+      .eq("driver_id", userId)
+      .eq("rider_id", riderId)
+      .eq("pickup_at", pickupIso)
+      .maybeSingle();
+
+    let medicaidTripId: string;
+    if (existingMt) {
+      medicaidTripId = existingMt.id;
+    } else {
+      const { data: inserted, error: mtErr } = await supabase
+        .from("medicaid_trips")
+        .insert({
+          driver_id: userId,
+          rider_id: riderId,
+          pickup_at: pickupIso,
+          pickup_address: trip.pickup_address,
+          dropoff_address: trip.dropoff_address,
+          odometer_start: data.odometer_start,
+          odometer_end: data.odometer_end,
+          miles,
+          status: "pending_review",
+          trip_kind: "one_way",
+          vehicle_type: vehicleType,
+          vehicle_plate: plate,
+          vehicle_vin: vin,
+          signature_path: data.signature_path,
+          signature_name: data.signer_name,
+          signed_by_escort: data.signed_by_escort,
+        })
+        .select("id")
+        .single();
+      if (mtErr) throw new Error(mtErr.message);
+      medicaidTripId = inserted.id;
+
+      await supabase.from("medicaid_trip_legs").insert({
+        medicaid_trip_id: medicaidTripId,
+        leg_index: 1,
+        leg_date: legDate,
+        pickup_time: pickupHm,
+        pickup_odometer: data.odometer_start,
+        pickup_address: trip.pickup_address,
+        dropoff_time: dropoffHm,
+        dropoff_odometer: data.odometer_end,
+        dropoff_address: trip.dropoff_address,
+      });
+    }
+
+    // Resolve the ID field for the PDF (prefer full SSN when medicaid_id is a SELF- placeholder)
+    let riderIdentifier = passenger.medicaid_id ?? "";
+    if (!riderIdentifier || riderIdentifier.startsWith("SELF-")) {
+      try {
+        const { data: ssn } = await supabase.rpc("get_decrypted_passenger_ssn", {
+          _passenger_id: passenger.id,
+        });
+        if (ssn) riderIdentifier = String(ssn);
+      } catch {
+        /* fall through */
+      }
+    }
+
+    return {
+      medicaid_trip_id: medicaidTripId,
+      pdf: {
+        rider: {
+          full_name: fullName,
+          medicaid_id: riderIdentifier,
+          dob: passenger.date_of_birth,
+          phone: passenger.phone,
+          address: passenger.address,
+        },
+        driverName,
+        vehiclePlate: plate,
+        vehicleVin: vin,
+        vehicleType,
+        tripKind: "one_way" as const,
+        legs: [
+          {
+            leg_index: 1 as const,
+            leg_date: legDate,
+            pickup_time: pickupHm,
+            pickup_odometer: data.odometer_start,
+            pickup_address: trip.pickup_address,
+            dropoff_time: dropoffHm,
+            dropoff_odometer: data.odometer_end,
+            dropoff_address: trip.dropoff_address,
+          },
+        ],
+        signatureName: data.signer_name,
+        signedByEscort: data.signed_by_escort,
+      },
+    };
+  });

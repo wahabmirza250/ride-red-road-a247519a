@@ -18,14 +18,19 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SignaturePad } from "@/components/driver/SignaturePad";
 import { StatsGrid } from "@/components/driver/StatsGrid";
-import { OdometerPhotoButton } from "@/components/driver/OdometerPhotoButton";
+
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { driverCreatePassenger, driverSearchPassengers } from "@/lib/passenger.functions";
 import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
 import { clockIn, clockOut, getShiftStats, addShiftMiles } from "@/lib/shifts.functions";
 import { recordTripMedia } from "@/lib/tripMedia.functions";
 import { addTripStop, markStopArrived, markStopDeparted } from "@/lib/tripStops.functions";
-import { detectOdometerFromImage } from "@/lib/nemtTrip.functions";
+import {
+  detectOdometerFromImage,
+  finalizeMedicaidFromDispatchTrip,
+  attachStatePdf,
+} from "@/lib/nemtTrip.functions";
+import { generateStateFormPdf } from "@/lib/medicaidPdf";
 import { VerifyMedicaidButton } from "@/components/VerifyMedicaidButton";
 
 export const Route = createFileRoute("/driver/")({ component: DriverHome });
@@ -75,6 +80,8 @@ function DriverHome() {
   const addStopFn = useServerFn(addTripStop);
   const arrivedFn = useServerFn(markStopArrived);
   const departedFn = useServerFn(markStopDeparted);
+  const finalizeFn = useServerFn(finalizeMedicaidFromDispatchTrip);
+  const attachPdfFn = useServerFn(attachStatePdf);
 
   const { user } = useAuth();
   const [driver, setDriver] = useState<DriverRow | null>(null);
@@ -92,8 +99,11 @@ function DriverHome() {
   const [showPicker, setShowPicker] = useState(false);
   const [showAddStop, setShowAddStop] = useState(false);
   const [showPickupForm, setShowPickupForm] = useState(false);
+  const [showDropoffForm, setShowDropoffForm] = useState(false);
   const [pickupOdoDone, setPickupOdoDone] = useState(false);
   const [dropoffOdoDone, setDropoffOdoDone] = useState(false);
+  const [pickupOdoReading, setPickupOdoReading] = useState<number | null>(null);
+  const [dropoffOdoReading, setDropoffOdoReading] = useState<number | null>(null);
 
   // Live speed + odometer accumulation (client-side GPS-derived miles).
   const [speedMph, setSpeedMph] = useState<number | null>(null);
@@ -295,23 +305,75 @@ function DriverHome() {
     if (!active?.trip_id || !driver || !user) return;
     if (!signature) return toast.error("Please have the passenger sign");
     if (!signerName.trim()) return toast.error("Enter signer name");
-    if (!dropoffOdoDone) return toast.error("Capture the drop-off odometer photo first");
+    if (!dropoffOdoDone || dropoffOdoReading == null) {
+      return toast.error("Capture the drop-off odometer photo and reading first");
+    }
+    if (pickupOdoReading == null) {
+      return toast.error("Pickup odometer reading is missing");
+    }
     setSaving(true);
     try {
       const blob = await (await fetch(signature)).blob();
-      const path = `${user.id}/${active.trip_id}-${Date.now()}.png`;
-      const up = await supabase.storage.from("signatures").upload(path, blob, {
+      const sigPath = `${user.id}/${active.trip_id}-${Date.now()}.png`;
+      const up = await supabase.storage.from("signatures").upload(sigPath, blob, {
         contentType: "image/png", upsert: false,
       });
       if (up.error) throw up.error;
       const now = new Date().toISOString();
       const { error } = await supabase.from("trips").update({
-        signature_url: path, signed_at: now, signer_name: signerName.trim(),
+        signature_url: sigPath, signed_at: now, signer_name: signerName.trim(),
         patient_confirmed: true, patient_confirmed_at: now,
       }).eq("id", active.trip_id);
       if (error) throw error;
+
+      // Mark completed BEFORE PDF gen so the trip is closed even if PDF errors.
+      const tripIdSnapshot = active.trip_id;
+      const signatureDataUrl = signature;
+      const signerSnapshot = signerName.trim();
       setShowSign(false); setSignature(null); setSignerName("");
       await setStatus("completed");
+
+      // Generate the state trip-report PDF and attach it to a medicaid_trips row.
+      try {
+        const { medicaid_trip_id, pdf } = await finalizeFn({
+          data: {
+            trip_id: tripIdSnapshot,
+            odometer_start: pickupOdoReading,
+            odometer_end: dropoffOdoReading,
+            signature_path: sigPath,
+            signer_name: signerSnapshot,
+            signed_by_escort: false,
+          },
+        });
+        const pdfBytes = await generateStateFormPdf({
+          rider: pdf.rider,
+          driverName: pdf.driverName,
+          vehiclePlate: pdf.vehiclePlate,
+          vehicleVin: pdf.vehicleVin,
+          vehicleType: pdf.vehicleType,
+          escortName: null,
+          identityVerified: true,
+          tripKind: pdf.tripKind,
+          legs: pdf.legs,
+          signatureName: pdf.signatureName,
+          signatureUrl: signatureDataUrl,
+          signedByEscort: pdf.signedByEscort,
+        });
+        const pdfPath = `${user.id}/${tripIdSnapshot}.pdf`;
+        const pdfBlob = new Blob([pdfBytes as BlobPart], { type: "application/pdf" });
+        const pdfUp = await supabase.storage
+          .from("state-pdfs")
+          .upload(pdfPath, pdfBlob, { upsert: true, contentType: "application/pdf" });
+        if (pdfUp.error) throw pdfUp.error;
+        await attachPdfFn({ data: { trip_id: medicaid_trip_id, state_pdf_path: pdfPath } });
+        toast.success("Trip report PDF generated and saved");
+      } catch (pdfErr) {
+        toast.error(
+          `Trip completed, but PDF generation failed: ${
+            pdfErr instanceof Error ? pdfErr.message : String(pdfErr)
+          }`,
+        );
+      }
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to save signature"); }
     finally { setSaving(false); }
   }
@@ -366,7 +428,13 @@ function DriverHome() {
         : { odometer_end_photo: path, ...(reading != null ? { odometer_end: reading } : {}) };
     const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
     if (error) throw new Error(error.message);
-    if (which === "start") setPickupOdoDone(true); else setDropoffOdoDone(true);
+    if (which === "start") {
+      setPickupOdoDone(true);
+      if (reading != null) setPickupOdoReading(reading);
+    } else {
+      setDropoffOdoDone(true);
+      if (reading != null) setDropoffOdoReading(reading);
+    }
     toast.success("Odometer photo saved");
   }
 
@@ -381,6 +449,25 @@ function DriverHome() {
       toast.error(e instanceof Error ? e.message : "Failed to save form");
     }
   }
+
+  /** Drop-off odometer form — captures reading + photo before signature. */
+  async function saveDropoffForm(file: File, reading: number) {
+    try {
+      await uploadOdometer(file, "end", reading);
+      setShowDropoffForm(false);
+      // Immediately open signature dialog so completion is one continuous flow.
+      setSignerName(passenger ? `${passenger.first_name} ${passenger.last_name}` : "");
+      setSignature(null);
+      setShowSign(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save drop-off form");
+    }
+  }
+
+
+
+
+
 
 
 
@@ -522,25 +609,9 @@ function DriverHome() {
             </div>
           </div>
 
-          {/* Drop-off odometer photo is captured inline; pickup odometer is
-              captured inside the Fill Form dialog (Step 4). */}
-          {tripStatus === "in_progress" && (
-            <div className="rounded-xl border border-dashed border-border bg-surface p-3">
-              <div className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Required before completing
-              </div>
-              <OdometerPhotoButton
-                label="Drop-off odometer photo"
-                captured={dropoffOdoDone}
-                onCaptured={(f) => uploadOdometer(f, "end")}
-              />
-              {!dropoffOdoDone && (
-                <div className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
-                  Capture the drop-off odometer before you can complete the trip.
-                </div>
-              )}
-            </div>
-          )}
+          {/* Drop-off odometer is captured inside the Complete-trip dialog
+              (mirrors the pickup Fill-Form step) so the driver captures the
+              photo + reading in the same flow as the signature. */}
 
           {/* Step-by-step primary action. Only ONE main button per step. */}
           <div className="space-y-2 pt-2">
@@ -571,16 +642,7 @@ function DriverHome() {
             {tripStatus === "in_progress" && (
               <Button
                 className="h-12 w-full rounded-full bg-emerald-500 text-base hover:bg-emerald-600"
-                disabled={!dropoffOdoDone}
-                onClick={() => {
-                  if (!dropoffOdoDone) {
-                    toast.error("Capture the drop-off odometer photo first");
-                    return;
-                  }
-                  setSignerName(passenger ? `${passenger.first_name} ${passenger.last_name}` : "");
-                  setSignature(null);
-                  setShowSign(true);
-                }}
+                onClick={() => setShowDropoffForm(true)}
               >
                 <PenLine className="mr-2 h-5 w-5" /> Complete &amp; get signature
               </Button>
@@ -701,6 +763,18 @@ function DriverHome() {
         onOpenChange={setShowPickupForm}
         onSubmit={savePickupForm}
         alreadyCaptured={pickupOdoDone}
+        title="Trip report — start pickup"
+        submitLabel="Save & start trip"
+      />
+
+      {/* Drop-off odometer form — captures final reading + photo before signature. */}
+      <PickupFormDialog
+        open={showDropoffForm}
+        onOpenChange={setShowDropoffForm}
+        onSubmit={saveDropoffForm}
+        alreadyCaptured={dropoffOdoDone}
+        title="Drop-off odometer"
+        submitLabel="Save & capture signature"
       />
 
       {/* Passenger picker */}
@@ -849,11 +923,15 @@ function PassengerPickerDialog({
 
 function PickupFormDialog({
   open, onOpenChange, onSubmit, alreadyCaptured,
+  title = "Trip report — start pickup",
+  submitLabel = "Save & start trip",
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSubmit: (file: File, reading: number) => Promise<void>;
   alreadyCaptured: boolean;
+  title?: string;
+  submitLabel?: string;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -915,7 +993,7 @@ function PickupFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Trip report — start pickup</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
             Tap the camera to snap the odometer — the number is read automatically.
@@ -975,7 +1053,7 @@ function PickupFormDialog({
             Timestamp is recorded automatically at save.
           </div>
           <Button className="w-full rounded-full" onClick={handleSubmit} disabled={busy || scanning}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & start trip"}
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : submitLabel}
           </Button>
         </div>
       </DialogContent>
