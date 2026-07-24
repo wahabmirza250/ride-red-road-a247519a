@@ -1053,7 +1053,7 @@ function PickupFormDialog({
             Timestamp is recorded automatically at save.
           </div>
           <Button className="w-full rounded-full" onClick={handleSubmit} disabled={busy || scanning}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & start trip"}
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : submitLabel}
           </Button>
         </div>
       </DialogContent>
