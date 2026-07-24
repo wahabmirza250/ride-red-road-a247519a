@@ -39,7 +39,9 @@ function LiveOps() {
   const [reqs, setReqs] = useState<Req[]>([]);
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom?: number; id?: string } | null>(null);
   const [reassigning, setReassigning] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
   const reassign = useServerFn(adminReassignDriver);
+  const cancelTrip = useServerFn(adminCancelTrip);
 
   const onReassign = useCallback(
     async (requestId: string, driverId: string) => {
@@ -55,6 +57,22 @@ function LiveOps() {
       }
     },
     [reassign],
+  );
+
+  const onCancel = useCallback(
+    async (requestId: string) => {
+      if (!window.confirm("Cancel this ride? The driver will be notified.")) return;
+      setCancelling(requestId);
+      try {
+        await cancelTrip({ data: { request_id: requestId } });
+        toast.success("Ride cancelled");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Cancel failed");
+      } finally {
+        setCancelling(null);
+      }
+    },
+    [cancelTrip],
   );
 
   const load = useCallback(async () => {
