@@ -13,6 +13,30 @@ const VehicleType = z.enum([
 ]);
 const TripKind = z.enum(["one_way", "round_trip", "group_tour"]);
 
+const TripReportDraftSchema = z
+  .object({
+    identity_verified: z.enum(["yes", "no", ""]).nullable().optional(),
+    vehicle_type: z.union([VehicleType, z.literal("")]).nullable().optional(),
+    trip_kind: TripKind.nullable().optional(),
+    escort_name: z.string().nullable().optional(),
+    vehicle_plate: z.string().nullable().optional(),
+    vehicle_vin: z.string().nullable().optional(),
+    leg_date: z.string().nullable().optional(),
+    pickup_time: z.string().nullable().optional(),
+    pickup_address: z.string().nullable().optional(),
+    pickup_odometer: z.string().nullable().optional(),
+    dropoff_time: z.string().nullable().optional(),
+    dropoff_address: z.string().nullable().optional(),
+    dropoff_odometer: z.string().nullable().optional(),
+    signed_by_escort: z.boolean().nullable().optional(),
+  })
+  .passthrough();
+
+const TripReportDraftInputSchema = z.object({
+  trip_id: z.string().uuid(),
+  form_data: TripReportDraftSchema,
+});
+
 /* ---------- driver default vehicle ---------- */
 
 export const saveDefaultVehicle = createServerFn({ method: "POST" })
