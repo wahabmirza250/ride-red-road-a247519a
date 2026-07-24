@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SignaturePad } from "@/components/driver/SignaturePad";
 import { StatsGrid } from "@/components/driver/StatsGrid";
-import { OdometerPhotoButton } from "@/components/driver/OdometerPhotoButton";
+
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { driverCreatePassenger, driverSearchPassengers } from "@/lib/passenger.functions";
 import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
