@@ -274,6 +274,7 @@ export const getTripReportDraft = createServerFn({ method: "GET" })
     const { data: trip, error: tripErr } = await query.maybeSingle();
     if (tripErr) throw new Error(tripErr.message);
     if (!trip) throw new Error("Trip not found");
+    if (!trip.driver_id) throw new Error("Trip is missing an assigned driver");
 
     const [{ data: driver }, { data: passenger }, { data: draft }] = await Promise.all([
       supabase
