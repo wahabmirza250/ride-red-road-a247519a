@@ -617,7 +617,7 @@ function DriverHome() {
                 className="h-12 w-full rounded-full bg-primary text-base"
                 onClick={() => setShowPickupForm(true)}
               >
-                <FileCheck className="mr-2 h-5 w-5" /> Fill Form
+                <Camera className="mr-2 h-5 w-5" /> Capture Pickup Odometer &amp; Start Trip
               </Button>
             )}
             {tripStatus === "in_progress" && (
