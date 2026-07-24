@@ -305,23 +305,75 @@ function DriverHome() {
     if (!active?.trip_id || !driver || !user) return;
     if (!signature) return toast.error("Please have the passenger sign");
     if (!signerName.trim()) return toast.error("Enter signer name");
-    if (!dropoffOdoDone) return toast.error("Capture the drop-off odometer photo first");
+    if (!dropoffOdoDone || dropoffOdoReading == null) {
+      return toast.error("Capture the drop-off odometer photo and reading first");
+    }
+    if (pickupOdoReading == null) {
+      return toast.error("Pickup odometer reading is missing");
+    }
     setSaving(true);
     try {
       const blob = await (await fetch(signature)).blob();
-      const path = `${user.id}/${active.trip_id}-${Date.now()}.png`;
-      const up = await supabase.storage.from("signatures").upload(path, blob, {
+      const sigPath = `${user.id}/${active.trip_id}-${Date.now()}.png`;
+      const up = await supabase.storage.from("signatures").upload(sigPath, blob, {
         contentType: "image/png", upsert: false,
       });
       if (up.error) throw up.error;
       const now = new Date().toISOString();
       const { error } = await supabase.from("trips").update({
-        signature_url: path, signed_at: now, signer_name: signerName.trim(),
+        signature_url: sigPath, signed_at: now, signer_name: signerName.trim(),
         patient_confirmed: true, patient_confirmed_at: now,
       }).eq("id", active.trip_id);
       if (error) throw error;
+
+      // Mark completed BEFORE PDF gen so the trip is closed even if PDF errors.
+      const tripIdSnapshot = active.trip_id;
+      const signatureDataUrl = signature;
+      const signerSnapshot = signerName.trim();
       setShowSign(false); setSignature(null); setSignerName("");
       await setStatus("completed");
+
+      // Generate the state trip-report PDF and attach it to a medicaid_trips row.
+      try {
+        const { medicaid_trip_id, pdf } = await finalizeFn({
+          data: {
+            trip_id: tripIdSnapshot,
+            odometer_start: pickupOdoReading,
+            odometer_end: dropoffOdoReading,
+            signature_path: sigPath,
+            signer_name: signerSnapshot,
+            signed_by_escort: false,
+          },
+        });
+        const pdfBytes = await generateStateFormPdf({
+          rider: pdf.rider,
+          driverName: pdf.driverName,
+          vehiclePlate: pdf.vehiclePlate,
+          vehicleVin: pdf.vehicleVin,
+          vehicleType: pdf.vehicleType,
+          escortName: null,
+          identityVerified: true,
+          tripKind: pdf.tripKind,
+          legs: pdf.legs,
+          signatureName: pdf.signatureName,
+          signatureUrl: signatureDataUrl,
+          signedByEscort: pdf.signedByEscort,
+        });
+        const pdfPath = `${user.id}/${tripIdSnapshot}.pdf`;
+        const pdfBlob = new Blob([pdfBytes as BlobPart], { type: "application/pdf" });
+        const pdfUp = await supabase.storage
+          .from("state-pdfs")
+          .upload(pdfPath, pdfBlob, { upsert: true, contentType: "application/pdf" });
+        if (pdfUp.error) throw pdfUp.error;
+        await attachPdfFn({ data: { trip_id: medicaid_trip_id, state_pdf_path: pdfPath } });
+        toast.success("Trip report PDF generated and saved");
+      } catch (pdfErr) {
+        toast.error(
+          `Trip completed, but PDF generation failed: ${
+            pdfErr instanceof Error ? pdfErr.message : String(pdfErr)
+          }`,
+        );
+      }
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to save signature"); }
     finally { setSaving(false); }
   }
@@ -376,7 +428,13 @@ function DriverHome() {
         : { odometer_end_photo: path, ...(reading != null ? { odometer_end: reading } : {}) };
     const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
     if (error) throw new Error(error.message);
-    if (which === "start") setPickupOdoDone(true); else setDropoffOdoDone(true);
+    if (which === "start") {
+      setPickupOdoDone(true);
+      if (reading != null) setPickupOdoReading(reading);
+    } else {
+      setDropoffOdoDone(true);
+      if (reading != null) setDropoffOdoReading(reading);
+    }
     toast.success("Odometer photo saved");
   }
 
@@ -391,6 +449,25 @@ function DriverHome() {
       toast.error(e instanceof Error ? e.message : "Failed to save form");
     }
   }
+
+  /** Drop-off odometer form — captures reading + photo before signature. */
+  async function saveDropoffForm(file: File, reading: number) {
+    try {
+      await uploadOdometer(file, "end", reading);
+      setShowDropoffForm(false);
+      // Immediately open signature dialog so completion is one continuous flow.
+      setSignerName(passenger ? `${passenger.first_name} ${passenger.last_name}` : "");
+      setSignature(null);
+      setShowSign(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save drop-off form");
+    }
+  }
+
+
+
+
+
 
 
 
