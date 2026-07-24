@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseBrowser";
 import { GoogleFleetMap, type FleetMarker } from "@/components/nemt/GoogleFleetMap";
 import { fmtMoney } from "@/lib/rideMath";
-import { adminReassignDriver } from "@/lib/dispatchAdmin.functions";
+import { adminReassignDriver, adminCancelTrip } from "@/lib/dispatchAdmin.functions";
 
 export const Route = createFileRoute("/_authenticated/live-ops")({
   component: LiveOps,
@@ -39,7 +39,9 @@ function LiveOps() {
   const [reqs, setReqs] = useState<Req[]>([]);
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom?: number; id?: string } | null>(null);
   const [reassigning, setReassigning] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
   const reassign = useServerFn(adminReassignDriver);
+  const cancelTrip = useServerFn(adminCancelTrip);
 
   const onReassign = useCallback(
     async (requestId: string, driverId: string) => {
@@ -55,6 +57,22 @@ function LiveOps() {
       }
     },
     [reassign],
+  );
+
+  const onCancel = useCallback(
+    async (requestId: string) => {
+      if (!window.confirm("Cancel this ride? The driver will be notified.")) return;
+      setCancelling(requestId);
+      try {
+        await cancelTrip({ data: { request_id: requestId } });
+        toast.success("Ride cancelled");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Cancel failed");
+      } finally {
+        setCancelling(null);
+      }
+    },
+    [cancelTrip],
   );
 
   const load = useCallback(async () => {
@@ -300,6 +318,13 @@ function LiveOps() {
                       </option>
                     ))}
                   </select>
+                  <button
+                    onClick={() => onCancel(r.id)}
+                    disabled={cancelling === r.id}
+                    className="rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-500/20 disabled:opacity-50"
+                  >
+                    {cancelling === r.id ? "Cancelling…" : "Cancel ride"}
+                  </button>
                 </div>
               </div>
             );
