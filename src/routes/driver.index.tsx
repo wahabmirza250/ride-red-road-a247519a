@@ -206,11 +206,13 @@ function DriverHome() {
 
     if (activeTripId) {
       const { data: t } = await supabase.from("trips")
-        .select("status, passenger_id, odometer_start_photo, odometer_end_photo")
+        .select("status, passenger_id, odometer_start_photo, odometer_end_photo, odometer_start, odometer_end")
         .eq("id", activeTripId).maybeSingle();
       setTripStatus(t?.status ?? "");
-      setPickupOdoDone(!!t?.odometer_start_photo);
-      setDropoffOdoDone(!!t?.odometer_end_photo);
+      setPickupOdoDone(!!t?.odometer_start_photo || t?.odometer_start != null);
+      setDropoffOdoDone(!!t?.odometer_end_photo || t?.odometer_end != null);
+      setPickupOdoReading(t?.odometer_start != null ? Number(t.odometer_start) : null);
+      setDropoffOdoReading(t?.odometer_end != null ? Number(t.odometer_end) : null);
       if (t?.passenger_id) {
         const { data: p } = await supabase.from("passengers")
           .select("id, first_name, last_name, phone, medicaid_id").eq("id", t.passenger_id).maybeSingle();
@@ -223,6 +225,7 @@ function DriverHome() {
     } else {
       setTripStatus(""); setPassenger(null); setStops([]);
       setPickupOdoDone(false); setDropoffOdoDone(false);
+      setPickupOdoReading(null); setDropoffOdoReading(null);
     }
   }, [driver]);
 
@@ -305,7 +308,7 @@ function DriverHome() {
     if (!signature) return toast.error("Please have the passenger sign");
     if (!signerName.trim()) return toast.error("Enter signer name");
     if (!dropoffOdoDone || dropoffOdoReading == null) {
-      return toast.error("Capture the drop-off odometer photo and reading first");
+      return toast.error("Save the drop-off odometer reading first");
     }
     if (pickupOdoReading == null) {
       return toast.error("Pickup odometer reading is missing");
@@ -396,17 +399,20 @@ function DriverHome() {
     });
   }
 
-  async function uploadOdometer(file: File, which: "start" | "end", reading?: number | null) {
+  async function uploadOdometer(file: File | null, which: "start" | "end", reading?: number | null) {
     if (!active?.trip_id || !user) return;
-    const path = `${user.id}/${active.trip_id}/odo_${which}_${Date.now()}.jpg`;
-    const up = await supabase.storage.from("odometers").upload(path, file, {
-      contentType: file.type || "image/jpeg", upsert: false,
-    });
-    if (up.error) throw new Error(up.error.message);
+    let path: string | null = null;
+    if (file) {
+      path = `${user.id}/${active.trip_id}/odo_${which}_${Date.now()}.jpg`;
+      const up = await supabase.storage.from("odometers").upload(path, file, {
+        contentType: file.type || "image/jpeg", upsert: false,
+      });
+      if (up.error) throw new Error(up.error.message);
+    }
     const patch =
       which === "start"
-        ? { odometer_start_photo: path, ...(reading != null ? { odometer_start: reading } : {}) }
-        : { odometer_end_photo: path, ...(reading != null ? { odometer_end: reading } : {}) };
+        ? { ...(path ? { odometer_start_photo: path } : {}), ...(reading != null ? { odometer_start: reading } : {}) }
+        : { ...(path ? { odometer_end_photo: path } : {}), ...(reading != null ? { odometer_end: reading } : {}) };
     const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
     if (error) throw new Error(error.message);
     if (which === "start") {
@@ -416,11 +422,11 @@ function DriverHome() {
       setDropoffOdoDone(true);
       if (reading != null) setDropoffOdoReading(reading);
     }
-    toast.success("Odometer photo saved");
+    toast.success(file ? "Odometer photo and reading saved" : "Odometer reading saved");
   }
 
-  /** Trip report / pickup form — captures odometer reading + photo, then starts the trip. */
-  async function savePickupForm(file: File, reading: number) {
+  /** Trip report / pickup form — captures odometer reading, optional photo, then starts the trip. */
+  async function savePickupForm(file: File | null, reading: number) {
     try {
       await uploadOdometer(file, "start", reading);
       await setStatus("in_progress");
@@ -431,8 +437,8 @@ function DriverHome() {
     }
   }
 
-  /** Drop-off odometer form — captures reading + photo before signature. */
-  async function saveDropoffForm(file: File, reading: number) {
+  /** Drop-off odometer form — captures reading, optional photo before signature. */
+  async function saveDropoffForm(file: File | null, reading: number) {
     try {
       await uploadOdometer(file, "end", reading);
       setShowDropoffForm(false);
@@ -597,12 +603,21 @@ function DriverHome() {
           {/* Step-by-step primary action. Only ONE main button per step. */}
           <div className="space-y-2 pt-2">
             {tripStatus === "assigned" && (
-              <Button
-                className="h-12 w-full rounded-full bg-primary text-base"
-                onClick={() => { setStatus("driver_en_route_to_pickup"); openNavigation(); }}
-              >
-                <Navigation className="mr-2 h-5 w-5" /> Navigate to Pickup
-              </Button>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  className="h-12 w-full rounded-full bg-primary text-base"
+                  onClick={() => { setStatus("driver_en_route_to_pickup"); openNavigation(); }}
+                >
+                  <Navigation className="mr-2 h-5 w-5" /> Navigate
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-12 w-full rounded-full text-base"
+                  onClick={() => setShowPickupForm(true)}
+                >
+                  <FileCheck className="mr-2 h-5 w-5" /> Fill form
+                </Button>
+              </div>
             )}
             {tripStatus === "driver_en_route_to_pickup" && (
               <Button
@@ -738,22 +753,24 @@ function DriverHome() {
       {/* Add-stop dialog */}
       <AddStopDialog open={showAddStop} onOpenChange={setShowAddStop} onAdd={addStop} />
 
-      {/* Pickup odometer capture — photo (for documentation) + manual number entry. */}
+      {/* Pickup odometer capture — manual number entry + optional photo/OCR. */}
       <PickupFormDialog
         open={showPickupForm}
         onOpenChange={setShowPickupForm}
         onSubmit={savePickupForm}
         alreadyCaptured={pickupOdoDone}
+        initialReading={pickupOdoReading}
         title="Pickup odometer"
         submitLabel="Save & start trip"
       />
 
-      {/* Drop-off odometer form — captures final reading + photo before signature. */}
+      {/* Drop-off odometer form — captures final reading + optional photo before signature. */}
       <PickupFormDialog
         open={showDropoffForm}
         onOpenChange={setShowDropoffForm}
         onSubmit={saveDropoffForm}
         alreadyCaptured={dropoffOdoDone}
+        initialReading={dropoffOdoReading}
         title="Drop-off odometer"
         submitLabel="Save & capture signature"
       />
@@ -904,13 +921,15 @@ function PassengerPickerDialog({
 
 function PickupFormDialog({
   open, onOpenChange, onSubmit, alreadyCaptured,
+  initialReading,
   title = "Trip report — start pickup",
   submitLabel = "Save & start trip",
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onSubmit: (file: File, reading: number) => Promise<void>;
+  onSubmit: (file: File | null, reading: number) => Promise<void>;
   alreadyCaptured: boolean;
+  initialReading?: number | null;
   title?: string;
   submitLabel?: string;
 }) {
@@ -925,8 +944,10 @@ function PickupFormDialog({
   useEffect(() => {
     if (!open) {
       setFile(null); setPreview(null); setReading(""); setBusy(false); setScanning(false);
+    } else if (initialReading != null) {
+      setReading(String(initialReading));
     }
-  }, [open]);
+  }, [open, initialReading]);
 
   function fileToDataUrl(f: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -962,10 +983,9 @@ function PickupFormDialog({
   async function handleSubmit() {
     const n = Number(reading);
     if (!Number.isFinite(n) || n <= 0) return toast.error("Enter a valid odometer reading");
-    if (!file && !alreadyCaptured) return toast.error("Take the odometer photo");
     setBusy(true);
     try {
-      if (file) await onSubmit(file, n);
+      await onSubmit(file, n);
     } finally {
       setBusy(false);
     }
@@ -977,9 +997,8 @@ function PickupFormDialog({
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Take a photo of the odometer for documentation. Auto-detect will try
-            to read the number — if it looks wrong or fails, just type the reading
-            in manually. Both the photo and the number are saved.
+            Type the odometer reading manually. The camera is optional for photo
+            documentation and auto-detect; if it fails, the typed reading is still saved.
           </p>
           <div className="space-y-1.5">
             <Label htmlFor="odo">Odometer reading (miles)</Label>
@@ -1026,7 +1045,7 @@ function PickupFormDialog({
                 ? "Detecting number from photo… you can type the reading if you'd rather not wait."
                 : file
                   ? "Photo captured. Double-check the number — edit it if auto-detect got it wrong."
-                  : "Photo is required for documentation. You can type the number manually."}
+                  : "Camera is optional. You can type the number and save without a photo."}
             </p>
           </div>
           {preview && (
