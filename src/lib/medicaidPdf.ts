@@ -88,12 +88,11 @@ export async function generateStateFormPdf(
   /* ---------- Member section ---------- */
   setText("Members Name", a.rider?.full_name ?? "");
   setText("Member Health First Colorado ID", a.rider?.medicaid_id ?? "");
-  // Intentionally NOT auto-filled — left blank for manual entry by the
-  // driver/reviewer before submission:
-  //   • "Did the Driver verify the member's identity?" (yes/no)
-  //   • "Type of Vehicle" (ground ambulance / wheelchair van / stretcher van /
-  //     taxi / mobility-ambulatory vehicle)
-  //   • "Type of Trip" (one way / round trip)
+  if (typeof a.identityVerified === "boolean") {
+    setRadio("driver verify member identity", a.identityVerified ? "yes" : "no");
+  }
+  setRadio("type of vehicle", vehicleRadioValue(a.vehicleType));
+  setRadio("type of trip", tripKindRadioValue(a.tripKind));
   setText(
     "Trip Date",
     leg1?.leg_date ? new Date(leg1.leg_date).toLocaleDateString() : "",
@@ -409,4 +408,32 @@ function splitTime(t?: string | null): { hm: string; ampm: "AM" | "PM" } {
   const ampm: "AM" | "PM" = h >= 12 ? "PM" : "AM";
   const h12 = ((h + 11) % 12) + 1;
   return { hm: `${h12}:${m}`, ampm };
+}
+
+function vehicleRadioValue(v?: string | null): string | null {
+  switch (v) {
+    case "ground_ambulance":
+      return "ground ambulance";
+    case "wheelchair_van":
+      return "wheelchair van";
+    case "stretcher_van":
+      return "stretcher van";
+    case "taxi":
+      return "taxi";
+    case "ambulatory":
+      return "Mobility/Ambulatory vehicle";
+    default:
+      return null;
+  }
+}
+
+function tripKindRadioValue(v?: string | null): string | null {
+  switch (v) {
+    case "one_way":
+      return "one way";
+    case "round_trip":
+      return "round trip";
+    default:
+      return null;
+  }
 }
