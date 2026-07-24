@@ -80,6 +80,8 @@ function DriverHome() {
   const addStopFn = useServerFn(addTripStop);
   const arrivedFn = useServerFn(markStopArrived);
   const departedFn = useServerFn(markStopDeparted);
+  const finalizeFn = useServerFn(finalizeMedicaidFromDispatchTrip);
+  const attachPdfFn = useServerFn(attachStatePdf);
 
   const { user } = useAuth();
   const [driver, setDriver] = useState<DriverRow | null>(null);
