@@ -28,9 +28,8 @@ import { addTripStop, markStopArrived, markStopDeparted } from "@/lib/tripStops.
 import {
   detectOdometerFromImage,
   finalizeMedicaidFromDispatchTrip,
-  attachStatePdf,
+  ensureDispatchTripStatePdf,
 } from "@/lib/nemtTrip.functions";
-import { generateStateFormPdf } from "@/lib/medicaidPdf";
 import { VerifyMedicaidButton } from "@/components/VerifyMedicaidButton";
 
 export const Route = createFileRoute("/driver/")({ component: DriverHome });
@@ -81,7 +80,7 @@ function DriverHome() {
   const arrivedFn = useServerFn(markStopArrived);
   const departedFn = useServerFn(markStopDeparted);
   const finalizeFn = useServerFn(finalizeMedicaidFromDispatchTrip);
-  const attachPdfFn = useServerFn(attachStatePdf);
+  const ensurePdfFn = useServerFn(ensureDispatchTripStatePdf);
 
   const { user } = useAuth();
   const [driver, setDriver] = useState<DriverRow | null>(null);
@@ -328,14 +327,16 @@ function DriverHome() {
 
       // Mark completed BEFORE PDF gen so the trip is closed even if PDF errors.
       const tripIdSnapshot = active.trip_id;
-      const signatureDataUrl = signature;
       const signerSnapshot = signerName.trim();
       setShowSign(false); setSignature(null); setSignerName("");
       await setStatus("completed");
 
-      // Generate the state trip-report PDF and attach it to a medicaid_trips row.
+      // Server-side PDF generation: finalize the medicaid_trips row from
+      // trip data (addresses, times, driver, vehicle, miles all auto-derived),
+      // then render + upload the HCPF PDF on the server so we don't rely on
+      // the browser being able to fetch the template asset.
       try {
-        const { medicaid_trip_id, pdf } = await finalizeFn({
+        await finalizeFn({
           data: {
             trip_id: tripIdSnapshot,
             odometer_start: pickupOdoReading,
@@ -345,27 +346,7 @@ function DriverHome() {
             signed_by_escort: false,
           },
         });
-        const pdfBytes = await generateStateFormPdf({
-          rider: pdf.rider,
-          driverName: pdf.driverName,
-          vehiclePlate: pdf.vehiclePlate,
-          vehicleVin: pdf.vehicleVin,
-          vehicleType: pdf.vehicleType,
-          escortName: null,
-          identityVerified: true,
-          tripKind: pdf.tripKind,
-          legs: pdf.legs,
-          signatureName: pdf.signatureName,
-          signatureUrl: signatureDataUrl,
-          signedByEscort: pdf.signedByEscort,
-        });
-        const pdfPath = `${user.id}/${tripIdSnapshot}.pdf`;
-        const pdfBlob = new Blob([pdfBytes as BlobPart], { type: "application/pdf" });
-        const pdfUp = await supabase.storage
-          .from("state-pdfs")
-          .upload(pdfPath, pdfBlob, { upsert: true, contentType: "application/pdf" });
-        if (pdfUp.error) throw pdfUp.error;
-        await attachPdfFn({ data: { trip_id: medicaid_trip_id, state_pdf_path: pdfPath } });
+        await ensurePdfFn({ data: { trip_id: tripIdSnapshot } });
         toast.success("Trip report PDF generated and saved");
       } catch (pdfErr) {
         toast.error(
@@ -636,7 +617,7 @@ function DriverHome() {
                 className="h-12 w-full rounded-full bg-primary text-base"
                 onClick={() => setShowPickupForm(true)}
               >
-                <FileCheck className="mr-2 h-5 w-5" /> Fill Form
+                <Camera className="mr-2 h-5 w-5" /> Capture Pickup Odometer &amp; Start Trip
               </Button>
             )}
             {tripStatus === "in_progress" && (
@@ -757,13 +738,13 @@ function DriverHome() {
       {/* Add-stop dialog */}
       <AddStopDialog open={showAddStop} onOpenChange={setShowAddStop} onAdd={addStop} />
 
-      {/* Trip report / pickup form — captures odometer reading + photo, then starts the trip. */}
+      {/* Pickup odometer capture — photo (for documentation) + manual number entry. */}
       <PickupFormDialog
         open={showPickupForm}
         onOpenChange={setShowPickupForm}
         onSubmit={savePickupForm}
         alreadyCaptured={pickupOdoDone}
-        title="Trip report — start pickup"
+        title="Pickup odometer"
         submitLabel="Save & start trip"
       />
 
@@ -996,8 +977,9 @@ function PickupFormDialog({
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Tap the camera to snap the odometer — the number is read automatically.
-            You can also type it manually. Saving starts the trip.
+            Take a photo of the odometer for documentation. Auto-detect will try
+            to read the number — if it looks wrong or fails, just type the reading
+            in manually. Both the photo and the number are saved.
           </p>
           <div className="space-y-1.5">
             <Label htmlFor="odo">Odometer reading (miles)</Label>
@@ -1007,8 +989,7 @@ function PickupFormDialog({
                 inputMode="decimal"
                 value={reading}
                 onChange={(e) => setReading(e.target.value.replace(/[^\d.]/g, ""))}
-                placeholder={scanning ? "Reading photo…" : "e.g. 84521"}
-                disabled={scanning}
+                placeholder={scanning ? "Auto-reading… (you can still type)" : "e.g. 84521"}
                 className="flex-1"
               />
               <input
@@ -1028,31 +1009,33 @@ function PickupFormDialog({
                 variant="secondary"
                 className="shrink-0 gap-1.5"
                 onClick={() => cameraInputRef.current?.click()}
-                disabled={scanning || busy}
+                disabled={busy}
                 aria-label="Capture odometer with camera"
                 title="Capture odometer with camera"
               >
                 {scanning
                   ? <Loader2 className="h-4 w-4 animate-spin" />
                   : <Camera className="h-4 w-4" />}
-                <span className="hidden sm:inline text-xs">Camera</span>
+                <span className="hidden sm:inline text-xs">
+                  {file ? "Retake" : "Camera"}
+                </span>
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
               {scanning
-                ? "Detecting number from photo…"
+                ? "Detecting number from photo… you can type the reading if you'd rather not wait."
                 : file
-                  ? "Photo captured. Double-check the number is correct."
-                  : "Manual entry is fine too — photo required to start the trip."}
+                  ? "Photo captured. Double-check the number — edit it if auto-detect got it wrong."
+                  : "Photo is required for documentation. You can type the number manually."}
             </p>
           </div>
           {preview && (
             <img src={preview} alt="Odometer preview" className="max-h-40 w-full rounded-lg border border-border object-contain" />
           )}
           <div className="text-[11px] text-muted-foreground">
-            Timestamp is recorded automatically at save.
+            Pickup / drop-off time is stamped automatically from the system clock.
           </div>
-          <Button className="w-full rounded-full" onClick={handleSubmit} disabled={busy || scanning}>
+          <Button className="w-full rounded-full" onClick={handleSubmit} disabled={busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : submitLabel}
           </Button>
         </div>
