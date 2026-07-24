@@ -242,6 +242,128 @@ export const detectOdometerFromImage = createServerFn({ method: "POST" })
     return { odometer: digits, confidence: Math.max(0, Math.min(1, confidence)), raw: content.slice(0, 160) };
   });
 
+export const getTripReportDraft = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ trip_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "admin",
+    });
+    if (roleErr) throw new Error(roleErr.message);
+
+    let query = supabase
+      .from("trips")
+      .select(
+        "id, driver_id, passenger_id, pickup_address, dropoff_address, scheduled_pickup_time, actual_pickup_time, actual_dropoff_time, odometer_start, odometer_end",
+      )
+      .eq("id", data.trip_id);
+
+    if (!isAdmin) {
+      const { data: driver, error: driverErr } = await supabase
+        .from("drivers")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (driverErr) throw new Error(driverErr.message);
+      if (!driver) throw new Error("Driver profile not found");
+      query = query.eq("driver_id", driver.id);
+    }
+
+    const { data: trip, error: tripErr } = await query.maybeSingle();
+    if (tripErr) throw new Error(tripErr.message);
+    if (!trip) throw new Error("Trip not found");
+
+    const [{ data: driver }, { data: passenger }, { data: draft }] = await Promise.all([
+      supabase
+        .from("drivers")
+        .select("default_vehicle_type, default_plate, default_vin, vehicle_plate")
+        .eq("id", trip.driver_id)
+        .maybeSingle(),
+      supabase
+        .from("passengers")
+        .select("first_name, last_name, medicaid_id")
+        .eq("id", trip.passenger_id)
+        .maybeSingle(),
+      supabase
+        .from("dispatch_trip_report_drafts")
+        .select("form_data, updated_at")
+        .eq("dispatch_trip_id", trip.id)
+        .maybeSingle(),
+    ]);
+
+    const pickupIso = trip.actual_pickup_time ?? trip.scheduled_pickup_time ?? new Date().toISOString();
+    const dropoffIso = trip.actual_dropoff_time ?? new Date().toISOString();
+    const defaults = {
+      identity_verified: "" as const,
+      vehicle_type: (driver?.default_vehicle_type ?? "") as string,
+      trip_kind: "one_way" as const,
+      escort_name: "",
+      vehicle_plate: driver?.default_plate ?? driver?.vehicle_plate ?? "",
+      vehicle_vin: driver?.default_vin ?? "",
+      leg_date: pickupIso.slice(0, 10),
+      pickup_time: pickupIso.slice(11, 16),
+      pickup_address: trip.pickup_address ?? "",
+      pickup_odometer: trip.odometer_start != null ? String(trip.odometer_start) : "",
+      dropoff_time: dropoffIso.slice(11, 16),
+      dropoff_address: trip.dropoff_address ?? "",
+      dropoff_odometer: trip.odometer_end != null ? String(trip.odometer_end) : "",
+      signed_by_escort: false,
+    };
+
+    return {
+      defaults,
+      form_data: { ...defaults, ...((draft?.form_data as Record<string, unknown> | null) ?? {}) },
+      updated_at: draft?.updated_at ?? null,
+      passenger_name: passenger
+        ? `${passenger.first_name ?? ""} ${passenger.last_name ?? ""}`.trim()
+        : "",
+      medicaid_id: passenger?.medicaid_id ?? null,
+    };
+  });
+
+export const saveTripReportDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => TripReportDraftInputSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "admin",
+    });
+    if (roleErr) throw new Error(roleErr.message);
+
+    let query = supabase.from("trips").select("id, driver_id").eq("id", data.trip_id);
+    if (!isAdmin) {
+      const { data: driver, error: driverErr } = await supabase
+        .from("drivers")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (driverErr) throw new Error(driverErr.message);
+      if (!driver) throw new Error("Driver profile not found");
+      query = query.eq("driver_id", driver.id);
+    }
+    const { data: trip, error: tripErr } = await query.maybeSingle();
+    if (tripErr) throw new Error(tripErr.message);
+    if (!trip) throw new Error("Trip not found");
+
+    const { error } = await supabase
+      .from("dispatch_trip_report_drafts")
+      .upsert(
+        {
+          dispatch_trip_id: data.trip_id,
+          form_data: data.form_data,
+          updated_by: userId,
+          updated_at: new Date().toISOString(),
+        } as any,
+        { onConflict: "dispatch_trip_id" },
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 /* ---------- create a trip group (one PDF per rider) ---------- */
 
 const CreateSchema = z.object({
