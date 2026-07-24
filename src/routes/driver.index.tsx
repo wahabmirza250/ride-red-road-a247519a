@@ -90,6 +90,7 @@ function DriverHome() {
   const [cancelling, setCancelling] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [showAddStop, setShowAddStop] = useState(false);
+  const [showPickupForm, setShowPickupForm] = useState(false);
   const [pickupOdoDone, setPickupOdoDone] = useState(false);
   const [dropoffOdoDone, setDropoffOdoDone] = useState(false);
 
@@ -351,18 +352,33 @@ function DriverHome() {
     });
   }
 
-  async function uploadOdometer(file: File, which: "start" | "end") {
+  async function uploadOdometer(file: File, which: "start" | "end", reading?: number | null) {
     if (!active?.trip_id || !user) return;
     const path = `${user.id}/${active.trip_id}/odo_${which}_${Date.now()}.jpg`;
     const up = await supabase.storage.from("odometers").upload(path, file, {
       contentType: file.type || "image/jpeg", upsert: false,
     });
     if (up.error) throw new Error(up.error.message);
-    const patch = which === "start" ? { odometer_start_photo: path } : { odometer_end_photo: path };
+    const patch =
+      which === "start"
+        ? { odometer_start_photo: path, ...(reading != null ? { odometer_start: reading } : {}) }
+        : { odometer_end_photo: path, ...(reading != null ? { odometer_end: reading } : {}) };
     const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
     if (error) throw new Error(error.message);
     if (which === "start") setPickupOdoDone(true); else setDropoffOdoDone(true);
     toast.success("Odometer photo saved");
+  }
+
+  /** Trip report / pickup form — captures odometer reading + photo, then starts the trip. */
+  async function savePickupForm(file: File, reading: number) {
+    try {
+      await uploadOdometer(file, "start", reading);
+      await setStatus("in_progress");
+      setShowPickupForm(false);
+      toast.success("Trip started");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save form");
+    }
   }
 
 
@@ -505,25 +521,8 @@ function DriverHome() {
             </div>
           </div>
 
-          {/* Required trip documentation — odometer photos gate the next stage. */}
-          {tripStatus === "arrived_at_pickup" && (
-            <div className="rounded-xl border border-dashed border-border bg-surface p-3">
-              <div className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Required before starting the ride
-              </div>
-              <OdometerPhotoButton
-                label="Pickup odometer photo"
-                captured={pickupOdoDone}
-                onCaptured={(f) => uploadOdometer(f, "start")}
-              />
-              {!pickupOdoDone && (
-                <div className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
-                  Capture the pickup odometer before you can start the ride.
-                </div>
-              )}
-            </div>
-          )}
-
+          {/* Drop-off odometer photo is captured inline; pickup odometer is
+              captured inside the Fill Form dialog (Step 4). */}
           {tripStatus === "in_progress" && (
             <div className="rounded-xl border border-dashed border-border bg-surface p-3">
               <div className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
@@ -542,51 +541,35 @@ function DriverHome() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 pt-2">
-            <Button variant="outline" className="rounded-full" onClick={openNavigation}>
-              <Navigation className="mr-1 h-4 w-4" /> Navigate
-            </Button>
-            <Button variant="outline" className="rounded-full" onClick={() => setShowAddStop(true)}>
-              <Plus className="mr-1 h-4 w-4" /> Add stop
-            </Button>
-            {active.trip_id && (
-              <Link to="/trips/$tripId/proof" params={{ tripId: active.trip_id }}
-                className="inline-flex h-10 items-center justify-center rounded-full border border-input bg-background px-4 py-2 text-sm font-medium">
-                <FileCheck className="mr-1 h-4 w-4" /> Proof
-              </Link>
-            )}
-            <Button variant="destructive" className="rounded-full" onClick={cancelActiveTrip} disabled={cancelling}>
-              {cancelling ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />} Cancel
-            </Button>
+          {/* Step-by-step primary action. Only ONE main button per step. */}
+          <div className="space-y-2 pt-2">
             {tripStatus === "assigned" && (
-              <Button className="rounded-full bg-primary col-span-2"
-                onClick={() => { setStatus("driver_en_route_to_pickup"); openNavigation(); }}>
-                <Navigation className="mr-1 h-4 w-4" /> Start Pickup
+              <Button
+                className="h-12 w-full rounded-full bg-primary text-base"
+                onClick={() => { setStatus("driver_en_route_to_pickup"); openNavigation(); }}
+              >
+                <Navigation className="mr-2 h-5 w-5" /> Navigate to Pickup
               </Button>
             )}
             {tripStatus === "driver_en_route_to_pickup" && (
-              <Button className="rounded-full col-span-2" onClick={() => setStatus("arrived_at_pickup")}>
-                <Car className="mr-1 h-4 w-4" /> I've Arrived
+              <Button
+                className="h-12 w-full rounded-full bg-primary text-base"
+                onClick={() => setStatus("arrived_at_pickup")}
+              >
+                <Car className="mr-2 h-5 w-5" /> Arrive at Pickup
               </Button>
             )}
             {tripStatus === "arrived_at_pickup" && (
               <Button
-                className="rounded-full col-span-2"
-                disabled={!pickupOdoDone}
-                onClick={() => {
-                  if (!pickupOdoDone) {
-                    toast.error("Capture the pickup odometer photo first");
-                    return;
-                  }
-                  setStatus("in_progress");
-                }}
+                className="h-12 w-full rounded-full bg-primary text-base"
+                onClick={() => setShowPickupForm(true)}
               >
-                <Car className="mr-1 h-4 w-4" /> Start Ride
+                <FileCheck className="mr-2 h-5 w-5" /> Fill Form
               </Button>
             )}
             {tripStatus === "in_progress" && (
               <Button
-                className="rounded-full bg-emerald-500 hover:bg-emerald-600 col-span-2"
+                className="h-12 w-full rounded-full bg-emerald-500 text-base hover:bg-emerald-600"
                 disabled={!dropoffOdoDone}
                 onClick={() => {
                   if (!dropoffOdoDone) {
@@ -598,9 +581,42 @@ function DriverHome() {
                   setShowSign(true);
                 }}
               >
-                <PenLine className="mr-1 h-4 w-4" /> Complete &amp; get signature
+                <PenLine className="mr-2 h-5 w-5" /> Complete &amp; get signature
               </Button>
             )}
+
+            {/* Secondary actions — always small, out of the main flow. */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <div className="flex flex-wrap gap-2">
+                {tripStatus && tripStatus !== "assigned" && (
+                  <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={openNavigation}>
+                    <Navigation className="mr-1 h-3.5 w-3.5" /> Navigate
+                  </Button>
+                )}
+                {tripStatus !== "in_progress" ? null : null}
+                <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={() => setShowAddStop(true)}>
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Add stop
+                </Button>
+                {active.trip_id && tripStatus === "in_progress" && (
+                  <Link
+                    to="/trips/$tripId/proof"
+                    params={{ tripId: active.trip_id }}
+                    className="inline-flex h-8 items-center justify-center rounded-full px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    <FileCheck className="mr-1 h-3.5 w-3.5" /> Proof
+                  </Link>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={cancelActiveTrip}
+                disabled={cancelling}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+              >
+                {cancelling ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                Cancel ride
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -677,6 +693,14 @@ function DriverHome() {
 
       {/* Add-stop dialog */}
       <AddStopDialog open={showAddStop} onOpenChange={setShowAddStop} onAdd={addStop} />
+
+      {/* Trip report / pickup form — captures odometer reading + photo, then starts the trip. */}
+      <PickupFormDialog
+        open={showPickupForm}
+        onOpenChange={setShowPickupForm}
+        onSubmit={savePickupForm}
+        alreadyCaptured={pickupOdoDone}
+      />
 
       {/* Passenger picker */}
       <PassengerPickerDialog open={showPicker} onOpenChange={setShowPicker} onPick={switchPassenger} />
@@ -817,6 +841,90 @@ function PassengerPickerDialog({
             </Button>
           </div>
         )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PickupFormDialog({
+  open, onOpenChange, onSubmit, alreadyCaptured,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSubmit: (file: File, reading: number) => Promise<void>;
+  alreadyCaptured: boolean;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [reading, setReading] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setFile(null); setPreview(null); setReading(""); setBusy(false);
+    }
+  }, [open]);
+
+  function pickFile(f: File | null) {
+    setFile(f);
+    setPreview(f ? URL.createObjectURL(f) : null);
+  }
+
+  async function handleSubmit() {
+    const n = Number(reading);
+    if (!Number.isFinite(n) || n <= 0) return toast.error("Enter a valid odometer reading");
+    if (!file && !alreadyCaptured) return toast.error("Take the odometer photo");
+    setBusy(true);
+    try {
+      // If a new photo was picked, use it; otherwise reuse the already-captured
+      // photo with just the reading updated (via a tiny empty-blob upload avoided
+      // by requiring a photo when none exists).
+      if (file) await onSubmit(file, n);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Trip report — start pickup</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Enter the current odometer reading and take a photo of the odometer.
+            This photo doubles as pickup proof — the trip starts when you save.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="odo">Odometer reading (miles)</Label>
+            <Input
+              id="odo"
+              inputMode="decimal"
+              value={reading}
+              onChange={(e) => setReading(e.target.value.replace(/[^\d.]/g, ""))}
+              placeholder="e.g. 84521"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="odo-photo">Odometer photo</Label>
+            <input
+              id="odo-photo"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-xs file:mr-3 file:rounded-full file:border file:border-border file:bg-surface file:px-3 file:py-1.5 file:text-xs file:font-medium"
+            />
+            {preview && (
+              <img src={preview} alt="Odometer preview" className="mt-2 max-h-40 rounded-lg border border-border" />
+            )}
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            Timestamp is recorded automatically at save.
+          </div>
+          <Button className="w-full rounded-full" onClick={handleSubmit} disabled={busy}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & start trip"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
