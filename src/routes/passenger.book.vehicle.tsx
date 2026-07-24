@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { passengerRequestRide, getVehicleEtas } from "@/lib/dispatch.functions";
-import { getPassengerIdentity, updatePassengerIdentity } from "@/lib/passenger.functions";
+import { updatePassengerIdentity } from "@/lib/passenger.functions";
+import { getMyPassengerProfile } from "@/lib/passengerPublic.functions";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseBrowser";
 import { cn } from "@/lib/utils";
@@ -49,7 +50,7 @@ function VehicleSelect() {
   const { user } = useAuth();
   const request = useServerFn(passengerRequestRide);
   const etas = useServerFn(getVehicleEtas);
-  const fetchIdentity = useServerFn(getPassengerIdentity);
+  const fetchProfile = useServerFn(getMyPassengerProfile);
   const saveIdentity = useServerFn(updatePassengerIdentity);
 
   const [selected, setSelected] = useState<VehicleKey>("ambulatory");
@@ -89,25 +90,39 @@ function VehicleSelect() {
   }, [user]);
 
   useEffect(() => {
-    if (!user) return;
-    const deviceId =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem("passenger_device_id") ?? ""
-        : "";
-    void fetchIdentity({ data: { device_id: deviceId } })
-      .then((r) => {
-        setHasIdentity(r.has_identity);
-        if (r.medicaid_id) {
-          setMedicaidId(r.medicaid_id);
+    // Ensure a device_id exists so guests and signed-in users both have
+    // a stable key to look up their saved profile / identity.
+    let deviceId = "";
+    if (typeof window !== "undefined") {
+      deviceId = window.localStorage.getItem("passenger_device_id") ?? "";
+      if (!deviceId) {
+        deviceId = crypto.randomUUID();
+        window.localStorage.setItem("passenger_device_id", deviceId);
+      }
+    }
+    if (!deviceId) {
+      setIdentityLoaded(true);
+      return;
+    }
+    void fetchProfile({ data: { device_id: deviceId } })
+      .then((row) => {
+        if (!row) return;
+        const mid = (row.medicaid_id ?? "").trim();
+        const hasRealMedicaid =
+          !!mid && !mid.startsWith("SELF-") && !mid.startsWith("WALK-");
+        const hasSsnDob = !!row.ssn_last4 && !!row.date_of_birth;
+        if (hasRealMedicaid) {
+          setMedicaidId(mid);
           setIdMode("medicaid");
-        } else if (r.ssn_last4 && r.date_of_birth) {
-          setDob(r.date_of_birth);
+        } else if (hasSsnDob) {
+          setDob(row.date_of_birth ?? "");
           setIdMode("ssn");
         }
+        setHasIdentity(hasRealMedicaid || hasSsnDob);
       })
       .catch(() => {})
       .finally(() => setIdentityLoaded(true));
-  }, [user, fetchIdentity]);
+  }, [user, fetchProfile]);
 
   const identityReady =
     hasIdentity ||
