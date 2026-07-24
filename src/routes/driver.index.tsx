@@ -284,10 +284,16 @@ function DriverHome() {
     void loadRequests();
   }
 
-  async function saveSignatureAndStart() {
+  /**
+   * Capture passenger signature and immediately mark the trip completed.
+   * Signature is now part of the final trip-completion step — no separate
+   * mid-trip screen — so the driver signs off with the rider exactly once.
+   */
+  async function saveSignatureAndComplete() {
     if (!active?.trip_id || !driver || !user) return;
     if (!signature) return toast.error("Please have the passenger sign");
     if (!signerName.trim()) return toast.error("Enter signer name");
+    if (!dropoffOdoDone) return toast.error("Capture the drop-off odometer photo first");
     setSaving(true);
     try {
       const blob = await (await fetch(signature)).blob();
@@ -303,7 +309,7 @@ function DriverHome() {
       }).eq("id", active.trip_id);
       if (error) throw error;
       setShowSign(false); setSignature(null); setSignerName("");
-      await setStatus("in_progress");
+      await setStatus("completed");
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to save signature"); }
     finally { setSaving(false); }
   }
@@ -359,16 +365,8 @@ function DriverHome() {
     toast.success("Odometer photo saved");
   }
 
-  async function uploadCabinClip(blob: Blob, kind: "cabin_video_pickup" | "cabin_video_dropoff", mimeType: string) {
-    if (!active?.trip_id || !user) return;
-    const ext = mimeType.includes("mp4") ? "mp4" : "webm";
-    const path = `${user.id}/${active.trip_id}/cabin_${kind}_${Date.now()}.${ext}`;
-    const up = await supabase.storage.from("trip-media").upload(path, blob, {
-      contentType: mimeType, upsert: false,
-    });
-    if (up.error) throw new Error(up.error.message);
-    await recordMediaFn({ data: { trip_id: active.trip_id, kind, storage_path: path } });
-  }
+
+
 
   async function addStop(address: string, coords: { lat: number; lng: number } | null) {
     if (!active?.trip_id) return;
