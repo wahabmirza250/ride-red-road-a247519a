@@ -816,6 +816,7 @@ function DriverHome() {
         open={showPickupForm}
         onOpenChange={setShowPickupForm}
         tripId={active?.trip_id ?? null}
+        readingField="pickup"
         onSubmit={savePickupForm}
         alreadyCaptured={pickupOdoDone}
         initialReading={pickupOdoReading}
@@ -828,6 +829,7 @@ function DriverHome() {
         open={showDropoffForm}
         onOpenChange={setShowDropoffForm}
         tripId={active?.trip_id ?? null}
+        readingField="dropoff"
         onSubmit={saveDropoffForm}
         alreadyCaptured={dropoffOdoDone}
         initialReading={dropoffOdoReading}
@@ -981,13 +983,14 @@ function PassengerPickerDialog({
 
 function PickupFormDialog({
   open, onOpenChange, tripId, onSubmit, alreadyCaptured,
-  initialReading,
+  initialReading, readingField,
   title = "Trip report — start pickup",
   submitLabel = "Save & start trip",
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   tripId: string | null;
+  readingField: "pickup" | "dropoff";
   onSubmit: (form: TripReportDraftForm, pickupFile: File | null, dropoffFile: File | null) => Promise<void>;
   alreadyCaptured: boolean;
   initialReading?: number | null;
@@ -1039,13 +1042,14 @@ function PickupFormDialog({
         setForm({
           ...emptyForm,
           ...loaded,
-          pickup_odometer: initialReading != null ? String(initialReading) : loaded.pickup_odometer ?? "",
+          pickup_odometer: readingField === "pickup" && initialReading != null ? String(initialReading) : loaded.pickup_odometer ?? "",
+          dropoff_odometer: readingField === "dropoff" && initialReading != null ? String(initialReading) : loaded.dropoff_odometer ?? "",
         });
       })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Could not load trip report"))
       .finally(() => { if (!cancelled) setLoadingDraft(false); });
     return () => { cancelled = true; };
-  }, [open, tripId, initialReading, loadDraft]);
+  }, [open, tripId, initialReading, readingField, loadDraft]);
 
   function setField<K extends keyof TripReportDraftForm>(key: K, value: TripReportDraftForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
