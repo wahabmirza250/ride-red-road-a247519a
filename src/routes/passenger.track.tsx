@@ -1,16 +1,16 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Search, MapPin, Clock, Phone, ChevronLeft } from "lucide-react";
+import { Loader2, MapPin, Clock, Phone, ChevronLeft, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { lookupPassengerRides } from "@/lib/passenger.functions";
 import { fmtMoney } from "@/lib/rideMath";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/passenger/track")({
+  ssr: false,
   component: TrackExisting,
 });
 
@@ -24,50 +24,77 @@ type Trip = {
   driver: { name: string; phone: string | null; vehicle: string | null } | null;
 };
 
+/**
+ * "My rides" — signed-in-only.
+ *
+ * PRIVACY: The previous version accepted phone / Medicaid ID from ANY visitor
+ * and looked rides up with a service-role fuzzy phone match, which leaked
+ * other passengers' trip details. It also auto-ran that lookup from values
+ * cached in `localStorage`, so a fresh visitor on a shared device could see
+ * whichever passenger had used the page last. This screen now requires sign
+ * in and shows only trips owned by the authenticated passenger.
+ */
 function TrackExisting() {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const lookup = useServerFn(lookupPassengerRides);
-  const [phone, setPhone] = useState("");
-  const [medicaid, setMedicaid] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [trips, setTrips] = useState<Trip[] | null>(null);
   const [name, setName] = useState("");
 
-  const run = useCallback(
-    async (p: string, m: string) => {
-      setLoading(true);
-      try {
-        const res = await lookup({ data: { phone: p, medicaidId: m } });
-        setTrips(res.trips as Trip[]);
-        setName(res.passengers[0]?.name ?? "");
-        if (!res.passengers.length) toast.info("No rides found for that info.");
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Lookup failed");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [lookup],
-  );
+  const load = useCallback(async () => {
+    setBusy(true);
+    try {
+      const res = await lookup({ data: {} });
+      setTrips(res.trips as Trip[]);
+      setName(res.passengers[0]?.name ?? "");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not load your rides");
+    } finally {
+      setBusy(false);
+    }
+  }, [lookup]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const p = window.localStorage.getItem("passenger_phone") ?? "";
-    const m = window.localStorage.getItem("passenger_medicaid") ?? "";
-    if (p || m) {
-      setPhone(p);
-      setMedicaid(m);
-      void run(p, m);
-    }
-  }, [run]);
+    if (loading || !user) return;
+    void load();
+  }, [loading, user, load]);
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!phone && !medicaid) return toast.error("Enter phone or Medicaid ID");
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("passenger_phone", phone);
-      window.localStorage.setItem("passenger_medicaid", medicaid);
-    }
-    void run(phone, medicaid);
+  // One-time cleanup: remove any lingering identity values a previous version
+  // of this page persisted to `localStorage`, so a shared device can't
+  // resurface them by any code path.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem("passenger_phone");
+    window.localStorage.removeItem("passenger_medicaid");
+  }, []);
+
+  if (!loading && !user) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Link to="/passenger" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-muted-foreground hover:text-foreground">
+            <ChevronLeft className="h-4 w-4" />
+          </Link>
+          <h1 className="text-lg font-semibold tracking-tight">My rides</h1>
+        </div>
+        <div className="space-y-3 rounded-2xl border border-border bg-surface p-6 text-sm shadow-soft">
+          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+            <ShieldCheck className="h-4 w-4" />
+            <span className="text-xs font-semibold uppercase tracking-widest">Sign in required</span>
+          </div>
+          <p className="text-muted-foreground">
+            For your privacy, ride history is only visible to the signed-in passenger it belongs to.
+          </p>
+          <Button
+            className="h-11 w-full rounded-full text-sm font-semibold"
+            onClick={() => void navigate({ to: "/passenger/signup" })}
+          >
+            Sign in to view my rides
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -76,33 +103,25 @@ function TrackExisting() {
         <Link to="/passenger" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-4 w-4" />
         </Link>
-        <h1 className="text-lg font-semibold tracking-tight">Track an existing ride</h1>
+        <h1 className="text-lg font-semibold tracking-tight">My rides</h1>
       </div>
 
-      <form onSubmit={submit} className="space-y-4 rounded-2xl border border-border bg-surface p-5 shadow-soft">
-        <div className="space-y-1.5">
-          <Label htmlFor="phone" className="text-xs font-medium text-muted-foreground">Phone number</Label>
-          <div className="relative">
-            <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input id="phone" type="tel" inputMode="tel" placeholder="(555) 123-4567" value={phone} onChange={(e) => setPhone(e.target.value)} className="h-11 pl-9" />
-          </div>
+      {name && (
+        <div className="text-sm text-muted-foreground">
+          Signed in as <span className="font-medium text-foreground">{name}</span>
         </div>
-        <div className="flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="mid" className="text-xs font-medium text-muted-foreground">Medicaid ID</Label>
-          <Input id="mid" value={medicaid} onChange={(e) => setMedicaid(e.target.value)} placeholder="e.g. M964077" className="h-11" />
-        </div>
-        <Button type="submit" disabled={loading} className="h-11 w-full rounded-full text-base font-semibold">
-          {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Looking up…</> : <><Search className="mr-2 h-4 w-4" />Find my rides</>}
-        </Button>
-      </form>
+      )}
 
-      {name && <div className="text-sm text-muted-foreground">Rides for <span className="font-medium text-foreground">{name}</span></div>}
+      {busy && (
+        <div className="flex items-center justify-center rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading your rides…
+        </div>
+      )}
 
-      {trips !== null && trips.length === 0 && !loading && (
-        <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No rides on file yet.</div>
+      {!busy && trips !== null && trips.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          No rides on file yet.
+        </div>
       )}
 
       <div className="space-y-3">
