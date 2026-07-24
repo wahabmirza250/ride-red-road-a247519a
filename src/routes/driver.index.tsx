@@ -359,7 +359,7 @@ function DriverHome() {
       contentType: file.type || "image/jpeg", upsert: false,
     });
     if (up.error) throw new Error(up.error.message);
-    const patch: Record<string, unknown> =
+    const patch =
       which === "start"
         ? { odometer_start_photo: path, ...(reading != null ? { odometer_start: reading } : {}) }
         : { odometer_end_photo: path, ...(reading != null ? { odometer_end: reading } : {}) };
