@@ -759,6 +759,7 @@ function DriverHome() {
         onOpenChange={setShowPickupForm}
         onSubmit={savePickupForm}
         alreadyCaptured={pickupOdoDone}
+        initialReading={pickupOdoReading}
         title="Pickup odometer"
         submitLabel="Save & start trip"
       />
@@ -769,6 +770,7 @@ function DriverHome() {
         onOpenChange={setShowDropoffForm}
         onSubmit={saveDropoffForm}
         alreadyCaptured={dropoffOdoDone}
+        initialReading={dropoffOdoReading}
         title="Drop-off odometer"
         submitLabel="Save & capture signature"
       />
@@ -919,6 +921,7 @@ function PassengerPickerDialog({
 
 function PickupFormDialog({
   open, onOpenChange, onSubmit, alreadyCaptured,
+  initialReading,
   title = "Trip report — start pickup",
   submitLabel = "Save & start trip",
 }: {
@@ -926,6 +929,7 @@ function PickupFormDialog({
   onOpenChange: (v: boolean) => void;
   onSubmit: (file: File | null, reading: number) => Promise<void>;
   alreadyCaptured: boolean;
+  initialReading?: number | null;
   title?: string;
   submitLabel?: string;
 }) {
@@ -940,8 +944,10 @@ function PickupFormDialog({
   useEffect(() => {
     if (!open) {
       setFile(null); setPreview(null); setReading(""); setBusy(false); setScanning(false);
+    } else if (initialReading != null) {
+      setReading(String(initialReading));
     }
-  }, [open]);
+  }, [open, initialReading]);
 
   function fileToDataUrl(f: File): Promise<string> {
     return new Promise((resolve, reject) => {
