@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatusPill } from "@/components/nemt/StatusPill";
+import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,8 +37,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, Wand2, Search, Trash2 } from "lucide-react";
+import { Plus, Loader2, Wand2, Search, Trash2, FileText } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
+import { ensureDispatchTripStatePdf } from "@/lib/nemtTrip.functions";
 import { toast } from "sonner";
 import { haversineMiles } from "@/lib/geo";
 
@@ -529,9 +532,12 @@ function TripDetailDialog({
   onDeleted: () => void;
 }) {
   const [photoUrls, setPhotoUrls] = useState<{ start?: string; end?: string }>({});
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { user } = useAuth();
+  const ensurePdf = useServerFn(ensureDispatchTripStatePdf);
 
   async function handleDelete() {
     setDeleting(true);
@@ -572,7 +578,22 @@ function TripDetailDialog({
   }
 
 
-  useState(() => {
+  async function handleOpenPdf() {
+    setPdfLoading(true);
+    try {
+      const result = await ensurePdf({ data: { trip_id: trip.id } });
+      if (!result.url) throw new Error("The PDF was created, but the download link could not be opened");
+      setPdfUrl(result.url);
+      toast.success(result.generated ? "HCPF PDF generated" : "HCPF PDF opened");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not open HCPF PDF");
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
     async function load() {
       const urls: { start?: string; end?: string } = {};
       if (trip.odometer_start_photo) {
@@ -587,12 +608,16 @@ function TripDetailDialog({
           .createSignedUrl(trip.odometer_end_photo, 600);
         urls.end = data?.signedUrl;
       }
-      setPhotoUrls(urls);
+      if (!cancelled) setPhotoUrls(urls);
     }
     load();
-  });
+    return () => {
+      cancelled = true;
+    };
+  }, [trip.odometer_end_photo, trip.odometer_start_photo]);
 
   return (
+    <>
     <DialogContent className="max-w-2xl">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
@@ -671,6 +696,19 @@ function TripDetailDialog({
           Cancel & delete trip
         </Button>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleOpenPdf}
+            disabled={pdfLoading || trip.status !== "completed"}
+            className="rounded-full"
+          >
+            {pdfLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="mr-2 h-4 w-4" />
+            )}
+            View HCPF PDF
+          </Button>
           <a
             href={`/track/${trip.id}`}
             target="_blank"
@@ -711,6 +749,12 @@ function TripDetailDialog({
         </AlertDialogContent>
       </AlertDialog>
     </DialogContent>
+    <PdfPreviewDialog
+      url={pdfUrl}
+      filename={`hcpf-trip-${trip.id.slice(0, 8)}.pdf`}
+      onClose={() => setPdfUrl(null)}
+    />
+    </>
   );
 }
 
