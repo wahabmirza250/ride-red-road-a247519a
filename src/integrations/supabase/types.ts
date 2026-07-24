@@ -386,6 +386,41 @@ export type Database = {
           },
         ]
       }
+      dispatch_trip_report_drafts: {
+        Row: {
+          created_at: string
+          dispatch_trip_id: string
+          form_data: Json
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          dispatch_trip_id: string
+          form_data?: Json
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          dispatch_trip_id?: string
+          form_data?: Json
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_trip_report_drafts_dispatch_trip_id_fkey"
+            columns: ["dispatch_trip_id"]
+            isOneToOne: true
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_shifts: {
         Row: {
           clock_in_at: string
