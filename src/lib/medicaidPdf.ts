@@ -1,7 +1,5 @@
-import { degrees, PDFDocument, PDFTextField, rgb } from "pdf-lib";
-import fontkit from "@pdf-lib/fontkit";
+import { degrees, PDFDocument, PDFTextField, rgb, StandardFonts } from "pdf-lib";
 import templateAsset from "@/assets/nemt_trip_report_template.pdf.asset.json";
-import handwritingFontAsset from "@/assets/JustAnotherHand-Regular.ttf.asset.json";
 
 
 export type Leg = {
@@ -62,13 +60,7 @@ export async function generateStateFormPdf(
     return r.arrayBuffer();
   });
   const pdf = await PDFDocument.load(templateBytes);
-  pdf.registerFontkit(fontkit);
-  const handwritingFont = await pdf.embedFont(
-    await fetch(resolveAssetUrl(handwritingFontAsset.url, options.templateBaseUrl)).then((r) => {
-      if (!r.ok) throw new Error(`Failed to load handwriting font: ${r.status}`);
-      return r.arrayBuffer();
-    }),
-  );
+  const handwritingFont = await pdf.embedFont(StandardFonts.HelveticaOblique);
   const form = pdf.getForm();
 
 
