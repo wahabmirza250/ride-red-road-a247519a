@@ -327,7 +327,6 @@ function DriverHome() {
 
       // Mark completed BEFORE PDF gen so the trip is closed even if PDF errors.
       const tripIdSnapshot = active.trip_id;
-      const signatureDataUrl = signature;
       const signerSnapshot = signerName.trim();
       setShowSign(false); setSignature(null); setSignerName("");
       await setStatus("completed");
