@@ -1027,6 +1027,7 @@ function PickupFormDialog({
   const [dropoffFile, setDropoffFile] = useState<File | null>(null);
   const [pickupPreview, setPickupPreview] = useState<string | null>(null);
   const [dropoffPreview, setDropoffPreview] = useState<string | null>(null);
+  const [passengerSummary, setPassengerSummary] = useState<{ name: string; medicaidId: string | null }>({ name: "", medicaidId: null });
   const [busy, setBusy] = useState(false);
   const [loadingDraft, setLoadingDraft] = useState(false);
   const [scanningField, setScanningField] = useState<"pickup" | "dropoff" | null>(null);
@@ -1047,13 +1048,13 @@ function PickupFormDialog({
     loadDraft({ data: { trip_id: tripId } })
       .then((r) => {
         if (cancelled) return;
-        const loaded = (r.form_data ?? emptyForm) as TripReportDraftForm;
+        const loaded = normalizeTripReportForm(r.form_data ?? emptyForm, emptyForm);
         setForm({
-          ...emptyForm,
           ...loaded,
           pickup_odometer: readingField === "pickup" && initialReading != null ? String(initialReading) : loaded.pickup_odometer ?? "",
           dropoff_odometer: readingField === "dropoff" && initialReading != null ? String(initialReading) : loaded.dropoff_odometer ?? "",
         });
+        setPassengerSummary({ name: r.passenger_name ?? "", medicaidId: r.medicaid_id ?? null });
       })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Could not load trip report"))
       .finally(() => { if (!cancelled) setLoadingDraft(false); });
@@ -1121,6 +1122,12 @@ function PickupFormDialog({
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <div className="space-y-4">
           {loadingDraft && <div className="text-xs text-muted-foreground">Loading saved report…</div>}
+          {(passengerSummary.name || passengerSummary.medicaidId) && (
+            <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs">
+              <div className="font-medium text-foreground">{passengerSummary.name || "Passenger"}</div>
+              <div className="text-muted-foreground">Member ID: {passengerSummary.medicaidId || "—"}</div>
+            </div>
+          )}
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label>Driver verified identity</Label>
