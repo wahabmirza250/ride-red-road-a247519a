@@ -90,6 +90,7 @@ function DriverHome() {
   const [cancelling, setCancelling] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [showAddStop, setShowAddStop] = useState(false);
+  const [showPickupForm, setShowPickupForm] = useState(false);
   const [pickupOdoDone, setPickupOdoDone] = useState(false);
   const [dropoffOdoDone, setDropoffOdoDone] = useState(false);
 
