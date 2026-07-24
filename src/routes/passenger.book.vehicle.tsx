@@ -90,25 +90,39 @@ function VehicleSelect() {
   }, [user]);
 
   useEffect(() => {
-    if (!user) return;
-    const deviceId =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem("passenger_device_id") ?? ""
-        : "";
-    void fetchIdentity({ data: { device_id: deviceId } })
-      .then((r) => {
-        setHasIdentity(r.has_identity);
-        if (r.medicaid_id) {
-          setMedicaidId(r.medicaid_id);
+    // Ensure a device_id exists so guests and signed-in users both have
+    // a stable key to look up their saved profile / identity.
+    let deviceId = "";
+    if (typeof window !== "undefined") {
+      deviceId = window.localStorage.getItem("passenger_device_id") ?? "";
+      if (!deviceId) {
+        deviceId = crypto.randomUUID();
+        window.localStorage.setItem("passenger_device_id", deviceId);
+      }
+    }
+    if (!deviceId) {
+      setIdentityLoaded(true);
+      return;
+    }
+    void fetchProfile({ data: { device_id: deviceId } })
+      .then((row) => {
+        if (!row) return;
+        const mid = (row.medicaid_id ?? "").trim();
+        const hasRealMedicaid =
+          !!mid && !mid.startsWith("SELF-") && !mid.startsWith("WALK-");
+        const hasSsnDob = !!row.ssn_last4 && !!row.date_of_birth;
+        if (hasRealMedicaid) {
+          setMedicaidId(mid);
           setIdMode("medicaid");
-        } else if (r.ssn_last4 && r.date_of_birth) {
-          setDob(r.date_of_birth);
+        } else if (hasSsnDob) {
+          setDob(row.date_of_birth ?? "");
           setIdMode("ssn");
         }
+        setHasIdentity(hasRealMedicaid || hasSsnDob);
       })
       .catch(() => {})
       .finally(() => setIdentityLoaded(true));
-  }, [user, fetchIdentity]);
+  }, [user, fetchProfile]);
 
   const identityReady =
     hasIdentity ||
