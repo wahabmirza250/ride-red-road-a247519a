@@ -858,10 +858,11 @@ export const getBillingSettings = createServerFn({ method: "GET" })
       .from("billing_settings")
       .select("id, company_id, default_portal_id")
       .is("company_id", null)
-      .maybeSingle();
+      .order("updated_at", { ascending: false })
+      .limit(1);
     if (error) throw new Error(error.message);
     return {
-      default_portal_id: data?.default_portal_id ?? null,
+      default_portal_id: data?.[0]?.default_portal_id ?? null,
     };
   });
 
