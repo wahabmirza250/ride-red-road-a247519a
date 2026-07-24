@@ -25,7 +25,12 @@ import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
 import { clockIn, clockOut, getShiftStats, addShiftMiles } from "@/lib/shifts.functions";
 import { recordTripMedia } from "@/lib/tripMedia.functions";
 import { addTripStop, markStopArrived, markStopDeparted } from "@/lib/tripStops.functions";
-import { detectOdometerFromImage } from "@/lib/nemtTrip.functions";
+import {
+  detectOdometerFromImage,
+  finalizeMedicaidFromDispatchTrip,
+  attachStatePdf,
+} from "@/lib/nemtTrip.functions";
+import { generateStateFormPdf } from "@/lib/medicaidPdf";
 import { VerifyMedicaidButton } from "@/components/VerifyMedicaidButton";
 
 export const Route = createFileRoute("/driver/")({ component: DriverHome });
