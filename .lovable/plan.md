@@ -1,62 +1,51 @@
-## Goal
+# What just shipped (privacy leak)
 
-Turn the RedArt logo palette (yellow `#F4C430`, red `#C8354E`, blue `#1E6FB8`, green `#1F9D6A`) into a **unified, meaningful color system** used everywhere — passenger, driver, admin/dispatch, auth, and billing — in both dark and light mode. Not four colors sprinkled randomly, but one color per surface so the app has a consistent visual language.
+The passenger ride-history leak is a distinct bug from the session-sharing one you flagged earlier. Root cause:
 
-## Color-to-surface mapping
+- `lookupPassengerRides` was a **public** endpoint (no auth) that used the service-role client, bypassed RLS, and matched by **fuzzy phone suffix** (`ilike '%last-7-digits%'`). Anyone could pass any phone / Medicaid ID and receive another passenger's trip details.
+- `/passenger/track` auto-fired that lookup with phone / Medicaid ID cached in `localStorage`. On a shared device (or a device whose `localStorage` still had a previous value), a fresh visitor saw whichever passenger had used the page last.
+- RLS on `passengers`/`trips` is correct; `passenger.index.tsx` already scoped to the signed-in user. Not related to the session-sharing bug.
 
-Each area of the app gets an "identity" color. Users learn it fast: yellow = a driver context, blue = dispatch, green = a rider context, red = billing/alerts.
+Fixed:
+1. `lookupPassengerRides` now requires `requireSupabaseAuth`, ignores any phone/Medicaid input, and returns only trips where `passengers.user_id = auth.uid()` — RLS enforces the same scope as defense-in-depth.
+2. `/passenger/track` now requires sign-in and calls that scoped endpoint. It clears any lingering `passenger_phone` / `passenger_medicaid` values from `localStorage` on mount.
+3. The signed-in home page (`passenger.index.tsx`) was already correct.
 
-- **Red (`--brand-red`)** — global primary CTAs, destructive/alert states, Medicaid Billing surface
-- **Blue (`--brand-blue`)** — Admin / Dispatch console, live-ops, maps
-- **Yellow (`--brand-yellow`)** — Driver app (go-online, offers, earnings)
-- **Green (`--brand-green`)** — Passenger/Rider app (booking, tracking, success states)
+I couldn't run two-passenger cross-device verification from the sandbox (no test passenger credentials injected). The change makes cross-passenger read structurally impossible: the endpoint no longer accepts identifying inputs, and RLS on both `passengers` and `trips` is scoped to `auth.uid()`.
 
-Red stays the global primary because it's the strongest brand tie. The other three become the "surface accent" for their app section — used on kickers, icon tiles, hero glows, stat labels, section headers, and hover borders.
+# Plan for the admin operational-control request
 
-## What changes
+This is 4 sub-features. Some questions before I build:
 
-1. **Design tokens (`src/styles.css`)** — the brand tokens already exist. Add surface-accent tokens (`--surface-accent`, `--surface-accent-foreground`, `--surface-accent-soft`) that resolve to the right brand color per route via a body/root class. Tune each color for light mode (slightly deeper/less saturated) so contrast holds on white.
+## 1. Fix the admin dashboard map
+Investigate why the map on `/dashboard` isn't rendering. Likely candidates: Google Maps loader failing silently, the fleet map component crashing, or a missing driver-location fallback. Fix root cause, verify by loading the dashboard as an admin.
 
-2. **Route-level accent switch** — each top-level layout sets its surface class on the outermost wrapper:
-   - `_authenticated/route.tsx` (admin/dispatch) → `surface-blue`
-   - `driver.tsx` → `surface-yellow`
-   - `passenger.tsx` → `surface-green`
-   - `_authenticated/medicaid-billing.tsx` → `surface-red` override
-   - `auth.tsx` / `driver.signin.tsx` / `passenger.signup.tsx` → inherit their target surface color
+## 2. Add an "Activity" section — all active drivers
+New card/tab on the dashboard (or a new `/live-ops` sub-view — see question below) listing every driver whose `status` is `available` or `busy`. Click a row to open a side panel showing:
+- Live location (last known `current_lat/current_lng`, timestamp of last ping)
+- Current trip assignment (pickup, dropoff, passenger name, status) if any
+- Status pill (available / busy / offline)
+- Quick actions: message driver, cancel current trip, reassign current trip
 
-3. **Shared component refresh** — replace hard-coded `primary` accents in the pieces users see most, so the surface accent shows through:
-   - `Brand` wordmark accent bar
-   - `LoadingScreen` pulsing dots (cycle through all 4)
-   - Section kickers, stat labels, empty-state icons, hover borders on cards
-   - `Button` gets a `variant="brand-gradient"` for hero CTAs (red→yellow, or matches surface)
+## 3. Admin control over in-progress trips
+- **Reassign mid-trip**: `adminReassignDriver` already exists — surface it from the driver detail panel and from the trip detail sheet on `/trips` and `/live-ops`, with a driver picker showing distance + availability.
+- **Admin cancel**: new `adminCancelTrip` server function (admin-only via `has_role`) that sets `trips.status = 'cancelled'`, frees the driver back to `available`, and cancels the parent `ride_requests` row. Confirm dialog before firing.
+- **Manual assign of pending request**: new `adminAssignPendingRequest` that admins call on any `ride_requests` still in `pending` (including the dispatch-fallback "no drivers available" case). Picks a driver, creates the trip, marks the request `assigned`.
 
-4. **Landing page** — already done; leaves it as the "showcase" of all four colors.
+## 4. Notifications overhaul
+Rework the bell so each notification is actionable and typed:
+- `pending_dispatch` — new ride waiting for a driver (link → Live Ops)
+- `dispatch_stuck` — declined by ≥3 drivers or pending >5 min (link → the ride, with "Assign manually" CTA)
+- `incident_reported` — link → the incident detail
+- keep existing `signup` / `driver_status` but re-style with clear iconography and one-click action buttons where relevant
 
-5. **Multi-color moments** kept intentional: page loaders, the landing hero, the footer dot cluster, and the auth split screen show all four colors together. Everywhere else uses one accent so screens don't feel chaotic.
+Adds a `severity` column (`info` / `warn` / `urgent`) and a background trigger for the `dispatch_stuck` case (either DB trigger on decline count / age, or a small poll in the admin app).
 
-## What stays the same
+# Questions before I start
 
-- No layout/copy changes. Only color, borders, and glow shifts.
-- shadcn primitives keep their existing tokens; the change is one layer up (surface accent).
-- No new dependencies.
+1. Where should the Activity tab live? A new section on `/dashboard`, an expansion of the existing `/live-ops` page, or its own top-level `/activity` route?
+2. For admin cancel, should the passenger get a push notification explaining dispatch cancelled their ride, or is a silent cancel fine?
+3. For `dispatch_stuck` detection, is a 5-minute pending threshold correct? And should "declined by N drivers" count decline events even if new drivers are still being tried?
+4. Anything else specific you want in the driver detail panel (recent trips, today's earnings, incident count, etc.)?
 
-## Technical notes
-
-- Tailwind v4 CSS-first tokens in `src/styles.css` (`@theme inline`), light + dark blocks.
-- Add `--surface-accent` + soft/foreground variants; expose as `bg-surface-accent`, `text-surface-accent`, `border-surface-accent`, `ring-surface-accent`.
-- Each route wrapper sets one of `surface-red | surface-yellow | surface-blue | surface-green` classes that rewrite `--surface-accent*` for its subtree. Nothing global changes when a user moves between apps — the accent just swaps.
-- Light-mode brand values will be re-tuned in `oklch` for AA contrast on white; dark-mode uses the current hex values that already work.
-- Audit and swap `text-primary` / `bg-primary/10` / `border-primary/30` in shared components (`Brand`, `LoadingScreen`, section headers, empty states) to `surface-accent` equivalents so the accent follows the route.
-
-## Out of scope (ask before doing)
-
-- Reskinning charts, marketing PDFs, email templates.
-- Rewriting shadcn primitives themselves (Button/Input/Card internals).
-- Changing typography, spacing, or layout.
-
-## Rollout order
-
-1. Tokens + surface-accent utility in `src/styles.css` (light + dark tuned).
-2. Route wrappers set their surface class.
-3. Sweep shared components (`Brand`, `LoadingScreen`, dashboard cards, auth screens, billing tabs) to use `surface-accent` instead of hard-coded `primary`.
-4. Visual QA per surface in both modes.
+Reply with answers (or "you decide") and I'll build all four in one pass and verify end-to-end as admin.
