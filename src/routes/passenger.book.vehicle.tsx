@@ -90,7 +90,11 @@ function VehicleSelect() {
 
   useEffect(() => {
     if (!user) return;
-    void fetchIdentity()
+    const deviceId =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("passenger_device_id") ?? ""
+        : "";
+    void fetchIdentity({ data: { device_id: deviceId } })
       .then((r) => {
         setHasIdentity(r.has_identity);
         if (r.medicaid_id) {

@@ -223,25 +223,52 @@ export const updatePassengerIdentity = createServerFn({ method: "POST" })
     return { ok: true, passenger_id: passengerId, path: "ssn_dob" as const };
   });
 
-/** PASSENGER-ONLY — quick check of what identity the passenger has on file. */
+/** PASSENGER-ONLY — quick check of what identity the passenger has on file.
+ * Looks up by auth user_id first, then falls back to the browser device_id
+ * (guest / profile-page flow) so identity set from the profile page still
+ * counts here. When a device_id row is found and the caller is signed in,
+ * link it to the user so future queries hit the fast path.
+ */
 export const getPassengerIdentity = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((input: { device_id?: string } | undefined) => ({
+    device_id: input?.device_id?.trim() || "",
+  }))
+  .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data } = await supabase
+    let { data: row } = await supabase
       .from("passengers")
       .select("id, medicaid_id, date_of_birth, ssn_last4, ssn_secret_id")
       .eq("user_id", userId)
       .maybeSingle();
-    const medicaidId = (data?.medicaid_id ?? "").trim();
+
+    if (!row && data.device_id) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: byDevice } = await supabaseAdmin
+        .from("passengers")
+        .select("id, medicaid_id, date_of_birth, ssn_last4, ssn_secret_id, user_id")
+        .eq("device_id", data.device_id)
+        .maybeSingle();
+      if (byDevice) {
+        row = byDevice;
+        if (!byDevice.user_id) {
+          await supabaseAdmin
+            .from("passengers")
+            .update({ user_id: userId })
+            .eq("id", byDevice.id);
+        }
+      }
+    }
+
+    const medicaidId = (row?.medicaid_id ?? "").trim();
     const hasRealMedicaid =
       !!medicaidId && !medicaidId.startsWith("SELF-") && !medicaidId.startsWith("WALK-");
-    const hasSsnDob = !!data?.ssn_secret_id && !!data?.date_of_birth;
+    const hasSsnDob = !!row?.ssn_secret_id && !!row?.date_of_birth;
     return {
-      passenger_id: data?.id ?? null,
+      passenger_id: row?.id ?? null,
       medicaid_id: hasRealMedicaid ? medicaidId : "",
-      date_of_birth: data?.date_of_birth ?? "",
-      ssn_last4: data?.ssn_last4 ?? "",
+      date_of_birth: row?.date_of_birth ?? "",
+      ssn_last4: row?.ssn_last4 ?? "",
       has_identity: hasRealMedicaid || hasSsnDob,
     };
   });
