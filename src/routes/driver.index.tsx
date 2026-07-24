@@ -18,8 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SignaturePad } from "@/components/driver/SignaturePad";
 import { StatsGrid } from "@/components/driver/StatsGrid";
-// Pickup/drop-off documentation now reuses the odometer photo captured on the
-// trip finalize form — no separate CabinClipRecorder / OdometerPhotoButton here.
+import { OdometerPhotoButton } from "@/components/driver/OdometerPhotoButton";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { driverCreatePassenger, driverSearchPassengers } from "@/lib/passenger.functions";
 import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
