@@ -1,32 +1,40 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-function normPhone(s: string) {
-  return (s || "").replace(/\D/g, "");
-}
-
-/** PUBLIC — passenger app looks up their rides by phone or Medicaid ID (no auth). */
+/**
+ * AUTHENTICATED — return the CURRENT signed-in passenger's own rides only.
+ *
+ * SECURITY: This function used to be a public server function that looked
+ * passengers up by phone/Medicaid ID with a service-role client and a fuzzy
+ * `ilike '%last-7-digits%'` phone match. That leaked other passengers' trip
+ * details (pickup/dropoff addresses, driver info) to anyone who guessed a
+ * phone number, and returned WRONG rides on partial phone-suffix collisions.
+ *
+ * The endpoint is now strictly scoped to `passengers.user_id = auth.uid()`
+ * of the caller. Phone / Medicaid ID inputs are IGNORED — a signed-in
+ * passenger can never look up somebody else's ride history through this
+ * function again.
+ */
 export const lookupPassengerRides = createServerFn({ method: "POST" })
-  .inputValidator((input: { phone?: string; medicaidId?: string }) => {
-    const phone = input.phone ? normPhone(input.phone) : "";
-    const medicaidId = (input.medicaidId ?? "").trim();
-    if (!phone && !medicaidId) throw new Error("Enter phone or Medicaid ID");
-    if (phone && phone.length < 7) throw new Error("Phone too short");
-    return { phone, medicaidId };
-  })
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  .middleware([requireSupabaseAuth])
+  // Kept for wire compatibility with the existing UI, but ignored on the server.
+  .inputValidator((_input: { phone?: string; medicaidId?: string }) => ({}))
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
 
-    let query = supabaseAdmin.from("passengers").select("id, first_name, last_name, phone, medicaid_id").limit(5);
-    if (data.medicaidId) query = query.eq("medicaid_id", data.medicaidId);
-    else query = query.ilike("phone", `%${data.phone.slice(-7)}%`);
-
-    const { data: pax, error } = await query;
+    // Only the caller's own passenger rows — RLS enforces user_id = auth.uid().
+    const { data: pax, error } = await supabase
+      .from("passengers")
+      .select("id, first_name, last_name, phone, medicaid_id")
+      .eq("user_id", userId);
     if (error) throw new Error(error.message);
     if (!pax || pax.length === 0) return { passengers: [], trips: [] };
 
     const ids = pax.map((p) => p.id);
-    const { data: trips } = await supabaseAdmin
+
+    // Trips RLS ("trips passenger read own") already scopes to the caller's
+    // passenger rows; the .in() filter here is defense-in-depth.
+    const { data: trips } = await supabase
       .from("trips")
       .select(
         "id, status, pickup_address, dropoff_address, scheduled_pickup_time, actual_pickup_time, actual_dropoff_time, driver_id, estimated_fare, passenger_id",
@@ -35,11 +43,15 @@ export const lookupPassengerRides = createServerFn({ method: "POST" })
       .order("scheduled_pickup_time", { ascending: false })
       .limit(20);
 
+    // Enrich with driver display info via service role — we've already
+    // authorised which trips the caller can see, so this is a bounded lookup
+    // by known driver_ids (no PII except the driver's public "name / vehicle").
     const driverIds = Array.from(
       new Set((trips ?? []).map((t) => t.driver_id).filter(Boolean) as string[]),
     );
     const driverMap: Record<string, { name: string; phone: string | null; vehicle: string | null }> = {};
     if (driverIds.length) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { data: drivers } = await supabaseAdmin
         .from("drivers")
         .select("id, user_id, vehicle_make, vehicle_model, vehicle_plate")
@@ -73,6 +85,7 @@ export const lookupPassengerRides = createServerFn({ method: "POST" })
       })),
     };
   });
+
 
 /** DRIVER-ONLY — search passengers by phone or Medicaid ID during pickup. */
 export const driverSearchPassengers = createServerFn({ method: "POST" })
