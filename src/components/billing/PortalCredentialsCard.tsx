@@ -235,7 +235,6 @@ function CredentialDialog({
           <Select
             value={portalId}
             onValueChange={setPortalId}
-            disabled={!!initial}
           >
             <SelectTrigger>
               <SelectValue />
