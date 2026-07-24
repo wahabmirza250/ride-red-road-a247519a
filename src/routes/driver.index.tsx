@@ -521,25 +521,8 @@ function DriverHome() {
             </div>
           </div>
 
-          {/* Required trip documentation — odometer photos gate the next stage. */}
-          {tripStatus === "arrived_at_pickup" && (
-            <div className="rounded-xl border border-dashed border-border bg-surface p-3">
-              <div className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Required before starting the ride
-              </div>
-              <OdometerPhotoButton
-                label="Pickup odometer photo"
-                captured={pickupOdoDone}
-                onCaptured={(f) => uploadOdometer(f, "start")}
-              />
-              {!pickupOdoDone && (
-                <div className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
-                  Capture the pickup odometer before you can start the ride.
-                </div>
-              )}
-            </div>
-          )}
-
+          {/* Drop-off odometer photo is captured inline; pickup odometer is
+              captured inside the Fill Form dialog (Step 4). */}
           {tripStatus === "in_progress" && (
             <div className="rounded-xl border border-dashed border-border bg-surface p-3">
               <div className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
@@ -558,51 +541,35 @@ function DriverHome() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 pt-2">
-            <Button variant="outline" className="rounded-full" onClick={openNavigation}>
-              <Navigation className="mr-1 h-4 w-4" /> Navigate
-            </Button>
-            <Button variant="outline" className="rounded-full" onClick={() => setShowAddStop(true)}>
-              <Plus className="mr-1 h-4 w-4" /> Add stop
-            </Button>
-            {active.trip_id && (
-              <Link to="/trips/$tripId/proof" params={{ tripId: active.trip_id }}
-                className="inline-flex h-10 items-center justify-center rounded-full border border-input bg-background px-4 py-2 text-sm font-medium">
-                <FileCheck className="mr-1 h-4 w-4" /> Proof
-              </Link>
-            )}
-            <Button variant="destructive" className="rounded-full" onClick={cancelActiveTrip} disabled={cancelling}>
-              {cancelling ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />} Cancel
-            </Button>
+          {/* Step-by-step primary action. Only ONE main button per step. */}
+          <div className="space-y-2 pt-2">
             {tripStatus === "assigned" && (
-              <Button className="rounded-full bg-primary col-span-2"
-                onClick={() => { setStatus("driver_en_route_to_pickup"); openNavigation(); }}>
-                <Navigation className="mr-1 h-4 w-4" /> Start Pickup
+              <Button
+                className="h-12 w-full rounded-full bg-primary text-base"
+                onClick={() => { setStatus("driver_en_route_to_pickup"); openNavigation(); }}
+              >
+                <Navigation className="mr-2 h-5 w-5" /> Navigate to Pickup
               </Button>
             )}
             {tripStatus === "driver_en_route_to_pickup" && (
-              <Button className="rounded-full col-span-2" onClick={() => setStatus("arrived_at_pickup")}>
-                <Car className="mr-1 h-4 w-4" /> I've Arrived
+              <Button
+                className="h-12 w-full rounded-full bg-primary text-base"
+                onClick={() => setStatus("arrived_at_pickup")}
+              >
+                <Car className="mr-2 h-5 w-5" /> Arrive at Pickup
               </Button>
             )}
             {tripStatus === "arrived_at_pickup" && (
               <Button
-                className="rounded-full col-span-2"
-                disabled={!pickupOdoDone}
-                onClick={() => {
-                  if (!pickupOdoDone) {
-                    toast.error("Capture the pickup odometer photo first");
-                    return;
-                  }
-                  setStatus("in_progress");
-                }}
+                className="h-12 w-full rounded-full bg-primary text-base"
+                onClick={() => setShowPickupForm(true)}
               >
-                <Car className="mr-1 h-4 w-4" /> Start Ride
+                <FileCheck className="mr-2 h-5 w-5" /> Fill Form
               </Button>
             )}
             {tripStatus === "in_progress" && (
               <Button
-                className="rounded-full bg-emerald-500 hover:bg-emerald-600 col-span-2"
+                className="h-12 w-full rounded-full bg-emerald-500 text-base hover:bg-emerald-600"
                 disabled={!dropoffOdoDone}
                 onClick={() => {
                   if (!dropoffOdoDone) {
@@ -614,9 +581,42 @@ function DriverHome() {
                   setShowSign(true);
                 }}
               >
-                <PenLine className="mr-1 h-4 w-4" /> Complete &amp; get signature
+                <PenLine className="mr-2 h-5 w-5" /> Complete &amp; get signature
               </Button>
             )}
+
+            {/* Secondary actions — always small, out of the main flow. */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <div className="flex flex-wrap gap-2">
+                {tripStatus && tripStatus !== "assigned" && (
+                  <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={openNavigation}>
+                    <Navigation className="mr-1 h-3.5 w-3.5" /> Navigate
+                  </Button>
+                )}
+                {tripStatus !== "in_progress" ? null : null}
+                <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={() => setShowAddStop(true)}>
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Add stop
+                </Button>
+                {active.trip_id && tripStatus === "in_progress" && (
+                  <Link
+                    to="/trips/$tripId/proof"
+                    params={{ tripId: active.trip_id }}
+                    className="inline-flex h-8 items-center justify-center rounded-full px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    <FileCheck className="mr-1 h-3.5 w-3.5" /> Proof
+                  </Link>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={cancelActiveTrip}
+                disabled={cancelling}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+              >
+                {cancelling ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                Cancel ride
+              </button>
+            </div>
           </div>
         </div>
       )}
