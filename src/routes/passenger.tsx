@@ -11,6 +11,7 @@ import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import { trackVisitor } from "@/lib/passengerPublic.functions";
 import { useAuth } from "@/lib/auth";
 import { ensurePushSubscribed } from "@/lib/push";
+import { AccessDenied } from "@/components/AccessDenied";
 
 export const Route = createFileRoute("/passenger")({
   ssr: false,
@@ -38,7 +39,7 @@ function getOrCreateDeviceId(): string {
 function PassengerLayout() {
   const loc = useLocation();
   const track = useServerFn(trackVisitor);
-  const { user } = useAuth();
+  const { user, isPassenger, isAdmin, isDriver, loading } = useAuth();
 
   useEffect(() => {
     // Auto-subscribe signed-in passengers to push (idempotent, one-time prompt).
@@ -81,6 +82,14 @@ function PassengerLayout() {
   const hasSession =
     typeof window !== "undefined" &&
     !!window.localStorage.getItem("passenger_device_id");
+
+  // Strict role isolation — a signed-in admin or driver must NEVER see the
+  // passenger app just because their session persists in this browser.
+  // Guests (no session) can still browse and book without signing in.
+  if (!loading && user && !isPassenger && (isAdmin || isDriver)) {
+    return <AccessDenied appName="passenger" signInHref="/passenger/signup" signInLabel="passenger sign in" email={user.email} />;
+  }
+
 
   return (
     <div className="surface-green relative min-h-screen bg-background pb-24 text-foreground">

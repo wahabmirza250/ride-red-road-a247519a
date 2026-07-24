@@ -18,8 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SignaturePad } from "@/components/driver/SignaturePad";
 import { StatsGrid } from "@/components/driver/StatsGrid";
-// Pickup/drop-off documentation now reuses the odometer photo captured on the
-// trip finalize form — no separate CabinClipRecorder / OdometerPhotoButton here.
+import { OdometerPhotoButton } from "@/components/driver/OdometerPhotoButton";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { driverCreatePassenger, driverSearchPassengers } from "@/lib/passenger.functions";
 import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
@@ -285,10 +284,16 @@ function DriverHome() {
     void loadRequests();
   }
 
-  async function saveSignatureAndStart() {
+  /**
+   * Capture passenger signature and immediately mark the trip completed.
+   * Signature is now part of the final trip-completion step — no separate
+   * mid-trip screen — so the driver signs off with the rider exactly once.
+   */
+  async function saveSignatureAndComplete() {
     if (!active?.trip_id || !driver || !user) return;
     if (!signature) return toast.error("Please have the passenger sign");
     if (!signerName.trim()) return toast.error("Enter signer name");
+    if (!dropoffOdoDone) return toast.error("Capture the drop-off odometer photo first");
     setSaving(true);
     try {
       const blob = await (await fetch(signature)).blob();
@@ -304,7 +309,7 @@ function DriverHome() {
       }).eq("id", active.trip_id);
       if (error) throw error;
       setShowSign(false); setSignature(null); setSignerName("");
-      await setStatus("in_progress");
+      await setStatus("completed");
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to save signature"); }
     finally { setSaving(false); }
   }
@@ -360,16 +365,8 @@ function DriverHome() {
     toast.success("Odometer photo saved");
   }
 
-  async function uploadCabinClip(blob: Blob, kind: "cabin_video_pickup" | "cabin_video_dropoff", mimeType: string) {
-    if (!active?.trip_id || !user) return;
-    const ext = mimeType.includes("mp4") ? "mp4" : "webm";
-    const path = `${user.id}/${active.trip_id}/cabin_${kind}_${Date.now()}.${ext}`;
-    const up = await supabase.storage.from("trip-media").upload(path, blob, {
-      contentType: mimeType, upsert: false,
-    });
-    if (up.error) throw new Error(up.error.message);
-    await recordMediaFn({ data: { trip_id: active.trip_id, kind, storage_path: path } });
-  }
+
+
 
   async function addStop(address: string, coords: { lat: number; lng: number } | null) {
     if (!active?.trip_id) return;
@@ -508,10 +505,42 @@ function DriverHome() {
             </div>
           </div>
 
-          {/* Pickup/drop-off odometer + cabin video are captured on the trip
-              finalize form (driver.trip.new) — no separate step needed here. */}
+          {/* Required trip documentation — odometer photos gate the next stage. */}
+          {tripStatus === "arrived_at_pickup" && (
+            <div className="rounded-xl border border-dashed border-border bg-surface p-3">
+              <div className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                Required before starting the ride
+              </div>
+              <OdometerPhotoButton
+                label="Pickup odometer photo"
+                captured={pickupOdoDone}
+                onCaptured={(f) => uploadOdometer(f, "start")}
+              />
+              {!pickupOdoDone && (
+                <div className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+                  Capture the pickup odometer before you can start the ride.
+                </div>
+              )}
+            </div>
+          )}
 
-
+          {tripStatus === "in_progress" && (
+            <div className="rounded-xl border border-dashed border-border bg-surface p-3">
+              <div className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                Required before completing
+              </div>
+              <OdometerPhotoButton
+                label="Drop-off odometer photo"
+                captured={dropoffOdoDone}
+                onCaptured={(f) => uploadOdometer(f, "end")}
+              />
+              {!dropoffOdoDone && (
+                <div className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+                  Capture the drop-off odometer before you can complete the trip.
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2 pt-2">
             <Button variant="outline" className="rounded-full" onClick={openNavigation}>
@@ -541,18 +570,35 @@ function DriverHome() {
               </Button>
             )}
             {tripStatus === "arrived_at_pickup" && (
-              <Button className="rounded-full col-span-2"
+              <Button
+                className="rounded-full col-span-2"
+                disabled={!pickupOdoDone}
                 onClick={() => {
-                  setSignerName(passenger ? `${passenger.first_name} ${passenger.last_name}` : "");
-                  setShowSign(true);
-                }}>
-                <PenLine className="mr-1 h-4 w-4" /> Get signature & start
+                  if (!pickupOdoDone) {
+                    toast.error("Capture the pickup odometer photo first");
+                    return;
+                  }
+                  setStatus("in_progress");
+                }}
+              >
+                <Car className="mr-1 h-4 w-4" /> Start Ride
               </Button>
             )}
             {tripStatus === "in_progress" && (
-              <Button className="rounded-full bg-emerald-500 hover:bg-emerald-600 col-span-2"
-                onClick={() => setStatus("completed")}>
-                <CheckCircle2 className="mr-1 h-4 w-4" /> Complete
+              <Button
+                className="rounded-full bg-emerald-500 hover:bg-emerald-600 col-span-2"
+                disabled={!dropoffOdoDone}
+                onClick={() => {
+                  if (!dropoffOdoDone) {
+                    toast.error("Capture the drop-off odometer photo first");
+                    return;
+                  }
+                  setSignerName(passenger ? `${passenger.first_name} ${passenger.last_name}` : "");
+                  setSignature(null);
+                  setShowSign(true);
+                }}
+              >
+                <PenLine className="mr-1 h-4 w-4" /> Complete &amp; get signature
               </Button>
             )}
           </div>
@@ -608,10 +654,11 @@ function DriverHome() {
         <Phone className="h-4 w-4" /> Allow location permissions for live tracking to work.
       </div>
 
-      {/* Signature dialog */}
+      {/* Signature dialog — final trip completion step: signature is captured
+          inline as part of finishing the trip, not as a separate mid-ride screen. */}
       <Dialog open={showSign} onOpenChange={setShowSign}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Passenger signature</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Complete trip &amp; capture signature</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="signer">Signer name</Label>
@@ -619,10 +666,10 @@ function DriverHome() {
             </div>
             <SignaturePad onChange={setSignature} />
             <div className="text-[11px] text-muted-foreground">
-              Timestamp will be recorded automatically at save time.
+              Timestamp will be recorded automatically at save time. Saving marks the trip completed.
             </div>
-            <Button className="w-full rounded-full" onClick={saveSignatureAndStart} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & start trip"}
+            <Button className="w-full rounded-full" onClick={saveSignatureAndComplete} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save signature & complete trip"}
             </Button>
           </div>
         </DialogContent>
