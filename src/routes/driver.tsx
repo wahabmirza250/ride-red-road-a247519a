@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
+import { AccessDenied } from "@/components/AccessDenied";
 
 export const Route = createFileRoute("/driver")({
   ssr: false,
@@ -20,7 +21,7 @@ const NAV = [
 ] as const;
 
 function DriverLayout() {
-  const { loading, user, isDriver, isAdmin, signOut } = useAuth();
+  const { loading, user, isDriver, signOut } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
   const { theme, toggle } = useTheme();
@@ -31,10 +32,7 @@ function DriverLayout() {
     if (isPublicAuthRoute) return;
     if (loading) return;
     if (!user) nav({ to: "/driver/signin", replace: true });
-    else if (!isDriver && !isAdmin) {
-      nav({ to: "/", replace: true });
-    }
-  }, [isPublicAuthRoute, loading, user, isDriver, isAdmin, nav]);
+  }, [isPublicAuthRoute, loading, user, nav]);
 
   if (isPublicAuthRoute) return <Outlet />;
 
@@ -45,12 +43,11 @@ function DriverLayout() {
       </div>
     );
 
-  if (!isDriver && !isAdmin) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-6 text-center text-sm text-muted-foreground">
-        This app is for drivers. Redirecting…
-      </div>
-    );
+  // Strict role isolation — only accounts with the driver role may see the
+  // driver app. Being signed in as an admin or passenger must NEVER grant
+  // access here.
+  if (!isDriver) {
+    return <AccessDenied appName="driver" signInHref="/driver/signin" signInLabel="driver sign in" email={user.email} />;
   }
 
   return (
