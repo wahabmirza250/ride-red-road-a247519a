@@ -332,9 +332,12 @@ function DriverHome() {
       setShowSign(false); setSignature(null); setSignerName("");
       await setStatus("completed");
 
-      // Generate the state trip-report PDF and attach it to a medicaid_trips row.
+      // Server-side PDF generation: finalize the medicaid_trips row from
+      // trip data (addresses, times, driver, vehicle, miles all auto-derived),
+      // then render + upload the HCPF PDF on the server so we don't rely on
+      // the browser being able to fetch the template asset.
       try {
-        const { medicaid_trip_id, pdf } = await finalizeFn({
+        await finalizeFn({
           data: {
             trip_id: tripIdSnapshot,
             odometer_start: pickupOdoReading,
@@ -344,27 +347,7 @@ function DriverHome() {
             signed_by_escort: false,
           },
         });
-        const pdfBytes = await generateStateFormPdf({
-          rider: pdf.rider,
-          driverName: pdf.driverName,
-          vehiclePlate: pdf.vehiclePlate,
-          vehicleVin: pdf.vehicleVin,
-          vehicleType: pdf.vehicleType,
-          escortName: null,
-          identityVerified: true,
-          tripKind: pdf.tripKind,
-          legs: pdf.legs,
-          signatureName: pdf.signatureName,
-          signatureUrl: signatureDataUrl,
-          signedByEscort: pdf.signedByEscort,
-        });
-        const pdfPath = `${user.id}/${tripIdSnapshot}.pdf`;
-        const pdfBlob = new Blob([pdfBytes as BlobPart], { type: "application/pdf" });
-        const pdfUp = await supabase.storage
-          .from("state-pdfs")
-          .upload(pdfPath, pdfBlob, { upsert: true, contentType: "application/pdf" });
-        if (pdfUp.error) throw pdfUp.error;
-        await attachPdfFn({ data: { trip_id: medicaid_trip_id, state_pdf_path: pdfPath } });
+        await ensurePdfFn({ data: { trip_id: tripIdSnapshot } });
         toast.success("Trip report PDF generated and saved");
       } catch (pdfErr) {
         toast.error(
