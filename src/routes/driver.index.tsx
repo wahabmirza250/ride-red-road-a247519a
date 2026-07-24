@@ -28,9 +28,8 @@ import { addTripStop, markStopArrived, markStopDeparted } from "@/lib/tripStops.
 import {
   detectOdometerFromImage,
   finalizeMedicaidFromDispatchTrip,
-  attachStatePdf,
+  ensureDispatchTripStatePdf,
 } from "@/lib/nemtTrip.functions";
-import { generateStateFormPdf } from "@/lib/medicaidPdf";
 import { VerifyMedicaidButton } from "@/components/VerifyMedicaidButton";
 
 export const Route = createFileRoute("/driver/")({ component: DriverHome });
