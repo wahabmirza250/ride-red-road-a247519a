@@ -763,6 +763,18 @@ function DriverHome() {
         onOpenChange={setShowPickupForm}
         onSubmit={savePickupForm}
         alreadyCaptured={pickupOdoDone}
+        title="Trip report — start pickup"
+        submitLabel="Save & start trip"
+      />
+
+      {/* Drop-off odometer form — captures final reading + photo before signature. */}
+      <PickupFormDialog
+        open={showDropoffForm}
+        onOpenChange={setShowDropoffForm}
+        onSubmit={saveDropoffForm}
+        alreadyCaptured={dropoffOdoDone}
+        title="Drop-off odometer"
+        submitLabel="Save & capture signature"
       />
 
       {/* Passenger picker */}
