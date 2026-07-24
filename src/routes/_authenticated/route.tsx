@@ -14,7 +14,6 @@ import {
   Trophy,
   LogOut,
   FileSignature,
-  FileSignature,
   Sun,
   Moon,
   Radio,
@@ -59,9 +58,6 @@ const ADMIN_NAV = [
   { to: "/games", label: "Games", icon: Gamepad2 },
   { to: "/rewards-settings", label: "Rewards", icon: Trophy },
 ] as const;
-
-// Unused icons kept for compatibility (previous driver nav) — silence unused warnings.
-void [ClipboardList, FileSignature];
 
 function AuthenticatedLayout() {
   const { loading, user, isAdmin, signOut } = useAuth();
