@@ -83,6 +83,14 @@ function PassengerLayout() {
     typeof window !== "undefined" &&
     !!window.localStorage.getItem("passenger_device_id");
 
+  // Strict role isolation — a signed-in admin or driver must NEVER see the
+  // passenger app just because their session persists in this browser.
+  // Guests (no session) can still browse and book without signing in.
+  if (!loading && user && !isPassenger && (isAdmin || isDriver)) {
+    return <AccessDenied appName="passenger" signInHref="/passenger/signup" signInLabel="passenger sign in" email={user.email} />;
+  }
+
+
   return (
     <div className="surface-green relative min-h-screen bg-background pb-24 text-foreground">
       <AuroraBackdrop />
