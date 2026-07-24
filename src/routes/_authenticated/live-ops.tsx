@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseBrowser";
 import { GoogleFleetMap, type FleetMarker } from "@/components/nemt/GoogleFleetMap";
 import { fmtMoney } from "@/lib/rideMath";
-import { adminReassignDriver } from "@/lib/dispatchAdmin.functions";
+import { adminReassignDriver, adminCancelTrip } from "@/lib/dispatchAdmin.functions";
 
 export const Route = createFileRoute("/_authenticated/live-ops")({
   component: LiveOps,
