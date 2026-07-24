@@ -977,8 +977,9 @@ function PickupFormDialog({
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Tap the camera to snap the odometer — the number is read automatically.
-            You can also type it manually. Saving starts the trip.
+            Take a photo of the odometer for documentation. Auto-detect will try
+            to read the number — if it looks wrong or fails, just type the reading
+            in manually. Both the photo and the number are saved.
           </p>
           <div className="space-y-1.5">
             <Label htmlFor="odo">Odometer reading (miles)</Label>
@@ -988,8 +989,7 @@ function PickupFormDialog({
                 inputMode="decimal"
                 value={reading}
                 onChange={(e) => setReading(e.target.value.replace(/[^\d.]/g, ""))}
-                placeholder={scanning ? "Reading photo…" : "e.g. 84521"}
-                disabled={scanning}
+                placeholder={scanning ? "Auto-reading… (you can still type)" : "e.g. 84521"}
                 className="flex-1"
               />
               <input
@@ -1009,31 +1009,33 @@ function PickupFormDialog({
                 variant="secondary"
                 className="shrink-0 gap-1.5"
                 onClick={() => cameraInputRef.current?.click()}
-                disabled={scanning || busy}
+                disabled={busy}
                 aria-label="Capture odometer with camera"
                 title="Capture odometer with camera"
               >
                 {scanning
                   ? <Loader2 className="h-4 w-4 animate-spin" />
                   : <Camera className="h-4 w-4" />}
-                <span className="hidden sm:inline text-xs">Camera</span>
+                <span className="hidden sm:inline text-xs">
+                  {file ? "Retake" : "Camera"}
+                </span>
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
               {scanning
-                ? "Detecting number from photo…"
+                ? "Detecting number from photo… you can type the reading if you'd rather not wait."
                 : file
-                  ? "Photo captured. Double-check the number is correct."
-                  : "Manual entry is fine too — photo required to start the trip."}
+                  ? "Photo captured. Double-check the number — edit it if auto-detect got it wrong."
+                  : "Photo is required for documentation. You can type the number manually."}
             </p>
           </div>
           {preview && (
             <img src={preview} alt="Odometer preview" className="max-h-40 w-full rounded-lg border border-border object-contain" />
           )}
           <div className="text-[11px] text-muted-foreground">
-            Timestamp is recorded automatically at save.
+            Pickup / drop-off time is stamped automatically from the system clock.
           </div>
-          <Button className="w-full rounded-full" onClick={handleSubmit} disabled={busy || scanning}>
+          <Button className="w-full rounded-full" onClick={handleSubmit} disabled={busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : submitLabel}
           </Button>
         </div>
