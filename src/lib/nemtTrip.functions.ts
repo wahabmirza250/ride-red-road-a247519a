@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { generateStateFormPdf, type Leg } from "@/lib/medicaidPdf";
 
 const VehicleType = z.enum([
   "ground_ambulance",
@@ -528,9 +530,18 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
     const vin = driver.default_vin ?? null;
     const vehicleType = driver.default_vehicle_type ?? null;
 
-    // Check for existing medicaid_trips row for this dispatch trip to avoid duplicates
-    // (link via odometer_start/end + pickup_at is fragile; use driver+rider+pickup_at)
-    const { data: existingMt } = await supabase
+    // Check for an existing medicaid_trips row for this dispatch trip to avoid duplicates.
+    // Prefer the direct dispatch_trip_id link; keep the legacy match as a fallback for
+    // rows created before that link existed.
+    const { data: existingLinkedMt } = await supabase
+      .from("medicaid_trips")
+      .select("id")
+      .eq("dispatch_trip_id", trip.id)
+      .maybeSingle();
+
+    const { data: existingLegacyMt } = existingLinkedMt
+      ? { data: null }
+      : await supabase
       .from("medicaid_trips")
       .select("id")
       .eq("driver_id", userId)
@@ -539,12 +550,32 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
       .maybeSingle();
 
     let medicaidTripId: string;
+    const existingMt = existingLinkedMt ?? existingLegacyMt;
     if (existingMt) {
       medicaidTripId = existingMt.id;
+      const { error: updateMtErr } = await supabase
+        .from("medicaid_trips")
+        .update({
+          dispatch_trip_id: trip.id,
+          pickup_address: trip.pickup_address,
+          dropoff_address: trip.dropoff_address,
+          odometer_start: data.odometer_start,
+          odometer_end: data.odometer_end,
+          miles,
+          vehicle_type: vehicleType,
+          vehicle_plate: plate,
+          vehicle_vin: vin,
+          signature_path: data.signature_path,
+          signature_name: data.signer_name,
+          signed_by_escort: data.signed_by_escort,
+        } as any)
+        .eq("id", medicaidTripId);
+      if (updateMtErr) throw new Error(updateMtErr.message);
     } else {
       const { data: inserted, error: mtErr } = await supabase
         .from("medicaid_trips")
         .insert({
+          dispatch_trip_id: trip.id,
           driver_id: userId,
           rider_id: riderId,
           pickup_at: pickupIso,
@@ -625,3 +656,189 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
       },
     };
   });
+
+const EnsureDispatchPdfSchema = z.object({ trip_id: z.string().uuid() });
+
+export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => EnsureDispatchPdfSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    const { data: trip, error: tripErr } = await supabase
+      .from("trips")
+      .select("id, driver_id")
+      .eq("id", data.trip_id)
+      .maybeSingle();
+    if (tripErr) throw new Error(tripErr.message);
+    if (!trip) throw new Error("Trip not found");
+
+    const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "admin",
+    });
+    if (roleErr) throw new Error(roleErr.message);
+
+    const { data: driver, error: driverErr } = await supabase
+      .from("drivers")
+      .select("id, user_id")
+      .eq("id", trip.driver_id)
+      .maybeSingle();
+    if (driverErr) throw new Error(driverErr.message);
+    if (!driver) throw new Error("Driver not found");
+    if (!isAdmin && driver.user_id !== userId) throw new Error("Forbidden");
+
+    const { data: mt, error: mtErr } = await supabase
+      .from("medicaid_trips")
+      .select("*, riders(id, full_name, medicaid_id, dob, phone, address, last_4_ssn), medicaid_trip_legs(*)")
+      .eq("dispatch_trip_id", trip.id)
+      .maybeSingle();
+    if (mtErr) throw new Error(mtErr.message);
+    if (!mt) throw new Error("No HCPF trip report was created for this ride yet");
+
+    if (mt.state_pdf_path) {
+      const { data: signed, error: signErr } = await supabase.storage
+        .from("state-pdfs")
+        .createSignedUrl(mt.state_pdf_path, 60 * 15);
+      if (signErr) throw new Error(signErr.message);
+      return {
+        ok: true,
+        generated: false,
+        medicaid_trip_id: mt.id,
+        state_pdf_path: mt.state_pdf_path,
+        url: signed?.signedUrl ?? null,
+      };
+    }
+
+    if (!mt.signature_path) {
+      throw new Error("No saved passenger signature found for this trip");
+    }
+
+    const { data: sig, error: sigErr } = await supabase.storage
+      .from("signatures")
+      .createSignedUrl(mt.signature_path, 60 * 15);
+    if (sigErr) throw new Error(sigErr.message);
+    if (!sig?.signedUrl) throw new Error("Could not load saved passenger signature");
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("first_name, last_name, email")
+      .eq("id", mt.driver_id)
+      .maybeSingle();
+    const driverName = profile
+      ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || profile.email || ""
+      : "";
+
+    let riderForPdf = mt.riders ?? null;
+    if (riderForPdf?.id) {
+      const raw = String(riderForPdf.medicaid_id ?? "").trim();
+      const needsSsn = !raw || raw.startsWith("SSN-") || raw.startsWith("WALK-") || raw.startsWith("SELF-");
+      if (needsSsn) {
+        try {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { data: ssn } = await supabaseAdmin.rpc("get_decrypted_rider_ssn", {
+            _rider_id: riderForPdf.id,
+          });
+          if (ssn && typeof ssn === "string") riderForPdf = { ...riderForPdf, medicaid_id: ssn };
+        } catch {
+          /* fall back to the rider row value */
+        }
+      }
+    }
+
+    const legs = normalizeMedicaidTripLegs(mt);
+    const pdfBytes = await generateStateFormPdf(
+      {
+        rider: riderForPdf,
+        driverName,
+        vehiclePlate: mt.vehicle_plate ?? null,
+        vehicleVin: mt.vehicle_vin ?? null,
+        vehicleType: mt.vehicle_type ?? null,
+        escortName: mt.escort_name ?? null,
+        identityVerified: mt.identity_verified !== false,
+        tripKind: mt.trip_kind ?? "one_way",
+        legs,
+        signatureName: mt.signature_name ?? riderForPdf?.full_name ?? null,
+        signatureUrl: sig.signedUrl,
+        signedByEscort: mt.signed_by_escort ?? false,
+      },
+      { templateBaseUrl: getRequestOrigin() },
+    );
+
+    const pdfPath = `${mt.driver_id}/${mt.id}.pdf`;
+    const { error: uploadErr } = await supabase.storage
+      .from("state-pdfs")
+      .upload(pdfPath, new Blob([pdfBytes as BlobPart], { type: "application/pdf" }), {
+        upsert: true,
+        contentType: "application/pdf",
+      });
+    if (uploadErr) throw new Error(uploadErr.message);
+
+    const { error: updateErr } = await supabase
+      .from("medicaid_trips")
+      .update({
+        state_pdf_path: pdfPath,
+        state_pdf_generated_at: new Date().toISOString(),
+      } as any)
+      .eq("id", mt.id);
+    if (updateErr) throw new Error(updateErr.message);
+
+    const { data: signed, error: signErr } = await supabase.storage
+      .from("state-pdfs")
+      .createSignedUrl(pdfPath, 60 * 15);
+    if (signErr) throw new Error(signErr.message);
+
+    return {
+      ok: true,
+      generated: true,
+      medicaid_trip_id: mt.id,
+      state_pdf_path: pdfPath,
+      url: signed?.signedUrl ?? null,
+    };
+  });
+
+function getRequestOrigin(): string {
+  const origin = getRequestHeader("origin");
+  if (origin) return origin;
+  const host = getRequestHeader("x-forwarded-host") ?? getRequestHeader("host");
+  const proto = getRequestHeader("x-forwarded-proto") ?? "https";
+  return host ? `${proto}://${host}` : "http://localhost:8080";
+}
+
+function normalizeMedicaidTripLegs(trip: any): Leg[] {
+  const rows = Array.isArray(trip.medicaid_trip_legs)
+    ? [...trip.medicaid_trip_legs].sort((a, b) => Number(a.leg_index) - Number(b.leg_index))
+    : [];
+
+  if (rows.length) {
+    return rows.map((l: any) => ({
+      leg_index: (Number(l.leg_index) === 2 ? 2 : 1) as 1 | 2,
+      leg_date: String(l.leg_date ?? "").slice(0, 10),
+      pickup_time: l.pickup_time ? String(l.pickup_time).slice(0, 5) : null,
+      pickup_odometer: Number(l.pickup_odometer ?? 0),
+      pickup_address: l.pickup_address ?? "",
+      dropoff_time: l.dropoff_time ? String(l.dropoff_time).slice(0, 5) : null,
+      dropoff_odometer: Number(l.dropoff_odometer ?? 0),
+      dropoff_address: l.dropoff_address ?? "",
+    }));
+  }
+
+  const pickupAt = trip.pickup_at ? new Date(trip.pickup_at) : new Date();
+  const date = Number.isNaN(pickupAt.getTime())
+    ? new Date().toISOString().slice(0, 10)
+    : pickupAt.toISOString().slice(0, 10);
+  const time = Number.isNaN(pickupAt.getTime()) ? null : pickupAt.toTimeString().slice(0, 5);
+
+  return [
+    {
+      leg_index: 1,
+      leg_date: date,
+      pickup_time: time,
+      pickup_odometer: Number(trip.odometer_start ?? 0),
+      pickup_address: trip.pickup_address ?? "",
+      dropoff_time: null,
+      dropoff_odometer: Number(trip.odometer_end ?? 0),
+      dropoff_address: trip.dropoff_address ?? "",
+    },
+  ];
+}
