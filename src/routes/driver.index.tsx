@@ -738,13 +738,13 @@ function DriverHome() {
       {/* Add-stop dialog */}
       <AddStopDialog open={showAddStop} onOpenChange={setShowAddStop} onAdd={addStop} />
 
-      {/* Trip report / pickup form — captures odometer reading + photo, then starts the trip. */}
+      {/* Pickup odometer capture — photo (for documentation) + manual number entry. */}
       <PickupFormDialog
         open={showPickupForm}
         onOpenChange={setShowPickupForm}
         onSubmit={savePickupForm}
         alreadyCaptured={pickupOdoDone}
-        title="Trip report — start pickup"
+        title="Pickup odometer"
         submitLabel="Save & start trip"
       />
 
