@@ -672,6 +672,7 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
       .maybeSingle();
     if (tripErr) throw new Error(tripErr.message);
     if (!trip) throw new Error("Trip not found");
+    if (!trip.driver_id) throw new Error("Trip is missing an assigned driver");
 
     const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", {
       _user_id: userId,
