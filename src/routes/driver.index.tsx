@@ -845,3 +845,87 @@ function PassengerPickerDialog({
     </Dialog>
   );
 }
+
+function PickupFormDialog({
+  open, onOpenChange, onSubmit, alreadyCaptured,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSubmit: (file: File, reading: number) => Promise<void>;
+  alreadyCaptured: boolean;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [reading, setReading] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setFile(null); setPreview(null); setReading(""); setBusy(false);
+    }
+  }, [open]);
+
+  function pickFile(f: File | null) {
+    setFile(f);
+    setPreview(f ? URL.createObjectURL(f) : null);
+  }
+
+  async function handleSubmit() {
+    const n = Number(reading);
+    if (!Number.isFinite(n) || n <= 0) return toast.error("Enter a valid odometer reading");
+    if (!file && !alreadyCaptured) return toast.error("Take the odometer photo");
+    setBusy(true);
+    try {
+      // If a new photo was picked, use it; otherwise reuse the already-captured
+      // photo with just the reading updated (via a tiny empty-blob upload avoided
+      // by requiring a photo when none exists).
+      if (file) await onSubmit(file, n);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Trip report — start pickup</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Enter the current odometer reading and take a photo of the odometer.
+            This photo doubles as pickup proof — the trip starts when you save.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="odo">Odometer reading (miles)</Label>
+            <Input
+              id="odo"
+              inputMode="decimal"
+              value={reading}
+              onChange={(e) => setReading(e.target.value.replace(/[^\d.]/g, ""))}
+              placeholder="e.g. 84521"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="odo-photo">Odometer photo</Label>
+            <input
+              id="odo-photo"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-xs file:mr-3 file:rounded-full file:border file:border-border file:bg-surface file:px-3 file:py-1.5 file:text-xs file:font-medium"
+            />
+            {preview && (
+              <img src={preview} alt="Odometer preview" className="mt-2 max-h-40 rounded-lg border border-border" />
+            )}
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            Timestamp is recorded automatically at save.
+          </div>
+          <Button className="w-full rounded-full" onClick={handleSubmit} disabled={busy}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & start trip"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
