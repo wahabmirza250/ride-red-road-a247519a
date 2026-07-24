@@ -352,18 +352,33 @@ function DriverHome() {
     });
   }
 
-  async function uploadOdometer(file: File, which: "start" | "end") {
+  async function uploadOdometer(file: File, which: "start" | "end", reading?: number | null) {
     if (!active?.trip_id || !user) return;
     const path = `${user.id}/${active.trip_id}/odo_${which}_${Date.now()}.jpg`;
     const up = await supabase.storage.from("odometers").upload(path, file, {
       contentType: file.type || "image/jpeg", upsert: false,
     });
     if (up.error) throw new Error(up.error.message);
-    const patch = which === "start" ? { odometer_start_photo: path } : { odometer_end_photo: path };
+    const patch: Record<string, unknown> =
+      which === "start"
+        ? { odometer_start_photo: path, ...(reading != null ? { odometer_start: reading } : {}) }
+        : { odometer_end_photo: path, ...(reading != null ? { odometer_end: reading } : {}) };
     const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
     if (error) throw new Error(error.message);
     if (which === "start") setPickupOdoDone(true); else setDropoffOdoDone(true);
     toast.success("Odometer photo saved");
+  }
+
+  /** Trip report / pickup form — captures odometer reading + photo, then starts the trip. */
+  async function savePickupForm(file: File, reading: number) {
+    try {
+      await uploadOdometer(file, "start", reading);
+      await setStatus("in_progress");
+      setShowPickupForm(false);
+      toast.success("Trip started");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save form");
+    }
   }
 
 
