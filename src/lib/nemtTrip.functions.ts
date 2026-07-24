@@ -682,8 +682,8 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
 
     const plate = cleanText(draft.vehicle_plate) ?? driver.default_plate ?? driver.vehicle_plate ?? "";
     const vin = cleanText(draft.vehicle_vin) ?? driver.default_vin ?? null;
-    const vehicleType = cleanText(draft.vehicle_type) ?? driver.default_vehicle_type ?? null;
-    const tripKind = draft.trip_kind ?? "one_way";
+    const vehicleType = normalizeVehicleType(cleanText(draft.vehicle_type) ?? driver.default_vehicle_type);
+    const tripKind = normalizeTripKind(draft.trip_kind);
     const identityVerified = draft.identity_verified === "yes"
       ? true
       : draft.identity_verified === "no"
@@ -1038,4 +1038,14 @@ function numericDraftValue(value: unknown): number | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
   const n = Number(String(value).replace(/[^0-9.]/g, ""));
   return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function normalizeVehicleType(value: unknown): z.infer<typeof VehicleType> | null {
+  const parsed = VehicleType.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+function normalizeTripKind(value: unknown): z.infer<typeof TripKind> {
+  const parsed = TripKind.safeParse(value);
+  return parsed.success ? parsed.data : "one_way";
 }
