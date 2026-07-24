@@ -33,6 +33,7 @@ import { NotificationBell } from "@/components/admin/NotificationBell";
 import { ensurePushSubscribed } from "@/lib/push";
 import { BrandMark } from "@/components/Brand";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { AccessDenied } from "@/components/AccessDenied";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
@@ -60,26 +61,11 @@ const ADMIN_NAV = [
   { to: "/rewards-settings", label: "Rewards", icon: Trophy },
 ] as const;
 
-const DRIVER_NAV = [
-  { to: "/medicaid-trips", label: "My Trips", icon: ClipboardList },
-  { to: "/medicaid-trips/new", label: "New Trip", icon: FileSignature },
-  { to: "/news", label: "News", icon: Newspaper },
-  { to: "/games", label: "Games", icon: Gamepad2 },
-] as const;
-
-// Paths inside /_authenticated that non-admins must not see. Drivers landing
-// on any of these are bounced to their own home; passengers are bounced out
-// of the dispatch app entirely.
-const DRIVER_ALLOWED_PREFIXES = ["/medicaid-trips", "/news", "/games"];
-
-function isDriverAllowed(pathname: string): boolean {
-  return DRIVER_ALLOWED_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(p + "/"),
-  );
-}
+// Unused icons kept for compatibility (previous driver nav) — silence unused warnings.
+void [ClipboardList, FileSignature];
 
 function AuthenticatedLayout() {
-  const { loading, user, isAdmin, isDriver, isPassenger, signOut } = useAuth();
+  const { loading, user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, toggle: toggleTheme } = useTheme();
@@ -90,68 +76,27 @@ function AuthenticatedLayout() {
     if (loading) return;
     if (!user) {
       navigate({ to: "/auth", replace: true });
-      return;
     }
-    // Role-based routing guard.
-    if (!isAdmin && !isDriver) {
-      // Passenger-only (or roleless) users have no business in the dispatch app.
-      navigate({ to: isPassenger ? "/passenger" : "/auth", replace: true });
-      return;
-    }
-    if (!isAdmin && isDriver && !isDriverAllowed(location.pathname)) {
-      // Driver stumbled onto an admin-only page inside the dispatch app.
-      navigate({ to: "/medicaid-trips", replace: true });
-    }
-  }, [
-    loading,
-    user,
-    isAdmin,
-    isDriver,
-    isPassenger,
-    location.pathname,
-    navigate,
-  ]);
+  }, [loading, user, navigate]);
 
   // Admins get browser push for new ride requests and events.
   useEffect(() => {
-    if (user) {
+    if (user && isAdmin) {
       ensurePushSubscribed().catch(() => {});
     }
-  }, [user]);
-
-
+  }, [user, isAdmin]);
 
   if (loading || !user) {
     return <LoadingScreen label="Loading your dashboard" />;
   }
 
-
-  const NAV = isAdmin ? ADMIN_NAV : isDriver ? DRIVER_NAV : [];
-
-
-  if (!isAdmin && !isDriver) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-6">
-        <div className="max-w-md rounded-3xl border border-border bg-surface p-8 text-center shadow-soft">
-          <h1 className="text-xl font-semibold">No access</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Your account has no role assigned. Contact dispatch to be added as a driver or admin.
-          </p>
-          <Button
-            className="mt-6 rounded-full"
-            variant="secondary"
-            onClick={async () => {
-              await signOut();
-              navigate({ to: "/auth", replace: true });
-            }}
-          >
-            Sign out
-          </Button>
-        </div>
-      </div>
-    );
+  // Strict role isolation — only admins may see the dispatch app. Being
+  // signed in as a driver or passenger must NEVER grant access here.
+  if (!isAdmin) {
+    return <AccessDenied appName="dispatch / admin" signInHref="/auth" signInLabel="admin sign in" email={user.email} />;
   }
 
+  const NAV = ADMIN_NAV;
   const meta = user.user_metadata as { first_name?: string; last_name?: string } | undefined;
 
   return (
