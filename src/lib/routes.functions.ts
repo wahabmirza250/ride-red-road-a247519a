@@ -586,7 +586,13 @@ export const updateRouteStop = createServerFn({ method: "POST" })
       if (!drv || route?.driver_id !== drv.id) throw new Error("Not your route");
     }
 
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      address?: string;
+      lat?: number | null;
+      lng?: number | null;
+      notes?: string | null;
+      passenger_name?: string | null;
+    } = {};
     if (data.address !== undefined) patch.address = data.address.trim();
     if (data.lat !== undefined) patch.lat = data.lat;
     if (data.lng !== undefined) patch.lng = data.lng;
