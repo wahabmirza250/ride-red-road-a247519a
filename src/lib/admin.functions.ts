@@ -170,6 +170,96 @@ export const listAdmins = createServerFn({ method: "GET" })
     return profs ?? [];
   });
 
+type CreateDispatcherInput = {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
+};
+
+/**
+ * Owner/admin creates a dispatcher login. Dispatchers get the `dispatch`
+ * role ONLY — never admin — so they can never reach billing, payroll or
+ * portal credentials.
+ */
+export const createDispatcher = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: CreateDispatcherInput) => {
+    if (!input.email?.trim()) throw new Error("Email required");
+    if (!input.password || input.password.length < 6)
+      throw new Error("Password must be at least 6 characters");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+      email: data.email.trim().toLowerCase(),
+      password: data.password,
+      email_confirm: true,
+      user_metadata: {
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: data.phone ?? "",
+        role: "dispatch",
+      },
+    });
+    if (error || !created.user) throw new Error(error?.message ?? "Failed to create user");
+    const userId = created.user.id;
+    await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: userId, role: "dispatch" }, { onConflict: "user_id,role" });
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).neq("role", "dispatch");
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: data.phone ?? "",
+      })
+      .eq("id", userId);
+    return { ok: true, user_id: userId };
+  });
+
+export const listDispatchers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureAdmin(context.supabase, context.userId);
+    const { data: roles } = await context.supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "dispatch");
+    const ids = (roles ?? []).map((r) => r.user_id);
+    if (!ids.length) return [];
+    const { data: profs } = await context.supabase
+      .from("profiles")
+      .select("id, first_name, last_name, email, phone")
+      .in("id", ids);
+    return profs ?? [];
+  });
+
+export const deleteDispatcher = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { user_id: string }) => {
+    if (!input?.user_id) throw new Error("user_id required");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: role } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user_id)
+      .eq("role", "dispatch")
+      .maybeSingle();
+    if (!role) throw new Error("Not a dispatcher account");
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
+    await supabaseAdmin.auth.admin.deleteUser(data.user_id);
+    return { ok: true };
+  });
+
 export const createPassengerAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: CreatePassengerInput) => input)
