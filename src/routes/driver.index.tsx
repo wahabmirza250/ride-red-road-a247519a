@@ -183,7 +183,14 @@ function DriverHome() {
       }
     }
     lastFixRef.current = { lat: p.lat, lng: p.lng, t: now };
-    await supabase.from("drivers").update({ current_lat: p.lat, current_lng: p.lng }).eq("id", driver.id);
+    await supabase
+      .from("drivers")
+      .update({
+        current_lat: p.lat,
+        current_lng: p.lng,
+        last_location_at: new Date().toISOString(),
+      })
+      .eq("id", driver.id);
   }, [driver, addMilesFn, refreshStats]);
   const handleGeoError = useCallback((msg: string) => setGeoError(msg), []);
   useLocationBroadcast(online, pushLoc, 10000, handleGeoError);
