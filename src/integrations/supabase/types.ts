@@ -386,6 +386,51 @@ export type Database = {
           },
         ]
       }
+      dispatch_events: {
+        Row: {
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          created_at: string
+          data: Json
+          driver_id: string | null
+          id: string
+          kind: string
+          request_id: string | null
+          route_id: string | null
+          summary: string
+          trip_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          created_at?: string
+          data?: Json
+          driver_id?: string | null
+          id?: string
+          kind: string
+          request_id?: string | null
+          route_id?: string | null
+          summary: string
+          trip_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          created_at?: string
+          data?: Json
+          driver_id?: string | null
+          id?: string
+          kind?: string
+          request_id?: string | null
+          route_id?: string | null
+          summary?: string
+          trip_id?: string | null
+        }
+        Relationships: []
+      }
       dispatch_trip_report_drafts: {
         Row: {
           created_at: string
@@ -1447,6 +1492,7 @@ export type Database = {
           stops: Json
           trip_id: string | null
           updated_at: string
+          vehicle_type: string | null
         }
         Insert: {
           contact_medicaid?: string | null
@@ -1477,6 +1523,7 @@ export type Database = {
           stops?: Json
           trip_id?: string | null
           updated_at?: string
+          vehicle_type?: string | null
         }
         Update: {
           contact_medicaid?: string | null
@@ -1507,6 +1554,7 @@ export type Database = {
           stops?: Json
           trip_id?: string | null
           updated_at?: string
+          vehicle_type?: string | null
         }
         Relationships: [
           {
@@ -1593,6 +1641,125 @@ export type Database = {
           is_active?: boolean
         }
         Relationships: []
+      }
+      route_stops: {
+        Row: {
+          address: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          kind: string
+          lat: number | null
+          leg: string
+          lng: number | null
+          notes: string | null
+          passenger_medicaid_id: string | null
+          passenger_name: string | null
+          passenger_phone: string | null
+          request_id: string | null
+          route_id: string
+          sequence: number
+        }
+        Insert: {
+          address: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          lat?: number | null
+          leg?: string
+          lng?: number | null
+          notes?: string | null
+          passenger_medicaid_id?: string | null
+          passenger_name?: string | null
+          passenger_phone?: string | null
+          request_id?: string | null
+          route_id: string
+          sequence?: number
+        }
+        Update: {
+          address?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          lat?: number | null
+          leg?: string
+          lng?: number | null
+          notes?: string | null
+          passenger_medicaid_id?: string | null
+          passenger_name?: string | null
+          passenger_phone?: string | null
+          request_id?: string | null
+          route_id?: string
+          sequence?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_stops_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "ride_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_stops_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routes: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          driver_id: string | null
+          id: string
+          name: string | null
+          notes: string | null
+          scheduled_at: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string | null
+          id?: string
+          name?: string | null
+          notes?: string | null
+          scheduled_at?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string | null
+          id?: string
+          name?: string | null
+          notes?: string | null
+          scheduled_at?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routes_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       saved_places: {
         Row: {
@@ -1880,6 +2047,7 @@ export type Database = {
           gps_route: Json
           hcpf_claim_number: string | null
           id: string
+          identity_verified: boolean | null
           is_problem: boolean
           notes: string | null
           odometer_end: number | null
@@ -1923,6 +2091,7 @@ export type Database = {
           gps_route?: Json
           hcpf_claim_number?: string | null
           id?: string
+          identity_verified?: boolean | null
           is_problem?: boolean
           notes?: string | null
           odometer_end?: number | null
@@ -1966,6 +2135,7 @@ export type Database = {
           gps_route?: Json
           hcpf_claim_number?: string | null
           id?: string
+          identity_verified?: boolean | null
           is_problem?: boolean
           notes?: string | null
           odometer_end?: number | null
@@ -2041,6 +2211,7 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      current_user_is_dispatch: { Args: never; Returns: boolean }
       driver_can_see_passenger: {
         Args: { _passenger_id: string }
         Returns: boolean
@@ -2104,7 +2275,7 @@ export type Database = {
           }
     }
     Enums: {
-      app_role: "admin" | "driver" | "passenger"
+      app_role: "admin" | "driver" | "passenger" | "dispatch"
       billing_status: "pending" | "submitted" | "paid" | "rejected"
       driver_pay_type: "per_hour" | "commission"
       driver_status: "available" | "busy" | "offline"
@@ -2266,7 +2437,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "driver", "passenger"],
+      app_role: ["admin", "driver", "passenger", "dispatch"],
       billing_status: ["pending", "submitted", "paid", "rejected"],
       driver_pay_type: ["per_hour", "commission"],
       driver_status: ["available", "busy", "offline"],

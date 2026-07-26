@@ -11,11 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PassengerRouteImport } from './routes/passenger'
 import { Route as DriverRouteImport } from './routes/driver'
+import { Route as DispatchRouteImport } from './routes/dispatch'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PassengerIndexRouteImport } from './routes/passenger.index'
 import { Route as DriverIndexRouteImport } from './routes/driver.index'
+import { Route as DispatchIndexRouteImport } from './routes/dispatch.index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
 import { Route as RideRequestIdRouteImport } from './routes/ride.$requestId'
 import { Route as PassengerTrackRouteImport } from './routes/passenger.track'
@@ -33,6 +35,7 @@ import { Route as DriverMessagesRouteImport } from './routes/driver.messages'
 import { Route as DriverHistoryRouteImport } from './routes/driver.history'
 import { Route as DriverExpensesRouteImport } from './routes/driver.expenses'
 import { Route as DriverEarningsRouteImport } from './routes/driver.earnings'
+import { Route as DispatchSigninRouteImport } from './routes/dispatch.signin'
 import { Route as AuthSignupRouteImport } from './routes/auth.signup'
 import { Route as AuthenticatedTripsRouteImport } from './routes/_authenticated/trips'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
@@ -71,6 +74,11 @@ const DriverRoute = DriverRouteImport.update({
   path: '/driver',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DispatchRoute = DispatchRouteImport.update({
+  id: '/dispatch',
+  path: '/dispatch',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -94,6 +102,11 @@ const DriverIndexRoute = DriverIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DriverRoute,
+} as any)
+const DispatchIndexRoute = DispatchIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DispatchRoute,
 } as any)
 const TrackTripIdRoute = TrackTripIdRouteImport.update({
   id: '/track/$tripId',
@@ -179,6 +192,11 @@ const DriverEarningsRoute = DriverEarningsRouteImport.update({
   id: '/earnings',
   path: '/earnings',
   getParentRoute: () => DriverRoute,
+} as any)
+const DispatchSigninRoute = DispatchSigninRouteImport.update({
+  id: '/signin',
+  path: '/signin',
+  getParentRoute: () => DispatchRoute,
 } as any)
 const AuthSignupRoute = AuthSignupRouteImport.update({
   id: '/signup',
@@ -326,6 +344,7 @@ const AuthenticatedTripsTripIdProofRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
+  '/dispatch': typeof DispatchRouteWithChildren
   '/driver': typeof DriverRouteWithChildren
   '/passenger': typeof PassengerRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -346,6 +365,7 @@ export interface FileRoutesByFullPath {
   '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRouteWithChildren
   '/auth/signup': typeof AuthSignupRoute
+  '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/expenses': typeof DriverExpensesRoute
   '/driver/history': typeof DriverHistoryRoute
@@ -363,6 +383,7 @@ export interface FileRoutesByFullPath {
   '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
+  '/dispatch/': typeof DispatchIndexRoute
   '/driver/': typeof DriverIndexRoute
   '/passenger/': typeof PassengerIndexRoute
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
@@ -396,6 +417,7 @@ export interface FileRoutesByTo {
   '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRouteWithChildren
   '/auth/signup': typeof AuthSignupRoute
+  '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/expenses': typeof DriverExpensesRoute
   '/driver/history': typeof DriverHistoryRoute
@@ -413,6 +435,7 @@ export interface FileRoutesByTo {
   '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
+  '/dispatch': typeof DispatchIndexRoute
   '/driver': typeof DriverIndexRoute
   '/passenger': typeof PassengerIndexRoute
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
@@ -430,6 +453,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
+  '/dispatch': typeof DispatchRouteWithChildren
   '/driver': typeof DriverRouteWithChildren
   '/passenger': typeof PassengerRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -450,6 +474,7 @@ export interface FileRoutesById {
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/trips': typeof AuthenticatedTripsRouteWithChildren
   '/auth/signup': typeof AuthSignupRoute
+  '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/expenses': typeof DriverExpensesRoute
   '/driver/history': typeof DriverHistoryRoute
@@ -467,6 +492,7 @@ export interface FileRoutesById {
   '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
+  '/dispatch/': typeof DispatchIndexRoute
   '/driver/': typeof DriverIndexRoute
   '/passenger/': typeof PassengerIndexRoute
   '/_authenticated/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
@@ -484,6 +510,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/dispatch'
     | '/driver'
     | '/passenger'
     | '/dashboard'
@@ -504,6 +531,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/trips'
     | '/auth/signup'
+    | '/dispatch/signin'
     | '/driver/earnings'
     | '/driver/expenses'
     | '/driver/history'
@@ -521,6 +549,7 @@ export interface FileRouteTypes {
     | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
+    | '/dispatch/'
     | '/driver/'
     | '/passenger/'
     | '/medicaid-trips/new'
@@ -554,6 +583,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/trips'
     | '/auth/signup'
+    | '/dispatch/signin'
     | '/driver/earnings'
     | '/driver/expenses'
     | '/driver/history'
@@ -571,6 +601,7 @@ export interface FileRouteTypes {
     | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
+    | '/dispatch'
     | '/driver'
     | '/passenger'
     | '/medicaid-trips/new'
@@ -587,6 +618,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/dispatch'
     | '/driver'
     | '/passenger'
     | '/_authenticated/dashboard'
@@ -607,6 +639,7 @@ export interface FileRouteTypes {
     | '/_authenticated/team'
     | '/_authenticated/trips'
     | '/auth/signup'
+    | '/dispatch/signin'
     | '/driver/earnings'
     | '/driver/expenses'
     | '/driver/history'
@@ -624,6 +657,7 @@ export interface FileRouteTypes {
     | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
+    | '/dispatch/'
     | '/driver/'
     | '/passenger/'
     | '/_authenticated/medicaid-trips/new'
@@ -641,6 +675,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  DispatchRoute: typeof DispatchRouteWithChildren
   DriverRoute: typeof DriverRouteWithChildren
   PassengerRoute: typeof PassengerRouteWithChildren
   RideRequestIdRoute: typeof RideRequestIdRoute
@@ -664,6 +699,13 @@ declare module '@tanstack/react-router' {
       path: '/driver'
       fullPath: '/driver'
       preLoaderRoute: typeof DriverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dispatch': {
+      id: '/dispatch'
+      path: '/dispatch'
+      fullPath: '/dispatch'
+      preLoaderRoute: typeof DispatchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -700,6 +742,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/driver/'
       preLoaderRoute: typeof DriverIndexRouteImport
       parentRoute: typeof DriverRoute
+    }
+    '/dispatch/': {
+      id: '/dispatch/'
+      path: '/'
+      fullPath: '/dispatch/'
+      preLoaderRoute: typeof DispatchIndexRouteImport
+      parentRoute: typeof DispatchRoute
     }
     '/track/$tripId': {
       id: '/track/$tripId'
@@ -819,6 +868,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/driver/earnings'
       preLoaderRoute: typeof DriverEarningsRouteImport
       parentRoute: typeof DriverRoute
+    }
+    '/dispatch/signin': {
+      id: '/dispatch/signin'
+      path: '/signin'
+      fullPath: '/dispatch/signin'
+      preLoaderRoute: typeof DispatchSigninRouteImport
+      parentRoute: typeof DispatchRoute
     }
     '/auth/signup': {
       id: '/auth/signup'
@@ -1092,6 +1148,20 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface DispatchRouteChildren {
+  DispatchSigninRoute: typeof DispatchSigninRoute
+  DispatchIndexRoute: typeof DispatchIndexRoute
+}
+
+const DispatchRouteChildren: DispatchRouteChildren = {
+  DispatchSigninRoute: DispatchSigninRoute,
+  DispatchIndexRoute: DispatchIndexRoute,
+}
+
+const DispatchRouteWithChildren = DispatchRoute._addFileChildren(
+  DispatchRouteChildren,
+)
+
 interface DriverRouteChildren {
   DriverEarningsRoute: typeof DriverEarningsRoute
   DriverExpensesRoute: typeof DriverExpensesRoute
@@ -1155,6 +1225,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  DispatchRoute: DispatchRouteWithChildren,
   DriverRoute: DriverRouteWithChildren,
   PassengerRoute: PassengerRouteWithChildren,
   RideRequestIdRoute: RideRequestIdRoute,
@@ -1166,13 +1237,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

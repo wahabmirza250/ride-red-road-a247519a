@@ -1,9 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+const OFFER_TTL_MS = 30_000;
+
 /**
- * Admin re-assigns a ride to a specific driver. Works whether the ride is
- * still pending (offer stage) or already accepted (active trip).
+ * Staff (admin OR dispatch) assigns / re-assigns a ride to a specific driver.
+ * Works whether the ride is still pending (offer stage) or already accepted.
  *
  *  - pending  → sets ride_requests.driver_id, resets offer TTL, notifies the driver.
  *  - accepted → transfers trips.driver_id, flips old driver to "available"
@@ -17,11 +19,8 @@ export const adminReassignDriver = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("Admin only");
+    const { requireStaff, logDispatchEvent } = await import("@/lib/staffGuard.server");
+    const { isAdmin } = await requireStaff(context.userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -48,7 +47,6 @@ export const adminReassignDriver = createServerFn({ method: "POST" })
       return { ok: true, unchanged: true };
     }
 
-    const OFFER_TTL_MS = 30_000;
     const expires = new Date(Date.now() + OFFER_TTL_MS).toISOString();
 
     if (req.status === "pending" || !req.trip_id) {
@@ -88,6 +86,17 @@ export const adminReassignDriver = createServerFn({ method: "POST" })
         .eq("id", newDriver.id);
     }
 
+    await logDispatchEvent({
+      kind: oldDriverId ? "reassign" : "assign",
+      actor_id: context.userId,
+      actor_role: isAdmin ? "admin" : "dispatch",
+      request_id: req.id,
+      trip_id: req.trip_id,
+      driver_id: newDriver.id,
+      summary: `${oldDriverId ? "Reassigned" : "Assigned"} ride ${req.pickup_address} → ${req.dropoff_address}`,
+      data: { previous_driver_id: oldDriverId, status: req.status },
+    });
+
     // Notify the newly-assigned driver.
     try {
       const { sendPushToUsers } = await import("@/lib/pushSend.server");
@@ -109,23 +118,20 @@ export const adminReassignDriver = createServerFn({ method: "POST" })
   });
 
 /**
- * Admin-facing list of drivers eligible for manual assignment.
- * Includes offline drivers so admins can override — the UI marks status.
+ * Staff-facing list of drivers eligible for manual assignment.
+ * Includes offline drivers so staff can override — the UI marks status.
  */
 export const adminListAssignableDrivers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("Admin only");
+    const { requireStaff } = await import("@/lib/staffGuard.server");
+    await requireStaff(context.userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("drivers")
       .select(
-        "id, user_id, status, current_lat, current_lng, vehicle_make, vehicle_model, vehicle_plate",
+        "id, user_id, status, current_lat, current_lng, last_location_at, default_vehicle_type, vehicle_make, vehicle_model, vehicle_plate",
       )
       .order("status", { ascending: true });
     if (error) throw new Error(error.message);
@@ -153,7 +159,7 @@ export const adminListAssignableDrivers = createServerFn({ method: "GET" })
   });
 
 /**
- * Admin cancels a ride at any stage. Cancels the ride_request, the linked
+ * Staff cancels a ride at any stage. Cancels the ride_request, the linked
  * trip (if one exists), and releases the assigned driver back to "available".
  */
 export const adminCancelTrip = createServerFn({ method: "POST" })
@@ -163,17 +169,14 @@ export const adminCancelTrip = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("Admin only");
+    const { requireStaff, logDispatchEvent } = await import("@/lib/staffGuard.server");
+    const { isAdmin } = await requireStaff(context.userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: req, error: reqErr } = await supabaseAdmin
       .from("ride_requests")
-      .select("id, driver_id, trip_id, status")
+      .select("id, driver_id, trip_id, status, pickup_address, dropoff_address")
       .eq("id", data.request_id)
       .maybeSingle();
     if (reqErr) throw new Error(reqErr.message);
@@ -217,6 +220,17 @@ export const adminCancelTrip = createServerFn({ method: "POST" })
         }
       }
     }
+
+    await logDispatchEvent({
+      kind: "cancel",
+      actor_id: context.userId,
+      actor_role: isAdmin ? "admin" : "dispatch",
+      request_id: req.id,
+      trip_id: req.trip_id,
+      driver_id: req.driver_id,
+      summary: `Cancelled ride ${req.pickup_address} → ${req.dropoff_address}`,
+      data: { reason: data.reason ?? null },
+    });
 
     return { ok: true };
   });
