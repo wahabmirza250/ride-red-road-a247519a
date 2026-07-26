@@ -92,11 +92,10 @@ function AuthPage() {
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
             </Button>
             <p className="text-center text-[11px] text-muted-foreground">
-              Need a dispatch or admin account?{" "}
-              <Link to="/auth/signup" className="font-medium text-foreground hover:underline">
-                Create one with an invite code
-              </Link>
+              Driver and dispatch accounts are created by the platform owner.
+              Contact your administrator for access.
             </p>
+
           </form>
         </div>
 
