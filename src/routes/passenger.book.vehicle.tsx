@@ -367,11 +367,13 @@ function VehicleSelect() {
         <div className="mx-auto max-w-2xl">
           <Button
             onClick={book}
-            disabled={submitting || missingCoords || !identityReady}
+            disabled={submitting || missingCoords || (!!user && !identityReady)}
             className="h-14 w-full rounded-full text-base font-semibold shadow-lift"
           >
             {submitting ? (
               <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Requesting…</>
+            ) : !user ? (
+              <>Sign in to book</>
             ) : !identityReady ? (
               <>Enter Medicaid ID or SSN + DOB</>
             ) : (
