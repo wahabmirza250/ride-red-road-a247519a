@@ -159,7 +159,7 @@ function DispatchBoard() {
       toast.success(`Route built with ${r.stops.length} stops`);
       setSelected([]);
       setRoundTrip([]);
-      window.location.assign(`/dispatch/routes/${r.id}`);
+      window.location.assign(`/dispatch/routes/${r.route.id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not build route");
     } finally {

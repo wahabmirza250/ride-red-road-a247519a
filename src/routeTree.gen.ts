@@ -17,6 +17,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PassengerIndexRouteImport } from './routes/passenger.index'
 import { Route as DriverIndexRouteImport } from './routes/driver.index'
+import { Route as DispatchIndexRouteImport } from './routes/dispatch.index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
 import { Route as RideRequestIdRouteImport } from './routes/ride.$requestId'
 import { Route as PassengerTrackRouteImport } from './routes/passenger.track'
@@ -101,6 +102,11 @@ const DriverIndexRoute = DriverIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DriverRoute,
+} as any)
+const DispatchIndexRoute = DispatchIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DispatchRoute,
 } as any)
 const TrackTripIdRoute = TrackTripIdRouteImport.update({
   id: '/track/$tripId',
@@ -377,6 +383,7 @@ export interface FileRoutesByFullPath {
   '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
+  '/dispatch/': typeof DispatchIndexRoute
   '/driver/': typeof DriverIndexRoute
   '/passenger/': typeof PassengerIndexRoute
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
@@ -392,7 +399,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
-  '/dispatch': typeof DispatchRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/drivers': typeof AuthenticatedDriversRoute
   '/events': typeof AuthenticatedEventsRoute
@@ -429,6 +435,7 @@ export interface FileRoutesByTo {
   '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
+  '/dispatch': typeof DispatchIndexRoute
   '/driver': typeof DriverIndexRoute
   '/passenger': typeof PassengerIndexRoute
   '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
@@ -485,6 +492,7 @@ export interface FileRoutesById {
   '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
+  '/dispatch/': typeof DispatchIndexRoute
   '/driver/': typeof DriverIndexRoute
   '/passenger/': typeof PassengerIndexRoute
   '/_authenticated/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
@@ -541,6 +549,7 @@ export interface FileRouteTypes {
     | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
+    | '/dispatch/'
     | '/driver/'
     | '/passenger/'
     | '/medicaid-trips/new'
@@ -556,7 +565,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/dispatch'
     | '/dashboard'
     | '/drivers'
     | '/events'
@@ -593,6 +601,7 @@ export interface FileRouteTypes {
     | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
+    | '/dispatch'
     | '/driver'
     | '/passenger'
     | '/medicaid-trips/new'
@@ -648,6 +657,7 @@ export interface FileRouteTypes {
     | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
+    | '/dispatch/'
     | '/driver/'
     | '/passenger/'
     | '/_authenticated/medicaid-trips/new'
@@ -732,6 +742,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/driver/'
       preLoaderRoute: typeof DriverIndexRouteImport
       parentRoute: typeof DriverRoute
+    }
+    '/dispatch/': {
+      id: '/dispatch/'
+      path: '/'
+      fullPath: '/dispatch/'
+      preLoaderRoute: typeof DispatchIndexRouteImport
+      parentRoute: typeof DispatchRoute
     }
     '/track/$tripId': {
       id: '/track/$tripId'
@@ -1133,10 +1150,12 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface DispatchRouteChildren {
   DispatchSigninRoute: typeof DispatchSigninRoute
+  DispatchIndexRoute: typeof DispatchIndexRoute
 }
 
 const DispatchRouteChildren: DispatchRouteChildren = {
   DispatchSigninRoute: DispatchSigninRoute,
+  DispatchIndexRoute: DispatchIndexRoute,
 }
 
 const DispatchRouteWithChildren = DispatchRoute._addFileChildren(
