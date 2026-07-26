@@ -2,9 +2,10 @@ import { supabase } from "@/lib/supabaseBrowser";
 import type { AppRole } from "@/lib/auth";
 
 const LABEL: Record<AppRole, string> = {
-  admin: "an admin/dispatch",
+  admin: "an admin/owner",
   driver: "a driver",
   passenger: "a passenger",
+  dispatch: "a dispatcher",
 };
 
 /**

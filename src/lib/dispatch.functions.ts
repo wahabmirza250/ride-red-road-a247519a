@@ -21,12 +21,26 @@ function haversineKm(a: Coord, b: Coord) {
  *  Idempotent: safe to call after a decline/timeout to re-dispatch.
  *  Returns { assigned: driverId | null, reason? }. */
 export const dispatchRideRequest = createServerFn({ method: "POST" })
-  .inputValidator((input: { request_id: string }) => {
+  .inputValidator((input: { request_id: string; force?: boolean }) => {
     if (!input?.request_id) throw new Error("request_id required");
     return input;
   })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Company-level auto-assign gate. When OFF, requests stay unassigned in
+    // the dispatch queue instead of auto-offering to the nearest driver.
+    // The matching logic below is unchanged — only whether it fires.
+    if (!data.force) {
+      const { data: setting } = await supabaseAdmin
+        .from("app_settings")
+        .select("value")
+        .eq("key", "auto_assign_enabled")
+        .maybeSingle();
+      if (String(setting?.value ?? "false").toLowerCase() !== "true") {
+        return { assigned: null, reason: "manual_dispatch" };
+      }
+    }
 
     const { data: req, error: reqErr } = await supabaseAdmin
       .from("ride_requests")
@@ -537,6 +551,8 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
         contact_name: name || null,
         contact_phone: phone,
         ride_purpose: data.ride_purpose ?? null,
+        vehicle_type:
+          data.notes?.match(/\[VEHICLE:([a-zA-Z_]+)\]/)?.[1]?.toLowerCase() ?? null,
         stops: data.stops ?? [],
         status: "pending",
         source: "passenger_app",
@@ -565,15 +581,13 @@ export const dispatcherRequestRide = createServerFn({ method: "POST" })
       contact_name?: string | null;
       contact_phone?: string | null;
       notes?: string | null;
+      vehicle_type?: string | null;
     }) => input,
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("Admins only");
+    const { requireStaff } = await import("@/lib/staffGuard.server");
+    await requireStaff(context.userId);
 
     const { data: inserted, error } = await supabaseAdmin
       .from("ride_requests")
@@ -589,6 +603,7 @@ export const dispatcherRequestRide = createServerFn({ method: "POST" })
         contact_name: data.contact_name?.trim() || null,
         contact_phone: data.contact_phone?.trim() || null,
         notes: data.notes?.trim() || null,
+        vehicle_type: data.vehicle_type ?? null,
         status: "pending",
         source: "dispatcher",
       })
