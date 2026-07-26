@@ -16,7 +16,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { createAdmin, listAdmins } from "@/lib/admin.functions";
+import {
+  createAdmin,
+  listAdmins,
+  createDispatcher,
+  listDispatchers,
+  deleteDispatcher,
+} from "@/lib/admin.functions";
 import { PortalCredentialsCard } from "@/components/billing/PortalCredentialsCard";
 import { RobotApiKeyCard } from "@/components/team/RobotApiKeyCard";
 
