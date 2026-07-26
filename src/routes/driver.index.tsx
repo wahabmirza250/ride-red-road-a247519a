@@ -183,7 +183,14 @@ function DriverHome() {
       }
     }
     lastFixRef.current = { lat: p.lat, lng: p.lng, t: now };
-    await supabase.from("drivers").update({ current_lat: p.lat, current_lng: p.lng }).eq("id", driver.id);
+    await supabase
+      .from("drivers")
+      .update({
+        current_lat: p.lat,
+        current_lng: p.lng,
+        last_location_at: new Date().toISOString(),
+      })
+      .eq("id", driver.id);
   }, [driver, addMilesFn, refreshStats]);
   const handleGeoError = useCallback((msg: string) => setGeoError(msg), []);
   useLocationBroadcast(online, pushLoc, 10000, handleGeoError);
@@ -279,7 +286,12 @@ function DriverHome() {
         setGeoError(msg); toast.error(msg); return;
       }
       const { error } = await supabase.from("drivers")
-        .update({ status: "available", current_lat: pos.lat, current_lng: pos.lng })
+        .update({
+          status: "available",
+          current_lat: pos.lat,
+          current_lng: pos.lng,
+          last_location_at: new Date().toISOString(),
+        })
         .eq("id", driver.id);
       if (error) return toast.error(error.message);
       setDriver({ ...driver, status: "available", current_lat: pos.lat, current_lng: pos.lng });
@@ -289,7 +301,13 @@ function DriverHome() {
       void refreshStats();
     } else {
       const { error } = await supabase.from("drivers")
-        .update({ status: "offline", current_lat: null, current_lng: null }).eq("id", driver.id);
+        .update({
+          status: "offline",
+          current_lat: null,
+          current_lng: null,
+          last_location_at: null,
+        })
+        .eq("id", driver.id);
       if (error) return toast.error(error.message);
       setDriver({ ...driver, status: "offline", current_lat: null, current_lng: null });
       setGeoError(null); setSpeedMph(null); lastFixRef.current = null;

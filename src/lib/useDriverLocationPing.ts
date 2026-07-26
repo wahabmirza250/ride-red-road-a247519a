@@ -25,6 +25,7 @@ export function useDriverLocationPing(intervalMs = 15000) {
             .update({
               current_lat: latitude,
               current_lng: longitude,
+              last_location_at: new Date().toISOString(),
             })
             .eq("user_id", user.id);
         },

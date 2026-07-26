@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabaseBrowser";
 import { GoogleFleetMap, type FleetMarker } from "@/components/nemt/GoogleFleetMap";
 import { fmtMoney } from "@/lib/rideMath";
 import { adminReassignDriver, adminCancelTrip } from "@/lib/dispatchAdmin.functions";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getAutoAssign, setAutoAssign } from "@/lib/settings.functions";
 
 export const Route = createFileRoute("/_authenticated/live-ops")({
   component: LiveOps,
@@ -151,6 +153,7 @@ function LiveOps() {
           Real-time drivers + active ride requests. Updates automatically.
         </p>
       </div>
+      <AutoAssignCard />
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: "Drivers online", value: onlineCount },
@@ -420,3 +423,60 @@ function DispatchPhoneCard() {
 }
 
 
+
+/**
+ * Company-level auto-assign toggle. Admin-only write (the server function
+ * enforces the admin role); dispatchers see the same switch read-only on the
+ * dispatch board. When OFF, new ride requests land unassigned in the dispatch
+ * queue instead of firing the auto-dispatch logic.
+ */
+function AutoAssignCard() {
+  const qc = useQueryClient();
+  const fetchAuto = useServerFn(getAutoAssign);
+  const saveAuto = useServerFn(setAutoAssign);
+  const auto = useQuery({ queryKey: ["auto-assign"], queryFn: () => fetchAuto() });
+  const [saving, setSaving] = useState(false);
+  const enabled = auto.data?.enabled ?? false;
+
+  async function toggle() {
+    setSaving(true);
+    try {
+      await saveAuto({ data: { enabled: !enabled } });
+      toast.success(`Auto-assign turned ${!enabled ? "ON" : "OFF"}`);
+      qc.invalidateQueries({ queryKey: ["auto-assign"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update auto-assign");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-border bg-surface p-4 shadow-soft">
+      <div>
+        <div className="text-sm font-semibold">Auto-assign</div>
+        <div className="text-xs text-muted-foreground">
+          {enabled
+            ? "ON — new requests are dispatched to the nearest driver automatically."
+            : "OFF — new requests wait unassigned in the dispatch queue."}
+        </div>
+      </div>
+      <button
+        type="button"
+        aria-label="Toggle auto-assign"
+        aria-pressed={enabled}
+        disabled={saving || auto.isLoading}
+        onClick={toggle}
+        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+          enabled ? "bg-primary" : "bg-muted"
+        } disabled:opacity-60`}
+      >
+        <span
+          className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${
+            enabled ? "left-[22px]" : "left-0.5"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
