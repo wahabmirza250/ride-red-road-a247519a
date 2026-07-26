@@ -129,6 +129,8 @@ function TeamPage() {
         </p>
       </div>
 
+      <DispatchersCard />
+
       <RobotApiKeyCard />
 
       <PortalCredentialsCard />
