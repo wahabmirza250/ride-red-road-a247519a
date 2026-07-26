@@ -12,12 +12,9 @@ export const Route = createFileRoute("/dispatch")({
   component: DispatchLayout,
 });
 
-const NAV = [
-  { to: "/dispatch", label: "Board", icon: Radio, exact: true },
-  { to: "/dispatch/routes", label: "Routes", icon: Waypoints, exact: false },
-  { to: "/dispatch/schedule", label: "Schedule", icon: CalendarDays, exact: false },
-  { to: "/dispatch/history", label: "History", icon: History, exact: false },
-] as const;
+// Routes / Schedule / History views land in the next build step; only ship
+// nav entries whose destinations actually exist so no tab dead-ends.
+const NAV = [{ to: "/dispatch", label: "Board", icon: Radio, exact: true }] as const;
 
 function DispatchLayout() {
   const { loading, user, isDispatch, signOut } = useAuth();
