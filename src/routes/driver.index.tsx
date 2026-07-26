@@ -286,7 +286,12 @@ function DriverHome() {
         setGeoError(msg); toast.error(msg); return;
       }
       const { error } = await supabase.from("drivers")
-        .update({ status: "available", current_lat: pos.lat, current_lng: pos.lng })
+        .update({
+          status: "available",
+          current_lat: pos.lat,
+          current_lng: pos.lng,
+          last_location_at: new Date().toISOString(),
+        })
         .eq("id", driver.id);
       if (error) return toast.error(error.message);
       setDriver({ ...driver, status: "available", current_lat: pos.lat, current_lng: pos.lng });
