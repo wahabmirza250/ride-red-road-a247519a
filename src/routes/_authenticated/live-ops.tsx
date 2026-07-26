@@ -151,6 +151,7 @@ function LiveOps() {
           Real-time drivers + active ride requests. Updates automatically.
         </p>
       </div>
+      <AutoAssignCard />
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: "Drivers online", value: onlineCount },
