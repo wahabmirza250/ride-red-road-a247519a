@@ -301,7 +301,13 @@ function DriverHome() {
       void refreshStats();
     } else {
       const { error } = await supabase.from("drivers")
-        .update({ status: "offline", current_lat: null, current_lng: null }).eq("id", driver.id);
+        .update({
+          status: "offline",
+          current_lat: null,
+          current_lng: null,
+          last_location_at: null,
+        })
+        .eq("id", driver.id);
       if (error) return toast.error(error.message);
       setDriver({ ...driver, status: "offline", current_lat: null, current_lng: null });
       setGeoError(null); setSpeedMph(null); lastFixRef.current = null;
