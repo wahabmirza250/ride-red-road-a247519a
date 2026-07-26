@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Radio, CalendarDays, History, LogOut, Sun, Moon, Loader2, Waypoints } from "lucide-react";
+import { Radio, LogOut, Sun, Moon, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
