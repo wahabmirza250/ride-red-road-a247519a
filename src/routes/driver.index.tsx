@@ -678,11 +678,18 @@ function DriverHome() {
             )}
             <div className="flex gap-2 text-sm">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-              <div>
+              <div className="flex-1">
                 <div className="text-xs text-muted-foreground">Dropoff</div>
                 <div>{active.dropoff_address}</div>
               </div>
+              <EditAddressButton
+                tripId={active.id}
+                field="dropoff"
+                current={active.dropoff_address}
+                onDone={() => void loadRequests()}
+              />
             </div>
+
           </div>
 
           {/* Drop-off odometer is captured inside the Complete-trip dialog
