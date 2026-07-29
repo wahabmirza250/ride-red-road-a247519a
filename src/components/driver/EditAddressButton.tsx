@@ -62,7 +62,18 @@ export function EditAddressButton({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // Re-seed from the latest saved value each time the dialog opens so a
+        // second edit doesn't start from a stale draft.
+        if (next) {
+          setValue(current);
+          setCoords(null);
+        }
+        setOpen(next);
+      }}
+    >
       <DialogTrigger asChild>
         <button
           type="button"
