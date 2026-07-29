@@ -132,6 +132,7 @@ function PassengerLayout() {
       <main className="mx-auto max-w-2xl p-4 animate-rise-in">
         <Outlet />
       </main>
+      {!isBooking && (
       <nav className="fixed bottom-3 left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center justify-around rounded-full border border-border/60 bg-background/80 p-1.5 shadow-lift backdrop-blur-xl">
         {TABS.map((t) => {
           const active = loc.pathname === t.to;
