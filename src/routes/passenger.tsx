@@ -154,6 +154,7 @@ function PassengerLayout() {
           );
         })}
       </nav>
+      )}
       <InstallPrompt />
     </div>
   );
