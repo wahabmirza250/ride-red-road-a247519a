@@ -2252,27 +2252,17 @@ export type Database = {
         Args: { _rider_id: string; _ssn: string }
         Returns: undefined
       }
-      upsert_portal_credential:
-        | {
-            Args: {
-              _company_id?: string
-              _login_email: string
-              _login_password: string
-              _portal_id: string
-              _portal_name: string
-              _state: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              _login_email: string
-              _login_password: string
-              _portal_name: string
-              _state: string
-            }
-            Returns: string
-          }
+      upsert_portal_credential: {
+        Args: {
+          _company_id?: string
+          _login_email: string
+          _login_password: string
+          _portal_id: string
+          _portal_name: string
+          _state: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "driver" | "passenger" | "dispatch"
