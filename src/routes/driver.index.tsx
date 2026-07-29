@@ -34,6 +34,8 @@ import { clockIn, clockOut, getShiftStats, addShiftMiles } from "@/lib/shifts.fu
 import { recordTripMedia } from "@/lib/tripMedia.functions";
 import { addTripStop, markStopArrived, markStopDeparted, updateTripAddress } from "@/lib/tripStops.functions";
 import { ActiveRouteCard } from "@/components/driver/ActiveRouteCard";
+import { EditAddressButton } from "@/components/driver/EditAddressButton";
+
 import {
   detectOdometerFromImage,
   finalizeMedicaidFromDispatchTrip,
