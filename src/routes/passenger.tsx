@@ -83,6 +83,11 @@ function PassengerLayout() {
     typeof window !== "undefined" &&
     !!window.localStorage.getItem("passenger_device_id");
 
+  // The booking flow (pickup → vehicle) uses its own full-height sticky CTAs.
+  // The floating tab bar is fixed at z-30 and would sit on top of those CTAs,
+  // swallowing the tap that submits the ride, so it is hidden while booking.
+  const isBooking = loc.pathname.startsWith("/passenger/book");
+
   // Strict role isolation — a signed-in admin or driver must NEVER see the
   // passenger app just because their session persists in this browser.
   // Guests (no session) can still browse and book without signing in.
