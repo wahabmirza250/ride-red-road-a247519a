@@ -58,6 +58,7 @@ import { Route as DispatchRoutesIndexRouteImport } from './routes/dispatch.route
 import { Route as PassengerBookVehicleRouteImport } from './routes/passenger.book.vehicle'
 import { Route as PassengerBookPickupRouteImport } from './routes/passenger.book.pickup'
 import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
+import { Route as DispatchRoutesRouteIdRouteImport } from './routes/dispatch.routes.$routeId'
 import { Route as ApiPublicGetTripPdfRouteImport } from './routes/api/public/get-trip-pdf'
 import { Route as ApiPublicGetPortalCredentialRouteImport } from './routes/api/public/get-portal-credential'
 import { Route as ApiPublicGetBillingRateRouteImport } from './routes/api/public/get-billing-rate'
@@ -312,6 +313,11 @@ const DriverTripNewRoute = DriverTripNewRouteImport.update({
   path: '/trip/new',
   getParentRoute: () => DriverRoute,
 } as any)
+const DispatchRoutesRouteIdRoute = DispatchRoutesRouteIdRouteImport.update({
+  id: '/$routeId',
+  path: '/$routeId',
+  getParentRoute: () => DispatchRoutesRoute,
+} as any)
 const ApiPublicGetTripPdfRoute = ApiPublicGetTripPdfRouteImport.update({
   id: '/api/public/get-trip-pdf',
   path: '/api/public/get-trip-pdf',
@@ -397,6 +403,7 @@ export interface FileRoutesByFullPath {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
+  '/dispatch/routes/$routeId': typeof DispatchRoutesRouteIdRoute
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
   '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
@@ -449,6 +456,7 @@ export interface FileRoutesByTo {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
+  '/dispatch/routes/$routeId': typeof DispatchRoutesRouteIdRoute
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
   '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
@@ -507,6 +515,7 @@ export interface FileRoutesById {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
+  '/dispatch/routes/$routeId': typeof DispatchRoutesRouteIdRoute
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
   '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
@@ -565,6 +574,7 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
+    | '/dispatch/routes/$routeId'
     | '/driver/trip/new'
     | '/passenger/book/pickup'
     | '/passenger/book/vehicle'
@@ -617,6 +627,7 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
+    | '/dispatch/routes/$routeId'
     | '/driver/trip/new'
     | '/passenger/book/pickup'
     | '/passenger/book/vehicle'
@@ -674,6 +685,7 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
+    | '/dispatch/routes/$routeId'
     | '/driver/trip/new'
     | '/passenger/book/pickup'
     | '/passenger/book/vehicle'
@@ -1040,6 +1052,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DriverTripNewRouteImport
       parentRoute: typeof DriverRoute
     }
+    '/dispatch/routes/$routeId': {
+      id: '/dispatch/routes/$routeId'
+      path: '/$routeId'
+      fullPath: '/dispatch/routes/$routeId'
+      preLoaderRoute: typeof DispatchRoutesRouteIdRouteImport
+      parentRoute: typeof DispatchRoutesRoute
+    }
     '/api/public/get-trip-pdf': {
       id: '/api/public/get-trip-pdf'
       path: '/api/public/get-trip-pdf'
@@ -1156,10 +1175,12 @@ const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 interface DispatchRoutesRouteChildren {
+  DispatchRoutesRouteIdRoute: typeof DispatchRoutesRouteIdRoute
   DispatchRoutesIndexRoute: typeof DispatchRoutesIndexRoute
 }
 
 const DispatchRoutesRouteChildren: DispatchRoutesRouteChildren = {
+  DispatchRoutesRouteIdRoute: DispatchRoutesRouteIdRoute,
   DispatchRoutesIndexRoute: DispatchRoutesIndexRoute,
 }
 
