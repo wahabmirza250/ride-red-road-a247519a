@@ -92,7 +92,12 @@ function PassengerLayout() {
 
 
   return (
-    <div className="surface-green relative min-h-screen bg-background pb-24 text-foreground">
+    <div
+      className={cn(
+        "surface-green relative min-h-screen bg-background text-foreground",
+        isBooking ? "pb-0" : "pb-24",
+      )}
+    >
       <AuroraBackdrop />
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/70 px-4 backdrop-blur-xl">
         <Link to="/passenger" className="flex items-center">
