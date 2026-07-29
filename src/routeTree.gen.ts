@@ -44,6 +44,7 @@ import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/t
 import { Route as AuthenticatedSchedulesRouteImport } from './routes/_authenticated/schedules'
 import { Route as AuthenticatedRewardsSettingsRouteImport } from './routes/_authenticated/rewards-settings'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedPlannerRouteImport } from './routes/_authenticated/planner'
 import { Route as AuthenticatedPassengersRouteImport } from './routes/_authenticated/passengers'
 import { Route as AuthenticatedNewsFeedRouteImport } from './routes/_authenticated/news-feed'
 import { Route as AuthenticatedNewsRouteImport } from './routes/_authenticated/news'
@@ -243,6 +244,11 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPlannerRoute = AuthenticatedPlannerRouteImport.update({
+  id: '/planner',
+  path: '/planner',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPassengersRoute = AuthenticatedPassengersRouteImport.update({
   id: '/passengers',
   path: '/passengers',
@@ -383,6 +389,7 @@ export interface FileRoutesByFullPath {
   '/news': typeof AuthenticatedNewsRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/passengers': typeof AuthenticatedPassengersRoute
+  '/planner': typeof AuthenticatedPlannerRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
@@ -439,6 +446,7 @@ export interface FileRoutesByTo {
   '/news': typeof AuthenticatedNewsRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/passengers': typeof AuthenticatedPassengersRoute
+  '/planner': typeof AuthenticatedPlannerRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
@@ -499,6 +507,7 @@ export interface FileRoutesById {
   '/_authenticated/news': typeof AuthenticatedNewsRoute
   '/_authenticated/news-feed': typeof AuthenticatedNewsFeedRoute
   '/_authenticated/passengers': typeof AuthenticatedPassengersRoute
+  '/_authenticated/planner': typeof AuthenticatedPlannerRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
   '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
@@ -560,6 +569,7 @@ export interface FileRouteTypes {
     | '/news'
     | '/news-feed'
     | '/passengers'
+    | '/planner'
     | '/reports'
     | '/rewards-settings'
     | '/schedules'
@@ -616,6 +626,7 @@ export interface FileRouteTypes {
     | '/news'
     | '/news-feed'
     | '/passengers'
+    | '/planner'
     | '/reports'
     | '/rewards-settings'
     | '/schedules'
@@ -675,6 +686,7 @@ export interface FileRouteTypes {
     | '/_authenticated/news'
     | '/_authenticated/news-feed'
     | '/_authenticated/passengers'
+    | '/_authenticated/planner'
     | '/_authenticated/reports'
     | '/_authenticated/rewards-settings'
     | '/_authenticated/schedules'
@@ -978,6 +990,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/planner': {
+      id: '/_authenticated/planner'
+      path: '/planner'
+      fullPath: '/planner'
+      preLoaderRoute: typeof AuthenticatedPlannerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/passengers': {
       id: '/_authenticated/passengers'
       path: '/passengers'
@@ -1180,6 +1199,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNewsRoute: typeof AuthenticatedNewsRoute
   AuthenticatedNewsFeedRoute: typeof AuthenticatedNewsFeedRoute
   AuthenticatedPassengersRoute: typeof AuthenticatedPassengersRoute
+  AuthenticatedPlannerRoute: typeof AuthenticatedPlannerRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRewardsSettingsRoute: typeof AuthenticatedRewardsSettingsRoute
   AuthenticatedSchedulesRoute: typeof AuthenticatedSchedulesRoute
@@ -1201,6 +1221,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedNewsRoute: AuthenticatedNewsRoute,
   AuthenticatedNewsFeedRoute: AuthenticatedNewsFeedRoute,
   AuthenticatedPassengersRoute: AuthenticatedPassengersRoute,
+  AuthenticatedPlannerRoute: AuthenticatedPlannerRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRewardsSettingsRoute: AuthenticatedRewardsSettingsRoute,
   AuthenticatedSchedulesRoute: AuthenticatedSchedulesRoute,

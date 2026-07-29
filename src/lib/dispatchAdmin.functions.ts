@@ -251,3 +251,66 @@ export const adminCancelTrip = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+/**
+ * Move a pending ride's requested pickup time (future scheduling in the
+ * admin planner). Only rides that have not started yet may be moved.
+ */
+export const rescheduleRide = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { request_id: string; requested_pickup_time: string }) => {
+    if (!input?.request_id) throw new Error("request_id required");
+    if (!input?.requested_pickup_time) throw new Error("Pickup time required");
+    if (Number.isNaN(Date.parse(input.requested_pickup_time)))
+      throw new Error("Invalid pickup time");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const { requireStaff, logDispatchEvent } = await import("@/lib/staffGuard.server");
+    const { isAdmin } = await requireStaff(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: req, error: rErr } = await supabaseAdmin
+      .from("ride_requests")
+      .select("id, status, trip_id")
+      .eq("id", data.request_id)
+      .maybeSingle();
+    if (rErr) throw new Error(rErr.message);
+    if (!req) throw new Error("Ride request not found");
+    if (!["pending", "accepted"].includes(String(req.status)))
+      throw new Error("This ride can no longer be rescheduled");
+
+    const iso = new Date(data.requested_pickup_time).toISOString();
+
+    const { error } = await supabaseAdmin
+      .from("ride_requests")
+      .update({ requested_pickup_time: iso })
+      .eq("id", data.request_id);
+    if (error) throw new Error(error.message);
+
+    if (req.trip_id) {
+      const { data: trip } = await supabaseAdmin
+        .from("trips")
+        .select("status")
+        .eq("id", req.trip_id)
+        .maybeSingle();
+      if (trip && ["scheduled", "assigned"].includes(String(trip.status))) {
+        await supabaseAdmin
+          .from("trips")
+          .update({ scheduled_pickup_time: iso })
+          .eq("id", req.trip_id);
+      }
+    }
+
+    await logDispatchEvent({
+      kind: "ride_rescheduled",
+      actor_id: context.userId,
+      actor_role: isAdmin ? "admin" : "dispatch",
+      request_id: data.request_id,
+      trip_id: req.trip_id,
+      summary: `Rescheduled pickup to ${new Date(iso).toLocaleString()}`,
+      data: { requested_pickup_time: iso },
+    });
+
+    return { ok: true, requested_pickup_time: iso };
+  });
