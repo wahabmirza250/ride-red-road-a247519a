@@ -36,6 +36,7 @@ import { Route as DriverHistoryRouteImport } from './routes/driver.history'
 import { Route as DriverExpensesRouteImport } from './routes/driver.expenses'
 import { Route as DriverEarningsRouteImport } from './routes/driver.earnings'
 import { Route as DispatchSigninRouteImport } from './routes/dispatch.signin'
+import { Route as DispatchScheduleRouteImport } from './routes/dispatch.schedule'
 import { Route as DispatchRoutesRouteImport } from './routes/dispatch.routes'
 import { Route as AuthenticatedTripsRouteImport } from './routes/_authenticated/trips'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
@@ -198,6 +199,11 @@ const DriverEarningsRoute = DriverEarningsRouteImport.update({
 const DispatchSigninRoute = DispatchSigninRouteImport.update({
   id: '/signin',
   path: '/signin',
+  getParentRoute: () => DispatchRoute,
+} as any)
+const DispatchScheduleRoute = DispatchScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
   getParentRoute: () => DispatchRoute,
 } as any)
 const DispatchRoutesRoute = DispatchRoutesRouteImport.update({
@@ -377,6 +383,7 @@ export interface FileRoutesByFullPath {
   '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRouteWithChildren
   '/dispatch/routes': typeof DispatchRoutesRouteWithChildren
+  '/dispatch/schedule': typeof DispatchScheduleRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/expenses': typeof DriverExpensesRoute
@@ -430,6 +437,7 @@ export interface FileRoutesByTo {
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRouteWithChildren
+  '/dispatch/schedule': typeof DispatchScheduleRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/expenses': typeof DriverExpensesRoute
@@ -489,6 +497,7 @@ export interface FileRoutesById {
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/trips': typeof AuthenticatedTripsRouteWithChildren
   '/dispatch/routes': typeof DispatchRoutesRouteWithChildren
+  '/dispatch/schedule': typeof DispatchScheduleRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/expenses': typeof DriverExpensesRoute
@@ -548,6 +557,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/trips'
     | '/dispatch/routes'
+    | '/dispatch/schedule'
     | '/dispatch/signin'
     | '/driver/earnings'
     | '/driver/expenses'
@@ -601,6 +611,7 @@ export interface FileRouteTypes {
     | '/schedules'
     | '/team'
     | '/trips'
+    | '/dispatch/schedule'
     | '/dispatch/signin'
     | '/driver/earnings'
     | '/driver/expenses'
@@ -659,6 +670,7 @@ export interface FileRouteTypes {
     | '/_authenticated/team'
     | '/_authenticated/trips'
     | '/dispatch/routes'
+    | '/dispatch/schedule'
     | '/dispatch/signin'
     | '/driver/earnings'
     | '/driver/expenses'
@@ -896,6 +908,13 @@ declare module '@tanstack/react-router' {
       path: '/signin'
       fullPath: '/dispatch/signin'
       preLoaderRoute: typeof DispatchSigninRouteImport
+      parentRoute: typeof DispatchRoute
+    }
+    '/dispatch/schedule': {
+      id: '/dispatch/schedule'
+      path: '/schedule'
+      fullPath: '/dispatch/schedule'
+      preLoaderRoute: typeof DispatchScheduleRouteImport
       parentRoute: typeof DispatchRoute
     }
     '/dispatch/routes': {
@@ -1190,12 +1209,14 @@ const DispatchRoutesRouteWithChildren = DispatchRoutesRoute._addFileChildren(
 
 interface DispatchRouteChildren {
   DispatchRoutesRoute: typeof DispatchRoutesRouteWithChildren
+  DispatchScheduleRoute: typeof DispatchScheduleRoute
   DispatchSigninRoute: typeof DispatchSigninRoute
   DispatchIndexRoute: typeof DispatchIndexRoute
 }
 
 const DispatchRouteChildren: DispatchRouteChildren = {
   DispatchRoutesRoute: DispatchRoutesRouteWithChildren,
+  DispatchScheduleRoute: DispatchScheduleRoute,
   DispatchSigninRoute: DispatchSigninRoute,
   DispatchIndexRoute: DispatchIndexRoute,
 }
