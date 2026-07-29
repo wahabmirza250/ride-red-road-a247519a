@@ -36,11 +36,15 @@ import { Route as DriverHistoryRouteImport } from './routes/driver.history'
 import { Route as DriverExpensesRouteImport } from './routes/driver.expenses'
 import { Route as DriverEarningsRouteImport } from './routes/driver.earnings'
 import { Route as DispatchSigninRouteImport } from './routes/dispatch.signin'
+import { Route as DispatchScheduleRouteImport } from './routes/dispatch.schedule'
+import { Route as DispatchRoutesRouteImport } from './routes/dispatch.routes'
+import { Route as DispatchHistoryRouteImport } from './routes/dispatch.history'
 import { Route as AuthenticatedTripsRouteImport } from './routes/_authenticated/trips'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSchedulesRouteImport } from './routes/_authenticated/schedules'
 import { Route as AuthenticatedRewardsSettingsRouteImport } from './routes/_authenticated/rewards-settings'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedPlannerRouteImport } from './routes/_authenticated/planner'
 import { Route as AuthenticatedPassengersRouteImport } from './routes/_authenticated/passengers'
 import { Route as AuthenticatedNewsFeedRouteImport } from './routes/_authenticated/news-feed'
 import { Route as AuthenticatedNewsRouteImport } from './routes/_authenticated/news'
@@ -53,9 +57,11 @@ import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedEventsRouteImport } from './routes/_authenticated/events'
 import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as DispatchRoutesIndexRouteImport } from './routes/dispatch.routes.index'
 import { Route as PassengerBookVehicleRouteImport } from './routes/passenger.book.vehicle'
 import { Route as PassengerBookPickupRouteImport } from './routes/passenger.book.pickup'
 import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
+import { Route as DispatchRoutesRouteIdRouteImport } from './routes/dispatch.routes.$routeId'
 import { Route as ApiPublicGetTripPdfRouteImport } from './routes/api/public/get-trip-pdf'
 import { Route as ApiPublicGetPortalCredentialRouteImport } from './routes/api/public/get-portal-credential'
 import { Route as ApiPublicGetBillingRateRouteImport } from './routes/api/public/get-billing-rate'
@@ -197,6 +203,21 @@ const DispatchSigninRoute = DispatchSigninRouteImport.update({
   path: '/signin',
   getParentRoute: () => DispatchRoute,
 } as any)
+const DispatchScheduleRoute = DispatchScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
+  getParentRoute: () => DispatchRoute,
+} as any)
+const DispatchRoutesRoute = DispatchRoutesRouteImport.update({
+  id: '/routes',
+  path: '/routes',
+  getParentRoute: () => DispatchRoute,
+} as any)
+const DispatchHistoryRoute = DispatchHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => DispatchRoute,
+} as any)
 const AuthenticatedTripsRoute = AuthenticatedTripsRouteImport.update({
   id: '/trips',
   path: '/trips',
@@ -221,6 +242,11 @@ const AuthenticatedRewardsSettingsRoute =
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPlannerRoute = AuthenticatedPlannerRouteImport.update({
+  id: '/planner',
+  path: '/planner',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPassengersRoute = AuthenticatedPassengersRouteImport.update({
@@ -285,6 +311,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const DispatchRoutesIndexRoute = DispatchRoutesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DispatchRoutesRoute,
+} as any)
 const PassengerBookVehicleRoute = PassengerBookVehicleRouteImport.update({
   id: '/book/vehicle',
   path: '/book/vehicle',
@@ -299,6 +330,11 @@ const DriverTripNewRoute = DriverTripNewRouteImport.update({
   id: '/trip/new',
   path: '/trip/new',
   getParentRoute: () => DriverRoute,
+} as any)
+const DispatchRoutesRouteIdRoute = DispatchRoutesRouteIdRouteImport.update({
+  id: '/$routeId',
+  path: '/$routeId',
+  getParentRoute: () => DispatchRoutesRoute,
 } as any)
 const ApiPublicGetTripPdfRoute = ApiPublicGetTripPdfRouteImport.update({
   id: '/api/public/get-trip-pdf',
@@ -353,11 +389,15 @@ export interface FileRoutesByFullPath {
   '/news': typeof AuthenticatedNewsRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/passengers': typeof AuthenticatedPassengersRoute
+  '/planner': typeof AuthenticatedPlannerRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRouteWithChildren
+  '/dispatch/history': typeof DispatchHistoryRoute
+  '/dispatch/routes': typeof DispatchRoutesRouteWithChildren
+  '/dispatch/schedule': typeof DispatchScheduleRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/expenses': typeof DriverExpensesRoute
@@ -384,9 +424,11 @@ export interface FileRoutesByFullPath {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
+  '/dispatch/routes/$routeId': typeof DispatchRoutesRouteIdRoute
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
   '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
+  '/dispatch/routes/': typeof DispatchRoutesIndexRoute
   '/trips/$tripId/proof': typeof AuthenticatedTripsTripIdProofRoute
 }
 export interface FileRoutesByTo {
@@ -404,11 +446,14 @@ export interface FileRoutesByTo {
   '/news': typeof AuthenticatedNewsRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/passengers': typeof AuthenticatedPassengersRoute
+  '/planner': typeof AuthenticatedPlannerRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRouteWithChildren
+  '/dispatch/history': typeof DispatchHistoryRoute
+  '/dispatch/schedule': typeof DispatchScheduleRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/expenses': typeof DriverExpensesRoute
@@ -435,9 +480,11 @@ export interface FileRoutesByTo {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
+  '/dispatch/routes/$routeId': typeof DispatchRoutesRouteIdRoute
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
   '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
+  '/dispatch/routes': typeof DispatchRoutesIndexRoute
   '/trips/$tripId/proof': typeof AuthenticatedTripsTripIdProofRoute
 }
 export interface FileRoutesById {
@@ -460,11 +507,15 @@ export interface FileRoutesById {
   '/_authenticated/news': typeof AuthenticatedNewsRoute
   '/_authenticated/news-feed': typeof AuthenticatedNewsFeedRoute
   '/_authenticated/passengers': typeof AuthenticatedPassengersRoute
+  '/_authenticated/planner': typeof AuthenticatedPlannerRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
   '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/trips': typeof AuthenticatedTripsRouteWithChildren
+  '/dispatch/history': typeof DispatchHistoryRoute
+  '/dispatch/routes': typeof DispatchRoutesRouteWithChildren
+  '/dispatch/schedule': typeof DispatchScheduleRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/earnings': typeof DriverEarningsRoute
   '/driver/expenses': typeof DriverExpensesRoute
@@ -491,9 +542,11 @@ export interface FileRoutesById {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
+  '/dispatch/routes/$routeId': typeof DispatchRoutesRouteIdRoute
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
   '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
+  '/dispatch/routes/': typeof DispatchRoutesIndexRoute
   '/_authenticated/trips/$tripId/proof': typeof AuthenticatedTripsTripIdProofRoute
 }
 export interface FileRouteTypes {
@@ -516,11 +569,15 @@ export interface FileRouteTypes {
     | '/news'
     | '/news-feed'
     | '/passengers'
+    | '/planner'
     | '/reports'
     | '/rewards-settings'
     | '/schedules'
     | '/team'
     | '/trips'
+    | '/dispatch/history'
+    | '/dispatch/routes'
+    | '/dispatch/schedule'
     | '/dispatch/signin'
     | '/driver/earnings'
     | '/driver/expenses'
@@ -547,9 +604,11 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
+    | '/dispatch/routes/$routeId'
     | '/driver/trip/new'
     | '/passenger/book/pickup'
     | '/passenger/book/vehicle'
+    | '/dispatch/routes/'
     | '/trips/$tripId/proof'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -567,11 +626,14 @@ export interface FileRouteTypes {
     | '/news'
     | '/news-feed'
     | '/passengers'
+    | '/planner'
     | '/reports'
     | '/rewards-settings'
     | '/schedules'
     | '/team'
     | '/trips'
+    | '/dispatch/history'
+    | '/dispatch/schedule'
     | '/dispatch/signin'
     | '/driver/earnings'
     | '/driver/expenses'
@@ -598,9 +660,11 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
+    | '/dispatch/routes/$routeId'
     | '/driver/trip/new'
     | '/passenger/book/pickup'
     | '/passenger/book/vehicle'
+    | '/dispatch/routes'
     | '/trips/$tripId/proof'
   id:
     | '__root__'
@@ -622,11 +686,15 @@ export interface FileRouteTypes {
     | '/_authenticated/news'
     | '/_authenticated/news-feed'
     | '/_authenticated/passengers'
+    | '/_authenticated/planner'
     | '/_authenticated/reports'
     | '/_authenticated/rewards-settings'
     | '/_authenticated/schedules'
     | '/_authenticated/team'
     | '/_authenticated/trips'
+    | '/dispatch/history'
+    | '/dispatch/routes'
+    | '/dispatch/schedule'
     | '/dispatch/signin'
     | '/driver/earnings'
     | '/driver/expenses'
@@ -653,9 +721,11 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
+    | '/dispatch/routes/$routeId'
     | '/driver/trip/new'
     | '/passenger/book/pickup'
     | '/passenger/book/vehicle'
+    | '/dispatch/routes/'
     | '/_authenticated/trips/$tripId/proof'
   fileRoutesById: FileRoutesById
 }
@@ -864,6 +934,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DispatchSigninRouteImport
       parentRoute: typeof DispatchRoute
     }
+    '/dispatch/schedule': {
+      id: '/dispatch/schedule'
+      path: '/schedule'
+      fullPath: '/dispatch/schedule'
+      preLoaderRoute: typeof DispatchScheduleRouteImport
+      parentRoute: typeof DispatchRoute
+    }
+    '/dispatch/routes': {
+      id: '/dispatch/routes'
+      path: '/routes'
+      fullPath: '/dispatch/routes'
+      preLoaderRoute: typeof DispatchRoutesRouteImport
+      parentRoute: typeof DispatchRoute
+    }
+    '/dispatch/history': {
+      id: '/dispatch/history'
+      path: '/history'
+      fullPath: '/dispatch/history'
+      preLoaderRoute: typeof DispatchHistoryRouteImport
+      parentRoute: typeof DispatchRoute
+    }
     '/_authenticated/trips': {
       id: '/_authenticated/trips'
       path: '/trips'
@@ -897,6 +988,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/planner': {
+      id: '/_authenticated/planner'
+      path: '/planner'
+      fullPath: '/planner'
+      preLoaderRoute: typeof AuthenticatedPlannerRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/passengers': {
@@ -983,6 +1081,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/dispatch/routes/': {
+      id: '/dispatch/routes/'
+      path: '/'
+      fullPath: '/dispatch/routes/'
+      preLoaderRoute: typeof DispatchRoutesIndexRouteImport
+      parentRoute: typeof DispatchRoutesRoute
+    }
     '/passenger/book/vehicle': {
       id: '/passenger/book/vehicle'
       path: '/book/vehicle'
@@ -1003,6 +1108,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/driver/trip/new'
       preLoaderRoute: typeof DriverTripNewRouteImport
       parentRoute: typeof DriverRoute
+    }
+    '/dispatch/routes/$routeId': {
+      id: '/dispatch/routes/$routeId'
+      path: '/$routeId'
+      fullPath: '/dispatch/routes/$routeId'
+      preLoaderRoute: typeof DispatchRoutesRouteIdRouteImport
+      parentRoute: typeof DispatchRoutesRoute
     }
     '/api/public/get-trip-pdf': {
       id: '/api/public/get-trip-pdf'
@@ -1087,6 +1199,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNewsRoute: typeof AuthenticatedNewsRoute
   AuthenticatedNewsFeedRoute: typeof AuthenticatedNewsFeedRoute
   AuthenticatedPassengersRoute: typeof AuthenticatedPassengersRoute
+  AuthenticatedPlannerRoute: typeof AuthenticatedPlannerRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRewardsSettingsRoute: typeof AuthenticatedRewardsSettingsRoute
   AuthenticatedSchedulesRoute: typeof AuthenticatedSchedulesRoute
@@ -1108,6 +1221,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedNewsRoute: AuthenticatedNewsRoute,
   AuthenticatedNewsFeedRoute: AuthenticatedNewsFeedRoute,
   AuthenticatedPassengersRoute: AuthenticatedPassengersRoute,
+  AuthenticatedPlannerRoute: AuthenticatedPlannerRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRewardsSettingsRoute: AuthenticatedRewardsSettingsRoute,
   AuthenticatedSchedulesRoute: AuthenticatedSchedulesRoute,
@@ -1119,12 +1233,32 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface DispatchRoutesRouteChildren {
+  DispatchRoutesRouteIdRoute: typeof DispatchRoutesRouteIdRoute
+  DispatchRoutesIndexRoute: typeof DispatchRoutesIndexRoute
+}
+
+const DispatchRoutesRouteChildren: DispatchRoutesRouteChildren = {
+  DispatchRoutesRouteIdRoute: DispatchRoutesRouteIdRoute,
+  DispatchRoutesIndexRoute: DispatchRoutesIndexRoute,
+}
+
+const DispatchRoutesRouteWithChildren = DispatchRoutesRoute._addFileChildren(
+  DispatchRoutesRouteChildren,
+)
+
 interface DispatchRouteChildren {
+  DispatchHistoryRoute: typeof DispatchHistoryRoute
+  DispatchRoutesRoute: typeof DispatchRoutesRouteWithChildren
+  DispatchScheduleRoute: typeof DispatchScheduleRoute
   DispatchSigninRoute: typeof DispatchSigninRoute
   DispatchIndexRoute: typeof DispatchIndexRoute
 }
 
 const DispatchRouteChildren: DispatchRouteChildren = {
+  DispatchHistoryRoute: DispatchHistoryRoute,
+  DispatchRoutesRoute: DispatchRoutesRouteWithChildren,
+  DispatchScheduleRoute: DispatchScheduleRoute,
   DispatchSigninRoute: DispatchSigninRoute,
   DispatchIndexRoute: DispatchIndexRoute,
 }

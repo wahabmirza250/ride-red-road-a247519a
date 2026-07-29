@@ -77,3 +77,68 @@ export const markStopDeparted = createServerFn({ method: "POST" })
     await supabaseAdmin.from("trip_stops").update({ departed_at: new Date().toISOString() }).eq("id", data.stop_id);
     return { ok: true };
   });
+
+/**
+ * Driver/admin correction of a trip's pickup or drop-off address mid-ride.
+ * Drivers are blocked from writing these columns directly by the
+ * `guard_trip_driver_update` trigger, so the change is applied with the
+ * service role after ownership is verified here.
+ */
+export const updateTripAddress = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      trip_id: string;
+      which: "pickup" | "dropoff";
+      address: string;
+      lat?: number | null;
+      lng?: number | null;
+    }) => {
+      if (!input?.trip_id) throw new Error("Trip required");
+      if (!input.address?.trim()) throw new Error("Address required");
+      if (input.which !== "pickup" && input.which !== "dropoff")
+        throw new Error("Invalid address field");
+      return input;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await ensureDriverOwnsTrip(context.userId, data.trip_id);
+
+    const patch =
+      data.which === "pickup"
+        ? {
+            pickup_address: data.address.trim(),
+            pickup_lat: data.lat ?? null,
+            pickup_lng: data.lng ?? null,
+          }
+        : {
+            dropoff_address: data.address.trim(),
+            dropoff_lat: data.lat ?? null,
+            dropoff_lng: data.lng ?? null,
+          };
+
+    const { error } = await supabaseAdmin
+      .from("trips")
+      .update(patch)
+      .eq("id", data.trip_id);
+    if (error) throw new Error(error.message);
+
+    // Keep the originating ride request in sync so dispatch sees the same
+    // addresses on the board.
+    const reqPatch =
+      data.which === "pickup"
+        ? {
+            pickup_address: data.address.trim(),
+            pickup_lat: data.lat ?? null,
+            pickup_lng: data.lng ?? null,
+          }
+        : {
+            dropoff_address: data.address.trim(),
+            dropoff_lat: data.lat ?? null,
+            dropoff_lng: data.lng ?? null,
+          };
+    await supabaseAdmin.from("ride_requests").update(reqPatch).eq("trip_id", data.trip_id);
+
+    return { ok: true };
+  });

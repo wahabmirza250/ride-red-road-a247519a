@@ -43,6 +43,8 @@ export const Route = createFileRoute("/_authenticated")({
 const ADMIN_NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/live-ops", label: "Live Ops", icon: Radio },
+  { to: "/planner", label: "Planner", icon: CalendarClock },
+
   { to: "/trips", label: "Trips", icon: RouteIcon },
   { to: "/medicaid-billing", label: "Medicaid Billing", icon: FileSignature },
   { to: "/drivers", label: "Drivers", icon: Users },
