@@ -640,11 +640,18 @@ function DriverHome() {
           <div className="space-y-2">
             <div className="flex gap-2 text-sm">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-              <div>
+              <div className="flex-1">
                 <div className="text-xs text-muted-foreground">Pickup</div>
                 <div>{active.pickup_address}</div>
               </div>
+              <EditAddressButton
+                tripId={active.id}
+                field="pickup"
+                current={active.pickup_address}
+                onDone={() => void loadRequests()}
+              />
             </div>
+
             {stops.length > 0 && (
               <div className="space-y-1 border-l-2 border-dashed border-primary/40 pl-3">
                 {stops.map((s) => (
