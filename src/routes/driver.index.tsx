@@ -596,8 +596,11 @@ function DriverHome() {
           <div className="mt-1 text-xs opacity-80">Dispatch can't send you rides until your location updates.</div>
         </div>
       )}
+      {/* Assigned multi-passenger route stop list */}
+      <ActiveRouteCard />
 
       {/* Active trip */}
+
       {active && (
         <div className="space-y-3 rounded-2xl border border-primary/30 bg-primary/5 p-5">
           <div className="flex items-center justify-between">
