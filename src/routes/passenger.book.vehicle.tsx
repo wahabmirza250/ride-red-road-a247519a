@@ -363,17 +363,24 @@ function VehicleSelect() {
       )}
 
       {/* Sticky confirm */}
-      <div className="fixed inset-x-0 bottom-20 z-20 px-4 pb-2">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
         <div className="mx-auto max-w-2xl">
           <Button
             onClick={book}
-            disabled={submitting || missingCoords || (!!user && !identityReady)}
+            disabled={
+              submitting ||
+              missingCoords ||
+              (!!user && !identityLoaded) ||
+              (!!user && identityLoaded && !identityReady)
+            }
             className="h-14 w-full rounded-full text-base font-semibold shadow-lift"
           >
             {submitting ? (
               <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Requesting…</>
             ) : !user ? (
               <>Sign in to book</>
+            ) : !identityLoaded ? (
+              <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Checking your coverage…</>
             ) : !identityReady ? (
               <>Enter Medicaid ID or SSN + DOB</>
             ) : (

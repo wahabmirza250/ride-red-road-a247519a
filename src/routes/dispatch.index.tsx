@@ -371,13 +371,20 @@ function DispatchBoard() {
                     )}
                     <select
                       className="max-w-[190px] rounded-md border border-border bg-background px-2 py-1 text-xs"
-                      value={r.driver_id ?? ""}
+                      /* Always render as an action picker (never bound to the
+                         current driver) so re-picking the same driver still
+                         fires onChange and re-sends/refreshes the offer. */
+                      value=""
                       disabled={busy === r.id}
-                      onChange={(e) => assign(r.id, e.target.value)}
+                      onChange={(e) => {
+                        assign(r.id, e.target.value);
+                        e.target.value = "";
+                      }}
                     >
-                      <option value="" disabled>
-                        {r.driver_id ? "Change driver…" : "Assign driver…"}
+                      <option value="">
+                        {r.driver_id ? `Change driver… (${r.driver_name ?? "assigned"})` : "Assign driver…"}
                       </option>
+
                       {board.drivers.map((d) => {
                         const match = !r.vehicle_type || d.vehicle_type === r.vehicle_type;
                         return (

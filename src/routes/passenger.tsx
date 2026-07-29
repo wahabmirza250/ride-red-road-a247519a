@@ -83,6 +83,11 @@ function PassengerLayout() {
     typeof window !== "undefined" &&
     !!window.localStorage.getItem("passenger_device_id");
 
+  // The booking flow (pickup → vehicle) uses its own full-height sticky CTAs.
+  // The floating tab bar is fixed at z-30 and would sit on top of those CTAs,
+  // swallowing the tap that submits the ride, so it is hidden while booking.
+  const isBooking = loc.pathname.startsWith("/passenger/book");
+
   // Strict role isolation — a signed-in admin or driver must NEVER see the
   // passenger app just because their session persists in this browser.
   // Guests (no session) can still browse and book without signing in.
@@ -92,7 +97,12 @@ function PassengerLayout() {
 
 
   return (
-    <div className="surface-green relative min-h-screen bg-background pb-24 text-foreground">
+    <div
+      className={cn(
+        "surface-green relative min-h-screen bg-background text-foreground",
+        isBooking ? "pb-0" : "pb-24",
+      )}
+    >
       <AuroraBackdrop />
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/70 px-4 backdrop-blur-xl">
         <Link to="/passenger" className="flex items-center">
@@ -122,6 +132,7 @@ function PassengerLayout() {
       <main className="mx-auto max-w-2xl p-4 animate-rise-in">
         <Outlet />
       </main>
+      {!isBooking && (
       <nav className="fixed bottom-3 left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center justify-around rounded-full border border-border/60 bg-background/80 p-1.5 shadow-lift backdrop-blur-xl">
         {TABS.map((t) => {
           const active = loc.pathname === t.to;
@@ -143,6 +154,7 @@ function PassengerLayout() {
           );
         })}
       </nav>
+      )}
       <InstallPrompt />
     </div>
   );

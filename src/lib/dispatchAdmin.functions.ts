@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const OFFER_TTL_MS = 30_000;
+/**
+ * A dispatcher-directed assignment is not a race between nearby drivers — it is
+ * a deliberate hand-off — so it gets a much longer window than the 30s
+ * auto-dispatch offer before the ride is reclaimed and re-broadcast.
+ */
+const OFFER_TTL_MS = 10 * 60_000;
 
 /**
  * Staff (admin OR dispatch) assigns / re-assigns a ride to a specific driver.
@@ -43,11 +48,23 @@ export const adminReassignDriver = createServerFn({ method: "POST" })
     if (!newDriver) throw new Error("Selected driver not found");
 
     const oldDriverId = req.driver_id;
+    const expires = new Date(Date.now() + OFFER_TTL_MS).toISOString();
+
     if (oldDriverId === newDriver.id) {
+      // Same driver re-selected. If the ride is still at offer stage, this is a
+      // dispatcher re-poke: refresh the (possibly expired) offer window so the
+      // driver can still accept, instead of silently doing nothing.
+      if (req.status === "pending" || !req.trip_id) {
+        const { error: refreshErr } = await supabaseAdmin
+          .from("ride_requests")
+          .update({ offer_expires_at: expires, declined_driver_ids: [] })
+          .eq("id", req.id);
+        if (refreshErr) throw new Error(refreshErr.message);
+        return { ok: true, refreshed: true };
+      }
       return { ok: true, unchanged: true };
     }
 
-    const expires = new Date(Date.now() + OFFER_TTL_MS).toISOString();
 
     if (req.status === "pending" || !req.trip_id) {
       // Still at offer stage: retarget the offer.
