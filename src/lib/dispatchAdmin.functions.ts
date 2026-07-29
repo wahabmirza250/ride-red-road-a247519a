@@ -48,11 +48,23 @@ export const adminReassignDriver = createServerFn({ method: "POST" })
     if (!newDriver) throw new Error("Selected driver not found");
 
     const oldDriverId = req.driver_id;
+    const expires = new Date(Date.now() + OFFER_TTL_MS).toISOString();
+
     if (oldDriverId === newDriver.id) {
+      // Same driver re-selected. If the ride is still at offer stage, this is a
+      // dispatcher re-poke: refresh the (possibly expired) offer window so the
+      // driver can still accept, instead of silently doing nothing.
+      if (req.status === "pending" || !req.trip_id) {
+        const { error: refreshErr } = await supabaseAdmin
+          .from("ride_requests")
+          .update({ offer_expires_at: expires, declined_driver_ids: [] })
+          .eq("id", req.id);
+        if (refreshErr) throw new Error(refreshErr.message);
+        return { ok: true, refreshed: true };
+      }
       return { ok: true, unchanged: true };
     }
 
-    const expires = new Date(Date.now() + OFFER_TTL_MS).toISOString();
 
     if (req.status === "pending" || !req.trip_id) {
       // Still at offer stage: retarget the offer.
