@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Pencil, Loader2 } from "lucide-react";
 import { updateTripAddress } from "@/lib/tripStops.functions";
-import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { AddressAutocomplete, type ResolvedPlace } from "@/components/AddressAutocomplete";
 import {
   Dialog,
   DialogContent,
@@ -45,7 +45,7 @@ export function EditAddressButton({
       await save({
         data: {
           trip_id: tripId,
-          field,
+          which: field,
           address: value.trim(),
           lat: coords?.lat ?? null,
           lng: coords?.lng ?? null,
@@ -82,13 +82,9 @@ export function EditAddressButton({
             setValue(v);
             setCoords(null);
           }}
-          onSelect={(p) => {
+          onResolve={(p: ResolvedPlace) => {
             setValue(p.address);
-            setCoords(
-              typeof p.lat === "number" && typeof p.lng === "number"
-                ? { lat: p.lat, lng: p.lng }
-                : null,
-            );
+            setCoords({ lat: p.lat, lng: p.lng });
           }}
           placeholder="Search address"
         />
