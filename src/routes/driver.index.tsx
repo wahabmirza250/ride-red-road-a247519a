@@ -646,12 +646,14 @@ function DriverHome() {
                 <div className="text-xs text-muted-foreground">Pickup</div>
                 <div>{active.pickup_address}</div>
               </div>
-              <EditAddressButton
-                tripId={active.id}
-                field="pickup"
-                current={active.pickup_address}
-                onDone={() => void loadRequests()}
-              />
+              {active.trip_id && (
+                <EditAddressButton
+                  tripId={active.trip_id}
+                  field="pickup"
+                  current={active.pickup_address}
+                  onDone={() => void loadRequests()}
+                />
+              )}
             </div>
 
             {stops.length > 0 && (
@@ -682,12 +684,14 @@ function DriverHome() {
                 <div className="text-xs text-muted-foreground">Dropoff</div>
                 <div>{active.dropoff_address}</div>
               </div>
-              <EditAddressButton
-                tripId={active.id}
-                field="dropoff"
-                current={active.dropoff_address}
-                onDone={() => void loadRequests()}
-              />
+              {active.trip_id && (
+                <EditAddressButton
+                  tripId={active.trip_id}
+                  field="dropoff"
+                  current={active.dropoff_address}
+                  onDone={() => void loadRequests()}
+                />
+              )}
             </div>
 
           </div>

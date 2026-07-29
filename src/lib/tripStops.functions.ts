@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { geocodeForTrip } from "./tripGeocode.server";
 
 async function ensureDriverOwnsTrip(userId: string, tripId: string, allowAdmin = true) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -105,17 +106,28 @@ export const updateTripAddress = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await ensureDriverOwnsTrip(context.userId, data.trip_id);
 
+    // A typed (non-autocompleted) address arrives without coordinates. Resolve
+    // them server-side so navigation and the live map keep working instead of
+    // writing NULL coords over the old ones.
+    let lat = data.lat ?? null;
+    let lng = data.lng ?? null;
+    if (lat == null || lng == null) {
+      const resolved = await geocodeForTrip(data.address.trim());
+      lat = resolved?.lat ?? null;
+      lng = resolved?.lng ?? null;
+    }
+
     const patch =
       data.which === "pickup"
         ? {
             pickup_address: data.address.trim(),
-            pickup_lat: data.lat ?? null,
-            pickup_lng: data.lng ?? null,
+            pickup_lat: lat,
+            pickup_lng: lng,
           }
         : {
             dropoff_address: data.address.trim(),
-            dropoff_lat: data.lat ?? null,
-            dropoff_lng: data.lng ?? null,
+            dropoff_lat: lat,
+            dropoff_lng: lng,
           };
 
     const { error } = await supabaseAdmin
@@ -130,13 +142,13 @@ export const updateTripAddress = createServerFn({ method: "POST" })
       data.which === "pickup"
         ? {
             pickup_address: data.address.trim(),
-            pickup_lat: data.lat ?? null,
-            pickup_lng: data.lng ?? null,
+            pickup_lat: lat,
+            pickup_lng: lng,
           }
         : {
             dropoff_address: data.address.trim(),
-            dropoff_lat: data.lat ?? null,
-            dropoff_lng: data.lng ?? null,
+            dropoff_lat: lat,
+            dropoff_lng: lng,
           };
     await supabaseAdmin.from("ride_requests").update(reqPatch).eq("trip_id", data.trip_id);
 
