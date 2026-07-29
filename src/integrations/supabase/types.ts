@@ -2240,6 +2240,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      requests_on_route: {
+        Args: { _ids: string[] }
+        Returns: {
+          request_id: string
+        }[]
+      }
       set_default_billing_portal: {
         Args: { _company_id?: string; _portal_id: string }
         Returns: undefined

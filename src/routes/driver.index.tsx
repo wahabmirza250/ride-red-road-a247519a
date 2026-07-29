@@ -211,7 +211,23 @@ function DriverHome() {
         `driver_id.eq.${driver.id},and(driver_id.is.null,or(offer_expires_at.is.null,offer_expires_at.gt.${nowIso}))`,
       )
       .order("created_at", { ascending: false }).limit(5);
-    setPending((pend ?? []) as Request[]);
+
+    // A request a dispatcher has already placed on a route must not also be
+    // broadcast as a free-for-all offer — otherwise any online driver could
+    // accept it and break the planned route.
+    let offers = (pend ?? []) as Request[];
+    if (offers.length) {
+      const { data: routed } = await supabase.rpc("requests_on_route", {
+        _ids: offers.map((r) => r.id),
+      });
+      const onRoute = new Set(
+        ((routed ?? []) as Array<{ request_id: string }>).map((r) => r.request_id),
+      );
+      offers = offers.filter((r) => !onRoute.has(r.id));
+    }
+
+    setPending(offers);
+
 
     const { data: act } = await supabase
       .from("ride_requests").select("*")
