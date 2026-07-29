@@ -841,7 +841,7 @@ export const upsertPortalCredential = createServerFn({ method: "POST" })
       _state: data.state,
       _login_email: data.login_email,
       _login_password: data.login_password,
-      _company_id: data.company_id ?? null,
+      _company_id: data.company_id ?? undefined,
     });
     if (error) throw new Error(error.message);
     return { id };
