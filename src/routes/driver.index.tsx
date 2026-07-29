@@ -217,13 +217,15 @@ function DriverHome() {
     // accept it and break the planned route.
     let offers = (pend ?? []) as Request[];
     if (offers.length) {
-      const { data: routed } = await supabase
-        .from("route_stops")
-        .select("request_id")
-        .in("request_id", offers.map((r) => r.id));
-      const onRoute = new Set((routed ?? []).map((r) => r.request_id));
+      const { data: routed } = await supabase.rpc("requests_on_route", {
+        _ids: offers.map((r) => r.id),
+      });
+      const onRoute = new Set(
+        ((routed ?? []) as Array<{ request_id: string }>).map((r) => r.request_id),
+      );
       offers = offers.filter((r) => !onRoute.has(r.id));
     }
+
     setPending(offers);
 
 
