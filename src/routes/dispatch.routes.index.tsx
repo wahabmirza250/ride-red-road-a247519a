@@ -73,7 +73,7 @@ function RoutesView() {
 
   useEffect(() => {
     void refresh();
-    loadDrivers({ data: {} })
+    loadDrivers(undefined)
       .then((d) =>
         setDrivers(
           (d as Array<{ id: string; name?: string | null }>).map((x) => ({
