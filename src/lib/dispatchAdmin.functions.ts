@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const OFFER_TTL_MS = 30_000;
+/**
+ * A dispatcher-directed assignment is not a race between nearby drivers — it is
+ * a deliberate hand-off — so it gets a much longer window than the 30s
+ * auto-dispatch offer before the ride is reclaimed and re-broadcast.
+ */
+const OFFER_TTL_MS = 10 * 60_000;
 
 /**
  * Staff (admin OR dispatch) assigns / re-assigns a ride to a specific driver.
