@@ -38,6 +38,7 @@ import { Route as DriverEarningsRouteImport } from './routes/driver.earnings'
 import { Route as DispatchSigninRouteImport } from './routes/dispatch.signin'
 import { Route as DispatchScheduleRouteImport } from './routes/dispatch.schedule'
 import { Route as DispatchRoutesRouteImport } from './routes/dispatch.routes'
+import { Route as DispatchHistoryRouteImport } from './routes/dispatch.history'
 import { Route as AuthenticatedTripsRouteImport } from './routes/_authenticated/trips'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSchedulesRouteImport } from './routes/_authenticated/schedules'
@@ -211,6 +212,11 @@ const DispatchRoutesRoute = DispatchRoutesRouteImport.update({
   path: '/routes',
   getParentRoute: () => DispatchRoute,
 } as any)
+const DispatchHistoryRoute = DispatchHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => DispatchRoute,
+} as any)
 const AuthenticatedTripsRoute = AuthenticatedTripsRouteImport.update({
   id: '/trips',
   path: '/trips',
@@ -382,6 +388,7 @@ export interface FileRoutesByFullPath {
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRouteWithChildren
+  '/dispatch/history': typeof DispatchHistoryRoute
   '/dispatch/routes': typeof DispatchRoutesRouteWithChildren
   '/dispatch/schedule': typeof DispatchScheduleRoute
   '/dispatch/signin': typeof DispatchSigninRoute
@@ -437,6 +444,7 @@ export interface FileRoutesByTo {
   '/schedules': typeof AuthenticatedSchedulesRoute
   '/team': typeof AuthenticatedTeamRoute
   '/trips': typeof AuthenticatedTripsRouteWithChildren
+  '/dispatch/history': typeof DispatchHistoryRoute
   '/dispatch/schedule': typeof DispatchScheduleRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/earnings': typeof DriverEarningsRoute
@@ -496,6 +504,7 @@ export interface FileRoutesById {
   '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/trips': typeof AuthenticatedTripsRouteWithChildren
+  '/dispatch/history': typeof DispatchHistoryRoute
   '/dispatch/routes': typeof DispatchRoutesRouteWithChildren
   '/dispatch/schedule': typeof DispatchScheduleRoute
   '/dispatch/signin': typeof DispatchSigninRoute
@@ -556,6 +565,7 @@ export interface FileRouteTypes {
     | '/schedules'
     | '/team'
     | '/trips'
+    | '/dispatch/history'
     | '/dispatch/routes'
     | '/dispatch/schedule'
     | '/dispatch/signin'
@@ -611,6 +621,7 @@ export interface FileRouteTypes {
     | '/schedules'
     | '/team'
     | '/trips'
+    | '/dispatch/history'
     | '/dispatch/schedule'
     | '/dispatch/signin'
     | '/driver/earnings'
@@ -669,6 +680,7 @@ export interface FileRouteTypes {
     | '/_authenticated/schedules'
     | '/_authenticated/team'
     | '/_authenticated/trips'
+    | '/dispatch/history'
     | '/dispatch/routes'
     | '/dispatch/schedule'
     | '/dispatch/signin'
@@ -922,6 +934,13 @@ declare module '@tanstack/react-router' {
       path: '/routes'
       fullPath: '/dispatch/routes'
       preLoaderRoute: typeof DispatchRoutesRouteImport
+      parentRoute: typeof DispatchRoute
+    }
+    '/dispatch/history': {
+      id: '/dispatch/history'
+      path: '/history'
+      fullPath: '/dispatch/history'
+      preLoaderRoute: typeof DispatchHistoryRouteImport
       parentRoute: typeof DispatchRoute
     }
     '/_authenticated/trips': {
@@ -1208,6 +1227,7 @@ const DispatchRoutesRouteWithChildren = DispatchRoutesRoute._addFileChildren(
 )
 
 interface DispatchRouteChildren {
+  DispatchHistoryRoute: typeof DispatchHistoryRoute
   DispatchRoutesRoute: typeof DispatchRoutesRouteWithChildren
   DispatchScheduleRoute: typeof DispatchScheduleRoute
   DispatchSigninRoute: typeof DispatchSigninRoute
@@ -1215,6 +1235,7 @@ interface DispatchRouteChildren {
 }
 
 const DispatchRouteChildren: DispatchRouteChildren = {
+  DispatchHistoryRoute: DispatchHistoryRoute,
   DispatchRoutesRoute: DispatchRoutesRouteWithChildren,
   DispatchScheduleRoute: DispatchScheduleRoute,
   DispatchSigninRoute: DispatchSigninRoute,

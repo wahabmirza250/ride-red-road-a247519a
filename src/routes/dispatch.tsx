@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Radio, LogOut, Sun, Moon, Loader2 } from "lucide-react";
+import { Radio, LogOut, Sun, Moon, Loader2, Waypoints, CalendarClock, History } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -12,9 +12,13 @@ export const Route = createFileRoute("/dispatch")({
   component: DispatchLayout,
 });
 
-// Routes / Schedule / History views land in the next build step; only ship
-// nav entries whose destinations actually exist so no tab dead-ends.
-const NAV = [{ to: "/dispatch", label: "Board", icon: Radio, exact: true }] as const;
+const NAV = [
+  { to: "/dispatch", label: "Board", icon: Radio, exact: true },
+  { to: "/dispatch/routes", label: "Routes", icon: Waypoints, exact: false },
+  { to: "/dispatch/schedule", label: "Schedule", icon: CalendarClock, exact: false },
+  { to: "/dispatch/history", label: "History", icon: History, exact: false },
+] as const;
+
 
 function DispatchLayout() {
   const { loading, user, isDispatch, signOut } = useAuth();
