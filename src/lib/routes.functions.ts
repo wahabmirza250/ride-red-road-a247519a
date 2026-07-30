@@ -654,6 +654,12 @@ export const assignRouteDriver = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     if (data.driver_id) {
+      // A route is real work: turn its requests into assigned trips so the
+      // driver's in-trip flow (odometer, identity, signature, HCPF PDF) runs.
+      const { materializeRouteTrips } = await import("@/lib/routeTrips.server");
+      await materializeRouteTrips(data.route_id, data.driver_id);
+
+
       const { data: drv } = await supabaseAdmin
         .from("drivers")
         .select("user_id")
