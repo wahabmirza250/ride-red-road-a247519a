@@ -124,6 +124,7 @@ export const getShiftStats = createServerFn({ method: "GET" })
     let hours = 0;
     let miles = 0;
     let earnings = 0;
+    let openSince: string | null = null;
     for (const r of rows ?? []) {
       const end = r.clock_out_at ? new Date(r.clock_out_at) : new Date();
       const h = Math.max(0, (end.getTime() - new Date(r.clock_in_at).getTime()) / 3600000);
@@ -132,12 +133,16 @@ export const getShiftStats = createServerFn({ method: "GET" })
       earnings += r.clock_out_at
         ? Number(r.earnings ?? 0)
         : Math.round(h * Number(r.hourly_rate_snapshot ?? 0) * 100) / 100;
+      if (!r.clock_out_at) openSince = r.clock_in_at;
     }
     return {
       today_hours: Math.round(hours * 100) / 100,
       today_miles: Math.round(miles * 100) / 100,
       today_earnings: Math.round(earnings * 100) / 100,
-      hourly_rate: driver.hourly_rate ?? 0,
+      hourly_rate: driver.hourly_rate,
+      /** Server timestamp of the currently open shift, if any. The client
+       *  counts up from this so a refresh never resets the clock. */
+      open_shift_started_at: openSince,
     };
   });
 
