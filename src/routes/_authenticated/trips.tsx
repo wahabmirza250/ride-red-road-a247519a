@@ -72,6 +72,8 @@ type Trip = {
   odometer_start_photo: string | null;
   odometer_end_photo: string | null;
   notes: string | null;
+  round_trip_group_id: string | null;
+  round_trip_leg: number | null;
 };
 
 function TripsPage() {
@@ -579,10 +581,20 @@ function TripDetailDialog({
   async function handleOpenPdf() {
     setPdfLoading(true);
     try {
+      let reportTripIds = [trip.id];
+      if (trip.round_trip_group_id) {
+        const { data: groupedTrips, error: groupError } = await supabase
+          .from("trips")
+          .select("id, round_trip_leg")
+          .eq("round_trip_group_id", trip.round_trip_group_id)
+          .order("round_trip_leg", { ascending: true });
+        if (groupError) throw groupError;
+        reportTripIds = (groupedTrips ?? []).map((groupedTrip) => groupedTrip.id);
+      }
       const { data: reports, error: reportError } = await supabase
         .from("medicaid_trips")
         .select("state_pdf_path")
-        .eq("dispatch_trip_id", trip.id)
+        .in("dispatch_trip_id", reportTripIds)
         .order("created_at", { ascending: false })
         .limit(1);
       if (reportError) throw reportError;
