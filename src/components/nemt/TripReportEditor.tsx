@@ -155,7 +155,7 @@ export function TripPdfButton({ tripId }: { tripId: string }) {
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   return <>
-    <Button size="sm" onClick={async () => { setLoading(true); try { const r = await ensurePdf({ data: { trip_id: tripId } }); if (!r.url) throw new Error("No PDF is available"); setUrl(r.url); } catch (e) { toast.error(e instanceof Error ? e.message : "Could not open PDF"); } finally { setLoading(false); } }} disabled={loading}>
+    <Button size="sm" onClick={async () => { setLoading(true); try { const r = await ensurePdf({ data: { trip_id: tripId } }); if (!r.url) throw new Error("No PDF is available"); setUrl(r.url); } catch (e) { toast.error(friendlyErrorMessage(e, "Could not open PDF")); } finally { setLoading(false); } }} disabled={loading}>
       {loading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />} View / download
     </Button>
     <PdfPreviewDialog url={url} filename={`hcpf-trip-${tripId.slice(0, 8)}.pdf`} onClose={() => setUrl(null)} />
