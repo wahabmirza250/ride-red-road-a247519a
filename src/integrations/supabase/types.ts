@@ -2064,6 +2064,8 @@ export type Database = {
           pickup_lng: number | null
           problem_reason: string | null
           ride_purpose: string | null
+          round_trip_group_id: string | null
+          round_trip_leg: number | null
           scheduled_pickup_time: string
           signature_url: string | null
           signed_at: string | null
@@ -2108,6 +2110,8 @@ export type Database = {
           pickup_lng?: number | null
           problem_reason?: string | null
           ride_purpose?: string | null
+          round_trip_group_id?: string | null
+          round_trip_leg?: number | null
           scheduled_pickup_time: string
           signature_url?: string | null
           signed_at?: string | null
@@ -2152,6 +2156,8 @@ export type Database = {
           pickup_lng?: number | null
           problem_reason?: string | null
           ride_purpose?: string | null
+          round_trip_group_id?: string | null
+          round_trip_leg?: number | null
           scheduled_pickup_time?: string
           signature_url?: string | null
           signed_at?: string | null

@@ -597,13 +597,30 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
     const { data: trip, error: tErr } = await supabase
       .from("trips")
       .select(
-        "id, passenger_id, pickup_address, dropoff_address, actual_pickup_time, actual_dropoff_time, scheduled_pickup_time",
+        "id, passenger_id, pickup_address, dropoff_address, actual_pickup_time, actual_dropoff_time, scheduled_pickup_time, round_trip_group_id, round_trip_leg",
       )
       .eq("id", data.trip_id)
       .eq("driver_id", driver.id)
       .maybeSingle();
     if (tErr) throw new Error(tErr.message);
     if (!trip) throw new Error("Trip not found for this driver");
+
+    // Round trips are driven as two dispatch trips but reported on ONE state
+    // form with two leg blocks. Resolve the group's anchor (leg 1) trip so both
+    // legs land on a single medicaid_trips row.
+    const groupId = (trip as any).round_trip_group_id as string | null;
+    const legIndex: 1 | 2 = (trip as any).round_trip_leg === 2 ? 2 : 1;
+    let anchorTripId = trip.id;
+    if (groupId) {
+      const { data: anchor } = await supabase
+        .from("trips")
+        .select("id")
+        .eq("round_trip_group_id", groupId)
+        .eq("round_trip_leg", 1)
+        .maybeSingle();
+      if (anchor?.id) anchorTripId = anchor.id;
+    }
+
 
     // Passenger
     const { data: passenger, error: pErr } = await supabase
@@ -683,7 +700,7 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
     const plate = cleanText(draft.vehicle_plate) ?? driver.default_plate ?? driver.vehicle_plate ?? "";
     const vin = cleanText(draft.vehicle_vin) ?? driver.default_vin ?? null;
     const vehicleType = normalizeVehicleType(cleanText(draft.vehicle_type) ?? driver.default_vehicle_type);
-    const tripKind = normalizeTripKind(draft.trip_kind);
+    const tripKind = groupId ? "round_trip" : normalizeTripKind(draft.trip_kind);
     const identityVerified = draft.identity_verified === "yes"
       ? true
       : draft.identity_verified === "no"
@@ -699,12 +716,14 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
       .eq("id", trip.id);
 
     // Check for an existing medicaid_trips row for this dispatch trip to avoid duplicates.
-    // Prefer the direct dispatch_trip_id link; keep the legacy match as a fallback for
-    // rows created before that link existed.
+    // For a round trip both legs share the anchor (leg 1) dispatch trip id, so
+    // the return leg updates the same report instead of creating a second one.
     const { data: existingLinkedMt } = await supabase
       .from("medicaid_trips")
       .select("id")
-      .eq("dispatch_trip_id", trip.id)
+      .in("dispatch_trip_id", Array.from(new Set([anchorTripId, trip.id])))
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     const { data: existingLegacyMt } = existingLinkedMt
@@ -719,18 +738,22 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
 
     let medicaidTripId: string;
     const existingMt = existingLinkedMt ?? existingLegacyMt;
+    const legFields =
+      legIndex === 2
+        ? { dropoff_address: dropoffAddress, odometer_end: endOdo }
+        : {
+            pickup_at: pickupAtForBilling,
+            pickup_address: pickupAddress,
+            odometer_start: startOdo,
+            ...(groupId ? {} : { dropoff_address: dropoffAddress, odometer_end: endOdo }),
+          };
     if (existingMt) {
       medicaidTripId = existingMt.id;
       const { error: updateMtErr } = await supabase
         .from("medicaid_trips")
         .update({
-          dispatch_trip_id: trip.id,
-          pickup_at: pickupAtForBilling,
-          pickup_address: pickupAddress,
-          dropoff_address: dropoffAddress,
-          odometer_start: startOdo,
-          odometer_end: endOdo,
-          miles,
+          dispatch_trip_id: anchorTripId,
+          ...legFields,
           trip_kind: tripKind,
           vehicle_type: vehicleType,
           vehicle_plate: plate,
@@ -740,6 +763,8 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
           signature_path: data.signature_path,
           signature_name: data.signer_name,
           signed_by_escort: signedByEscort,
+          // Force the state PDF to be regenerated with the newly added leg.
+          state_pdf_path: null,
         } as any)
         .eq("id", medicaidTripId);
       if (updateMtErr) throw new Error(updateMtErr.message);
@@ -747,7 +772,7 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
       const { data: inserted, error: mtErr } = await supabase
         .from("medicaid_trips")
         .insert({
-          dispatch_trip_id: trip.id,
+          dispatch_trip_id: anchorTripId,
           driver_id: userId,
           rider_id: riderId,
           pickup_at: pickupAtForBilling,
@@ -777,7 +802,7 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
     const { error: legErr } = await supabase.from("medicaid_trip_legs").upsert(
       {
         medicaid_trip_id: medicaidTripId,
-        leg_index: 1,
+        leg_index: legIndex,
         leg_date: legDate,
         pickup_time: pickupHm,
         pickup_odometer: startOdo,
@@ -789,6 +814,37 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
       { onConflict: "medicaid_trip_id,leg_index" },
     );
     if (legErr) throw new Error(legErr.message);
+
+    // Recompute totals across every captured leg (a round trip bills the miles
+    // of both legs on a single claim).
+    const { data: allLegs } = await supabase
+      .from("medicaid_trip_legs")
+      .select("leg_index, leg_date, pickup_time, pickup_odometer, pickup_address, dropoff_time, dropoff_odometer, dropoff_address")
+      .eq("medicaid_trip_id", medicaidTripId)
+      .order("leg_index", { ascending: true });
+
+    const legRows = (allLegs ?? []).map((l: any) => ({
+      leg_index: (Number(l.leg_index) === 2 ? 2 : 1) as 1 | 2,
+      leg_date: String(l.leg_date ?? "").slice(0, 10),
+      pickup_time: l.pickup_time ? String(l.pickup_time).slice(0, 5) : null,
+      pickup_odometer: Number(l.pickup_odometer ?? 0),
+      pickup_address: l.pickup_address ?? "",
+      dropoff_time: l.dropoff_time ? String(l.dropoff_time).slice(0, 5) : null,
+      dropoff_odometer: Number(l.dropoff_odometer ?? 0),
+      dropoff_address: l.dropoff_address ?? "",
+    }));
+
+    const totalMiles = legRows.length
+      ? Number(
+          legRows
+            .reduce((sum, l) => sum + Math.max(0, l.dropoff_odometer - l.pickup_odometer), 0)
+            .toFixed(1),
+        )
+      : miles;
+    await supabase
+      .from("medicaid_trips")
+      .update({ miles: totalMiles } as any)
+      .eq("id", medicaidTripId);
 
     // Resolve the ID field for the PDF (prefer full SSN when medicaid_id is a SELF- placeholder)
     let riderIdentifier = passenger.medicaid_id ?? "";
@@ -820,22 +876,25 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
         escortName,
         identityVerified: identityVerified ?? undefined,
         tripKind,
-        legs: [
-          {
-            leg_index: 1 as const,
-            leg_date: legDate,
-            pickup_time: pickupHm,
-            pickup_odometer: startOdo,
-            pickup_address: pickupAddress,
-            dropoff_time: dropoffHm,
-            dropoff_odometer: endOdo,
-            dropoff_address: dropoffAddress,
-          },
-        ],
+        legs: legRows.length
+          ? legRows
+          : [
+              {
+                leg_index: 1 as const,
+                leg_date: legDate,
+                pickup_time: pickupHm,
+                pickup_odometer: startOdo,
+                pickup_address: pickupAddress,
+                dropoff_time: dropoffHm,
+                dropoff_odometer: endOdo,
+                dropoff_address: dropoffAddress,
+              },
+            ],
         signatureName: data.signer_name,
         signedByEscort,
       },
     };
+
   });
 
 const EnsureDispatchPdfSchema = z.object({ trip_id: z.string().uuid() });
@@ -848,12 +907,22 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
 
     const { data: trip, error: tripErr } = await supabase
       .from("trips")
-      .select("id, driver_id")
+      .select("id, driver_id, round_trip_group_id")
       .eq("id", data.trip_id)
       .maybeSingle();
     if (tripErr) throw new Error(tripErr.message);
     if (!trip) throw new Error("Trip not found");
     if (!trip.driver_id) throw new Error("Trip is missing an assigned driver");
+
+    // A round trip's two dispatch trips share one state form, anchored on leg 1.
+    const tripIds = new Set<string>([trip.id]);
+    if ((trip as any).round_trip_group_id) {
+      const { data: siblings } = await supabase
+        .from("trips")
+        .select("id")
+        .eq("round_trip_group_id", (trip as any).round_trip_group_id);
+      for (const s of siblings ?? []) tripIds.add(s.id);
+    }
 
     const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", {
       _user_id: userId,
@@ -873,8 +942,11 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
     const { data: mt, error: mtErr } = await supabase
       .from("medicaid_trips")
       .select("*, riders(id, full_name, medicaid_id, dob, phone, address, last_4_ssn), medicaid_trip_legs(*)")
-      .eq("dispatch_trip_id", trip.id)
+      .in("dispatch_trip_id", Array.from(tripIds))
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
+
     if (mtErr) throw new Error(mtErr.message);
     if (!mt) throw new Error("No HCPF trip report was created for this ride yet");
 
