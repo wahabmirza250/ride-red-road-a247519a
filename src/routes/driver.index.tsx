@@ -760,9 +760,9 @@ function DriverHome() {
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
                   className="h-12 w-full rounded-full bg-primary text-base"
-                  onClick={() => { setStatus("driver_en_route_to_pickup"); openNavigation(); }}
+                  onClick={() => setStatus("driver_en_route_to_pickup")}
                 >
-                  <Navigation className="mr-2 h-5 w-5" /> Navigate
+                  <Car className="mr-2 h-5 w-5" /> Start drive to pickup
                 </Button>
                 <Button
                   variant="outline"
