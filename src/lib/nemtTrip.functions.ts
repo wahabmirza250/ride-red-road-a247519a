@@ -907,12 +907,22 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
 
     const { data: trip, error: tripErr } = await supabase
       .from("trips")
-      .select("id, driver_id")
+      .select("id, driver_id, round_trip_group_id")
       .eq("id", data.trip_id)
       .maybeSingle();
     if (tripErr) throw new Error(tripErr.message);
     if (!trip) throw new Error("Trip not found");
     if (!trip.driver_id) throw new Error("Trip is missing an assigned driver");
+
+    // A round trip's two dispatch trips share one state form, anchored on leg 1.
+    const tripIds = new Set<string>([trip.id]);
+    if ((trip as any).round_trip_group_id) {
+      const { data: siblings } = await supabase
+        .from("trips")
+        .select("id")
+        .eq("round_trip_group_id", (trip as any).round_trip_group_id);
+      for (const s of siblings ?? []) tripIds.add(s.id);
+    }
 
     const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", {
       _user_id: userId,
@@ -932,7 +942,8 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
     const { data: mt, error: mtErr } = await supabase
       .from("medicaid_trips")
       .select("*, riders(id, full_name, medicaid_id, dob, phone, address, last_4_ssn), medicaid_trip_legs(*)")
-      .eq("dispatch_trip_id", trip.id)
+      .in("dispatch_trip_id", Array.from(tripIds))
+
       .maybeSingle();
     if (mtErr) throw new Error(mtErr.message);
     if (!mt) throw new Error("No HCPF trip report was created for this ride yet");
