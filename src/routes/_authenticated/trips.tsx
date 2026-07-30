@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Loader2, Wand2, Search, Trash2, FileText } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
-import { ensureDispatchTripStatePdf } from "@/lib/nemtTrip.functions";
+import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { toast } from "sonner";
 import { haversineMiles } from "@/lib/geo";
 
@@ -538,7 +538,7 @@ function TripDetailDialog({
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { user } = useAuth();
-  const ensurePdf = useServerFn(ensureDispatchTripStatePdf);
+  const getPdfUrl = useServerFn(getStatePdfUrl);
 
   async function handleDelete() {
     setDeleting(true);
@@ -582,10 +582,12 @@ function TripDetailDialog({
   async function handleOpenPdf() {
     setPdfLoading(true);
     try {
-      const result = await ensurePdf({ data: { trip_id: trip.id } });
-      if (!result.url) throw new Error("The PDF was created, but the download link could not be opened");
+      const result = await getPdfUrl({ data: { trip_id: trip.id } });
+      if (!result.url) {
+        throw new Error("No saved PDF is available. Open Edit HCPF and choose Save & regenerate PDF.");
+      }
       setPdfUrl(result.url);
-      toast.success(result.generated ? "HCPF PDF generated" : "HCPF PDF opened");
+      toast.success("HCPF PDF opened");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not open HCPF PDF");
     } finally {
