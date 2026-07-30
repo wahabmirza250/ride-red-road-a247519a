@@ -466,6 +466,38 @@ export type Database = {
           },
         ]
       }
+      driver_pay: {
+        Row: {
+          created_at: string
+          driver_id: string
+          hourly_rate: number | null
+          pay_type: Database["public"]["Enums"]["driver_pay_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          hourly_rate?: number | null
+          pay_type?: Database["public"]["Enums"]["driver_pay_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          hourly_rate?: number | null
+          pay_type?: Database["public"]["Enums"]["driver_pay_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_pay_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: true
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_shifts: {
         Row: {
           clock_in_at: string
@@ -526,11 +558,9 @@ export type Database = {
             | Database["public"]["Enums"]["nemt_vehicle_type"]
             | null
           default_vin: string | null
-          hourly_rate: number
           id: string
           last_location_at: string | null
           license_number: string | null
-          pay_type: Database["public"]["Enums"]["driver_pay_type"]
           photo_url: string | null
           rating: number
           status: Database["public"]["Enums"]["driver_status"]
@@ -554,11 +584,9 @@ export type Database = {
             | Database["public"]["Enums"]["nemt_vehicle_type"]
             | null
           default_vin?: string | null
-          hourly_rate?: number
           id?: string
           last_location_at?: string | null
           license_number?: string | null
-          pay_type?: Database["public"]["Enums"]["driver_pay_type"]
           photo_url?: string | null
           rating?: number
           status?: Database["public"]["Enums"]["driver_status"]
@@ -582,11 +610,9 @@ export type Database = {
             | Database["public"]["Enums"]["nemt_vehicle_type"]
             | null
           default_vin?: string | null
-          hourly_rate?: number
           id?: string
           last_location_at?: string | null
           license_number?: string | null
-          pay_type?: Database["public"]["Enums"]["driver_pay_type"]
           photo_url?: string | null
           rating?: number
           status?: Database["public"]["Enums"]["driver_status"]
@@ -749,6 +775,8 @@ export type Database = {
           id: string
           notes: string | null
           photo_path: string
+          reimbursed_at: string | null
+          reimbursed_by: string | null
           shift_id: string | null
           submitted_at: string
         }
@@ -760,6 +788,8 @@ export type Database = {
           id?: string
           notes?: string | null
           photo_path: string
+          reimbursed_at?: string | null
+          reimbursed_by?: string | null
           shift_id?: string | null
           submitted_at?: string
         }
@@ -771,6 +801,8 @@ export type Database = {
           id?: string
           notes?: string | null
           photo_path?: string
+          reimbursed_at?: string | null
+          reimbursed_by?: string | null
           shift_id?: string | null
           submitted_at?: string
         }
