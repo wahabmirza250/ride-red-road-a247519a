@@ -44,6 +44,6 @@ export function loadGoogleMaps(): Promise<typeof google> {
       }),
   );
 
-  return loaderPromise;
+  return loaderPromise!;
 }
 
