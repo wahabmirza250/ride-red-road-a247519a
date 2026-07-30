@@ -488,42 +488,8 @@ function DispatchBoard() {
         </div>
       </div>
 
-      {/* Drivers */}
-      <div className="rounded-2xl border border-border bg-surface p-4">
-        <div className="mb-3 text-sm font-semibold">Drivers ({board.drivers.length})</div>
-        <div className="divide-y divide-border">
-          {board.drivers.map((d) => (
-            <button
-              key={d.id}
-              disabled={d.lat == null}
-              onClick={() =>
-                d.lat != null && d.lng != null && setFocus({ lat: d.lat, lng: d.lng, zoom: 15, id: d.id })
-              }
-              className={cn(
-                "flex w-full items-center justify-between py-3 text-left text-sm",
-                d.lat == null ? "cursor-not-allowed opacity-60" : "hover:bg-muted/50",
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <span className={cn("h-2.5 w-2.5 rounded-full", activityDot(d.activity))} />
-                <div>
-                  <div className="font-medium">{d.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {d.activity}
-                    {d.vehicle_type ? ` · ${VEHICLE_LABEL[d.vehicle_type] ?? d.vehicle_type}` : ""}
-                    {d.vehicle_label ? ` · ${d.vehicle_label}` : ""}
-                  </div>
-                </div>
-              </div>
-              {d.stale && d.activity !== "offline" && (
-                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
-                  no GPS update
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
+
+
 
       <GasReceiptsPanel />
 
