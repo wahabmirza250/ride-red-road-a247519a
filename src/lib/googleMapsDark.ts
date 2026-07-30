@@ -31,7 +31,7 @@ export function loadGoogleMapsDark(): Promise<typeof google> {
         const s = document.createElement("script");
         const params = new URLSearchParams({
           key,
-          libraries: "places",
+          libraries: "places,geometry",
           loading: "async",
           callback: "__lovableGmapsDarkCb",
         });
