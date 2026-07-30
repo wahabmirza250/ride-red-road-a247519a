@@ -810,11 +810,9 @@ function DriverHome() {
             {/* Secondary actions — always small, out of the main flow. */}
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <div className="flex flex-wrap gap-2">
-                {tripStatus && tripStatus !== "assigned" && (
-                  <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={openNavigation}>
-                    <Navigation className="mr-1 h-3.5 w-3.5" /> Navigate
-                  </Button>
-                )}
+                <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={openNavigation}>
+                  <Navigation className="mr-1 h-3.5 w-3.5" /> Turn-by-turn in Maps
+                </Button>
                 {tripStatus !== "in_progress" ? null : null}
                 <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={() => setShowAddStop(true)}>
                   <Plus className="mr-1 h-3.5 w-3.5" /> Add stop
