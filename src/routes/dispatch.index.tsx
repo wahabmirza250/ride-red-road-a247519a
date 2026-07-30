@@ -435,6 +435,17 @@ function DispatchBoard() {
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
+                    {selectedDriver && selectedDriver.id !== r.driver_id && (
+                      <button
+                        onClick={() => assign(r.id, selectedDriver.id)}
+                        disabled={busy === r.id}
+                        className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                        title="Assign the driver selected in the driver list"
+                      >
+                        <UserCheck className="h-3 w-3" />
+                        Assign to {selectedDriver.name}
+                      </button>
+                    )}
                     {!r.driver_id && r.suggested_driver_id && (
                       <button
                         onClick={() => assign(r.id, r.suggested_driver_id as string)}
@@ -446,6 +457,7 @@ function DispatchBoard() {
                         {r.suggested_driver_name} · {r.suggested_driver_km}km
                       </button>
                     )}
+
                     <select
                       className="max-w-[190px] rounded-md border border-border bg-background px-2 py-1 text-xs"
                       /* Always render as an action picker (never bound to the
