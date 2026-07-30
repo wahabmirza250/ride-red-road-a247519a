@@ -20,6 +20,7 @@ import {
   Megaphone,
   Shield,
   Sparkles,
+  Banknote,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
