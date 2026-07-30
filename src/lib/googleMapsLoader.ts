@@ -36,10 +36,15 @@ export function loadGoogleMaps(): Promise<typeof google> {
           loading: "async",
           callback: "__lovableGmapsCb",
         });
+        const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
+        if (channel) params.set("channel", channel);
         s.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
         s.async = true;
         s.defer = true;
-        s.onerror = () => reject(new Error("Failed to load Google Maps script"));
+        s.onerror = () => {
+          loaderPromise = null;
+          reject(new Error("Failed to load Google Maps script"));
+        };
         document.head.appendChild(s);
       }),
   );
