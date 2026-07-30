@@ -208,11 +208,11 @@ function PdfCanvasPage({
         canvas.style.height = `${Math.floor(viewport.height)}px`;
 
         renderTask = page.render({
-          canvas,
           canvasContext: context,
           transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined,
           viewport,
         });
+
         await renderTask.promise;
         void loadingTask.destroy();
       } catch (e) {
