@@ -151,7 +151,10 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
               {error}
             </div>
           )}
-          {pdfBytes && numPages > 0 && (
+          {fallbackUrl && (
+            <iframe title={filename} src={fallbackUrl} className="h-full w-full border-0" />
+          )}
+          {!fallbackUrl && pdfBytes && numPages > 0 && (
             <div className="mx-auto flex w-fit min-w-full flex-col items-center gap-4 p-4">
               {Array.from({ length: numPages }, (_, i) => (
                 <PdfCanvasPage
@@ -168,6 +171,26 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
     </Dialog>
   );
 }
+
+/**
+ * Turns a failed PDF response into a short human message. Storage and SSR
+ * error pages return JSON or full HTML documents; neither should ever be
+ * dumped into the viewer as raw markup.
+ */
+function describeFailure(res: Response): string {
+  const status = res.status;
+  if (status === 400 || status === 404) {
+    return "This trip's PDF is missing from storage. Re-generate it from Edit HCPF → Save & regenerate PDF.";
+  }
+  if (status === 401 || status === 403) {
+    return "This PDF link has expired. Close this window and open the report again.";
+  }
+  if (status >= 500) {
+    return "The server could not deliver this PDF. Try Save & regenerate PDF from the HCPF editor.";
+  }
+  return "The file returned for this trip is not a PDF. Re-generate it from Edit HCPF → Save & regenerate PDF.";
+}
+
 
 function PdfCanvasPage({
   bytes,
