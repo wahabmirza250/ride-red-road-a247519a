@@ -19,21 +19,32 @@ export async function materializeRouteTrips(routeId: string, driverId: string) {
 
   const { data: stops } = await supabaseAdmin
     .from("route_stops")
-    .select("request_id, sequence")
+    .select("request_id, sequence, kind, leg, address, lat, lng")
     .eq("route_id", routeId)
     .not("request_id", "is", null)
     .order("sequence", { ascending: true });
 
   // First appearance of each request defines its position in the run order.
   const order: string[] = [];
+  const legsByRequest = new Map<string, Set<string>>();
+  const stopIndex = new Map<string, { address: string; lat: number | null; lng: number | null }>();
   for (const s of stops ?? []) {
     const id = s.request_id as string;
     if (!order.includes(id)) order.push(id);
+    const leg = (s.leg as string) ?? "outbound";
+    if (!legsByRequest.has(id)) legsByRequest.set(id, new Set());
+    legsByRequest.get(id)!.add(leg);
+    stopIndex.set(`${id}|${leg}|${s.kind}`, {
+      address: s.address as string,
+      lat: s.lat == null ? null : Number(s.lat),
+      lng: s.lng == null ? null : Number(s.lng),
+    });
   }
   if (!order.length) return { created: 0 };
 
   const base = route?.scheduled_at ? new Date(route.scheduled_at) : new Date();
   let created = 0;
+  let slot = 0;
 
   for (let i = 0; i < order.length; i++) {
     const requestId = order[i];
@@ -46,7 +57,31 @@ export async function materializeRouteTrips(routeId: string, driverId: string) {
       .maybeSingle();
     if (!req) continue;
 
-    // Already materialized — just make sure it points at this driver.
+    const isRoundTrip = legsByRequest.get(requestId)?.has("return") ?? false;
+
+    // A round-trip passenger is driven as two legs, but the state trip report
+    // is ONE round-trip document with two leg blocks. Both dispatch trips
+    // therefore share a round_trip_group_id so finalization can merge them.
+    const legPlans = (isRoundTrip ? (["outbound", "return"] as const) : (["outbound"] as const)).map(
+      (leg) => {
+        const pickup = stopIndex.get(`${requestId}|${leg}|pickup`);
+        const dropoff = stopIndex.get(`${requestId}|${leg}|dropoff`);
+        return {
+          leg,
+          legNumber: leg === "return" ? 2 : 1,
+          pickup_address: pickup?.address ?? (leg === "return" ? req.dropoff_address : req.pickup_address),
+          pickup_lat: pickup?.lat ?? (leg === "return" ? req.dropoff_lat : req.pickup_lat),
+          pickup_lng: pickup?.lng ?? (leg === "return" ? req.dropoff_lng : req.pickup_lng),
+          dropoff_address:
+            dropoff?.address ?? (leg === "return" ? req.pickup_address : req.dropoff_address),
+          dropoff_lat: dropoff?.lat ?? (leg === "return" ? req.pickup_lat : req.dropoff_lat),
+          dropoff_lng: dropoff?.lng ?? (leg === "return" ? req.pickup_lng : req.dropoff_lng),
+        };
+      },
+    );
+
+    // Already materialized — just make sure it points at this driver, and that
+    // a round trip's return leg exists too.
     if (req.trip_id) {
       await supabaseAdmin
         .from("trips")
@@ -57,6 +92,47 @@ export async function materializeRouteTrips(routeId: string, driverId: string) {
         .from("ride_requests")
         .update({ driver_id: driverId })
         .eq("id", req.id);
+
+      if (isRoundTrip) {
+        const { data: existingReturn } = await supabaseAdmin
+          .from("trips")
+          .select("id")
+          .eq("round_trip_group_id", req.id)
+          .eq("round_trip_leg", 2)
+          .maybeSingle();
+        if (!existingReturn) {
+          const { data: leg1 } = await supabaseAdmin
+            .from("trips")
+            .select("passenger_id")
+            .eq("id", req.trip_id)
+            .maybeSingle();
+          await supabaseAdmin
+            .from("trips")
+            .update({ round_trip_group_id: req.id, round_trip_leg: 1 })
+            .eq("id", req.trip_id);
+          if (leg1?.passenger_id) {
+            slot++;
+            const plan = legPlans[1];
+            await supabaseAdmin.from("trips").insert({
+              driver_id: driverId,
+              passenger_id: leg1.passenger_id,
+              status: "assigned",
+              pickup_address: plan.pickup_address,
+              pickup_lat: plan.pickup_lat,
+              pickup_lng: plan.pickup_lng,
+              dropoff_address: plan.dropoff_address,
+              dropoff_lat: plan.dropoff_lat,
+              dropoff_lng: plan.dropoff_lng,
+              scheduled_pickup_time: new Date(base.getTime() + (slot + 500) * 60_000).toISOString(),
+              assignment_type: "manual",
+              ride_purpose: req.ride_purpose ?? null,
+              round_trip_group_id: req.id,
+              round_trip_leg: 2,
+            });
+            created++;
+          }
+        }
+      }
       continue;
     }
     if (req.status !== "pending") continue;
@@ -64,38 +140,48 @@ export async function materializeRouteTrips(routeId: string, driverId: string) {
     const passengerId = await resolvePassenger(supabaseAdmin, req);
     if (!passengerId) continue;
 
-    const scheduled = new Date(base.getTime() + i * 60_000).toISOString();
+    let firstTripId: string | null = null;
+    for (const plan of legPlans) {
+      const scheduled = new Date(base.getTime() + slot * 60_000).toISOString();
+      slot++;
 
-    const { data: trip, error: tripError } = await supabaseAdmin
-      .from("trips")
-      .insert({
-        driver_id: driverId,
-        passenger_id: passengerId,
-        status: "assigned",
-        pickup_address: req.pickup_address,
-        pickup_lat: req.pickup_lat,
-        pickup_lng: req.pickup_lng,
-        dropoff_address: req.dropoff_address,
-        dropoff_lat: req.dropoff_lat,
-        dropoff_lng: req.dropoff_lng,
-        estimated_fare: req.estimated_fare,
-        scheduled_pickup_time: scheduled,
-        assignment_type: "manual",
-        ride_purpose: req.ride_purpose ?? null,
-      })
-      .select("id")
-      .single();
-    if (tripError || !trip) {
-      console.warn("[materializeRouteTrips] trip insert failed", tripError);
-      continue;
+      const { data: trip, error: tripError } = await supabaseAdmin
+        .from("trips")
+        .insert({
+          driver_id: driverId,
+          passenger_id: passengerId,
+          status: "assigned",
+          pickup_address: plan.pickup_address,
+          pickup_lat: plan.pickup_lat,
+          pickup_lng: plan.pickup_lng,
+          dropoff_address: plan.dropoff_address,
+          dropoff_lat: plan.dropoff_lat,
+          dropoff_lng: plan.dropoff_lng,
+          estimated_fare: plan.legNumber === 1 ? req.estimated_fare : null,
+          scheduled_pickup_time: scheduled,
+          assignment_type: "manual",
+          ride_purpose: req.ride_purpose ?? null,
+          round_trip_group_id: isRoundTrip ? req.id : null,
+          round_trip_leg: isRoundTrip ? plan.legNumber : null,
+        })
+        .select("id")
+        .single();
+      if (tripError || !trip) {
+        console.warn("[materializeRouteTrips] trip insert failed", tripError);
+        continue;
+      }
+      if (!firstTripId) firstTripId = trip.id;
+      created++;
     }
+
+    if (!firstTripId) continue;
 
     const { data: linked } = await supabaseAdmin
       .from("ride_requests")
       .update({
         status: "accepted",
         driver_id: driverId,
-        trip_id: trip.id,
+        trip_id: firstTripId,
         offer_expires_at: null,
       })
       .eq("id", req.id)
@@ -104,11 +190,13 @@ export async function materializeRouteTrips(routeId: string, driverId: string) {
       .maybeSingle();
 
     if (!linked) {
-      await supabaseAdmin.from("trips").delete().eq("id", trip.id);
+      await supabaseAdmin.from("trips").delete().eq("round_trip_group_id", req.id);
+      await supabaseAdmin.from("trips").delete().eq("id", firstTripId);
+      created -= legPlans.length;
       continue;
     }
-    created++;
   }
+
 
   if (created > 0) {
     await supabaseAdmin.from("drivers").update({ status: "busy" }).eq("id", driverId);
