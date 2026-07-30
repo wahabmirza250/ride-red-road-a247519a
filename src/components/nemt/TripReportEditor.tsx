@@ -174,3 +174,40 @@ function normalize(value: unknown): ReportForm {
   if (!value || typeof value !== "object") return EMPTY;
   return { ...EMPTY, ...(value as Partial<ReportForm>) };
 }
+
+/** Client-side fallback used when the server function is unreachable. */
+async function loadDraftFromDatabase(tripId: string): Promise<ReportForm> {
+  const [{ data: draft }, { data: trip }] = await Promise.all([
+    supabase
+      .from("dispatch_trip_report_drafts")
+      .select("form_data")
+      .eq("dispatch_trip_id", tripId)
+      .maybeSingle(),
+    supabase
+      .from("trips")
+      .select(
+        "pickup_address, dropoff_address, scheduled_pickup_time, actual_pickup_time, actual_dropoff_time, odometer_start, odometer_end",
+      )
+      .eq("id", tripId)
+      .maybeSingle(),
+  ]);
+
+  const pickupIso = trip?.actual_pickup_time ?? trip?.scheduled_pickup_time ?? "";
+  const dropoffIso = trip?.actual_dropoff_time ?? "";
+  const defaults: ReportForm = {
+    ...EMPTY,
+    leg_date: pickupIso ? pickupIso.slice(0, 10) : "",
+    pickup_time: pickupIso ? pickupIso.slice(11, 16) : "",
+    dropoff_time: dropoffIso ? dropoffIso.slice(11, 16) : "",
+    pickup_address: trip?.pickup_address ?? "",
+    dropoff_address: trip?.dropoff_address ?? "",
+    pickup_odometer: trip?.odometer_start != null ? String(trip.odometer_start) : "",
+    dropoff_odometer: trip?.odometer_end != null ? String(trip.odometer_end) : "",
+  };
+  return { ...defaults, ...normalizePartial(draft?.form_data) };
+}
+
+function normalizePartial(value: unknown): Partial<ReportForm> {
+  if (!value || typeof value !== "object") return {};
+  return value as Partial<ReportForm>;
+}
