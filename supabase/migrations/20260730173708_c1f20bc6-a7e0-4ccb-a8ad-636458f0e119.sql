@@ -1,0 +1,3 @@
+insert into public.user_roles(user_id, role) values ('ef656627-9699-4a35-a741-0e0767e5d295','driver') on conflict do nothing;
+insert into public.trips(id, driver_id, passenger_id, status, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng, scheduled_pickup_time, assignment_type, notes)
+values ('11111111-2222-3333-4444-555555555555','99999999-1111-4111-8111-999999999999','cc99bc0f-7a39-488d-8ab9-18fbc121c2c3','assigned','QA MAP TEST 1200 Broadway, Denver, CO',39.7357,-104.9878,'QA MAP TEST 1500 Park Ave, Denver, CO',39.7550,-104.9700, now(),'manual','QA_MAP_TEST');
