@@ -58,6 +58,7 @@ import { Route as AuthenticatedEventsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as DispatchRoutesIndexRouteImport } from './routes/dispatch.routes.index'
+import { Route as AuthenticatedPayrollIndexRouteImport } from './routes/_authenticated/payroll.index'
 import { Route as PassengerBookVehicleRouteImport } from './routes/passenger.book.vehicle'
 import { Route as PassengerBookPickupRouteImport } from './routes/passenger.book.pickup'
 import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
@@ -316,6 +317,12 @@ const DispatchRoutesIndexRoute = DispatchRoutesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DispatchRoutesRoute,
 } as any)
+const AuthenticatedPayrollIndexRoute =
+  AuthenticatedPayrollIndexRouteImport.update({
+    id: '/payroll/',
+    path: '/payroll/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const PassengerBookVehicleRoute = PassengerBookVehicleRouteImport.update({
   id: '/book/vehicle',
   path: '/book/vehicle',
@@ -428,6 +435,7 @@ export interface FileRoutesByFullPath {
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
   '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
+  '/payroll/': typeof AuthenticatedPayrollIndexRoute
   '/dispatch/routes/': typeof DispatchRoutesIndexRoute
   '/trips/$tripId/proof': typeof AuthenticatedTripsTripIdProofRoute
 }
@@ -484,6 +492,7 @@ export interface FileRoutesByTo {
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
   '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
+  '/payroll': typeof AuthenticatedPayrollIndexRoute
   '/dispatch/routes': typeof DispatchRoutesIndexRoute
   '/trips/$tripId/proof': typeof AuthenticatedTripsTripIdProofRoute
 }
@@ -546,6 +555,7 @@ export interface FileRoutesById {
   '/driver/trip/new': typeof DriverTripNewRoute
   '/passenger/book/pickup': typeof PassengerBookPickupRoute
   '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
+  '/_authenticated/payroll/': typeof AuthenticatedPayrollIndexRoute
   '/dispatch/routes/': typeof DispatchRoutesIndexRoute
   '/_authenticated/trips/$tripId/proof': typeof AuthenticatedTripsTripIdProofRoute
 }
@@ -608,6 +618,7 @@ export interface FileRouteTypes {
     | '/driver/trip/new'
     | '/passenger/book/pickup'
     | '/passenger/book/vehicle'
+    | '/payroll/'
     | '/dispatch/routes/'
     | '/trips/$tripId/proof'
   fileRoutesByTo: FileRoutesByTo
@@ -664,6 +675,7 @@ export interface FileRouteTypes {
     | '/driver/trip/new'
     | '/passenger/book/pickup'
     | '/passenger/book/vehicle'
+    | '/payroll'
     | '/dispatch/routes'
     | '/trips/$tripId/proof'
   id:
@@ -725,6 +737,7 @@ export interface FileRouteTypes {
     | '/driver/trip/new'
     | '/passenger/book/pickup'
     | '/passenger/book/vehicle'
+    | '/_authenticated/payroll/'
     | '/dispatch/routes/'
     | '/_authenticated/trips/$tripId/proof'
   fileRoutesById: FileRoutesById
@@ -1088,6 +1101,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DispatchRoutesIndexRouteImport
       parentRoute: typeof DispatchRoutesRoute
     }
+    '/_authenticated/payroll/': {
+      id: '/_authenticated/payroll/'
+      path: '/payroll'
+      fullPath: '/payroll/'
+      preLoaderRoute: typeof AuthenticatedPayrollIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/passenger/book/vehicle': {
       id: '/passenger/book/vehicle'
       path: '/book/vehicle'
@@ -1206,6 +1226,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedTripsRoute: typeof AuthenticatedTripsRouteWithChildren
   AuthenticatedPayrollDriverIdRoute: typeof AuthenticatedPayrollDriverIdRoute
+  AuthenticatedPayrollIndexRoute: typeof AuthenticatedPayrollIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -1228,6 +1249,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedTripsRoute: AuthenticatedTripsRouteWithChildren,
   AuthenticatedPayrollDriverIdRoute: AuthenticatedPayrollDriverIdRoute,
+  AuthenticatedPayrollIndexRoute: AuthenticatedPayrollIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

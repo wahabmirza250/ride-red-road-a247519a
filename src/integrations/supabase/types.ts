@@ -498,6 +498,71 @@ export type Database = {
           },
         ]
       }
+      driver_payouts: {
+        Row: {
+          created_at: string
+          driver_id: string
+          fuel_reimbursed: number
+          gross_earnings: number
+          hourly_rate: number | null
+          hours: number
+          id: string
+          method: string
+          notes: string | null
+          paid_at: string
+          paid_by: string | null
+          period_end: string
+          period_start: string
+          reference: string | null
+          total_paid: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          fuel_reimbursed?: number
+          gross_earnings?: number
+          hourly_rate?: number | null
+          hours?: number
+          id?: string
+          method?: string
+          notes?: string | null
+          paid_at?: string
+          paid_by?: string | null
+          period_end: string
+          period_start: string
+          reference?: string | null
+          total_paid?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          fuel_reimbursed?: number
+          gross_earnings?: number
+          hourly_rate?: number | null
+          hours?: number
+          id?: string
+          method?: string
+          notes?: string | null
+          paid_at?: string
+          paid_by?: string | null
+          period_end?: string
+          period_start?: string
+          reference?: string | null
+          total_paid?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_payouts_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_shifts: {
         Row: {
           clock_in_at: string
