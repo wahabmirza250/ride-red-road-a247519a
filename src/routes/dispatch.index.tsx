@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { GasReceiptsPanel } from "@/components/expenses/GasReceiptsPanel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -447,6 +448,8 @@ function DispatchBoard() {
           ))}
         </div>
       </div>
+
+      <GasReceiptsPanel />
 
       {board.dispatchPhone && (
         <p className="pb-2 text-center text-xs text-muted-foreground">
