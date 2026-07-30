@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseBrowser";
@@ -40,7 +39,6 @@ import {
 } from "@/components/ui/select";
 import { Plus, Loader2, Wand2, Search, Trash2, FileText } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
-import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { toast } from "sonner";
 import { haversineMiles } from "@/lib/geo";
 
@@ -538,7 +536,6 @@ function TripDetailDialog({
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { user } = useAuth();
-  const getPdfUrl = useServerFn(getStatePdfUrl);
 
   async function handleDelete() {
     setDeleting(true);
@@ -582,11 +579,23 @@ function TripDetailDialog({
   async function handleOpenPdf() {
     setPdfLoading(true);
     try {
-      const result = await getPdfUrl({ data: { trip_id: trip.id } });
-      if (!result.url) {
+      const { data: reports, error: reportError } = await supabase
+        .from("medicaid_trips")
+        .select("state_pdf_path")
+        .eq("dispatch_trip_id", trip.id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (reportError) throw reportError;
+      const pdfPath = reports?.[0]?.state_pdf_path;
+      if (!pdfPath) {
         throw new Error("No saved PDF is available. Open Edit HCPF and choose Save & regenerate PDF.");
       }
-      setPdfUrl(result.url);
+      const { data: signed, error: signError } = await supabase.storage
+        .from("state-pdfs")
+        .createSignedUrl(pdfPath, 60 * 15);
+      if (signError) throw signError;
+      if (!signed?.signedUrl) throw new Error("The PDF download link could not be created");
+      setPdfUrl(signed.signedUrl);
       toast.success("HCPF PDF opened");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not open HCPF PDF");
