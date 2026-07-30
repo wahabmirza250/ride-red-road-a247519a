@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Download, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as pdfjs from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+// Inlined worker: on custom domains a hashed /assets/*.mjs request can be
+// rewritten to the SPA HTML shell, which made PDF.js fail and the viewer show
+// raw markup. Inlining removes that network fetch entirely.
+import PdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?worker&inline";
+
 import {
   Dialog,
   DialogContent,
@@ -16,7 +20,10 @@ type Props = {
   onClose: () => void;
 };
 
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+if (typeof window !== "undefined" && !pdfjs.GlobalWorkerOptions.workerPort) {
+  pdfjs.GlobalWorkerOptions.workerPort = new PdfWorker();
+}
+
 
 /**
  * In-app PDF preview. It fetches the PDF bytes and renders pages to canvas via
