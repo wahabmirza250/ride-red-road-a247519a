@@ -36,7 +36,7 @@ export function ActiveTripMap({
   const mapRef = useRef<google.maps.Map | null>(null);
   const driverMarkerRef = useRef<google.maps.Marker | null>(null);
   const destMarkerRef = useRef<google.maps.Marker | null>(null);
-  const rendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const lineRef = useRef<google.maps.Polyline | null>(null);
   const lastRouteKeyRef = useRef<string>("");
   const [ready, setReady] = useState(false);
   const [err, setErr] = useState<string | null>(null);
