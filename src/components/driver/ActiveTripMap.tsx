@@ -131,10 +131,10 @@ export function ActiveTripMap({
 
     // Route + ETA come from the Routes API (server-side, via the connector
     // gateway) — the browser key is not authorized for the Directions service.
-    let cancelled = false;
     computeDriveRoute({ data: { from: driver, to: destination } })
       .then((route) => {
-        if (cancelled || !route) return;
+        // Ignore stale responses (a newer request has since been issued).
+        if (!route || lastRouteKeyRef.current !== key || !mapRef.current) return;
         setEta({ distance: route.distanceText, duration: route.durationText });
         const path = g.maps.geometry.encoding.decodePath(route.polyline);
         if (!lineRef.current) {
@@ -152,10 +152,10 @@ export function ActiveTripMap({
         bounds.extend(destination);
         map.fitBounds(bounds, 48);
       })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+      .catch(() => {
+        // Allow a retry on the next position update.
+        lastRouteKeyRef.current = "";
+      });
   }, [ready, driver, destination, destinationLabel, destColor]);
 
   return (
