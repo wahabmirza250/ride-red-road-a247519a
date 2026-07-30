@@ -1005,7 +1005,11 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
     if (!driver) throw new Error("Driver not found");
     if (!isAdmin && !isDispatch && driver.user_id !== userId) throw new Error("Forbidden");
 
-    const { data: mt, error: mtErr } = await supabase
+    const storageClient = isAdmin || isDispatch
+      ? (await import("@/integrations/supabase/client.server")).supabaseAdmin
+      : supabase;
+
+    const { data: mt, error: mtErr } = await storageClient
       .from("medicaid_trips")
       .select("*, riders(id, full_name, medicaid_id, dob, phone, address, last_4_ssn), medicaid_trip_legs(*)")
       .in("dispatch_trip_id", Array.from(tripIds))
@@ -1016,22 +1020,25 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
     if (mtErr) throw new Error(mtErr.message);
     if (!mt) throw new Error("No HCPF trip report was created for this ride yet");
 
-    const storageClient = isAdmin || isDispatch
-      ? (await import("@/integrations/supabase/client.server")).supabaseAdmin
-      : supabase;
-
     if (mt.state_pdf_path && !data.force) {
-      const { data: signed, error: signErr } = await storageClient.storage
-        .from("state-pdfs")
-        .createSignedUrl(mt.state_pdf_path, 60 * 15);
-      if (signErr) throw new Error(signErr.message);
-      return {
-        ok: true,
-        generated: false,
-        medicaid_trip_id: mt.id,
-        state_pdf_path: mt.state_pdf_path,
-        url: signed?.signedUrl ?? null,
-      };
+      const { data: stored } = await storageClient.storage.from("state-pdfs").download(mt.state_pdf_path);
+      if (stored) {
+        const signature = new Uint8Array(await stored.slice(0, 5).arrayBuffer());
+        const isPdf = signature[0] === 0x25 && signature[1] === 0x50 && signature[2] === 0x44 && signature[3] === 0x46 && signature[4] === 0x2d;
+        if (isPdf) {
+          const { data: signed, error: signErr } = await storageClient.storage
+            .from("state-pdfs")
+            .createSignedUrl(mt.state_pdf_path, 60 * 15);
+          if (signErr) throw new Error(signErr.message);
+          return {
+            ok: true,
+            generated: false,
+            medicaid_trip_id: mt.id,
+            state_pdf_path: mt.state_pdf_path,
+            url: signed?.signedUrl ?? null,
+          };
+        }
+      }
     }
 
     if (!mt.signature_path) {
@@ -1044,7 +1051,7 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
     if (sigErr) throw new Error(sigErr.message);
     if (!sig?.signedUrl) throw new Error("Could not load saved passenger signature");
 
-    const { data: profile } = await supabase
+    const { data: profile } = await storageClient
       .from("profiles")
       .select("first_name, last_name, email")
       .eq("id", mt.driver_id)
