@@ -28,6 +28,8 @@ import { createDriver, deleteDriver } from "@/lib/admin.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { Avatar } from "@/components/Avatar";
 import { useSignedUrl } from "@/lib/signedUrl";
+import { DriverPayPanel } from "@/components/admin/DriverPayPanel";
+import { GasReceiptsPanel } from "@/components/expenses/GasReceiptsPanel";
 
 export const Route = createFileRoute("/_authenticated/drivers")({
   component: DriversPage,
@@ -171,6 +173,8 @@ function DriversPage() {
           </div>
         )}
       </div>
+
+      <GasReceiptsPanel />
 
       <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
         {edit && <EditDriverDialog driver={edit} onClose={() => setEdit(null)} />}
@@ -517,6 +521,11 @@ function EditDriverDialog({ driver, onClose }: { driver: DriverWithProfile; onCl
           kind="vehicle"
           onChange={setVehiclePhotoFile}
         />
+      </div>
+
+      <div className="mt-4 space-y-3">
+        <DriverPayPanel driverId={driver.id} />
+        <GasReceiptsPanel driverId={driver.id} />
       </div>
 
       <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">

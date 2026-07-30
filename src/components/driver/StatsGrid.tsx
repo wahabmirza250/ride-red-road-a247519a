@@ -3,9 +3,10 @@ import { Clock, DollarSign, Gauge, Route as RouteIcon } from "lucide-react";
 type Stats = {
   todayHours: number;
   todayMiles: number;
-  todayEarnings: number;
+  /** null when no hourly rate has been set by an admin yet */
+  todayEarnings: number | null;
   speedMph: number | null;
-  hourlyRate: number;
+  hourlyRate: number | null;
   onShift: boolean;
 };
 
@@ -15,7 +16,9 @@ export function StatsGrid(s: Stats) {
       <StatCard icon={<Clock className="h-4 w-4" />} label={s.onShift ? "On shift" : "Hours today"}
         value={`${s.todayHours.toFixed(2)}h`} sub={s.onShift ? "clocked in" : "since 12 AM"} accent="emerald" />
       <StatCard icon={<DollarSign className="h-4 w-4" />} label="Earnings today"
-        value={`$${s.todayEarnings.toFixed(2)}`} sub={`@ $${Number(s.hourlyRate).toFixed(2)}/hr`} accent="primary" />
+        value={s.todayEarnings == null ? "—" : `$${s.todayEarnings.toFixed(2)}`}
+        sub={s.hourlyRate == null ? "rate not set yet" : `@ $${Number(s.hourlyRate).toFixed(2)}/hr`}
+        accent="primary" />
       <StatCard icon={<RouteIcon className="h-4 w-4" />} label="Miles today"
         value={`${s.todayMiles.toFixed(1)} mi`} sub="GPS-tracked" />
       <StatCard icon={<Gauge className="h-4 w-4" />} label="Speed"

@@ -141,16 +141,48 @@ function DriverHome() {
   const lastFixRef = useRef<{ lat: number; lng: number; t: number } | null>(null);
   const milesBufferRef = useRef(0);
 
-  // Shift stats
-  const [stats, setStats] = useState({
-    today_hours: 0, today_miles: 0, today_earnings: 0, hourly_rate: 0,
+  // Shift stats — hours always derive from the server-stored clock-in
+  // timestamp, so a refresh or reconnect never resets the running clock.
+  type ShiftStats = {
+    today_hours: number;
+    today_miles: number;
+    today_earnings: number;
+    hourly_rate: number | null;
+    open_shift_started_at: string | null;
+  };
+  const [stats, setStats] = useState<ShiftStats>({
+    today_hours: 0, today_miles: 0, today_earnings: 0, hourly_rate: null,
+    open_shift_started_at: null,
   });
+  const [statsAt, setStatsAt] = useState(() => Date.now());
+  const [tick, setTick] = useState(0);
   const refreshStats = useCallback(async () => {
     try {
       const r = await statsFn();
       setStats(r);
+      setStatsAt(Date.now());
     } catch { /* ignore */ }
   }, [statsFn]);
+
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    const t = setInterval(() => { void refreshStats(); }, 60_000);
+    return () => clearInterval(t);
+  }, [refreshStats]);
+
+  const liveElapsedHours = stats.open_shift_started_at
+    ? stats.today_hours + Math.max(0, (Date.now() - statsAt) / 3_600_000)
+    : stats.today_hours;
+  const liveEarnings = stats.hourly_rate == null
+    ? null
+    : stats.today_earnings +
+      (stats.open_shift_started_at
+        ? Math.max(0, (Date.now() - statsAt) / 3_600_000) * stats.hourly_rate
+        : 0);
+  void tick;
 
   useEffect(() => {
     if (!user) return;
@@ -605,8 +637,8 @@ function DriverHome() {
       </div>
 
       <StatsGrid
-        todayHours={stats.today_hours} todayMiles={stats.today_miles}
-        todayEarnings={stats.today_earnings} hourlyRate={stats.hourly_rate}
+        todayHours={liveElapsedHours} todayMiles={stats.today_miles}
+        todayEarnings={liveEarnings} hourlyRate={stats.hourly_rate}
         speedMph={online ? speedMph : null} onShift={online}
       />
 
