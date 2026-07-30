@@ -7,6 +7,6 @@ import { createServerFn } from "@tanstack/react-start";
  * project-provided GOOGLE_API_KEY secret.
  */
 export const getMapsBrowserKey = createServerFn({ method: "GET" }).handler(async () => {
-  const key = process.env.GOOGLE_MAPS_BROWSER_KEY || process.env.GOOGLE_API_KEY || null;
+  const key = process.env.GOOGLE_API_KEY || process.env.GOOGLE_MAPS_BROWSER_KEY || null;
   return { key };
 });

@@ -14,9 +14,11 @@ export function resolveMapsBrowserKey(): Promise<string | null> {
     | undefined;
   const custom = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
+  // A project-provided browser key must win on custom domains. The managed
+  // key is intentionally restricted to Lovable-hosted domains.
   cached = getMapsBrowserKey()
-    .then((r) => managed || r?.key || custom || null)
-    .catch(() => managed || custom || null);
+    .then((r) => r?.key || custom || managed || null)
+    .catch(() => custom || managed || null);
 
   return cached;
 }
