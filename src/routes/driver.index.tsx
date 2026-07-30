@@ -637,8 +637,8 @@ function DriverHome() {
       </div>
 
       <StatsGrid
-        todayHours={stats.today_hours} todayMiles={stats.today_miles}
-        todayEarnings={stats.today_earnings} hourlyRate={stats.hourly_rate}
+        todayHours={liveElapsedHours} todayMiles={stats.today_miles}
+        todayEarnings={liveEarnings} hourlyRate={stats.hourly_rate}
         speedMph={online ? speedMph : null} onShift={online}
       />
 
