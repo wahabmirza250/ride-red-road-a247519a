@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Download, FileText, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
@@ -9,7 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { friendlyErrorMessage } from "@/lib/errorMessage";
 import { ensureDispatchTripStatePdf, getTripReportDraft, saveTripReportDraft } from "@/lib/nemtTrip.functions";
+
 
 type ReportForm = {
   identity_verified: "yes" | "no" | "";
