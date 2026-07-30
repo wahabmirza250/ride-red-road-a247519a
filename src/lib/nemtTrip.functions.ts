@@ -597,13 +597,30 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
     const { data: trip, error: tErr } = await supabase
       .from("trips")
       .select(
-        "id, passenger_id, pickup_address, dropoff_address, actual_pickup_time, actual_dropoff_time, scheduled_pickup_time",
+        "id, passenger_id, pickup_address, dropoff_address, actual_pickup_time, actual_dropoff_time, scheduled_pickup_time, round_trip_group_id, round_trip_leg",
       )
       .eq("id", data.trip_id)
       .eq("driver_id", driver.id)
       .maybeSingle();
     if (tErr) throw new Error(tErr.message);
     if (!trip) throw new Error("Trip not found for this driver");
+
+    // Round trips are driven as two dispatch trips but reported on ONE state
+    // form with two leg blocks. Resolve the group's anchor (leg 1) trip so both
+    // legs land on a single medicaid_trips row.
+    const groupId = (trip as any).round_trip_group_id as string | null;
+    const legIndex: 1 | 2 = (trip as any).round_trip_leg === 2 ? 2 : 1;
+    let anchorTripId = trip.id;
+    if (groupId) {
+      const { data: anchor } = await supabase
+        .from("trips")
+        .select("id")
+        .eq("round_trip_group_id", groupId)
+        .eq("round_trip_leg", 1)
+        .maybeSingle();
+      if (anchor?.id) anchorTripId = anchor.id;
+    }
+
 
     // Passenger
     const { data: passenger, error: pErr } = await supabase
