@@ -28,20 +28,24 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!url) return;
     let cancelled = false;
+    let objectUrl: string | null = null;
     setError(null);
     setPdfBytes(null);
+    setFallbackUrl(null);
     setNumPages(0);
     (async () => {
+      let buf: ArrayBuffer | null = null;
       try {
         const res = await fetch(url);
-        const buf = await res.arrayBuffer();
-        // Supabase signed URLs return 400 with a JSON error body when the
+        buf = await res.arrayBuffer();
+        // Supabase signed URLs return 400 with a JSON/HTML error body when the
         // object is missing. Detect that and any non-PDF payload so the user
-        // sees a real message instead of a broken iframe icon.
+        // sees a real message instead of a wall of raw markup.
         const header = new Uint8Array(buf.slice(0, 5));
         const isPdf =
           header[0] === 0x25 && // %
@@ -50,20 +54,8 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
           header[3] === 0x46 && // F
           header[4] === 0x2d;   // -
         if (!res.ok || !isPdf) {
-          let detail = `${res.status} ${res.statusText}`.trim();
-          try {
-            const txt = new TextDecoder().decode(buf);
-            const parsed = JSON.parse(txt);
-            if (parsed?.message) detail = parsed.message;
-            else if (parsed?.error) detail = parsed.error;
-          } catch {
-            /* not JSON — keep status text */
-          }
-          throw new Error(
-            detail.toLowerCase().includes("not found") || detail.includes("404") || detail.includes("400")
-              ? "This trip's PDF is missing from storage. Ask the driver to re-submit the trip so the PDF is regenerated."
-              : `Could not load PDF: ${detail}`,
-          );
+          buf = null;
+          throw new Error(describeFailure(res));
         }
         if (cancelled) return;
         const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)) });
@@ -76,15 +68,25 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
         setPdfBytes(buf);
         void loadingTask.destroy();
       } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Could not load PDF");
+        if (cancelled) return;
+        // The bytes are a real PDF but PDF.js could not render them in this
+        // browser — fall back to the browser's built-in viewer instead of
+        // surfacing an internal library error.
+        if (buf) {
+          objectUrl = URL.createObjectURL(new Blob([buf.slice(0)], { type: "application/pdf" }));
+          setPdfBytes(buf);
+          setFallbackUrl(objectUrl);
+          return;
         }
+        setError(e instanceof Error ? e.message : "Could not load PDF");
       }
     })();
     return () => {
       cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [url]);
+
 
 
   function download() {
