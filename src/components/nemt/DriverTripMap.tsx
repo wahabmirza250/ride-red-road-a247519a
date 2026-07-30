@@ -76,7 +76,7 @@ export function DriverTripMap({ driver, pickup, dropoff, focus, className }: Pro
       polyRef.current.setMap(null);
       polyRef.current = null;
     }
-    if (rendererRef.current) rendererRef.current.setDirections({ routes: [] } as unknown as google.maps.DirectionsResult);
+    
 
     const bounds = new g.maps.LatLngBounds();
     const push = (p: LatLng | null | undefined, opts: google.maps.MarkerOptions) => {
