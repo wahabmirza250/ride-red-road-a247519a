@@ -2,10 +2,25 @@ import { getMapsBrowserKey } from "./mapsKey.functions";
 
 let cached: Promise<string | null> | null = null;
 
+/** True on Lovable-hosted preview/published domains. */
+function isLovableHost(): boolean {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname;
+  return (
+    h.endsWith(".lovable.app") ||
+    h.endsWith(".lovableproject.com") ||
+    h === "localhost" ||
+    h === "127.0.0.1"
+  );
+}
+
 /**
  * Resolves the Google Maps JS browser key.
- * Prefers the Lovable-managed connector browser key, then the server-held
- * GOOGLE_API_KEY secret, then build-time VITE_ vars.
+ *
+ * On Lovable-hosted domains the managed connector key wins: it is
+ * billing-enabled, so the map renders without the "For development purposes
+ * only" watermark. On custom domains the managed key is referrer-blocked, so
+ * the project-provided key is used instead.
  */
 export function resolveMapsBrowserKey(): Promise<string | null> {
   if (cached) return cached;
@@ -14,8 +29,11 @@ export function resolveMapsBrowserKey(): Promise<string | null> {
     | undefined;
   const custom = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
-  // A project-provided browser key must win on custom domains. The managed
-  // key is intentionally restricted to Lovable-hosted domains.
+  if (isLovableHost() && managed) {
+    cached = Promise.resolve(managed);
+    return cached;
+  }
+
   cached = getMapsBrowserKey()
     .then((r) => r?.key || custom || managed || null)
     .catch(() => custom || managed || null);
