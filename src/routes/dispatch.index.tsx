@@ -3,7 +3,7 @@ import { GasReceiptsPanel } from "@/components/expenses/GasReceiptsPanel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Phone, Sparkles, AlertTriangle, Waypoints } from "lucide-react";
+import { Loader2, Phone, Sparkles, AlertTriangle, Waypoints, UserCheck } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { GoogleFleetMap, type FleetMarker } from "@/components/nemt/GoogleFleetMap";
 import { AddRideDialog } from "@/components/nemt/AddRideDialog";
