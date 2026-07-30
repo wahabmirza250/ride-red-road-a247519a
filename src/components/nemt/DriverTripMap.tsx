@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMapsDark, DARK_MAP_STYLE, LIGHT_MAP_STYLE } from "@/lib/googleMapsDark";
 import { useTheme } from "@/lib/theme";
+import { computeDriveRoute } from "@/lib/mapsRoute.functions";
 
 
 export type LatLng = { lat: number; lng: number };
@@ -24,7 +25,6 @@ export function DriverTripMap({ driver, pickup, dropoff, focus, className }: Pro
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const polyRef = useRef<google.maps.Polyline | null>(null);
-  const rendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const [ready, setReady] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const { theme } = useTheme();
@@ -43,15 +43,6 @@ export function DriverTripMap({ driver, pickup, dropoff, focus, className }: Pro
           zoomControl: true,
           backgroundColor: theme === "dark" ? "#0f172a" : "#f8fafc",
           gestureHandling: "greedy",
-        });
-        rendererRef.current = new g.maps.DirectionsRenderer({
-          map: mapRef.current,
-          suppressMarkers: true,
-          polylineOptions: {
-            strokeColor: "#38bdf8",
-            strokeOpacity: 0.9,
-            strokeWeight: 4,
-          },
         });
         setReady(true);
       })
