@@ -130,31 +130,32 @@ export function DriverTripMap({ driver, pickup, dropoff, focus, className }: Pro
       },
     });
 
-    // Route line via DirectionsService if we have both endpoints; else straight line.
+    // Route line via the Routes API (server-side); straight line on failure.
     if (pickup && dropoff) {
-      const svc = new g.maps.DirectionsService();
-      svc.route(
-        {
-          origin: pickup,
-          destination: dropoff,
-          travelMode: g.maps.TravelMode.DRIVING,
-        },
-        (result, status) => {
-          if (status === g.maps.DirectionsStatus.OK && result && rendererRef.current) {
-            rendererRef.current.setDirections(result);
-          } else {
-            // Fallback: straight polyline.
-            polyRef.current = new g.maps.Polyline({
-              path: [pickup, dropoff],
-              geodesic: true,
-              strokeColor: "#38bdf8",
-              strokeOpacity: 0.8,
-              strokeWeight: 3,
-              map,
-            });
-          }
-        },
-      );
+      const drawStraight = () => {
+        polyRef.current?.setMap(null);
+        polyRef.current = new g.maps.Polyline({
+          path: [pickup, dropoff],
+          geodesic: true,
+          strokeColor: "#38bdf8",
+          strokeOpacity: 0.8,
+          strokeWeight: 3,
+          map,
+        });
+      };
+      computeDriveRoute({ data: { from: pickup, to: dropoff } })
+        .then((route) => {
+          if (!route) return drawStraight();
+          polyRef.current?.setMap(null);
+          polyRef.current = new g.maps.Polyline({
+            path: g.maps.geometry.encoding.decodePath(route.polyline),
+            strokeColor: "#38bdf8",
+            strokeOpacity: 0.9,
+            strokeWeight: 4,
+            map,
+          });
+        })
+        .catch(drawStraight);
     }
 
     // Fit / focus.
