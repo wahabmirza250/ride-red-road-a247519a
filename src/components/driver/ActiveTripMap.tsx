@@ -135,25 +135,33 @@ export function ActiveTripMap({
     if (key === lastRouteKeyRef.current) return;
     lastRouteKeyRef.current = key;
 
-    const svc = new g.maps.DirectionsService();
-    svc.route(
-      { origin: driver, destination, travelMode: g.maps.TravelMode.DRIVING },
-      (result, status) => {
-        if (status === g.maps.DirectionsStatus.OK && result) {
-          rendererRef.current?.setDirections(result);
-          const leg = result.routes[0]?.legs?.[0];
-          if (leg)
-            setEta({
-              distance: leg.distance?.text ?? "—",
-              duration: leg.duration?.text ?? "—",
-            });
-          const bounds = new g.maps.LatLngBounds();
-          bounds.extend(driver);
-          bounds.extend(destination);
-          map.fitBounds(bounds, 48);
+    // Route + ETA come from the Routes API (server-side, via the connector
+    // gateway) — the browser key is not authorized for the Directions service.
+    let cancelled = false;
+    computeDriveRoute({ data: { from: driver, to: destination } })
+      .then((route) => {
+        if (cancelled || !route) return;
+        setEta({ distance: route.distanceText, duration: route.durationText });
+        const path = g.maps.geometry.encoding.decodePath(route.polyline);
+        if (!lineRef.current) {
+          lineRef.current = new g.maps.Polyline({
+            map,
+            strokeColor: "#f59e0b",
+            strokeOpacity: 0.95,
+            strokeWeight: 5,
+          });
         }
-      },
-    );
+        lineRef.current.setPath(path);
+        const bounds = new g.maps.LatLngBounds();
+        path.forEach((p) => bounds.extend(p));
+        bounds.extend(driver);
+        bounds.extend(destination);
+        map.fitBounds(bounds, 48);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [ready, driver, destination, destinationLabel, destColor]);
 
   return (
