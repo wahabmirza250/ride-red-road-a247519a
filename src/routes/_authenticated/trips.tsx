@@ -40,6 +40,7 @@ import {
 import { Plus, Loader2, Wand2, Search, Trash2, FileText } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
+import { friendlyErrorMessage } from "@/lib/errorMessage";
 import { haversineMiles } from "@/lib/geo";
 
 export const Route = createFileRoute("/_authenticated/trips")({
@@ -190,7 +191,7 @@ function TripsPage() {
       toast.success("Trip assigned");
       qc.invalidateQueries({ queryKey: ["trips"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyErrorMessage(e, "Could not assign trip")),
   });
 
   const nextUnassigned = trips.data?.find((t) => !t.driver_id && t.status === "scheduled");
@@ -571,7 +572,7 @@ function TripDetailDialog({
       setConfirmOpen(false);
       onDeleted();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to delete trip");
+      toast.error(friendlyErrorMessage(e, "Failed to delete trip"));
     } finally {
       setDeleting(false);
     }
@@ -610,7 +611,7 @@ function TripDetailDialog({
       setPdfUrl(signed.signedUrl);
       toast.success("HCPF PDF opened");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not open HCPF PDF");
+      toast.error(friendlyErrorMessage(e, "Could not open HCPF PDF"));
     } finally {
       setPdfLoading(false);
     }

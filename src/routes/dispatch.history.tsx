@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { friendlyErrorMessage } from "@/lib/errorMessage";
 import { Loader2 } from "lucide-react";
 import { getDispatchDayHistory } from "@/lib/dispatchApp.functions";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,7 @@ function HistoryView() {
       try {
         setData(await load({ data: { date: d } }));
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Could not load history");
+        toast.error(friendlyErrorMessage(e, "Could not load history"));
       } finally {
         setLoading(false);
       }

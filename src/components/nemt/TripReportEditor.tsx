@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Download, FileText, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
@@ -9,7 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { friendlyErrorMessage } from "@/lib/errorMessage";
 import { ensureDispatchTripStatePdf, getTripReportDraft, saveTripReportDraft } from "@/lib/nemtTrip.functions";
+
 
 type ReportForm = {
   identity_verified: "yes" | "no" | "";
@@ -45,19 +48,28 @@ export function TripReportEditor({ tripId, triggerLabel = "Edit HCPF" }: { tripI
   const [saving, setSaving] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
+  const loadDraft = useCallback(async (): Promise<ReportForm> => {
+    try {
+      const result = await load({ data: { trip_id: tripId } });
+      return normalize(result.form_data);
+    } catch {
+      // Server function unavailable (edge 500 / HTML shell) — read directly with RLS.
+      return await loadDraftFromDatabase(tripId);
+    }
+  }, [load, tripId]);
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    load({ data: { trip_id: tripId } })
-      .then((result) => {
-        if (cancelled) return;
-        setForm(normalize(result.form_data));
+    loadDraft()
+      .then((next) => {
+        if (!cancelled) setForm(next);
       })
-      .catch((error) => toast.error(error instanceof Error ? error.message : "Could not load trip report"))
+      .catch((error) => toast.error(friendlyErrorMessage(error, "Could not load trip report")))
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [load, open, tripId]);
+  }, [loadDraft, open]);
 
   function field<K extends keyof ReportForm>(key: K, value: ReportForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -72,11 +84,23 @@ export function TripReportEditor({ tripId, triggerLabel = "Edit HCPF" }: { tripI
       setPdfUrl(result.url);
       toast.success("Trip report saved and PDF regenerated");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save trip report");
+      // Fall back to saving the draft directly so edits are never lost.
+      const { error: saveError } = await supabase
+        .from("dispatch_trip_report_drafts")
+        .upsert(
+          { dispatch_trip_id: tripId, form_data: form as unknown as Record<string, unknown> } as never,
+          { onConflict: "dispatch_trip_id" },
+        );
+      if (saveError) {
+        toast.error(friendlyErrorMessage(error, "Could not save trip report"));
+      } else {
+        toast.success("Trip report saved. PDF regeneration is unavailable right now.");
+      }
     } finally {
       setSaving(false);
     }
   }
+
 
   return (
     <>
@@ -131,7 +155,7 @@ export function TripPdfButton({ tripId }: { tripId: string }) {
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   return <>
-    <Button size="sm" onClick={async () => { setLoading(true); try { const r = await ensurePdf({ data: { trip_id: tripId } }); if (!r.url) throw new Error("No PDF is available"); setUrl(r.url); } catch (e) { toast.error(e instanceof Error ? e.message : "Could not open PDF"); } finally { setLoading(false); } }} disabled={loading}>
+    <Button size="sm" onClick={async () => { setLoading(true); try { const r = await ensurePdf({ data: { trip_id: tripId } }); if (!r.url) throw new Error("No PDF is available"); setUrl(r.url); } catch (e) { toast.error(friendlyErrorMessage(e, "Could not open PDF")); } finally { setLoading(false); } }} disabled={loading}>
       {loading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />} View / download
     </Button>
     <PdfPreviewDialog url={url} filename={`hcpf-trip-${tripId.slice(0, 8)}.pdf`} onClose={() => setUrl(null)} />
@@ -149,4 +173,41 @@ function SelectField({ label, value, onChange, options }: { label: string; value
 function normalize(value: unknown): ReportForm {
   if (!value || typeof value !== "object") return EMPTY;
   return { ...EMPTY, ...(value as Partial<ReportForm>) };
+}
+
+/** Client-side fallback used when the server function is unreachable. */
+async function loadDraftFromDatabase(tripId: string): Promise<ReportForm> {
+  const [{ data: draft }, { data: trip }] = await Promise.all([
+    supabase
+      .from("dispatch_trip_report_drafts")
+      .select("form_data")
+      .eq("dispatch_trip_id", tripId)
+      .maybeSingle(),
+    supabase
+      .from("trips")
+      .select(
+        "pickup_address, dropoff_address, scheduled_pickup_time, actual_pickup_time, actual_dropoff_time, odometer_start, odometer_end",
+      )
+      .eq("id", tripId)
+      .maybeSingle(),
+  ]);
+
+  const pickupIso = trip?.actual_pickup_time ?? trip?.scheduled_pickup_time ?? "";
+  const dropoffIso = trip?.actual_dropoff_time ?? "";
+  const defaults: ReportForm = {
+    ...EMPTY,
+    leg_date: pickupIso ? pickupIso.slice(0, 10) : "",
+    pickup_time: pickupIso ? pickupIso.slice(11, 16) : "",
+    dropoff_time: dropoffIso ? dropoffIso.slice(11, 16) : "",
+    pickup_address: trip?.pickup_address ?? "",
+    dropoff_address: trip?.dropoff_address ?? "",
+    pickup_odometer: trip?.odometer_start != null ? String(trip.odometer_start) : "",
+    dropoff_odometer: trip?.odometer_end != null ? String(trip.odometer_end) : "",
+  };
+  return { ...defaults, ...normalizePartial(draft?.form_data) };
+}
+
+function normalizePartial(value: unknown): Partial<ReportForm> {
+  if (!value || typeof value !== "object") return {};
+  return value as Partial<ReportForm>;
 }
