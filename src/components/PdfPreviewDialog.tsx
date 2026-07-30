@@ -20,7 +20,10 @@ type Props = {
   onClose: () => void;
 };
 
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+if (typeof window !== "undefined" && !pdfjs.GlobalWorkerOptions.workerPort) {
+  pdfjs.GlobalWorkerOptions.workerPort = new PdfWorker();
+}
+
 
 /**
  * In-app PDF preview. It fetches the PDF bytes and renders pages to canvas via
