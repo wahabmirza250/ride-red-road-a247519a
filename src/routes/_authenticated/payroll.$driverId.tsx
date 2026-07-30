@@ -91,7 +91,9 @@ function PayrollPrintPage() {
               <td className="py-2 text-right tabular-nums">{p.miles}</td>
             </tr>
             <tr className="border-b border-black/10">
-              <td className="py-2">Hours worked × ${p.hourly_rate}/hr</td>
+              <td className="py-2">
+                Hours worked {p.hourly_rate == null ? "(no rate set)" : `× $${p.hourly_rate}/hr`}
+              </td>
               <td className="py-2 text-right tabular-nums">{p.hours} → {formatCurrency(p.hourly_pay)}</td>
             </tr>
             <tr className="border-b border-black/10">
