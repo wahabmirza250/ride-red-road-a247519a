@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseBrowser";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
+import { TripReportEditor } from "@/components/nemt/TripReportEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -696,6 +697,7 @@ function TripDetailDialog({
           Cancel & delete trip
         </Button>
         <div className="flex gap-2">
+          <TripReportEditor tripId={trip.id} />
           <Button
             variant="outline"
             onClick={handleOpenPdf}

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { getDispatchDayHistory } from "@/lib/dispatchApp.functions";
 import { Input } from "@/components/ui/input";
+import { TripPdfButton, TripReportEditor } from "@/components/nemt/TripReportEditor";
 
 export const Route = createFileRoute("/dispatch/history")({
   component: HistoryView,
@@ -80,11 +81,15 @@ function HistoryView() {
               <div className="divide-y divide-border">
                 {data.trips.map((t) => (
                   <div key={t.id} className="py-2.5 text-sm">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <span className="font-medium">{t.driver_name ?? "Unassigned"}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {String(t.status).replace(/_/g, " ")}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {String(t.status).replace(/_/g, " ")}
+                        </span>
+                        {t.status === "completed" && <TripPdfButton tripId={t.id} />}
+                        <TripReportEditor tripId={t.id} />
+                      </div>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {t.pickup_address} → {t.dropoff_address}
