@@ -229,31 +229,46 @@ function DriverHome() {
     setPending(offers);
 
 
-    const { data: act } = await supabase
-      .from("ride_requests").select("*")
-      .eq("driver_id", driver.id).eq("status", "accepted")
-      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    // The active trip is the driver's EARLIEST open trip. Ordering by the
+    // trip's scheduled pickup (not by when the request was created) is what
+    // keeps a multi-passenger route running in the sequence dispatch planned.
+    const { data: t } = await supabase
+      .from("trips").select("id,passenger_id,pickup_address,pickup_lat,pickup_lng,dropoff_address,dropoff_lat,dropoff_lng,estimated_fare,status,ride_purpose")
+      .eq("driver_id", driver.id)
+      .in("status", ["assigned", "driver_en_route_to_pickup", "arrived_at_pickup", "in_progress"])
+      .order("scheduled_pickup_time", { ascending: true }).limit(1).maybeSingle();
 
-    let activeTripId: string | null = act?.trip_id ?? null;
-    let synthetic: Request | null = (act ?? null) as Request | null;
+    let activeTripId: string | null = t?.id ?? null;
+    let synthetic: Request | null = null;
 
-    if (!synthetic) {
-      const { data: t } = await supabase
-        .from("trips").select("id,passenger_id,pickup_address,pickup_lat,pickup_lng,dropoff_address,dropoff_lat,dropoff_lng,estimated_fare,status,ride_purpose")
-        .eq("driver_id", driver.id)
-        .in("status", ["assigned", "driver_en_route_to_pickup", "arrived_at_pickup", "in_progress"])
-        .order("scheduled_pickup_time", { ascending: true }).limit(1).maybeSingle();
-      if (t) {
-        activeTripId = t.id;
-        synthetic = {
-          id: `trip-${t.id}`, passenger_id: t.passenger_id,
-          pickup_address: t.pickup_address, pickup_lat: Number(t.pickup_lat ?? 0), pickup_lng: Number(t.pickup_lng ?? 0),
-          dropoff_address: t.dropoff_address, dropoff_lat: Number(t.dropoff_lat ?? 0), dropoff_lng: Number(t.dropoff_lng ?? 0),
-          distance_km: null, estimated_fare: t.estimated_fare, estimated_minutes: null,
-          status: "accepted", trip_id: t.id, driver_id: driver.id, ride_purpose: t.ride_purpose,
-        };
-      }
+    if (t) {
+      // Prefer the originating request row (richer contact fields) when it exists.
+      const { data: req } = await supabase
+        .from("ride_requests").select("*")
+        .eq("driver_id", driver.id).eq("trip_id", t.id).maybeSingle();
+      synthetic = (req ?? {
+        id: `trip-${t.id}`, passenger_id: t.passenger_id,
+        pickup_address: t.pickup_address, pickup_lat: Number(t.pickup_lat ?? 0), pickup_lng: Number(t.pickup_lng ?? 0),
+        dropoff_address: t.dropoff_address, dropoff_lat: Number(t.dropoff_lat ?? 0), dropoff_lng: Number(t.dropoff_lng ?? 0),
+        distance_km: null, estimated_fare: t.estimated_fare, estimated_minutes: null,
+        status: "accepted", trip_id: t.id, driver_id: driver.id, ride_purpose: t.ride_purpose,
+      }) as Request;
+      // Always show the trip's current addresses (mid-trip edits land on trips).
+      synthetic = {
+        ...synthetic,
+        trip_id: t.id,
+        pickup_address: t.pickup_address,
+        dropoff_address: t.dropoff_address,
+      };
+    } else {
+      const { data: act } = await supabase
+        .from("ride_requests").select("*")
+        .eq("driver_id", driver.id).eq("status", "accepted")
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      synthetic = (act ?? null) as Request | null;
+      activeTripId = act?.trip_id ?? null;
     }
+
 
     setActive(synthetic);
 
