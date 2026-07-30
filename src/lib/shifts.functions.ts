@@ -104,7 +104,7 @@ export const getCurrentShift = createServerFn({ method: "GET" })
       .order("clock_in_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    return { shift: data, hourly_rate: driver.hourly_rate ?? 0, pay_type: driver.pay_type };
+    return { shift: data, hourly_rate: driver.hourly_rate, pay_type: driver.pay_type };
   });
 
 /** Aggregate for dashboard: today + all-time hours, miles, earnings. */
