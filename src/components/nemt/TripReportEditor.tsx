@@ -48,19 +48,28 @@ export function TripReportEditor({ tripId, triggerLabel = "Edit HCPF" }: { tripI
   const [saving, setSaving] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
+  const loadDraft = useCallback(async (): Promise<ReportForm> => {
+    try {
+      const result = await load({ data: { trip_id: tripId } });
+      return normalize(result.form_data);
+    } catch {
+      // Server function unavailable (edge 500 / HTML shell) — read directly with RLS.
+      return await loadDraftFromDatabase(tripId);
+    }
+  }, [load, tripId]);
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    load({ data: { trip_id: tripId } })
-      .then((result) => {
-        if (cancelled) return;
-        setForm(normalize(result.form_data));
+    loadDraft()
+      .then((next) => {
+        if (!cancelled) setForm(next);
       })
-      .catch((error) => toast.error(error instanceof Error ? error.message : "Could not load trip report"))
+      .catch((error) => toast.error(friendlyErrorMessage(error, "Could not load trip report")))
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [load, open, tripId]);
+  }, [loadDraft, open]);
 
   function field<K extends keyof ReportForm>(key: K, value: ReportForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -75,11 +84,23 @@ export function TripReportEditor({ tripId, triggerLabel = "Edit HCPF" }: { tripI
       setPdfUrl(result.url);
       toast.success("Trip report saved and PDF regenerated");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save trip report");
+      // Fall back to saving the draft directly so edits are never lost.
+      const { error: saveError } = await supabase
+        .from("dispatch_trip_report_drafts")
+        .upsert(
+          { dispatch_trip_id: tripId, form_data: form as unknown as Record<string, unknown> } as never,
+          { onConflict: "dispatch_trip_id" },
+        );
+      if (saveError) {
+        toast.error(friendlyErrorMessage(error, "Could not save trip report"));
+      } else {
+        toast.success("Trip report saved. PDF regeneration is unavailable right now.");
+      }
     } finally {
       setSaving(false);
     }
   }
+
 
   return (
     <>
