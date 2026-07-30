@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Loader2, Phone, Sparkles, AlertTriangle, Waypoints } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { GoogleFleetMap, type FleetMarker } from "@/components/nemt/GoogleFleetMap";
+import { AddRideDialog } from "@/components/nemt/AddRideDialog";
+
 import {
   getDispatchBoard,
   type DispatchDriver,
