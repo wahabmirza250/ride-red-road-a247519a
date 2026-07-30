@@ -59,12 +59,6 @@ export function ActiveTripMap({
           zoomControl: true,
           gestureHandling: "greedy",
         });
-        rendererRef.current = new g.maps.DirectionsRenderer({
-          map: mapRef.current,
-          suppressMarkers: true,
-          preserveViewport: true,
-          polylineOptions: { strokeColor: "#f59e0b", strokeOpacity: 0.95, strokeWeight: 5 },
-        });
         setReady(true);
       })
       .catch((e) => setErr(e instanceof Error ? e.message : "Failed to load map"));
