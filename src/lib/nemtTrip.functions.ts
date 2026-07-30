@@ -252,15 +252,24 @@ export const getTripReportDraft = createServerFn({ method: "GET" })
       _role: "admin",
     });
     if (roleErr) throw new Error(roleErr.message);
+    const { data: isDispatch, error: dispatchRoleErr } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "dispatch",
+    });
+    if (dispatchRoleErr) throw new Error(dispatchRoleErr.message);
+    const isStaff = Boolean(isAdmin || isDispatch);
+    const dataClient = isStaff
+      ? (await import("@/integrations/supabase/client.server")).supabaseAdmin
+      : supabase;
 
-    let query = supabase
+    let query = dataClient
       .from("trips")
       .select(
         "id, driver_id, passenger_id, pickup_address, dropoff_address, scheduled_pickup_time, actual_pickup_time, actual_dropoff_time, odometer_start, odometer_end",
       )
       .eq("id", data.trip_id);
 
-    if (!isAdmin) {
+    if (!isStaff) {
       const { data: driver, error: driverErr } = await supabase
         .from("drivers")
         .select("id")
@@ -277,17 +286,17 @@ export const getTripReportDraft = createServerFn({ method: "GET" })
     if (!trip.driver_id) throw new Error("Trip is missing an assigned driver");
 
     const [{ data: driver }, { data: passenger }, { data: draft }] = await Promise.all([
-      supabase
+      dataClient
         .from("drivers")
         .select("default_vehicle_type, default_plate, default_vin, vehicle_plate")
         .eq("id", trip.driver_id)
         .maybeSingle(),
-      supabase
+      dataClient
         .from("passengers")
         .select("first_name, last_name, medicaid_id")
         .eq("id", trip.passenger_id)
         .maybeSingle(),
-      supabase
+      dataClient
         .from("dispatch_trip_report_drafts")
         .select("form_data, updated_at")
         .eq("dispatch_trip_id", trip.id)
@@ -334,9 +343,18 @@ export const saveTripReportDraft = createServerFn({ method: "POST" })
       _role: "admin",
     });
     if (roleErr) throw new Error(roleErr.message);
+    const { data: isDispatch, error: dispatchRoleErr } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "dispatch",
+    });
+    if (dispatchRoleErr) throw new Error(dispatchRoleErr.message);
+    const isStaff = Boolean(isAdmin || isDispatch);
+    const dataClient = isStaff
+      ? (await import("@/integrations/supabase/client.server")).supabaseAdmin
+      : supabase;
 
-    let query = supabase.from("trips").select("id, driver_id").eq("id", data.trip_id);
-    if (!isAdmin) {
+    let query = dataClient.from("trips").select("id, driver_id, round_trip_leg").eq("id", data.trip_id);
+    if (!isStaff) {
       const { data: driver, error: driverErr } = await supabase
         .from("drivers")
         .select("id")
@@ -350,7 +368,7 @@ export const saveTripReportDraft = createServerFn({ method: "POST" })
     if (tripErr) throw new Error(tripErr.message);
     if (!trip) throw new Error("Trip not found");
 
-    const { error } = await supabase
+    const { error } = await dataClient
       .from("dispatch_trip_report_drafts")
       .upsert(
         {
@@ -362,6 +380,49 @@ export const saveTripReportDraft = createServerFn({ method: "POST" })
         { onConflict: "dispatch_trip_id" },
       );
     if (error) throw new Error(error.message);
+
+    if (isStaff) {
+      const { data: report } = await dataClient
+        .from("medicaid_trips")
+        .select("id")
+        .eq("dispatch_trip_id", data.trip_id)
+        .maybeSingle();
+      if (report) {
+        const form = data.form_data;
+        const pickupOdo = numericDraftValue(form.pickup_odometer);
+        const dropoffOdo = numericDraftValue(form.dropoff_odometer);
+        const { error: reportError } = await dataClient
+          .from("medicaid_trips")
+          .update({
+            pickup_address: cleanText(form.pickup_address),
+            dropoff_address: cleanText(form.dropoff_address),
+            odometer_start: pickupOdo,
+            odometer_end: dropoffOdo,
+            vehicle_type: normalizeVehicleType(cleanText(form.vehicle_type)),
+            vehicle_plate: cleanText(form.vehicle_plate),
+            vehicle_vin: cleanText(form.vehicle_vin),
+            escort_name: cleanText(form.escort_name),
+            identity_verified: form.identity_verified === "yes" ? true : form.identity_verified === "no" ? false : null,
+            signed_by_escort: Boolean(form.signed_by_escort),
+            state_pdf_path: null,
+            state_pdf_generated_at: null,
+          } as any)
+          .eq("id", report.id);
+        if (reportError) throw new Error(reportError.message);
+        const { error: legError } = await dataClient.from("medicaid_trip_legs").upsert({
+          medicaid_trip_id: report.id,
+          leg_index: (trip as any).round_trip_leg === 2 ? 2 : 1,
+          leg_date: cleanText(form.leg_date),
+          pickup_time: cleanText(form.pickup_time),
+          pickup_address: cleanText(form.pickup_address),
+          pickup_odometer: pickupOdo,
+          dropoff_time: cleanText(form.dropoff_time),
+          dropoff_address: cleanText(form.dropoff_address),
+          dropoff_odometer: dropoffOdo,
+        } as any, { onConflict: "medicaid_trip_id,leg_index" });
+        if (legError) throw new Error(legError.message);
+      }
+    }
     return { ok: true };
   });
 
@@ -897,7 +958,7 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
 
   });
 
-const EnsureDispatchPdfSchema = z.object({ trip_id: z.string().uuid() });
+const EnsureDispatchPdfSchema = z.object({ trip_id: z.string().uuid(), force: z.boolean().optional() });
 
 export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -929,6 +990,11 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
       _role: "admin",
     });
     if (roleErr) throw new Error(roleErr.message);
+    const { data: isDispatch, error: dispatchRoleErr } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "dispatch",
+    });
+    if (dispatchRoleErr) throw new Error(dispatchRoleErr.message);
 
     const { data: driver, error: driverErr } = await supabase
       .from("drivers")
@@ -937,7 +1003,7 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
       .maybeSingle();
     if (driverErr) throw new Error(driverErr.message);
     if (!driver) throw new Error("Driver not found");
-    if (!isAdmin && driver.user_id !== userId) throw new Error("Forbidden");
+    if (!isAdmin && !isDispatch && driver.user_id !== userId) throw new Error("Forbidden");
 
     const { data: mt, error: mtErr } = await supabase
       .from("medicaid_trips")
@@ -950,11 +1016,11 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
     if (mtErr) throw new Error(mtErr.message);
     if (!mt) throw new Error("No HCPF trip report was created for this ride yet");
 
-    const storageClient = isAdmin
+    const storageClient = isAdmin || isDispatch
       ? (await import("@/integrations/supabase/client.server")).supabaseAdmin
       : supabase;
 
-    if (mt.state_pdf_path) {
+    if (mt.state_pdf_path && !data.force) {
       const { data: signed, error: signErr } = await storageClient.storage
         .from("state-pdfs")
         .createSignedUrl(mt.state_pdf_path, 60 * 15);
