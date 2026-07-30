@@ -87,7 +87,7 @@ function PayrollPage() {
     <div className="space-y-6">
       <PageHeader
         title="Payroll"
-        subtitle="Admin only — review clocked hours and fuel, then clear driver payments."
+        description="Admin only — review clocked hours and fuel, then clear driver payments."
       />
 
       {/* Pay period picker */}
