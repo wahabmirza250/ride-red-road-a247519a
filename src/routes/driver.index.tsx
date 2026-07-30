@@ -137,6 +137,7 @@ function DriverHome() {
 
   // Live speed + odometer accumulation (client-side GPS-derived miles).
   const [speedMph, setSpeedMph] = useState<number | null>(null);
+  const [livePos, setLivePos] = useState<{ lat: number; lng: number } | null>(null);
   const lastFixRef = useRef<{ lat: number; lng: number; t: number } | null>(null);
   const milesBufferRef = useRef(0);
 
