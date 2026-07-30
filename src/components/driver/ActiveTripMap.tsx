@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigation, Loader2 } from "lucide-react";
 import { loadGoogleMapsDark, DARK_MAP_STYLE, LIGHT_MAP_STYLE } from "@/lib/googleMapsDark";
+import { computeDriveRoute } from "@/lib/mapsRoute.functions";
 import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 
@@ -35,7 +36,7 @@ export function ActiveTripMap({
   const mapRef = useRef<google.maps.Map | null>(null);
   const driverMarkerRef = useRef<google.maps.Marker | null>(null);
   const destMarkerRef = useRef<google.maps.Marker | null>(null);
-  const rendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const lineRef = useRef<google.maps.Polyline | null>(null);
   const lastRouteKeyRef = useRef<string>("");
   const [ready, setReady] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -57,12 +58,6 @@ export function ActiveTripMap({
           disableDefaultUI: true,
           zoomControl: true,
           gestureHandling: "greedy",
-        });
-        rendererRef.current = new g.maps.DirectionsRenderer({
-          map: mapRef.current,
-          suppressMarkers: true,
-          preserveViewport: true,
-          polylineOptions: { strokeColor: "#f59e0b", strokeOpacity: 0.95, strokeWeight: 5 },
         });
         setReady(true);
       })
@@ -134,25 +129,33 @@ export function ActiveTripMap({
     if (key === lastRouteKeyRef.current) return;
     lastRouteKeyRef.current = key;
 
-    const svc = new g.maps.DirectionsService();
-    svc.route(
-      { origin: driver, destination, travelMode: g.maps.TravelMode.DRIVING },
-      (result, status) => {
-        if (status === g.maps.DirectionsStatus.OK && result) {
-          rendererRef.current?.setDirections(result);
-          const leg = result.routes[0]?.legs?.[0];
-          if (leg)
-            setEta({
-              distance: leg.distance?.text ?? "—",
-              duration: leg.duration?.text ?? "—",
-            });
-          const bounds = new g.maps.LatLngBounds();
-          bounds.extend(driver);
-          bounds.extend(destination);
-          map.fitBounds(bounds, 48);
+    // Route + ETA come from the Routes API (server-side, via the connector
+    // gateway) — the browser key is not authorized for the Directions service.
+    computeDriveRoute({ data: { from: driver, to: destination } })
+      .then((route) => {
+        // Ignore stale responses (a newer request has since been issued).
+        if (!route || lastRouteKeyRef.current !== key || !mapRef.current) return;
+        setEta({ distance: route.distanceText, duration: route.durationText });
+        const path = g.maps.geometry.encoding.decodePath(route.polyline);
+        if (!lineRef.current) {
+          lineRef.current = new g.maps.Polyline({
+            map,
+            strokeColor: "#f59e0b",
+            strokeOpacity: 0.95,
+            strokeWeight: 5,
+          });
         }
-      },
-    );
+        lineRef.current.setPath(path);
+        const bounds = new g.maps.LatLngBounds();
+        path.forEach((p) => bounds.extend(p));
+        bounds.extend(driver);
+        bounds.extend(destination);
+        map.fitBounds(bounds, 48);
+      })
+      .catch(() => {
+        // Allow a retry on the next position update.
+        lastRouteKeyRef.current = "";
+      });
   }, [ready, driver, destination, destinationLabel, destColor]);
 
   return (
