@@ -1,7 +1,7 @@
 /// <reference types="google.maps" />
 // Dedicated Google Maps loader for the driver dashboard.
-// Uses a project-scoped browser key so this feature is independent of the
-// shared connector key used elsewhere in the app.
+
+import { resolveMapsBrowserKey } from "./mapsKey";
 
 let loaderPromise: Promise<typeof google> | null = null;
 
@@ -17,39 +17,35 @@ export function loadGoogleMapsDark(): Promise<typeof google> {
   if (window.google?.maps) return Promise.resolve(window.google);
   if (loaderPromise) return loaderPromise;
 
-  // On Lovable-hosted domains, the managed connector key works (it's referrer-
-  // locked to *.lovable.app). On any other domain (custom domain like
-  // redartdigital.com, localhost, etc.), that key is blocked — use the
-  // project-provided VITE_GOOGLE_MAPS_API_KEY instead.
-  const managed = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
-  const custom = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-  const host = window.location.hostname;
-  const isLovableHost = /\.lovable\.(app|dev)$/.test(host) || /\.lovableproject\.com$/.test(host);
-  const key = isLovableHost ? (managed || custom) : (custom || managed);
-  if (!key) return Promise.reject(new Error("Google Maps API key missing"));
+  loaderPromise = resolveMapsBrowserKey().then(
+    (key) =>
+      new Promise<typeof google>((resolve, reject) => {
+        if (!key) {
+          reject(new Error("Google Maps API key missing"));
+          return;
+        }
+        window.__lovableGmapsDarkCb = () => {
+          if (window.google?.maps) resolve(window.google);
+          else reject(new Error("Google Maps failed to load"));
+        };
+        const s = document.createElement("script");
+        const params = new URLSearchParams({
+          key,
+          libraries: "places",
+          loading: "async",
+          callback: "__lovableGmapsDarkCb",
+        });
+        s.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
+        s.async = true;
+        s.defer = true;
+        s.onerror = () => reject(new Error("Failed to load Google Maps script"));
+        document.head.appendChild(s);
+      }),
+  );
 
-
-  loaderPromise = new Promise((resolve, reject) => {
-    window.__lovableGmapsDarkCb = () => {
-      if (window.google?.maps) resolve(window.google);
-      else reject(new Error("Google Maps failed to load"));
-    };
-    const s = document.createElement("script");
-    const params = new URLSearchParams({
-      key,
-      libraries: "places",
-      loading: "async",
-      callback: "__lovableGmapsDarkCb",
-    });
-    s.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
-    s.async = true;
-    s.defer = true;
-    s.onerror = () => reject(new Error("Failed to load Google Maps script"));
-    document.head.appendChild(s);
-  });
-
-  return loaderPromise;
+  return loaderPromise!;
 }
+
 
 // Navy/dark map theme tuned to the dashboard palette.
 export const DARK_MAP_STYLE: google.maps.MapTypeStyle[] = [
