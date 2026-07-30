@@ -293,7 +293,16 @@ export const getPayroll = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.supabase, context.userId);
     const s = context.supabase;
-    const HOURLY = 15;
+    const [{ data: payRow }, { data: clocked }] = await Promise.all([
+      s.from("driver_pay").select("hourly_rate").eq("driver_id", data.driver_id).maybeSingle(),
+      s
+        .from("driver_shifts")
+        .select("id, clock_in_at, clock_out_at")
+        .eq("driver_id", data.driver_id)
+        .gte("clock_in_at", data.from)
+        .lte("clock_in_at", data.to),
+    ]);
+    const HOURLY = payRow?.hourly_rate == null ? null : Number(payRow.hourly_rate);
 
     const [{ data: trips }, { data: shifts }, { data: fuel }, { data: driver }] = await Promise.all([
       s
@@ -333,7 +342,13 @@ export const getPayroll = createServerFn({ method: "POST" })
     }
 
     let hours = 0;
-    if (shifts && shifts.length) {
+    if (clocked && clocked.length) {
+      hours = clocked.reduce((sum, sh) => {
+        const start = new Date(sh.clock_in_at).getTime();
+        const end = sh.clock_out_at ? new Date(sh.clock_out_at).getTime() : Date.now();
+        return sum + Math.max(0, (end - start) / 3_600_000);
+      }, 0);
+    } else if (shifts && shifts.length) {
       hours = shifts.reduce((sum, sh) => {
         const start = new Date(sh.start_time).getTime();
         const end = new Date(sh.end_time).getTime();
@@ -353,7 +368,7 @@ export const getPayroll = createServerFn({ method: "POST" })
       (s, t) => s + Number(t.computed_miles ?? t.gps_miles ?? 0),
       0,
     );
-    const hourlyPay = hours * HOURLY;
+    const hourlyPay = HOURLY == null ? 0 : hours * HOURLY;
     const total = hourlyPay + fuelCost;
 
     return {
