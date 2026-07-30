@@ -191,7 +191,7 @@ function TripsPage() {
       toast.success("Trip assigned");
       qc.invalidateQueries({ queryKey: ["trips"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyErrorMessage(e, "Could not assign trip")),
   });
 
   const nextUnassigned = trips.data?.find((t) => !t.driver_id && t.status === "scheduled");
