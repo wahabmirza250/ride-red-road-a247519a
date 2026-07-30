@@ -672,6 +672,26 @@ function DriverHome() {
             )}
           </div>
 
+          {/* Default in-app view: branded live map with route, live position and ETA. */}
+          <ActiveTripMap
+            driver={
+              livePos ??
+              (driver?.current_lat != null && driver?.current_lng != null
+                ? { lat: driver.current_lat, lng: driver.current_lng }
+                : null)
+            }
+            destination={
+              tripStatus === "in_progress"
+                ? { lat: active.dropoff_lat, lng: active.dropoff_lng }
+                : { lat: active.pickup_lat, lng: active.pickup_lng }
+            }
+            destinationLabel={
+              tripStatus === "in_progress" ? active.dropoff_address : active.pickup_address
+            }
+            destinationKind={tripStatus === "in_progress" ? "dropoff" : "pickup"}
+            onStartNavigation={openNavigation}
+          />
+
 
           <div className="space-y-2">
             <div className="flex gap-2 text-sm">
