@@ -166,6 +166,7 @@ function DriverHome() {
   const [geoError, setGeoError] = useState<string | null>(null);
 
   const pushLoc = useCallback(async (p: { lat: number; lng: number }) => {
+    setLivePos(p);
     if (!driver) return;
     setGeoError(null);
     // Accumulate GPS miles for the current shift.
