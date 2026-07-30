@@ -133,7 +133,6 @@ export function ActiveTripMap({
     // gateway) — the browser key is not authorized for the Directions service.
     computeDriveRoute({ data: { from: driver, to: destination } })
       .then((route) => {
-        console.log("ROUTEDBG", JSON.stringify(route), lastRouteKeyRef.current, key);
         // Ignore stale responses (a newer request has since been issued).
         if (!route || lastRouteKeyRef.current !== key || !mapRef.current) return;
         setEta({ distance: route.distanceText, duration: route.durationText });
@@ -153,8 +152,7 @@ export function ActiveTripMap({
         bounds.extend(destination);
         map.fitBounds(bounds, 48);
       })
-      .catch((e) => {
-        console.log("ROUTEDBG err", String(e));
+      .catch(() => {
         // Allow a retry on the next position update.
         lastRouteKeyRef.current = "";
       });
