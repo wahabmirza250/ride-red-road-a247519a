@@ -3,9 +3,11 @@ import { GasReceiptsPanel } from "@/components/expenses/GasReceiptsPanel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Phone, Sparkles, AlertTriangle, Waypoints } from "lucide-react";
+import { Loader2, Phone, Sparkles, AlertTriangle, Waypoints, UserCheck } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { GoogleFleetMap, type FleetMarker } from "@/components/nemt/GoogleFleetMap";
+import { AddRideDialog } from "@/components/nemt/AddRideDialog";
+
 import {
   getDispatchBoard,
   type DispatchDriver,
@@ -180,6 +182,9 @@ function DispatchBoard() {
   const driving = board.drivers.filter((d) => d.activity === "driving").length;
   const unassigned = board.requests.filter((r) => !r.driver_id).length;
 
+  const driverOptions = board.drivers.map((d) => ({ id: d.id, name: d.name, activity: d.activity }));
+  const selectedDriver = board.drivers.find((d) => d.id === focus?.id) ?? null;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -189,35 +194,42 @@ function DispatchBoard() {
             Live requests and driver activity. Updates automatically.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-2xl border border-border bg-surface px-3 py-2">
-          <span className="text-xs font-medium">Auto-assign</span>
-          <button
-            disabled={!board.viewer.isAdmin}
-            onClick={async () => {
-              try {
-                await toggleAuto({ data: { enabled: !board.autoAssign } });
-                await refresh();
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : "Could not update");
-              }
-            }}
-            className={cn(
-              "relative h-6 w-11 rounded-full transition",
-              board.autoAssign ? "bg-primary" : "bg-muted",
-              !board.viewer.isAdmin && "cursor-not-allowed opacity-60",
-            )}
-            title={board.viewer.isAdmin ? "Toggle auto-assign" : "Admin only"}
-          >
-            <span
+        <div className="flex flex-wrap items-center gap-2">
+          <AddRideDialog
+            drivers={driverOptions}
+            preselectedDriverId={selectedDriver?.id ?? null}
+            onCreated={() => void refresh()}
+          />
+          <div className="flex items-center gap-2 rounded-2xl border border-border bg-surface px-3 py-2">
+            <span className="text-xs font-medium">Auto-assign</span>
+            <button
+              disabled={!board.viewer.isAdmin}
+              onClick={async () => {
+                try {
+                  await toggleAuto({ data: { enabled: !board.autoAssign } });
+                  await refresh();
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Could not update");
+                }
+              }}
               className={cn(
-                "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all",
-                board.autoAssign ? "left-[22px]" : "left-0.5",
+                "relative h-6 w-11 rounded-full transition",
+                board.autoAssign ? "bg-primary" : "bg-muted",
+                !board.viewer.isAdmin && "cursor-not-allowed opacity-60",
               )}
-            />
-          </button>
-          <span className="text-xs text-muted-foreground">
-            {board.autoAssign ? "ON" : "OFF — manual"}
-          </span>
+              title={board.viewer.isAdmin ? "Toggle auto-assign" : "Admin only"}
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all",
+                  board.autoAssign ? "left-[22px]" : "left-0.5",
+                )}
+              />
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {board.autoAssign ? "ON" : "OFF — manual"}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -235,18 +247,82 @@ function DispatchBoard() {
         ))}
       </div>
 
-      <div className="h-[380px] overflow-hidden rounded-2xl border border-border">
-        <GoogleFleetMap
-          center={DEFAULT_CENTER}
-          markers={markers}
-          focus={focus}
-          onMarkerClick={(id) => {
-            const d = board.drivers.find((x) => x.id === id);
-            if (d?.lat != null && d?.lng != null)
-              setFocus({ lat: d.lat, lng: d.lng, zoom: 14, id });
-          }}
-        />
+      {/* Map + driver list side by side: one glance for "where is everyone" */}
+      <div className="grid gap-3 lg:grid-cols-[1fr_320px]">
+        <div className="h-[420px] overflow-hidden rounded-2xl border border-border">
+          <GoogleFleetMap
+            center={DEFAULT_CENTER}
+            markers={markers}
+            focus={focus}
+            onMarkerClick={(id) => {
+              const d = board.drivers.find((x) => x.id === id);
+              if (d?.lat != null && d?.lng != null)
+                setFocus({ lat: d.lat, lng: d.lng, zoom: 14, id });
+            }}
+          />
+        </div>
+
+        <div className="flex max-h-[420px] flex-col overflow-hidden rounded-2xl border border-border bg-surface">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <span className="text-sm font-semibold">Drivers ({board.drivers.length})</span>
+            {selectedDriver && (
+              <button
+                onClick={() => setFocus(null)}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <div className="divide-y divide-border overflow-y-auto">
+            {board.drivers.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => {
+                  if (d.lat != null && d.lng != null) {
+                    setFocus({ lat: d.lat, lng: d.lng, zoom: 15, id: d.id });
+                  } else {
+                    setFocus({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1], id: d.id });
+                    toast.info(`${d.name} has no live GPS position yet`);
+                  }
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition",
+                  focus?.id === d.id ? "bg-primary/10" : "hover:bg-muted/50",
+                  d.lat == null && "opacity-70",
+                )}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", activityDot(d.activity))} />
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{d.name}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {d.activity}
+                      {d.vehicle_type ? ` · ${VEHICLE_LABEL[d.vehicle_type] ?? d.vehicle_type}` : ""}
+                      {d.vehicle_label ? ` · ${d.vehicle_label}` : ""}
+                    </div>
+                  </div>
+                </div>
+                {d.stale && d.activity !== "offline" && (
+                  <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
+                    no GPS
+                  </span>
+                )}
+              </button>
+            ))}
+            {board.drivers.length === 0 && (
+              <div className="p-6 text-center text-sm text-muted-foreground">No drivers yet.</div>
+            )}
+          </div>
+          {selectedDriver && (
+            <div className="border-t border-border bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{selectedDriver.name}</span> selected —
+              use “Assign to {selectedDriver.name}” on any request below.
+            </div>
+          )}
+        </div>
       </div>
+
 
       {/* Requests */}
       <div className="rounded-2xl border border-border bg-surface p-4">
@@ -359,6 +435,17 @@ function DispatchBoard() {
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
+                    {selectedDriver && selectedDriver.id !== r.driver_id && (
+                      <button
+                        onClick={() => assign(r.id, selectedDriver.id)}
+                        disabled={busy === r.id}
+                        className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                        title="Assign the driver selected in the driver list"
+                      >
+                        <UserCheck className="h-3 w-3" />
+                        Assign to {selectedDriver.name}
+                      </button>
+                    )}
                     {!r.driver_id && r.suggested_driver_id && (
                       <button
                         onClick={() => assign(r.id, r.suggested_driver_id as string)}
@@ -370,6 +457,7 @@ function DispatchBoard() {
                         {r.suggested_driver_name} · {r.suggested_driver_km}km
                       </button>
                     )}
+
                     <select
                       className="max-w-[190px] rounded-md border border-border bg-background px-2 py-1 text-xs"
                       /* Always render as an action picker (never bound to the
@@ -412,42 +500,8 @@ function DispatchBoard() {
         </div>
       </div>
 
-      {/* Drivers */}
-      <div className="rounded-2xl border border-border bg-surface p-4">
-        <div className="mb-3 text-sm font-semibold">Drivers ({board.drivers.length})</div>
-        <div className="divide-y divide-border">
-          {board.drivers.map((d) => (
-            <button
-              key={d.id}
-              disabled={d.lat == null}
-              onClick={() =>
-                d.lat != null && d.lng != null && setFocus({ lat: d.lat, lng: d.lng, zoom: 15, id: d.id })
-              }
-              className={cn(
-                "flex w-full items-center justify-between py-3 text-left text-sm",
-                d.lat == null ? "cursor-not-allowed opacity-60" : "hover:bg-muted/50",
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <span className={cn("h-2.5 w-2.5 rounded-full", activityDot(d.activity))} />
-                <div>
-                  <div className="font-medium">{d.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {d.activity}
-                    {d.vehicle_type ? ` · ${VEHICLE_LABEL[d.vehicle_type] ?? d.vehicle_type}` : ""}
-                    {d.vehicle_label ? ` · ${d.vehicle_label}` : ""}
-                  </div>
-                </div>
-              </div>
-              {d.stale && d.activity !== "offline" && (
-                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
-                  no GPS update
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
+
+
 
       <GasReceiptsPanel />
 

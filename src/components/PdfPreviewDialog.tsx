@@ -28,20 +28,24 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!url) return;
     let cancelled = false;
+    let objectUrl: string | null = null;
     setError(null);
     setPdfBytes(null);
+    setFallbackUrl(null);
     setNumPages(0);
     (async () => {
+      let buf: ArrayBuffer | null = null;
       try {
         const res = await fetch(url);
-        const buf = await res.arrayBuffer();
-        // Supabase signed URLs return 400 with a JSON error body when the
+        buf = await res.arrayBuffer();
+        // Supabase signed URLs return 400 with a JSON/HTML error body when the
         // object is missing. Detect that and any non-PDF payload so the user
-        // sees a real message instead of a broken iframe icon.
+        // sees a real message instead of a wall of raw markup.
         const header = new Uint8Array(buf.slice(0, 5));
         const isPdf =
           header[0] === 0x25 && // %
@@ -50,20 +54,8 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
           header[3] === 0x46 && // F
           header[4] === 0x2d;   // -
         if (!res.ok || !isPdf) {
-          let detail = `${res.status} ${res.statusText}`.trim();
-          try {
-            const txt = new TextDecoder().decode(buf);
-            const parsed = JSON.parse(txt);
-            if (parsed?.message) detail = parsed.message;
-            else if (parsed?.error) detail = parsed.error;
-          } catch {
-            /* not JSON — keep status text */
-          }
-          throw new Error(
-            detail.toLowerCase().includes("not found") || detail.includes("404") || detail.includes("400")
-              ? "This trip's PDF is missing from storage. Ask the driver to re-submit the trip so the PDF is regenerated."
-              : `Could not load PDF: ${detail}`,
-          );
+          buf = null;
+          throw new Error(describeFailure(res));
         }
         if (cancelled) return;
         const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)) });
@@ -76,15 +68,25 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
         setPdfBytes(buf);
         void loadingTask.destroy();
       } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Could not load PDF");
+        if (cancelled) return;
+        // The bytes are a real PDF but PDF.js could not render them in this
+        // browser — fall back to the browser's built-in viewer instead of
+        // surfacing an internal library error.
+        if (buf) {
+          objectUrl = URL.createObjectURL(new Blob([buf.slice(0)], { type: "application/pdf" }));
+          setPdfBytes(buf);
+          setFallbackUrl(objectUrl);
+          return;
         }
+        setError(e instanceof Error ? e.message : "Could not load PDF");
       }
     })();
     return () => {
       cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [url]);
+
 
 
   function download() {
@@ -149,7 +151,10 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
               {error}
             </div>
           )}
-          {pdfBytes && numPages > 0 && (
+          {fallbackUrl && (
+            <iframe title={filename} src={fallbackUrl} className="h-full w-full border-0" />
+          )}
+          {!fallbackUrl && pdfBytes && numPages > 0 && (
             <div className="mx-auto flex w-fit min-w-full flex-col items-center gap-4 p-4">
               {Array.from({ length: numPages }, (_, i) => (
                 <PdfCanvasPage
@@ -166,6 +171,26 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
     </Dialog>
   );
 }
+
+/**
+ * Turns a failed PDF response into a short human message. Storage and SSR
+ * error pages return JSON or full HTML documents; neither should ever be
+ * dumped into the viewer as raw markup.
+ */
+function describeFailure(res: Response): string {
+  const status = res.status;
+  if (status === 400 || status === 404) {
+    return "This trip's PDF is missing from storage. Re-generate it from Edit HCPF → Save & regenerate PDF.";
+  }
+  if (status === 401 || status === 403) {
+    return "This PDF link has expired. Close this window and open the report again.";
+  }
+  if (status >= 500) {
+    return "The server could not deliver this PDF. Try Save & regenerate PDF from the HCPF editor.";
+  }
+  return "The file returned for this trip is not a PDF. Re-generate it from Edit HCPF → Save & regenerate PDF.";
+}
+
 
 function PdfCanvasPage({
   bytes,
@@ -208,11 +233,11 @@ function PdfCanvasPage({
         canvas.style.height = `${Math.floor(viewport.height)}px`;
 
         renderTask = page.render({
-          canvas,
           canvasContext: context,
           transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined,
           viewport,
         });
+
         await renderTask.promise;
         void loadingTask.destroy();
       } catch (e) {
