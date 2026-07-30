@@ -943,8 +943,10 @@ export const ensureDispatchTripStatePdf = createServerFn({ method: "POST" })
       .from("medicaid_trips")
       .select("*, riders(id, full_name, medicaid_id, dob, phone, address, last_4_ssn), medicaid_trip_legs(*)")
       .in("dispatch_trip_id", Array.from(tripIds))
-
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
+
     if (mtErr) throw new Error(mtErr.message);
     if (!mt) throw new Error("No HCPF trip report was created for this ride yet");
 
