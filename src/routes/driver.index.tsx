@@ -34,6 +34,7 @@ import { clockIn, clockOut, getShiftStats, addShiftMiles } from "@/lib/shifts.fu
 import { recordTripMedia } from "@/lib/tripMedia.functions";
 import { addTripStop, markStopArrived, markStopDeparted, updateTripAddress } from "@/lib/tripStops.functions";
 import { ActiveRouteCard } from "@/components/driver/ActiveRouteCard";
+import { ActiveTripMap } from "@/components/driver/ActiveTripMap";
 import { EditAddressButton } from "@/components/driver/EditAddressButton";
 
 import {
@@ -136,6 +137,7 @@ function DriverHome() {
 
   // Live speed + odometer accumulation (client-side GPS-derived miles).
   const [speedMph, setSpeedMph] = useState<number | null>(null);
+  const [livePos, setLivePos] = useState<{ lat: number; lng: number } | null>(null);
   const lastFixRef = useRef<{ lat: number; lng: number; t: number } | null>(null);
   const milesBufferRef = useRef(0);
 
@@ -164,6 +166,7 @@ function DriverHome() {
   const [geoError, setGeoError] = useState<string | null>(null);
 
   const pushLoc = useCallback(async (p: { lat: number; lng: number }) => {
+    setLivePos(p);
     if (!driver) return;
     setGeoError(null);
     // Accumulate GPS miles for the current shift.
@@ -669,6 +672,26 @@ function DriverHome() {
             )}
           </div>
 
+          {/* Default in-app view: branded live map with route, live position and ETA. */}
+          <ActiveTripMap
+            driver={
+              livePos ??
+              (driver?.current_lat != null && driver?.current_lng != null
+                ? { lat: driver.current_lat, lng: driver.current_lng }
+                : null)
+            }
+            destination={
+              tripStatus === "in_progress"
+                ? { lat: active.dropoff_lat, lng: active.dropoff_lng }
+                : { lat: active.pickup_lat, lng: active.pickup_lng }
+            }
+            destinationLabel={
+              tripStatus === "in_progress" ? active.dropoff_address : active.pickup_address
+            }
+            destinationKind={tripStatus === "in_progress" ? "dropoff" : "pickup"}
+            onStartNavigation={openNavigation}
+          />
+
 
           <div className="space-y-2">
             <div className="flex gap-2 text-sm">
@@ -737,9 +760,9 @@ function DriverHome() {
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
                   className="h-12 w-full rounded-full bg-primary text-base"
-                  onClick={() => { setStatus("driver_en_route_to_pickup"); openNavigation(); }}
+                  onClick={() => setStatus("driver_en_route_to_pickup")}
                 >
-                  <Navigation className="mr-2 h-5 w-5" /> Navigate
+                  <Car className="mr-2 h-5 w-5" /> Start drive to pickup
                 </Button>
                 <Button
                   variant="outline"
@@ -787,11 +810,9 @@ function DriverHome() {
             {/* Secondary actions — always small, out of the main flow. */}
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <div className="flex flex-wrap gap-2">
-                {tripStatus && tripStatus !== "assigned" && (
-                  <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={openNavigation}>
-                    <Navigation className="mr-1 h-3.5 w-3.5" /> Navigate
-                  </Button>
-                )}
+                <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={openNavigation}>
+                  <Navigation className="mr-1 h-3.5 w-3.5" /> Turn-by-turn in Maps
+                </Button>
                 {tripStatus !== "in_progress" ? null : null}
                 <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={() => setShowAddStop(true)}>
                   <Plus className="mr-1 h-3.5 w-3.5" /> Add stop
