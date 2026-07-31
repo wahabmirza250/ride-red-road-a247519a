@@ -311,12 +311,22 @@ export const getTripReportDraft = createServerFn({ method: "GET" })
         .maybeSingle(),
     ]);
 
+    const { data: existingReport } = await dataClient
+      .from("medicaid_trips")
+      .select("id, trip_kind, medicaid_trip_legs(*)")
+      .eq("dispatch_trip_id", trip.id)
+      .maybeSingle();
+    const baseLegIndex = (trip as any).round_trip_leg === 2 ? 2 : 1;
+    const otherLeg = ((existingReport as any)?.medicaid_trip_legs ?? []).find(
+      (l: any) => l.leg_index === (baseLegIndex === 1 ? 2 : 1),
+    );
+
     const pickupIso = trip.actual_pickup_time ?? trip.scheduled_pickup_time ?? new Date().toISOString();
     const dropoffIso = trip.actual_dropoff_time ?? new Date().toISOString();
     const defaults = {
       identity_verified: "" as const,
       vehicle_type: (driver?.default_vehicle_type ?? "") as string,
-      trip_kind: "one_way" as const,
+      trip_kind: ((existingReport as any)?.trip_kind ?? "one_way") as string,
       escort_name: "",
       vehicle_plate: driver?.default_plate ?? driver?.vehicle_plate ?? "",
       vehicle_vin: driver?.default_vin ?? "",
@@ -328,15 +338,30 @@ export const getTripReportDraft = createServerFn({ method: "GET" })
       dropoff_address: trip.dropoff_address ?? "",
       dropoff_odometer: trip.odometer_end != null ? String(trip.odometer_end) : "",
       signed_by_escort: false,
+      has_second_leg: Boolean(otherLeg),
+      leg2_date: otherLeg?.leg_date ?? "",
+      leg2_pickup_time: (otherLeg?.pickup_time ?? "").slice(0, 5),
+      leg2_pickup_address: otherLeg?.pickup_address ?? "",
+      leg2_pickup_odometer: otherLeg?.pickup_odometer != null ? String(otherLeg.pickup_odometer) : "",
+      leg2_dropoff_time: (otherLeg?.dropoff_time ?? "").slice(0, 5),
+      leg2_dropoff_address: otherLeg?.dropoff_address ?? "",
+      leg2_dropoff_odometer: otherLeg?.dropoff_odometer != null ? String(otherLeg.dropoff_odometer) : "",
     };
 
+    const savedForm = (draft?.form_data as Record<string, unknown> | null) ?? {};
     return {
       defaults,
-      form_data: { ...defaults, ...((draft?.form_data as Record<string, unknown> | null) ?? {}) },
+      form_data: {
+        ...defaults,
+        ...savedForm,
+        // Never let a stale draft hide a leg that exists in the report.
+        has_second_leg: Boolean(otherLeg) || savedForm.has_second_leg === true,
+      },
       updated_at: draft?.updated_at ?? null,
       passenger_name: passenger
         ? `${passenger.first_name ?? ""} ${passenger.last_name ?? ""}`.trim()
         : "",
+
       medicaid_id: passenger?.medicaid_id ?? null,
     };
   });
