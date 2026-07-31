@@ -161,20 +161,6 @@ function AuthenticatedLayout() {
 
             {/* Bottom cluster */}
             <div className="mt-6 flex w-full shrink-0 flex-col items-center gap-[18px]">
-              {isAdmin && <NotificationBell />}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={toggleTheme}
-                    aria-label="Toggle theme"
-                    className="rail-item flex h-14 w-14 cursor-pointer items-center justify-center rounded-[20px]"
-                  >
-                    {theme === "dark" ? <Sun className="h-[22px] w-[22px]" strokeWidth={1.75} /> : <Moon className="h-[22px] w-[22px]" strokeWidth={1.75} />}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right">Toggle theme</TooltipContent>
-              </Tooltip>
-
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="rail-profile relative flex h-16 w-16 cursor-default flex-col items-center justify-center rounded-[20px]">
