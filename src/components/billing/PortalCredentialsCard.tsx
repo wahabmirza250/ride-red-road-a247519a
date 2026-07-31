@@ -29,6 +29,8 @@ import {
 } from "@/lib/billing.functions";
 import { PORTALS, getPortal } from "@/lib/portals";
 import { formatDateTime } from "@/lib/format";
+import { friendlyErrorMessage } from "@/lib/errorMessage";
+import { supabase } from "@/integrations/supabase/client";
 
 export function PortalCredentialsCard() {
   const list = useServerFn(listPortalCredentials);
@@ -54,7 +56,7 @@ export function PortalCredentialsCard() {
       toast.success("Default portal updated");
       qc.invalidateQueries({ queryKey: ["billing_settings"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(friendlyErrorMessage(e, "Could not update the default portal")),
   });
 
   const savedPortalIds = useMemo(
@@ -203,23 +205,39 @@ function CredentialDialog({
   const def = getPortal(portalId);
 
   const save = useMutation({
-    mutationFn: () =>
-      upsertFn({
-        data: {
-          portal_id: portalId,
-          portal_name: def?.name ?? portalId,
-          state: def?.state ?? "",
-          login_email: loginEmail,
-          login_password: loginPassword,
-        },
-      }),
+    mutationFn: async () => {
+      const payload = {
+        portal_id: portalId,
+        portal_name: def?.name ?? portalId,
+        state: def?.state ?? "",
+        login_email: loginEmail.trim(),
+        login_password: loginPassword,
+      };
+      try {
+        return await upsertFn({ data: payload });
+      } catch (serverError) {
+        // Custom-domain edge deployments can reject server-function requests.
+        // This RPC remains safe to call from the browser: the database function
+        // verifies the caller is an admin and encrypts the password in Vault.
+        const { data, error } = await supabase.rpc("upsert_portal_credential", {
+          _portal_id: payload.portal_id,
+          _portal_name: payload.portal_name,
+          _state: payload.state,
+          _login_email: payload.login_email,
+          _login_password: payload.login_password,
+        });
+        if (error) throw error;
+        if (!data) throw serverError;
+        return { id: data };
+      }
+    },
     onSuccess: () => {
       toast.success("Saved");
       qc.invalidateQueries({ queryKey: ["portal_credentials"] });
       qc.invalidateQueries({ queryKey: ["billing_settings"] });
       onClose();
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(friendlyErrorMessage(e, "Could not save the portal credential")),
   });
 
   return (

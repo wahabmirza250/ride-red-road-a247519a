@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Download, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as pdfjs from "pdfjs-dist";
 // Inlined worker: on custom domains a hashed /assets/*.mjs request can be
@@ -32,24 +32,18 @@ if (typeof window !== "undefined" && !pdfjs.GlobalWorkerOptions.workerPort) {
  */
 export function PdfPreviewDialog({ url, filename, onClose }: Props) {
   const [pdfBytes, setPdfBytes] = useState<ArrayBuffer | null>(null);
+  const [pdfDocument, setPdfDocument] = useState<pdfjs.PDFDocumentProxy | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
-  const nativePdfUrlRef = useRef<string | null>(null);
-
-  const useNativeViewer = useCallback(() => {
-    if (nativePdfUrlRef.current) setFallbackUrl(nativePdfUrlRef.current);
-  }, []);
-
   useEffect(() => {
     if (!url) return;
     let cancelled = false;
-    let objectUrl: string | null = null;
-    nativePdfUrlRef.current = null;
+    let loadingTask: pdfjs.PDFDocumentLoadingTask | null = null;
+    let loadedDocument: pdfjs.PDFDocumentProxy | null = null;
     setError(null);
     setPdfBytes(null);
-    setFallbackUrl(null);
+    setPdfDocument(null);
     setNumPages(0);
     (async () => {
       let buf: ArrayBuffer | null = null;
@@ -71,40 +65,26 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
           throw new Error(describeFailure(res));
         }
         if (cancelled) return;
-        // Keep a native-viewer URL ready. Some custom-domain hosts interfere
-        // with PDF.js worker/module requests even when the PDF itself is valid.
-        // If any canvas page fails, switch to this real application/pdf blob
-        // instead of exposing the worker's HTML error response to the user.
-        objectUrl = URL.createObjectURL(new Blob([buf.slice(0)], { type: "application/pdf" }));
-        nativePdfUrlRef.current = objectUrl;
-        const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)) });
+        loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)) });
         const pdf = await loadingTask.promise;
+        loadedDocument = pdf;
         if (cancelled) {
           void loadingTask.destroy();
           return;
         }
         setNumPages(pdf.numPages);
         setPdfBytes(buf);
-        void loadingTask.destroy();
+        setPdfDocument(pdf);
       } catch (e) {
         if (cancelled) return;
-        // The bytes are a real PDF but PDF.js could not render them in this
-        // browser — fall back to the browser's built-in viewer instead of
-        // surfacing an internal library error.
-        if (buf) {
-          objectUrl ??= URL.createObjectURL(new Blob([buf.slice(0)], { type: "application/pdf" }));
-          nativePdfUrlRef.current = objectUrl;
-          setPdfBytes(buf);
-          setFallbackUrl(objectUrl);
-          return;
-        }
-        setError(e instanceof Error ? e.message : "Could not load PDF");
+        setError(buf ? "The PDF could not be rendered. Download it to view the report." : e instanceof Error ? e.message : "Could not load PDF");
+        if (buf) setPdfBytes(buf);
       }
     })();
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      nativePdfUrlRef.current = null;
+      setPdfDocument(null);
+      if (loadedDocument || loadingTask) void loadingTask?.destroy();
     };
   }, [url]);
 
@@ -176,18 +156,14 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
               {error}
             </div>
           )}
-          {fallbackUrl && (
-            <iframe title={filename} src={fallbackUrl} className="h-full w-full border-0" />
-          )}
-          {!fallbackUrl && pdfBytes && numPages > 0 && (
+          {pdfDocument && numPages > 0 && (
             <div className="mx-auto flex w-fit min-w-full flex-col items-center gap-4 p-4">
               {Array.from({ length: numPages }, (_, i) => (
                 <PdfCanvasPage
                   key={`${filename}-${i + 1}-${scale}`}
-                  bytes={pdfBytes}
+                  document={pdfDocument}
                   pageNumber={i + 1}
                   scale={scale}
-                  onRenderError={useNativeViewer}
                 />
               ))}
             </div>
@@ -219,15 +195,13 @@ function describeFailure(res: Response): string {
 
 
 function PdfCanvasPage({
-  bytes,
+  document,
   pageNumber,
   scale,
-  onRenderError,
 }: {
-  bytes: ArrayBuffer;
+  document: pdfjs.PDFDocumentProxy;
   pageNumber: number;
   scale: number;
-  onRenderError: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -235,18 +209,14 @@ function PdfCanvasPage({
   useEffect(() => {
     let cancelled = false;
     let renderTask: pdfjs.RenderTask | null = null;
-    let loadingTask: pdfjs.PDFDocumentLoadingTask | null = null;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     (async () => {
       try {
         setError(null);
-        loadingTask = pdfjs.getDocument({ data: new Uint8Array(bytes.slice(0)) });
-        const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(pageNumber);
+        const page = await document.getPage(pageNumber);
         if (cancelled) {
-          void loadingTask.destroy();
           return;
         }
 
@@ -267,11 +237,9 @@ function PdfCanvasPage({
         });
 
         await renderTask.promise;
-        void loadingTask.destroy();
       } catch (e) {
         if (!cancelled && !(e instanceof Error && e.name === "RenderingCancelledException")) {
-          setError("Switching to the browser PDF viewer…");
-          onRenderError();
+          setError("This page could not be rendered. Download the PDF to view it.");
         }
       }
     })();
@@ -279,9 +247,8 @@ function PdfCanvasPage({
     return () => {
       cancelled = true;
       renderTask?.cancel();
-      void loadingTask?.destroy();
     };
-  }, [bytes, onRenderError, pageNumber, scale]);
+  }, [document, pageNumber, scale]);
 
   return (
     <div className="max-w-full overflow-auto rounded-md border border-border bg-background shadow-sm">
