@@ -707,27 +707,27 @@ function TripDetailDialog({
           <div className="rounded-xl bg-surface-muted p-3 text-sm">{trip.notes}</div>
         </div>
       )}
-      <DialogFooter className="gap-2 sm:justify-between">
+      <DialogFooter className="mt-2 gap-2 border-t border-border/60 pt-4 sm:justify-between">
         <Button
           variant="destructive"
           onClick={() => setConfirmOpen(true)}
           disabled={deleting}
-          className="rounded-full"
+          className="whitespace-nowrap rounded-full"
         >
           {deleting ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <Trash2 className="mr-2 h-4 w-4" />
           )}
-          Cancel & delete trip
+          Cancel &amp; delete trip
         </Button>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <TripReportEditor tripId={trip.id} />
           <Button
             variant="outline"
             onClick={handleOpenPdf}
             disabled={pdfLoading || trip.status !== "completed"}
-            className="rounded-full"
+            className="whitespace-nowrap rounded-full"
           >
             {pdfLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -740,15 +740,16 @@ function TripDetailDialog({
             href={`/track/${trip.id}`}
             target="_blank"
             rel="noreferrer"
-            className="rounded-full border border-border px-4 py-2 text-sm hover:bg-accent"
+            className="inline-flex h-9 items-center whitespace-nowrap rounded-full border border-border px-4 text-sm font-medium transition-colors hover:bg-accent"
           >
             Open passenger tracking
           </a>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} className="whitespace-nowrap rounded-full">
             Close
           </Button>
         </div>
       </DialogFooter>
+
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
