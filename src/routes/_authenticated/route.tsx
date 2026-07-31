@@ -119,14 +119,18 @@ function AuthenticatedLayout() {
                       to={item.to}
                       aria-label={item.label}
                       className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-lg outline-none",
+                        "group relative flex h-10 w-10 items-center justify-center rounded-xl outline-none transition-all duration-200",
                         active
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                          ? "nav-active-gradient scale-105"
+                          : "text-muted-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-foreground",
                       )}
                     >
+                      {active && (
+                        <span className="absolute -left-2 h-6 w-1 rounded-full bg-brand-red transition-all duration-200" />
+                      )}
                       <Icon className="h-5 w-5" />
                     </Link>
+
                   </TooltipTrigger>
                   <TooltipContent side="right">{item.label}</TooltipContent>
                 </Tooltip>

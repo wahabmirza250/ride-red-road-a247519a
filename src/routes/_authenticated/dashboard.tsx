@@ -16,6 +16,9 @@ import {
   ChevronDown,
   History,
   Car,
+  Fuel,
+  Radio,
+
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { formatDateTime } from "@/lib/format";
@@ -241,162 +244,197 @@ function DashboardPage() {
   const tripTone = trip.data ? statusTone(trip.data.status) : statusTone("scheduled");
   const driverTone = selected ? statusTone(selected.status) : statusTone("offline");
 
+  const avgSpeed = useMemo(() => {
+    if (!trip.data) return "—";
+    const miles = Number(trip.data.gps_miles ?? trip.data.computed_miles ?? 0);
+    const start = trip.data.actual_pickup_time ?? trip.data.scheduled_pickup_time;
+    const end = trip.data.actual_dropoff_time;
+    if (!miles || !start || !end) return "—";
+    const hours = (new Date(end).getTime() - new Date(start).getTime()) / 3_600_000;
+    if (hours <= 0) return "—";
+    return `${(miles / hours).toFixed(0)} mph`;
+  }, [trip.data]);
+
+  const fuelEstimate =
+    tripMiles != null ? `${(Number(tripMiles) / 26).toFixed(1)} gal` : "—";
+
   return (
-    <div className="-mx-4 -my-6 min-h-[calc(100vh-4rem)] bg-background px-4 py-6 text-foreground md:-mx-6 md:-my-8 md:px-6 md:py-8">
-      <div className="space-y-5">
-        {/* Header: current driver name + status */}
-        <header className="flex flex-wrap items-center justify-between gap-3">
+    <div className="fleet-shell -mx-4 -my-6 min-h-[calc(100vh-4rem)] px-4 py-6 md:-mx-6 md:-my-8 md:px-6 md:py-8">
+      <div className="animate-rise-in space-y-6">
+        {/* Header */}
+        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex sm:flex-wrap sm:justify-between">
           <div className="min-w-0">
-            <div className="truncate text-lg font-semibold text-foreground">
-              {selected ? `${selected.profile?.first_name ?? ""} ${selected.profile?.last_name ?? ""}`.trim() || "Driver" : "No driver selected"}
+            <div className="truncate font-display text-2xl font-bold tracking-tight text-white">
+              {selected
+                ? `${selected.profile?.first_name ?? ""} ${selected.profile?.last_name ?? ""}`.trim() || "Driver"
+                : "No driver selected"}
             </div>
-            <div className="text-xs text-muted-foreground">
+            <div className="mt-1 text-xs font-medium text-white/50">
               {trip.data?.scheduled_pickup_time
                 ? formatDateTime(trip.data.scheduled_pickup_time)
                 : "No active trip"}
             </div>
           </div>
-          <span className={`rounded-full px-3 py-1 text-xs font-medium ${tripTone.classes}`}>
+          <span className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ${tripTone.classes}`}>
             {tripTone.label}
           </span>
         </header>
 
         {/* Vehicle + Driver profile + Drivers list */}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)]">
-          {/* Vehicle card — slim */}
-          <div className="vehicle-card-blue group relative overflow-hidden rounded-2xl ring-1 ring-border transition hover:shadow-lift">
-            <div className="relative h-32 overflow-hidden p-2">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          {/* Premium vehicle card */}
+          <div className="fleet-card fleet-card-hover group relative overflow-hidden">
+            <div className="fleet-vehicle-canvas relative h-44 overflow-hidden p-4">
               {vehiclePhoto.data ? (
                 <img
                   src={vehiclePhoto.data}
                   alt="Vehicle"
-                  className="h-full w-full object-contain drop-shadow-md transition-transform duration-500 group-hover:scale-[1.02]"
+                  className="h-full w-full object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.6)] transition-transform duration-500 group-hover:scale-[1.04]"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <Car className="h-12 w-12 text-white/90 drop-shadow" />
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/45">
+                  <Car className="h-14 w-14" />
+                  <span className="text-[11px] font-medium">No vehicle photo</span>
                 </div>
               )}
             </div>
 
-            <div className="space-y-2 p-3">
-              <div>
-                <div className="text-sm font-bold leading-tight text-white">
-                  {selected?.vehicle_year ?? ""} {selected?.vehicle_make ?? "—"}{" "}
-                  {selected?.vehicle_model ?? ""}
+            <div className="space-y-3 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate font-display text-lg font-bold leading-tight text-white">
+                    {selected?.vehicle_year ?? ""} {selected?.vehicle_make ?? "—"}{" "}
+                    {selected?.vehicle_model ?? ""}
+                  </div>
+                  <div className="mt-1 flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Star
+                        key={i}
+                        className={`h-3.5 w-3.5 ${
+                          i <= Math.round(Number(selected?.rating ?? 0))
+                            ? "fill-[#F4C73D] text-[#F4C73D]"
+                            : "text-white/25"
+                        }`}
+                      />
+                    ))}
+                    <span className="ml-1.5 text-[11px] text-white/60">
+                      {selected?.total_ratings ?? 0}
+                    </span>
+                  </div>
                 </div>
-                <div className="mt-0.5 flex items-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Star
-                      key={i}
-                      className={`h-3 w-3 ${
-                        i <= Math.round(Number(selected?.rating ?? 0))
-                          ? "fill-amber-400 text-amber-400"
-                          : "text-white/40"
-                      }`}
-                    />
-                  ))}
-                  <span className="ml-1 text-[10px] text-white/80">
-                    {selected?.total_ratings ?? 0}
-                  </span>
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#D7264F]/90 text-white shadow-lg">
+                  <Car className="h-5 w-5" />
                 </div>
               </div>
-              <div className="space-y-1 border-t border-white/20 pt-2 text-[11px]">
-                <div className="flex justify-between">
-                  <span className="text-white/70">Plate</span>
-                  <span className="font-semibold text-white">{selected?.vehicle_plate ?? "—"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/70">Trips</span>
-                  <span className="font-semibold text-white">{selected?.total_trips ?? 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/70">GPS</span>
-                  <span className={`font-semibold ${driverPos ? "text-emerald-300" : "text-white/70"}`}>
+
+              <div className="fleet-accent-line rounded-full" />
+
+              <div className="space-y-2.5 text-sm">
+                <VehicleRow tint="#F4C73D" label="Plate" value={selected?.vehicle_plate ?? "—"} />
+                <VehicleRow tint="#D7264F" label="Trips" value={String(selected?.total_trips ?? 0)} />
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="grid h-9 w-9 place-items-center rounded-full"
+                      style={{ background: "#18B48A22", color: "#18B48A" }}
+                    >
+                      <Radio className="h-4 w-4" />
+                    </span>
+                    <span className="text-white/60">GPS</span>
+                  </div>
+                  <span
+                    className={`flex items-center gap-2 text-sm font-semibold ${
+                      driverPos ? "text-[#18B48A]" : "text-[#D7264F]"
+                    }`}
+                  >
                     {driverPos ? "Live" : "Offline"}
+                    <span
+                      className={`h-2 w-2 rounded-full ${driverPos ? "bg-[#18B48A] animate-pulse" : "bg-[#D7264F]"}`}
+                    />
                   </span>
                 </div>
               </div>
             </div>
+            <div className="fleet-halftone pointer-events-none absolute inset-x-0 bottom-0 h-16" />
           </div>
 
           {/* Driver profile card */}
-          <div className="rounded-2xl bg-card p-5 ring-1 ring-border">
+          <div className="fleet-card fleet-card-hover p-6">
             <div className="flex items-start gap-4">
-              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full bg-white/10 ring-2 ring-white/15">
                 {driverPhotoUrl ? (
                   <img src={driverPhotoUrl} alt="Driver" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-muted-foreground">
+                  <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-white/60">
                     {initials(selected?.profile?.first_name, selected?.profile?.last_name)}
                   </div>
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-base font-semibold">
+                <div className="truncate font-display text-lg font-bold text-white">
                   {selected?.profile?.first_name} {selected?.profile?.last_name}
                 </div>
-                <div className="truncate text-xs text-muted-foreground">
+                <div className="truncate text-xs text-white/50">
                   {selected?.profile?.email ?? "—"}
                 </div>
-                <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
-                  <span className="flex items-center gap-1 text-amber-500 dark:text-amber-400">
+                <div className="mt-2 flex items-center gap-3 text-[11px] text-white/50">
+                  <span className="flex items-center gap-1 text-[#F4C73D]">
                     <Star className="h-3 w-3 fill-current" />
                     {selected?.rating ? Number(selected.rating).toFixed(2) : "—"}
                   </span>
-                  <span>Since {selected?.profile?.created_at ? new Date(selected.profile.created_at).getFullYear() : "—"}</span>
+                  <span>
+                    Since{" "}
+                    {selected?.profile?.created_at
+                      ? new Date(selected.profile.created_at).getFullYear()
+                      : "—"}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 space-y-2 rounded-xl bg-muted p-3 text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">License</span>
-                <span className="font-medium text-foreground">Active</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Hired</span>
-                <span className="font-medium text-foreground">
-                  {selected?.profile?.created_at
+            <div className="mt-5 space-y-2.5 rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-xs">
+              <InfoRow label="Employee ID" value={selected?.id ? selected.id.slice(0, 8).toUpperCase() : "—"} />
+              <InfoRow label="License" value="Active" valueClass="text-[#18B48A]" />
+              <InfoRow
+                label="Hire date"
+                value={
+                  selected?.profile?.created_at
                     ? new Date(selected.profile.created_at).toLocaleDateString()
-                    : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Phone</span>
-                <span className="font-medium text-foreground">
-                  {selected?.profile?.phone || "—"}
-                </span>
-              </div>
+                    : "—"
+                }
+              />
+              <InfoRow label="Phone" value={selected?.profile?.phone || "—"} />
             </div>
 
             <Link
               to="/messages"
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+              className="btn-gradient-rb mt-5 flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold"
             >
               <MessageSquare className="h-4 w-4" />
               Start a chat
             </Link>
           </div>
 
-          {/* Drivers list — moved next to profile */}
-          <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
+          {/* Drivers list */}
+          <div className="fleet-card p-5">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-foreground">Drivers</h2>
-              <span className="text-xs text-muted-foreground">{filteredDrivers.length}</span>
+              <h2 className="text-sm font-semibold tracking-tight text-white">Drivers</h2>
+              <span className="rounded-full bg-white/8 px-2 py-0.5 text-[11px] text-white/60">
+                {filteredDrivers.length}
+              </span>
             </div>
             <div className="relative mb-3">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search drivers"
-                className="w-full rounded-full bg-muted py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-full border border-white/10 bg-white/[0.04] py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-white/35 transition focus:border-white/25 focus:outline-none"
               />
             </div>
             <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
               {filteredDrivers.length === 0 && (
-                <div className="py-10 text-center text-xs text-muted-foreground">No drivers found.</div>
+                <div className="py-10 text-center text-xs text-white/40">No drivers found.</div>
               )}
               {filteredDrivers.map((d) => {
                 const tone = statusTone(d.status);
@@ -405,10 +443,10 @@ function DashboardPage() {
                   <button
                     key={d.id}
                     onClick={() => setSelectedId(d.id)}
-                    className={`flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition ${
+                    className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition duration-200 hover:-translate-y-0.5 ${
                       active
-                        ? "bg-brand-blue/10 ring-1 ring-brand-blue/40"
-                        : "bg-muted/40 hover:bg-muted"
+                        ? "border-[#D7264F]/60 bg-[#D7264F]/10"
+                        : "border-white/8 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
                     }`}
                   >
                     <Avatar
@@ -417,18 +455,18 @@ function DashboardPage() {
                       fallbackPath={d.profile?.avatar_url ?? null}
                       name={`${d.profile?.first_name ?? ""} ${d.profile?.last_name ?? ""}`}
                       size={40}
-                      className="bg-muted"
+                      className="bg-white/10"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="truncate text-sm font-semibold text-foreground">
+                        <div className="truncate text-sm font-semibold text-white">
                           {d.profile?.first_name} {d.profile?.last_name}
                         </div>
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${tone.classes}`}>
                           {tone.label}
                         </span>
                       </div>
-                      <div className="mt-0.5 flex items-center justify-between text-[11px] text-muted-foreground">
+                      <div className="mt-0.5 flex items-center justify-between text-[11px] text-white/45">
                         <span className="truncate">
                           {d.vehicle_year ?? ""} {d.vehicle_model ?? d.vehicle_make ?? "—"}
                         </span>
@@ -441,28 +479,35 @@ function DashboardPage() {
             </div>
             <Link
               to="/trips"
-              className="mt-3 flex items-center justify-center gap-2 rounded-full bg-muted py-2 text-xs font-semibold text-foreground hover:bg-muted"
+              className="mt-4 flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-2.5 text-xs font-semibold text-white/80 transition hover:bg-white/[0.08]"
             >
               <History className="h-3.5 w-3.5" /> View history
             </Link>
           </div>
         </div>
 
-        {/* Trip stats bar */}
-        <div className="grid grid-cols-3 gap-3">
-          <StatPill tone="blue" icon={<Clock className="h-4 w-4" />} label="Trip time" value={tripTime} />
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+          <StatPill tint="#1676B7" icon={<Clock className="h-4 w-4" />} label="Trip time" value={tripTime} />
           <StatPill
-            tone="green"
+            tint="#18B48A"
             icon={<Gauge className="h-4 w-4" />}
             label="Miles driven"
             value={tripMiles != null ? Number(tripMiles).toFixed(1) : "—"}
           />
-          <StatPill tone="yellow" icon={<UsersIcon className="h-4 w-4" />} label="Passengers" value={trip.data ? "1" : "0"} />
+          <StatPill
+            tint="#F4C73D"
+            icon={<UsersIcon className="h-4 w-4" />}
+            label="Passengers"
+            value={trip.data ? "1" : "0"}
+          />
+          <StatPill tint="#D7264F" icon={<Gauge className="h-4 w-4" />} label="Avg speed" value={avgSpeed} />
+          <StatPill tint="#1676B7" icon={<Fuel className="h-4 w-4" />} label="Fuel (est.)" value={fuelEstimate} />
         </div>
 
         {/* Map + trip stops */}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="h-[400px] overflow-hidden rounded-2xl bg-card ring-1 ring-border">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="fleet-card relative h-[420px] overflow-hidden p-0">
             <DriverTripMap
               driver={driverPos}
               pickup={pickupPos}
@@ -470,10 +515,14 @@ function DashboardPage() {
               focus={driverPos}
               className="h-full w-full"
             />
+            <div className="pointer-events-none absolute left-4 top-4 flex items-center gap-2 rounded-full border border-white/15 bg-black/55 px-3 py-1.5 text-[11px] font-medium text-white backdrop-blur">
+              <span className={`h-2 w-2 rounded-full ${driverPos ? "bg-[#18B48A]" : "bg-[#D7264F]"}`} />
+              {driverPos ? "Live tracking" : "No GPS signal"}
+            </div>
           </div>
-          <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <div className="fleet-card p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-[11px] font-semibold uppercase tracking-widest text-white/45">
                 Trip stops
               </div>
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${tripTone.classes}`}>
@@ -481,22 +530,27 @@ function DashboardPage() {
               </span>
             </div>
             {trip.data ? (
-              <ol className="space-y-4">
+              <ol className="space-y-5">
                 <StopRow
-                  dotClass="bg-brand-green text-brand-green"
+                  color="#18B48A"
                   label="Pickup"
                   time={trip.data.actual_pickup_time ?? trip.data.scheduled_pickup_time}
                   address={trip.data.pickup_address}
+                  meta={trip.data.actual_pickup_time ? "Completed" : "Scheduled"}
                 />
                 <StopRow
-                  dotClass="bg-brand-red text-brand-red"
+                  color="#D7264F"
                   label="Dropoff"
                   time={trip.data.actual_dropoff_time}
                   address={trip.data.dropoff_address}
+                  meta={
+                    tripMiles != null ? `${Number(tripMiles).toFixed(1)} mi away` : "Awaiting arrival"
+                  }
+                  last
                 />
               </ol>
             ) : (
-              <div className="py-10 text-center text-xs text-muted-foreground">
+              <div className="py-10 text-center text-xs text-white/40">
                 No trip data for this driver.
               </div>
             )}
@@ -507,60 +561,107 @@ function DashboardPage() {
   );
 }
 
+function VehicleRow({ tint, label, value }: { tint: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <span
+          className="grid h-9 w-9 place-items-center rounded-full text-[11px] font-bold"
+          style={{ background: `${tint}22`, color: tint }}
+        >
+          <Circle className="h-3.5 w-3.5" fill="currentColor" />
+        </span>
+        <span className="text-white/60">{label}</span>
+      </div>
+      <span className="truncate font-semibold text-white">{value}</span>
+    </div>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+  valueClass = "text-white",
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="flex justify-between gap-3">
+      <span className="text-white/45">{label}</span>
+      <span className={`truncate font-medium ${valueClass}`}>{value}</span>
+    </div>
+  );
+}
+
 function StatPill({
   icon,
   label,
   value,
-  tone = "red",
+  tint = "#D7264F",
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
-  tone?: "red" | "blue" | "green" | "yellow";
+  tint?: string;
 }) {
-  const toneMap: Record<string, string> = {
-    red: "bg-brand-red/15 text-brand-red",
-    blue: "bg-brand-blue/15 text-brand-blue",
-    green: "bg-brand-green/15 text-brand-green",
-    yellow: "bg-brand-yellow/25 text-brand-yellow-foreground dark:text-brand-yellow",
-  };
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-border">
-      <div className={`flex h-10 w-10 items-center justify-center rounded-full ${toneMap[tone]}`}>
+    <div className="fleet-card fleet-card-hover flex items-center gap-3 p-4">
+      <div
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
+        style={{ background: `${tint}22`, color: tint }}
+      >
         {icon}
       </div>
-      <div>
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className="text-lg font-semibold text-foreground">{value}</div>
+      <div className="min-w-0">
+        <div className="truncate text-lg font-bold text-white">{value}</div>
+        <div className="truncate text-[11px] text-white/45">{label}</div>
       </div>
     </div>
   );
 }
 
 function StopRow({
-  dotClass,
+  color,
   label,
   time,
   address,
+  meta,
+  last,
 }: {
-  dotClass: string;
+  color: string;
   label: string;
   time: string | null | undefined;
   address: string | null | undefined;
+  meta?: string;
+  last?: boolean;
 }) {
   return (
     <li className="flex gap-3">
       <div className="flex flex-col items-center">
-        <Circle className={`h-3 w-3 rounded-full ${dotClass}`} fill="currentColor" />
-        <div className="mt-1 h-full w-px bg-muted" />
+        <span
+          className="mt-1 h-3 w-3 rounded-full ring-4"
+          style={{ background: color, boxShadow: `0 0 0 4px ${color}22` }}
+        />
+        {!last && <div className="mt-1 h-full w-px bg-white/12" />}
       </div>
       <div className="min-w-0 flex-1 pb-1">
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/45">
           <MapPin className="h-3 w-3" /> {label}
         </div>
-        <div className="mt-1 text-sm text-foreground">{address ?? "—"}</div>
-        <div className="text-[11px] text-muted-foreground">{time ? formatDateTime(time) : "—"}</div>
+        <div className="mt-1 text-sm text-white">{address ?? "—"}</div>
+        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-white/40">
+          <span>{time ? formatDateTime(time) : "—"}</span>
+          {meta && (
+            <>
+              <span className="h-1 w-1 rounded-full bg-white/25" />
+              <span>{meta}</span>
+            </>
+          )}
+        </div>
       </div>
     </li>
   );
 }
+
