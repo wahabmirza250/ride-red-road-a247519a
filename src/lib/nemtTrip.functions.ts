@@ -29,6 +29,14 @@ const TripReportDraftSchema = z
     dropoff_address: z.string().nullable().optional(),
     dropoff_odometer: z.string().nullable().optional(),
     signed_by_escort: z.boolean().nullable().optional(),
+    has_second_leg: z.boolean().nullable().optional(),
+    leg2_date: z.string().nullable().optional(),
+    leg2_pickup_time: z.string().nullable().optional(),
+    leg2_pickup_address: z.string().nullable().optional(),
+    leg2_pickup_odometer: z.string().nullable().optional(),
+    leg2_dropoff_time: z.string().nullable().optional(),
+    leg2_dropoff_address: z.string().nullable().optional(),
+    leg2_dropoff_odometer: z.string().nullable().optional(),
   })
   .passthrough();
 
