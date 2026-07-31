@@ -124,12 +124,16 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
 
   return (
     <Dialog open={!!url} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="flex h-[90vh] max-w-5xl flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="flex flex-row items-center justify-between border-b border-border px-4 py-3 space-y-0">
-          <DialogTitle className="truncate text-sm font-semibold">
+      <DialogContent
+        showCloseButton={false}
+        className="flex h-[90vh] max-w-5xl flex-col gap-0 overflow-hidden p-0"
+      >
+        <DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-border bg-surface-muted/40 px-4 py-3 space-y-0">
+          <DialogTitle className="min-w-0 truncate text-sm font-semibold">
             {filename}
           </DialogTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
+
             <Button
               size="icon"
               variant="outline"
