@@ -247,7 +247,32 @@
   --sidebar-accent-foreground: oklch(0.98 0.003 250);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.68 0.19 18 / 0.5);
+
+  /* Fleet dashboard tokens — DARK (Linear/Vercel matte charcoal) */
+  --fleet-shell-bg:
+    radial-gradient(90rem 40rem at 10% -12%, rgba(229, 57, 88, 0.14), transparent 60%),
+    radial-gradient(70rem 34rem at 96% 0%, rgba(22, 131, 255, 0.13), transparent 62%),
+    radial-gradient(60rem 40rem at 60% 112%, rgba(24, 201, 138, 0.09), transparent 65%),
+    linear-gradient(180deg, #0f1115 0%, #14171e 55%, #0f1115 100%);
+  --fleet-card-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
+    #1d212b;
+  --fleet-panel-bg: rgba(255, 255, 255, 0.035);
+  --fleet-panel-hover: rgba(255, 255, 255, 0.07);
+  --fleet-active-bg: rgba(229, 57, 88, 0.12);
+  --fleet-sidebar-bg: rgba(12, 13, 17, 0.9);
+  --fleet-border: rgba(255, 255, 255, 0.08);
+  --fleet-border-strong: rgba(255, 255, 255, 0.18);
+  --fleet-text: #f2f4f8;
+  --fleet-muted: rgba(255, 255, 255, 0.55);
+  --fleet-dim: rgba(255, 255, 255, 0.38);
+  --fleet-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 30px rgba(0, 0, 0, 0.35);
+  --fleet-shadow-lift: 0 28px 64px -28px rgba(0, 0, 0, 0.9);
+  --fleet-vehicle-bg:
+    radial-gradient(60% 80% at 50% 20%, rgba(255, 255, 255, 0.07), transparent 70%),
+    linear-gradient(140deg, #232733 0%, #191d26 60%, #13161d 100%);
+  --fleet-halftone-dot: rgba(255, 255, 255, 0.14);
 }
+
 
 /* Per-surface accent switches — set on the outermost route wrapper.
    These rewrite the surface-accent tokens for the subtree so shared
