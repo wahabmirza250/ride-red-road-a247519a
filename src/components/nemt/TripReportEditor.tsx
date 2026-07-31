@@ -198,7 +198,7 @@ export function TripReportEditor({ tripId, triggerLabel = "Edit HCPF" }: { tripI
 
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t border-border/60 pt-3">
             <Button variant="secondary" onClick={() => setOpen(false)}>Close</Button>
             <Button onClick={saveAndRegenerate} disabled={loading || saving}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
