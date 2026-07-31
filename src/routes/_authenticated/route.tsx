@@ -98,16 +98,21 @@ function AuthenticatedLayout() {
   const NAV = ADMIN_NAV;
   const meta = user.user_metadata as { first_name?: string; last_name?: string } | undefined;
 
+  const activeItem = NAV.find(
+    (i) => location.pathname === i.to || location.pathname.startsWith(i.to + "/"),
+  );
+
   return (
-    <div className="surface-blue flex min-h-screen bg-surface-muted">
-      {/* Sidebar */}
-      <aside className="hidden w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar lg:flex">
-        <div className="flex h-16 w-full items-center justify-center">
-          <BrandMark className="h-8 w-8" />
+    <div className="surface-blue fleet-shell flex min-h-screen">
+      {/* Sidebar — floating matte rail */}
+      <aside className="hidden shrink-0 flex-col items-center p-3 lg:flex">
+        <div className="fleet-sidebar sticky top-3 flex w-[88px] flex-col items-center gap-1 px-3 py-4">
+        <div className="mb-2 flex h-12 w-full items-center justify-center">
+          <BrandMark className="h-9 w-9" />
         </div>
 
         <TooltipProvider delayDuration={0}>
-          <nav className="flex flex-1 flex-col items-center gap-1 py-2">
+          <nav className="flex max-h-[calc(100vh-19rem)] flex-1 flex-col items-center gap-1.5 overflow-y-auto py-1">
             {NAV.map((item) => {
               const active =
                 location.pathname === item.to || location.pathname.startsWith(item.to + "/");
@@ -119,16 +124,19 @@ function AuthenticatedLayout() {
                       to={item.to}
                       aria-label={item.label}
                       className={cn(
-                        "group relative flex h-10 w-10 items-center justify-center rounded-xl outline-none transition-all duration-200",
+                        "group relative flex h-11 w-11 items-center justify-center rounded-2xl outline-none transition-all duration-200",
                         active
-                          ? "nav-active-gradient scale-105"
-                          : "text-muted-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-foreground",
+                          ? "nav-active-gradient scale-[1.04]"
+                          : "fleet-text-muted hover:-translate-y-0.5 hover:bg-[color:var(--fleet-panel-hover)] hover:text-[color:var(--fleet-text)]",
                       )}
                     >
                       {active && (
-                        <span className="absolute -left-2 h-6 w-1 rounded-full bg-brand-red transition-all duration-200" />
+                        <span
+                          className="absolute -left-3 h-6 w-1 rounded-full transition-all duration-200"
+                          style={{ background: "#E53958" }}
+                        />
                       )}
-                      <Icon className="h-5 w-5" />
+                      <Icon className="h-[22px] w-[22px]" strokeWidth={1.75} />
                     </Link>
 
                   </TooltipTrigger>
@@ -138,14 +146,15 @@ function AuthenticatedLayout() {
             })}
           </nav>
 
-          <div className="flex w-full flex-col items-center gap-1 border-t border-border py-3">
+
+          <div className="fleet-border-token mt-1 flex w-full flex-col items-center gap-1 border-t pt-3">
             {isAdmin && <NotificationBell />}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={toggleTheme}
                   aria-label="Toggle theme"
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl fleet-text-muted transition hover:bg-[color:var(--fleet-panel-hover)] hover:text-[color:var(--fleet-text)]"
                 >
                   {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </button>
@@ -160,7 +169,7 @@ function AuthenticatedLayout() {
                     navigate({ to: "/auth", replace: true });
                   }}
                   aria-label="Sign out"
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl fleet-text-muted transition hover:bg-[color:var(--fleet-panel-hover)] hover:text-[color:var(--fleet-text)]"
                 >
                   <LogOut className="h-4 w-4" />
                 </button>
@@ -169,7 +178,7 @@ function AuthenticatedLayout() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                   {initials(meta?.first_name, meta?.last_name) === "?"
                     ? (user.email ?? "?").slice(0, 2).toUpperCase()
                     : initials(meta?.first_name, meta?.last_name)}
@@ -181,7 +190,9 @@ function AuthenticatedLayout() {
             </Tooltip>
           </div>
         </TooltipProvider>
+        </div>
       </aside>
+
 
 
 
@@ -213,7 +224,38 @@ function AuthenticatedLayout() {
             </button>
           </div>
         </div>
+        {/* Desktop top bar */}
+        <div className="sticky top-0 z-30 hidden items-center justify-between gap-4 px-6 py-4 lg:flex">
+          <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium fleet-text-muted">
+            <span className="fleet-text-dim">RedArt</span>
+            <span className="fleet-text-dim opacity-50">/</span>
+            <span className="truncate font-semibold text-[color:var(--fleet-text)]">
+              {activeItem?.label ?? "Dashboard"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {isAdmin && <NotificationBell />}
+            <button
+              onClick={toggleTheme}
+              title="Toggle theme"
+              className="fleet-row flex h-9 w-9 items-center justify-center rounded-xl fleet-text-muted"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <div className="fleet-row flex items-center gap-2 rounded-xl py-1.5 pl-1.5 pr-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+                {initials(meta?.first_name, meta?.last_name) === "?"
+                  ? (user.email ?? "?").slice(0, 2).toUpperCase()
+                  : initials(meta?.first_name, meta?.last_name)}
+              </span>
+              <span className="max-w-[160px] truncate text-xs font-medium text-[color:var(--fleet-text)]">
+                {meta?.first_name ? `${meta.first_name} ${meta.last_name ?? ""}` : user.email}
+              </span>
+            </div>
+          </div>
+        </div>
         {/* Mobile bottom nav */}
+
         <nav className="fixed bottom-0 z-30 flex w-full items-center justify-around border-t border-border bg-surface/95 backdrop-blur lg:hidden">
           {NAV.slice(0, 5).map((item) => {
             const active =
@@ -234,7 +276,7 @@ function AuthenticatedLayout() {
             );
           })}
         </nav>
-        <div className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-10 lg:pb-10">
+        <div className="mx-auto max-w-[1600px] px-4 pb-24 pt-6 sm:px-6 lg:px-6 lg:pb-8 lg:pt-2">
           <Outlet />
         </div>
       </main>
