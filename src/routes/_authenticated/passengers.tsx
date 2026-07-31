@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/nemt/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -313,7 +314,7 @@ function PassengerFormDialog({
           <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         </F>
         <F label="Address" className="sm:col-span-2">
-          <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          <AddressAutocomplete value={form.address} onChange={(v) => setForm({ ...form, address: v })} onResolve={(p) => setForm({ ...form, address: p.address })} />
         </F>
         <F label="Notes" className="sm:col-span-2">
           <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />

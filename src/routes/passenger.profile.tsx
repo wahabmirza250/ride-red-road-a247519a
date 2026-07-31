@@ -27,6 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { Textarea } from "@/components/ui/textarea";
 import {
   getMyPassengerProfile,
@@ -336,10 +337,10 @@ function ProfilePage() {
           </div>
           <div className="space-y-1.5">
             <Label>Home address</Label>
-            <Textarea
-              rows={2}
+            <AddressAutocomplete
               value={f.address}
-              onChange={(e) => upd("address", e.target.value)}
+              onChange={(v) => upd("address", v)}
+              onResolve={(p) => upd("address", p.address)}
               placeholder="Street, City, State ZIP"
             />
           </div>

@@ -139,12 +139,12 @@ export function TripReportEditor({ tripId, triggerLabel = "Edit HCPF" }: { tripI
                 <TextField label="Pickup time" type="time" value={form.pickup_time} onChange={(v) => field("pickup_time", v)} />
                 <TextField label="Pickup odometer" value={form.pickup_odometer} onChange={(v) => field("pickup_odometer", v)} />
               </div>
-              <TextField label="Pickup address" value={form.pickup_address} onChange={(v) => field("pickup_address", v)} />
+              <AddressField label="Pickup address" value={form.pickup_address} onChange={(v) => field("pickup_address", v)} />
               <div className="grid gap-3 sm:grid-cols-2">
                 <TextField label="Drop-off time" type="time" value={form.dropoff_time} onChange={(v) => field("dropoff_time", v)} />
                 <TextField label="Drop-off odometer" value={form.dropoff_odometer} onChange={(v) => field("dropoff_odometer", v)} />
               </div>
-              <TextField label="Drop-off address" value={form.dropoff_address} onChange={(v) => field("dropoff_address", v)} />
+              <AddressField label="Drop-off address" value={form.dropoff_address} onChange={(v) => field("dropoff_address", v)} />
 
               <div className="rounded-xl border border-border/70 bg-muted/20 p-3 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -185,11 +185,11 @@ export function TripReportEditor({ tripId, triggerLabel = "Edit HCPF" }: { tripI
                       <TextField label="Leg 2 pickup odometer" value={form.leg2_pickup_odometer} onChange={(v) => field("leg2_pickup_odometer", v)} />
                       <TextField label="Leg 2 drop-off odometer" value={form.leg2_dropoff_odometer} onChange={(v) => field("leg2_dropoff_odometer", v)} />
                     </div>
-                    <TextField label="Leg 2 pickup address" value={form.leg2_pickup_address} onChange={(v) => field("leg2_pickup_address", v)} />
+                    <AddressField label="Leg 2 pickup address" value={form.leg2_pickup_address} onChange={(v) => field("leg2_pickup_address", v)} />
                     <div className="grid gap-3 sm:grid-cols-2">
                       <TextField label="Leg 2 drop-off time" type="time" value={form.leg2_dropoff_time} onChange={(v) => field("leg2_dropoff_time", v)} />
                     </div>
-                    <TextField label="Leg 2 drop-off address" value={form.leg2_dropoff_address} onChange={(v) => field("leg2_dropoff_address", v)} />
+                    <AddressField label="Leg 2 drop-off address" value={form.leg2_dropoff_address} onChange={(v) => field("leg2_dropoff_address", v)} />
                   </div>
                 )}
               </div>
