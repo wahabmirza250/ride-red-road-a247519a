@@ -163,7 +163,30 @@
   --sidebar-accent-foreground: oklch(0.2 0.02 260);
   --sidebar-border: oklch(0.91 0.006 250);
   --sidebar-ring: oklch(0.56 0.19 15 / 0.5);
+
+  /* Fleet dashboard tokens — LIGHT (soft gray, Apple/Notion feel) */
+  --fleet-shell-bg:
+    radial-gradient(70rem 34rem at 8% -12%, rgba(229, 57, 88, 0.06), transparent 60%),
+    radial-gradient(60rem 30rem at 96% 0%, rgba(22, 131, 255, 0.07), transparent 62%),
+    linear-gradient(180deg, #f5f7fa 0%, #f2f4f9 60%, #eef1f7 100%);
+  --fleet-card-bg: #ffffff;
+  --fleet-panel-bg: #f7f9fc;
+  --fleet-panel-hover: #f1f4fa;
+  --fleet-active-bg: rgba(229, 57, 88, 0.06);
+  --fleet-sidebar-bg: rgba(248, 249, 252, 0.92);
+  --fleet-border: #e6eaf2;
+  --fleet-border-strong: #d6dcea;
+  --fleet-text: #20242c;
+  --fleet-muted: #6c7484;
+  --fleet-dim: #98a0b0;
+  --fleet-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 10px 30px rgba(16, 24, 40, 0.06);
+  --fleet-shadow-lift: 0 14px 40px rgba(16, 24, 40, 0.12);
+  --fleet-vehicle-bg:
+    radial-gradient(60% 80% at 50% 15%, rgba(255, 255, 255, 0.9), transparent 70%),
+    linear-gradient(140deg, #eef2f8 0%, #e7ecf5 60%, #dfe5f0 100%);
+  --fleet-halftone-dot: rgba(32, 36, 44, 0.07);
 }
+
 
 .dark {
   /* Deep near-black inspired by the logo's black tile */
