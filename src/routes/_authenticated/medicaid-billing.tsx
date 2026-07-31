@@ -103,16 +103,30 @@ function MedicaidBillingPage() {
 
   const rows = useQuery({
     queryKey: ["billing_list", tab],
-    queryFn: () => listFn({ data: { statuses: activeTab.statuses } }),
+    queryFn: async () => {
+      try {
+        return await listFn({ data: { statuses: activeTab.statuses } });
+      } catch {
+        // Edge server functions can fail on custom domains — read directly instead.
+        return await listBillingRecordsClient(activeTab.statuses as string[]);
+      }
+    },
     enabled: isAdmin,
   });
 
   const counts = useQuery({
     queryKey: ["billing_counts"],
-    queryFn: () => countsFn(),
+    queryFn: async () => {
+      try {
+        return await countsFn();
+      } catch {
+        return await getBillingCountsClient();
+      }
+    },
     enabled: isAdmin,
     refetchInterval: 20000,
   });
+
 
   const settings = useQuery({
     queryKey: ["billing_settings"],
