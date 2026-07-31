@@ -224,7 +224,38 @@ function AuthenticatedLayout() {
             </button>
           </div>
         </div>
+        {/* Desktop top bar */}
+        <div className="sticky top-0 z-30 hidden items-center justify-between gap-4 px-6 py-4 lg:flex">
+          <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium fleet-text-muted">
+            <span className="fleet-text-dim">RedArt</span>
+            <span className="fleet-text-dim opacity-50">/</span>
+            <span className="truncate font-semibold text-[color:var(--fleet-text)]">
+              {activeItem?.label ?? "Dashboard"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {isAdmin && <NotificationBell />}
+            <button
+              onClick={toggleTheme}
+              title="Toggle theme"
+              className="fleet-row flex h-9 w-9 items-center justify-center rounded-xl fleet-text-muted"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <div className="fleet-row flex items-center gap-2 rounded-xl py-1.5 pl-1.5 pr-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+                {initials(meta?.first_name, meta?.last_name) === "?"
+                  ? (user.email ?? "?").slice(0, 2).toUpperCase()
+                  : initials(meta?.first_name, meta?.last_name)}
+              </span>
+              <span className="max-w-[160px] truncate text-xs font-medium text-[color:var(--fleet-text)]">
+                {meta?.first_name ? `${meta.first_name} ${meta.last_name ?? ""}` : user.email}
+              </span>
+            </div>
+          </div>
+        </div>
         {/* Mobile bottom nav */}
+
         <nav className="fixed bottom-0 z-30 flex w-full items-center justify-around border-t border-border bg-surface/95 backdrop-blur lg:hidden">
           {NAV.slice(0, 5).map((item) => {
             const active =
