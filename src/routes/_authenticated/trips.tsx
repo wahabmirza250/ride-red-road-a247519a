@@ -645,12 +645,13 @@ function TripDetailDialog({
     <>
     <DialogContent className="max-w-2xl">
       <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
+        <DialogTitle className="flex flex-wrap items-center gap-2 pr-10">
           Trip details
           <StatusPill status={trip.status} />
           <StatusPill status={trip.billing_status} />
         </DialogTitle>
       </DialogHeader>
+
       <div className="grid gap-4 text-sm sm:grid-cols-2">
         <Info label="Passenger" value={passengerName} />
         <Info label="Driver" value={driverName} />
