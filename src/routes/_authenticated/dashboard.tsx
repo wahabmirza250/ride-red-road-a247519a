@@ -16,6 +16,9 @@ import {
   ChevronDown,
   History,
   Car,
+  Fuel,
+  Radio,
+
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { formatDateTime } from "@/lib/format";
