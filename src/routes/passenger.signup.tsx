@@ -37,10 +37,6 @@ function PassengerAuthPage() {
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
     setSubmitting(true);
     try {
       const { error } = await supabase.auth.signUp({
