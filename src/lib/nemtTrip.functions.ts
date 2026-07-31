@@ -29,6 +29,14 @@ const TripReportDraftSchema = z
     dropoff_address: z.string().nullable().optional(),
     dropoff_odometer: z.string().nullable().optional(),
     signed_by_escort: z.boolean().nullable().optional(),
+    has_second_leg: z.boolean().nullable().optional(),
+    leg2_date: z.string().nullable().optional(),
+    leg2_pickup_time: z.string().nullable().optional(),
+    leg2_pickup_address: z.string().nullable().optional(),
+    leg2_pickup_odometer: z.string().nullable().optional(),
+    leg2_dropoff_time: z.string().nullable().optional(),
+    leg2_dropoff_address: z.string().nullable().optional(),
+    leg2_dropoff_odometer: z.string().nullable().optional(),
   })
   .passthrough();
 
@@ -303,12 +311,22 @@ export const getTripReportDraft = createServerFn({ method: "GET" })
         .maybeSingle(),
     ]);
 
+    const { data: existingReport } = await dataClient
+      .from("medicaid_trips")
+      .select("id, trip_kind, medicaid_trip_legs(*)")
+      .eq("dispatch_trip_id", trip.id)
+      .maybeSingle();
+    const baseLegIndex = (trip as any).round_trip_leg === 2 ? 2 : 1;
+    const otherLeg = ((existingReport as any)?.medicaid_trip_legs ?? []).find(
+      (l: any) => l.leg_index === (baseLegIndex === 1 ? 2 : 1),
+    );
+
     const pickupIso = trip.actual_pickup_time ?? trip.scheduled_pickup_time ?? new Date().toISOString();
     const dropoffIso = trip.actual_dropoff_time ?? new Date().toISOString();
     const defaults = {
       identity_verified: "" as const,
       vehicle_type: (driver?.default_vehicle_type ?? "") as string,
-      trip_kind: "one_way" as const,
+      trip_kind: ((existingReport as any)?.trip_kind ?? "one_way") as string,
       escort_name: "",
       vehicle_plate: driver?.default_plate ?? driver?.vehicle_plate ?? "",
       vehicle_vin: driver?.default_vin ?? "",
@@ -320,15 +338,30 @@ export const getTripReportDraft = createServerFn({ method: "GET" })
       dropoff_address: trip.dropoff_address ?? "",
       dropoff_odometer: trip.odometer_end != null ? String(trip.odometer_end) : "",
       signed_by_escort: false,
+      has_second_leg: Boolean(otherLeg),
+      leg2_date: otherLeg?.leg_date ?? "",
+      leg2_pickup_time: (otherLeg?.pickup_time ?? "").slice(0, 5),
+      leg2_pickup_address: otherLeg?.pickup_address ?? "",
+      leg2_pickup_odometer: otherLeg?.pickup_odometer != null ? String(otherLeg.pickup_odometer) : "",
+      leg2_dropoff_time: (otherLeg?.dropoff_time ?? "").slice(0, 5),
+      leg2_dropoff_address: otherLeg?.dropoff_address ?? "",
+      leg2_dropoff_odometer: otherLeg?.dropoff_odometer != null ? String(otherLeg.dropoff_odometer) : "",
     };
 
+    const savedForm = (draft?.form_data as Record<string, unknown> | null) ?? {};
     return {
       defaults,
-      form_data: { ...defaults, ...((draft?.form_data as Record<string, unknown> | null) ?? {}) },
+      form_data: {
+        ...defaults,
+        ...savedForm,
+        // Never let a stale draft hide a leg that exists in the report.
+        has_second_leg: Boolean(otherLeg) || savedForm.has_second_leg === true,
+      },
       updated_at: draft?.updated_at ?? null,
       passenger_name: passenger
         ? `${passenger.first_name ?? ""} ${passenger.last_name ?? ""}`.trim()
         : "",
+
       medicaid_id: passenger?.medicaid_id ?? null,
     };
   });
@@ -391,13 +424,23 @@ export const saveTripReportDraft = createServerFn({ method: "POST" })
         const form = data.form_data;
         const pickupOdo = numericDraftValue(form.pickup_odometer);
         const dropoffOdo = numericDraftValue(form.dropoff_odometer);
+        const baseLegIndex = (trip as any).round_trip_leg === 2 ? 2 : 1;
+        const otherLegIndex = baseLegIndex === 1 ? 2 : 1;
+        const hasSecondLeg = form.has_second_leg === true;
+        const leg2PickupOdo = numericDraftValue(form.leg2_pickup_odometer);
+        const leg2DropoffOdo = numericDraftValue(form.leg2_dropoff_odometer);
+        const finalDropoffAddress = hasSecondLeg
+          ? (cleanText(form.leg2_dropoff_address) ?? cleanText(form.dropoff_address))
+          : cleanText(form.dropoff_address);
+        const finalOdometerEnd = hasSecondLeg ? (leg2DropoffOdo ?? dropoffOdo) : dropoffOdo;
         const { error: reportError } = await dataClient
           .from("medicaid_trips")
           .update({
             pickup_address: cleanText(form.pickup_address),
-            dropoff_address: cleanText(form.dropoff_address),
+            dropoff_address: finalDropoffAddress,
             odometer_start: pickupOdo,
-            odometer_end: dropoffOdo,
+            odometer_end: finalOdometerEnd,
+            trip_kind: normalizeTripKind(form.trip_kind),
             vehicle_type: normalizeVehicleType(cleanText(form.vehicle_type)),
             vehicle_plate: cleanText(form.vehicle_plate),
             vehicle_vin: cleanText(form.vehicle_vin),
@@ -411,7 +454,7 @@ export const saveTripReportDraft = createServerFn({ method: "POST" })
         if (reportError) throw new Error(reportError.message);
         const { error: legError } = await dataClient.from("medicaid_trip_legs").upsert({
           medicaid_trip_id: report.id,
-          leg_index: (trip as any).round_trip_leg === 2 ? 2 : 1,
+          leg_index: baseLegIndex,
           leg_date: cleanText(form.leg_date),
           pickup_time: cleanText(form.pickup_time),
           pickup_address: cleanText(form.pickup_address),
@@ -421,7 +464,42 @@ export const saveTripReportDraft = createServerFn({ method: "POST" })
           dropoff_odometer: dropoffOdo,
         } as any, { onConflict: "medicaid_trip_id,leg_index" });
         if (legError) throw new Error(legError.message);
+
+        if (hasSecondLeg) {
+          const { error: leg2Error } = await dataClient.from("medicaid_trip_legs").upsert({
+            medicaid_trip_id: report.id,
+            leg_index: otherLegIndex,
+            leg_date: cleanText(form.leg2_date) ?? cleanText(form.leg_date),
+            pickup_time: cleanText(form.leg2_pickup_time),
+            pickup_address: cleanText(form.leg2_pickup_address),
+            pickup_odometer: leg2PickupOdo,
+            dropoff_time: cleanText(form.leg2_dropoff_time),
+            dropoff_address: cleanText(form.leg2_dropoff_address),
+            dropoff_odometer: leg2DropoffOdo,
+          } as any, { onConflict: "medicaid_trip_id,leg_index" });
+          if (leg2Error) throw new Error(leg2Error.message);
+        } else if (form.has_second_leg === false) {
+          await dataClient
+            .from("medicaid_trip_legs")
+            .delete()
+            .eq("medicaid_trip_id", report.id)
+            .eq("leg_index", otherLegIndex);
+        }
+
+        // Recompute billed miles across whatever legs remain.
+        const { data: legRows } = await dataClient
+          .from("medicaid_trip_legs")
+          .select("pickup_odometer, dropoff_odometer")
+          .eq("medicaid_trip_id", report.id);
+        const miles = (legRows ?? []).reduce((sum: number, l: any) => {
+          const diff = Number(l.dropoff_odometer ?? 0) - Number(l.pickup_odometer ?? 0);
+          return sum + (Number.isFinite(diff) && diff > 0 ? diff : 0);
+        }, 0);
+        if (miles > 0) {
+          await dataClient.from("medicaid_trips").update({ miles } as any).eq("id", report.id);
+        }
       }
+
     }
     return { ok: true };
   });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, FileText, Loader2, Pencil } from "lucide-react";
+import { Download, FileText, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,6 +29,14 @@ type ReportForm = {
   dropoff_address: string;
   dropoff_odometer: string;
   signed_by_escort: boolean;
+  has_second_leg: boolean;
+  leg2_date: string;
+  leg2_pickup_time: string;
+  leg2_pickup_address: string;
+  leg2_pickup_odometer: string;
+  leg2_dropoff_time: string;
+  leg2_dropoff_address: string;
+  leg2_dropoff_odometer: string;
 };
 
 const EMPTY: ReportForm = {
@@ -36,7 +44,10 @@ const EMPTY: ReportForm = {
   vehicle_plate: "", vehicle_vin: "", leg_date: "", pickup_time: "", pickup_address: "",
   pickup_odometer: "", dropoff_time: "", dropoff_address: "", dropoff_odometer: "",
   signed_by_escort: false,
+  has_second_leg: false, leg2_date: "", leg2_pickup_time: "", leg2_pickup_address: "",
+  leg2_pickup_odometer: "", leg2_dropoff_time: "", leg2_dropoff_address: "", leg2_dropoff_odometer: "",
 };
+
 
 export function TripReportEditor({ tripId, triggerLabel = "Edit HCPF" }: { tripId: string; triggerLabel?: string }) {
   const load = useServerFn(getTripReportDraft);
@@ -133,7 +144,57 @@ export function TripReportEditor({ tripId, triggerLabel = "Edit HCPF" }: { tripI
                 <TextField label="Drop-off odometer" value={form.dropoff_odometer} onChange={(v) => field("dropoff_odometer", v)} />
               </div>
               <TextField label="Drop-off address" value={form.dropoff_address} onChange={(v) => field("dropoff_address", v)} />
+
+              <div className="rounded-xl border border-border/70 bg-muted/20 p-3 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium">Second leg / stop (box 2 on the form)</p>
+                    <p className="text-xs text-muted-foreground">Add the return or extra stop the driver forgot to record.</p>
+                  </div>
+                  {form.has_second_leg ? (
+                    <Button type="button" size="sm" variant="ghost" onClick={() => field("has_second_leg", false)}>
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Remove
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setForm((current) => ({
+                          ...current,
+                          has_second_leg: true,
+                          trip_kind: current.trip_kind === "one_way" ? "round_trip" : current.trip_kind,
+                          leg2_date: current.leg2_date || current.leg_date,
+                          leg2_pickup_address: current.leg2_pickup_address || current.dropoff_address,
+                          leg2_pickup_odometer: current.leg2_pickup_odometer || current.dropoff_odometer,
+                          leg2_dropoff_address: current.leg2_dropoff_address || current.pickup_address,
+                        }))
+                      }
+                    >
+                      <Plus className="mr-1.5 h-3.5 w-3.5" /> Add stop
+                    </Button>
+                  )}
+                </div>
+                {form.has_second_leg && (
+                  <div className="space-y-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <TextField label="Leg 2 date" type="date" value={form.leg2_date} onChange={(v) => field("leg2_date", v)} />
+                      <TextField label="Leg 2 pickup time" type="time" value={form.leg2_pickup_time} onChange={(v) => field("leg2_pickup_time", v)} />
+                      <TextField label="Leg 2 pickup odometer" value={form.leg2_pickup_odometer} onChange={(v) => field("leg2_pickup_odometer", v)} />
+                      <TextField label="Leg 2 drop-off odometer" value={form.leg2_dropoff_odometer} onChange={(v) => field("leg2_dropoff_odometer", v)} />
+                    </div>
+                    <TextField label="Leg 2 pickup address" value={form.leg2_pickup_address} onChange={(v) => field("leg2_pickup_address", v)} />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <TextField label="Leg 2 drop-off time" type="time" value={form.leg2_dropoff_time} onChange={(v) => field("leg2_dropoff_time", v)} />
+                    </div>
+                    <TextField label="Leg 2 drop-off address" value={form.leg2_dropoff_address} onChange={(v) => field("leg2_dropoff_address", v)} />
+                  </div>
+                )}
+              </div>
+
               <label className="flex items-center gap-2 text-sm"><Checkbox checked={form.signed_by_escort} onCheckedChange={(v) => field("signed_by_escort", v === true)} /> Signed by escort or facility</label>
+
             </div>
           )}
           <DialogFooter>
