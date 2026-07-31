@@ -41,27 +41,43 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
 });
 
-const ADMIN_NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/live-ops", label: "Live Ops", icon: Radio },
-  { to: "/planner", label: "Planner", icon: CalendarClock },
-
-  { to: "/trips", label: "Trips", icon: RouteIcon },
-  { to: "/medicaid-billing", label: "Medicaid Billing", icon: FileSignature },
-  { to: "/drivers", label: "Drivers", icon: Users },
-  { to: "/payroll", label: "Payroll", icon: Banknote },
-  { to: "/passengers", label: "Passengers", icon: UserRound },
-  { to: "/events", label: "Events", icon: Sparkles },
-  { to: "/team", label: "Team & apps", icon: Shield },
-  { to: "/messages", label: "Messages", icon: MessageSquare },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
-  { to: "/incidents", label: "Incidents", icon: AlertTriangle },
-  { to: "/schedules", label: "Schedules", icon: CalendarClock },
-  { to: "/news-feed", label: "News Feed", icon: Megaphone },
-  { to: "/news", label: "News", icon: Newspaper },
-  { to: "/games", label: "Games", icon: Gamepad2 },
-  { to: "/rewards-settings", label: "Rewards", icon: Trophy },
+const ADMIN_NAV_GROUPS = [
+  [
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/live-ops", label: "Live Ops", icon: Radio },
+    { to: "/planner", label: "Planner", icon: CalendarClock },
+  ],
+  [
+    { to: "/trips", label: "Trips", icon: RouteIcon },
+    { to: "/medicaid-billing", label: "Medicaid Billing", icon: FileSignature },
+    { to: "/schedules", label: "Schedules", icon: CalendarClock },
+  ],
+  [
+    { to: "/drivers", label: "Drivers", icon: Users },
+    { to: "/payroll", label: "Payroll", icon: Banknote },
+    { to: "/passengers", label: "Passengers", icon: UserRound },
+  ],
+  [
+    { to: "/reports", label: "Reports", icon: BarChart3 },
+    { to: "/incidents", label: "Incidents", icon: AlertTriangle },
+  ],
+  [
+    { to: "/team", label: "Team & apps", icon: Shield },
+    { to: "/events", label: "Events", icon: Sparkles },
+  ],
+  [
+    { to: "/messages", label: "Messages", icon: MessageSquare },
+    { to: "/news-feed", label: "News Feed", icon: Megaphone },
+    { to: "/news", label: "News", icon: Newspaper },
+  ],
+  [
+    { to: "/games", label: "Games", icon: Gamepad2 },
+    { to: "/rewards-settings", label: "Rewards", icon: Trophy },
+  ],
 ] as const;
+
+const ADMIN_NAV = ADMIN_NAV_GROUPS.flat();
+
 
 function AuthenticatedLayout() {
   const { loading, user, isAdmin, signOut } = useAuth();
@@ -104,94 +120,99 @@ function AuthenticatedLayout() {
 
   return (
     <div className="surface-blue fleet-shell flex min-h-screen">
-      {/* Sidebar — floating matte rail */}
-      <aside className="hidden shrink-0 flex-col items-center p-3 lg:flex">
-        <div className="fleet-sidebar sticky top-3 flex w-[88px] flex-col items-center gap-1 px-3 py-4">
-        <div className="mb-2 flex h-12 w-full items-center justify-center">
-          <BrandMark className="h-9 w-9" />
-        </div>
-
-        <TooltipProvider delayDuration={0}>
-          <nav className="flex max-h-[calc(100vh-19rem)] flex-1 flex-col items-center gap-1.5 overflow-y-auto py-1">
-            {NAV.map((item) => {
-              const active =
-                location.pathname === item.to || location.pathname.startsWith(item.to + "/");
-              const Icon = item.icon;
-              return (
-                <Tooltip key={item.to}>
-                  <TooltipTrigger asChild>
-                    <Link
-                      to={item.to}
-                      aria-label={item.label}
-                      className={cn(
-                        "group relative flex h-11 w-11 items-center justify-center rounded-2xl outline-none transition-all duration-200",
-                        active
-                          ? "nav-active-gradient scale-[1.04]"
-                          : "fleet-text-muted hover:-translate-y-0.5 hover:bg-[color:var(--fleet-panel-hover)] hover:text-[color:var(--fleet-text)]",
-                      )}
-                    >
-                      {active && (
-                        <span
-                          className="absolute -left-3 h-6 w-1 rounded-full transition-all duration-200"
-                          style={{ background: "#E53958" }}
-                        />
-                      )}
-                      <Icon className="h-[22px] w-[22px]" strokeWidth={1.75} />
-                    </Link>
-
-                  </TooltipTrigger>
-                  <TooltipContent side="right">{item.label}</TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </nav>
-
-
-          <div className="fleet-border-token mt-1 flex w-full flex-col items-center gap-1 border-t pt-3">
-            {isAdmin && <NotificationBell />}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={toggleTheme}
-                  aria-label="Toggle theme"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl fleet-text-muted transition hover:bg-[color:var(--fleet-panel-hover)] hover:text-[color:var(--fleet-text)]"
-                >
-                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Toggle theme</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={async () => {
-                    await signOut();
-                    navigate({ to: "/auth", replace: true });
-                  }}
-                  aria-label="Sign out"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl fleet-text-muted transition hover:bg-[color:var(--fleet-panel-hover)] hover:text-[color:var(--fleet-text)]"
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Sign out ({user.email})</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                  {initials(meta?.first_name, meta?.last_name) === "?"
-                    ? (user.email ?? "?").slice(0, 2).toUpperCase()
-                    : initials(meta?.first_name, meta?.last_name)}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                {meta?.first_name} {meta?.last_name}
-              </TooltipContent>
-            </Tooltip>
+      {/* Sidebar — premium floating rail */}
+      <aside className="hidden shrink-0 flex-col items-center p-4 lg:flex">
+        <div className="rail sticky top-4 flex h-[calc(100vh-2rem)] w-[104px] flex-col items-center px-4 py-6">
+          {/* Logo */}
+          <div className="rail-logo mb-8 flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px]">
+            <BrandMark className="h-10 w-10" />
           </div>
-        </TooltipProvider>
+
+          <TooltipProvider delayDuration={0}>
+            <nav className="rail-scroll flex w-full flex-1 flex-col items-center gap-8 overflow-y-auto pb-2">
+              {ADMIN_NAV_GROUPS.map((group, gi) => (
+                <div key={gi} className="flex w-full flex-col items-center gap-[18px]">
+                  {group.map((item) => {
+                    const active =
+                      location.pathname === item.to ||
+                      location.pathname.startsWith(item.to + "/");
+                    const Icon = item.icon;
+                    return (
+                      <Tooltip key={item.to}>
+                        <TooltipTrigger asChild>
+                          <Link
+                            to={item.to}
+                            aria-label={item.label}
+                            className={cn(
+                              "rail-item flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-[20px] outline-none",
+                              active && "rail-item-active",
+                            )}
+                          >
+                            <Icon className="h-[22px] w-[22px]" strokeWidth={1.75} />
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">{item.label}</TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              ))}
+            </nav>
+
+            {/* Bottom cluster */}
+            <div className="mt-6 flex w-full shrink-0 flex-col items-center gap-[18px]">
+              {isAdmin && <NotificationBell />}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={toggleTheme}
+                    aria-label="Toggle theme"
+                    className="rail-item flex h-14 w-14 cursor-pointer items-center justify-center rounded-[20px]"
+                  >
+                    {theme === "dark" ? <Sun className="h-[22px] w-[22px]" strokeWidth={1.75} /> : <Moon className="h-[22px] w-[22px]" strokeWidth={1.75} />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Toggle theme</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="rail-profile relative flex h-16 w-16 cursor-default flex-col items-center justify-center rounded-[20px]">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+                      {initials(meta?.first_name, meta?.last_name) === "?"
+                        ? (user.email ?? "?").slice(0, 2).toUpperCase()
+                        : initials(meta?.first_name, meta?.last_name)}
+                    </span>
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#18C98A] shadow-[0_0_8px_rgba(24,201,138,0.8)]" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  {meta?.first_name
+                    ? `${meta.first_name} ${meta.last_name ?? ""} — online`
+                    : `${user.email} — online`}
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={async () => {
+                      await signOut();
+                      navigate({ to: "/auth", replace: true });
+                    }}
+                    aria-label="Sign out"
+                    className="rail-item mt-2 flex h-12 w-12 cursor-pointer items-center justify-center rounded-[18px]"
+                  >
+                    <LogOut className="h-[20px] w-[20px]" strokeWidth={1.75} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Sign out ({user.email})</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
       </aside>
+
 
 
 
