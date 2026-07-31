@@ -157,7 +157,7 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
             </Button>
           </div>
         </DialogHeader>
-        <div className="relative flex-1 overflow-auto bg-muted/30">
+        <div ref={viewportRef} className="relative flex-1 overflow-auto bg-muted/30">
           {!pdfBytes && !error && (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading PDF…
@@ -172,15 +172,17 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
             <div className="mx-auto flex w-fit min-w-full flex-col items-center gap-4 p-4">
               {Array.from({ length: numPages }, (_, i) => (
                 <PdfCanvasPage
-                  key={`${filename}-${i + 1}-${scale}`}
+                  key={`${filename}-${i + 1}-${scale}-${Math.round(availableWidth)}`}
                   document={pdfDocument}
                   pageNumber={i + 1}
                   scale={scale}
+                  availableWidth={availableWidth}
                 />
               ))}
             </div>
           )}
         </div>
+
       </DialogContent>
     </Dialog>
   );
