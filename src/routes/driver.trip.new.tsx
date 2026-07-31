@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import {
   Tabs,
   TabsList,
@@ -951,8 +952,9 @@ function NewNemtTripWizard() {
                 </Field>
               </div>
               <Field label="Pickup address">
-                <Textarea rows={2} value={l.pickup_address}
-                  onChange={(e) => updateLeg(i, { pickup_address: e.target.value })} />
+                <AddressAutocomplete value={l.pickup_address}
+                  onChange={(v) => updateLeg(i, { pickup_address: v })}
+                  onResolve={(p) => updateLeg(i, { pickup_address: p.address })} />
               </Field>
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Drop-off time">
@@ -969,8 +971,9 @@ function NewNemtTripWizard() {
                 </Field>
               </div>
               <Field label="Drop-off address">
-                <Textarea rows={2} value={l.dropoff_address}
-                  onChange={(e) => updateLeg(i, { dropoff_address: e.target.value })} />
+                <AddressAutocomplete value={l.dropoff_address}
+                  onChange={(v) => updateLeg(i, { dropoff_address: v })}
+                  onResolve={(p) => updateLeg(i, { dropoff_address: p.address })} />
               </Field>
             </div>
           ))}

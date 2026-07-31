@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, Search, UserPlus, Eraser, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -264,12 +265,11 @@ function NewMedicaidTripPage() {
                         }
                       />
                     </div>
-                    <Input
+                    <AddressAutocomplete
                       placeholder="Home address"
                       value={newRider.address}
-                      onChange={(e) =>
-                        setNewRider({ ...newRider, address: e.target.value })
-                      }
+                      onChange={(v) => setNewRider({ ...newRider, address: v })}
+                      onResolve={(p) => setNewRider({ ...newRider, address: p.address })}
                     />
                     <Button size="sm" onClick={addRider}>
                       Save rider
@@ -292,19 +292,19 @@ function NewMedicaidTripPage() {
             </div>
             <div>
               <Label>Pickup address</Label>
-              <Textarea
-                rows={2}
+              <AddressAutocomplete
                 value={pickupAddress}
-                onChange={(e) => setPickupAddress(e.target.value)}
+                onChange={setPickupAddress}
+                onResolve={(p) => setPickupAddress(p.address)}
                 placeholder="Street, city, ZIP"
               />
             </div>
             <div>
               <Label>Drop-off address</Label>
-              <Textarea
-                rows={2}
+              <AddressAutocomplete
                 value={dropoffAddress}
-                onChange={(e) => setDropoffAddress(e.target.value)}
+                onChange={setDropoffAddress}
+                onResolve={(p) => setDropoffAddress(p.address)}
                 placeholder="Street, city, ZIP"
               />
             </div>
