@@ -158,12 +158,11 @@ function PassengerAuthPage() {
                   <Input
                     type="password"
                     autoComplete="new-password"
-                    minLength={6}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
-                  <p className="text-[11px] text-muted-foreground">At least 6 characters.</p>
+                  <p className="text-[11px] text-muted-foreground">Use any password you like.</p>
                 </div>
                 <Button type="submit" disabled={submitting} className="w-full rounded-full">
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create passenger account"}
