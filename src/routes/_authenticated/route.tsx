@@ -98,16 +98,21 @@ function AuthenticatedLayout() {
   const NAV = ADMIN_NAV;
   const meta = user.user_metadata as { first_name?: string; last_name?: string } | undefined;
 
+  const activeItem = NAV.find(
+    (i) => location.pathname === i.to || location.pathname.startsWith(i.to + "/"),
+  );
+
   return (
-    <div className="surface-blue flex min-h-screen bg-surface-muted">
-      {/* Sidebar */}
-      <aside className="hidden w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar lg:flex">
-        <div className="flex h-16 w-full items-center justify-center">
-          <BrandMark className="h-8 w-8" />
+    <div className="surface-blue fleet-shell flex min-h-screen">
+      {/* Sidebar — floating matte rail */}
+      <aside className="hidden shrink-0 flex-col items-center p-3 lg:flex">
+        <div className="fleet-sidebar sticky top-3 flex w-[88px] flex-col items-center gap-1 px-3 py-4">
+        <div className="mb-2 flex h-12 w-full items-center justify-center">
+          <BrandMark className="h-9 w-9" />
         </div>
 
         <TooltipProvider delayDuration={0}>
-          <nav className="flex flex-1 flex-col items-center gap-1 py-2">
+          <nav className="flex max-h-[calc(100vh-19rem)] flex-1 flex-col items-center gap-1.5 overflow-y-auto py-1">
             {NAV.map((item) => {
               const active =
                 location.pathname === item.to || location.pathname.startsWith(item.to + "/");
@@ -119,16 +124,19 @@ function AuthenticatedLayout() {
                       to={item.to}
                       aria-label={item.label}
                       className={cn(
-                        "group relative flex h-10 w-10 items-center justify-center rounded-xl outline-none transition-all duration-200",
+                        "group relative flex h-11 w-11 items-center justify-center rounded-2xl outline-none transition-all duration-200",
                         active
-                          ? "nav-active-gradient scale-105"
-                          : "text-muted-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-foreground",
+                          ? "nav-active-gradient scale-[1.04]"
+                          : "fleet-text-muted hover:-translate-y-0.5 hover:bg-[color:var(--fleet-panel-hover)] hover:text-[color:var(--fleet-text)]",
                       )}
                     >
                       {active && (
-                        <span className="absolute -left-2 h-6 w-1 rounded-full bg-brand-red transition-all duration-200" />
+                        <span
+                          className="absolute -left-3 h-6 w-1 rounded-full transition-all duration-200"
+                          style={{ background: "#E53958" }}
+                        />
                       )}
-                      <Icon className="h-5 w-5" />
+                      <Icon className="h-[22px] w-[22px]" strokeWidth={1.75} />
                     </Link>
 
                   </TooltipTrigger>
@@ -137,6 +145,7 @@ function AuthenticatedLayout() {
               );
             })}
           </nav>
+
 
           <div className="flex w-full flex-col items-center gap-1 border-t border-border py-3">
             {isAdmin && <NotificationBell />}
