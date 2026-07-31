@@ -313,76 +313,137 @@
     color: #ffffff;
   }
 
-  /* ── Premium fleet dashboard (RED ART dark luxury) ───────────── */
+  /* ── Premium fleet dashboard (RED ART enterprise) ─────────────
+     Fully theme-aware: every surface reads from --fleet-* tokens
+     defined for light and dark below. */
   .fleet-shell {
-    background:
-      radial-gradient(90rem 40rem at 12% -10%, rgba(215, 38, 79, 0.16), transparent 60%),
-      radial-gradient(70rem 34rem at 95% 0%, rgba(22, 118, 183, 0.16), transparent 62%),
-      radial-gradient(60rem 40rem at 60% 110%, rgba(24, 180, 138, 0.12), transparent 65%),
-      linear-gradient(180deg, #0e0e10 0%, #121212 55%, #0b0b0d 100%);
-    color: #f5f5f7;
+    background: var(--fleet-shell-bg);
+    color: var(--fleet-text);
   }
   .fleet-card {
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: var(--fleet-card-bg);
+    border: 1px solid var(--fleet-border);
     border-radius: 24px;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset,
-      0 24px 60px -30px rgba(0, 0, 0, 0.9);
+    box-shadow: var(--fleet-shadow);
     backdrop-filter: blur(18px) saturate(140%);
-    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+    transition:
+      transform 200ms ease,
+      box-shadow 200ms ease,
+      border-color 200ms ease,
+      background-color 200ms ease;
   }
   .fleet-card-hover:hover {
+    transform: translateY(-3px);
+    border-color: var(--fleet-border-strong);
+    box-shadow: var(--fleet-shadow-lift);
+  }
+  .fleet-panel {
+    background: var(--fleet-panel-bg);
+    border: 1px solid var(--fleet-border);
+    border-radius: 18px;
+  }
+  .fleet-input {
+    background: var(--fleet-panel-bg);
+    border: 1px solid var(--fleet-border);
+    color: var(--fleet-text);
+    transition:
+      border-color 200ms ease,
+      box-shadow 200ms ease,
+      background-color 200ms ease;
+  }
+  .fleet-input::placeholder {
+    color: var(--fleet-muted);
+  }
+  .fleet-input:focus {
+    outline: none;
+    border-color: rgba(230, 57, 88, 0.55);
+    box-shadow: 0 0 0 4px rgba(230, 57, 88, 0.14);
+  }
+  .fleet-row {
+    background: var(--fleet-panel-bg);
+    border: 1px solid var(--fleet-border);
+    transition:
+      transform 200ms ease,
+      border-color 200ms ease,
+      background-color 200ms ease,
+      box-shadow 200ms ease;
+  }
+  .fleet-row:hover {
     transform: translateY(-2px);
-    border-color: rgba(255, 255, 255, 0.18);
-    box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.95);
+    border-color: var(--fleet-border-strong);
+    background: var(--fleet-panel-hover);
+  }
+  .fleet-row-active {
+    border-color: rgba(230, 57, 88, 0.55);
+    background: var(--fleet-active-bg);
+    box-shadow: 0 0 0 1px rgba(230, 57, 88, 0.25),
+      0 14px 34px -20px rgba(230, 57, 88, 0.8);
   }
   .fleet-vehicle-canvas {
-    background:
-      radial-gradient(60% 80% at 50% 20%, rgba(255, 255, 255, 0.08), transparent 70%),
-      linear-gradient(140deg, #1a1a1d 0%, #131315 60%, #0d0d0f 100%);
+    background: var(--fleet-vehicle-bg);
   }
   .fleet-accent-line {
     height: 2px;
     background: linear-gradient(
       90deg,
-      #f4c73d 0%,
-      #d7264f 33%,
-      #1676b7 66%,
-      #18b48a 100%
+      #f6c344 0%,
+      #e53958 33%,
+      #1683ff 66%,
+      #18c98a 100%
     );
-    opacity: 0.75;
+    opacity: 0.85;
   }
   .fleet-halftone {
-    background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px);
+    background-image: radial-gradient(var(--fleet-halftone-dot) 1px, transparent 1px);
     background-size: 10px 10px;
     mask-image: linear-gradient(to top, black, transparent);
-    -webkit-mask-image: linear-gradient(to top, black, transparent);
+  }
+  .fleet-text-muted {
+    color: var(--fleet-muted);
+  }
+  .fleet-text-dim {
+    color: var(--fleet-dim);
+  }
+  .fleet-border-token {
+    border-color: var(--fleet-border);
   }
   .btn-gradient-rb {
-    background: linear-gradient(90deg, #d7264f 0%, #1676b7 100%);
+    background: linear-gradient(90deg, #e53958 0%, #1683ff 100%);
     color: #fff;
-    transition: transform 200ms ease, box-shadow 200ms ease, filter 200ms ease;
-    box-shadow: 0 12px 30px -14px rgba(215, 38, 79, 0.9);
+    transition:
+      transform 200ms ease,
+      box-shadow 200ms ease,
+      filter 200ms ease;
+    box-shadow: 0 12px 30px -14px rgba(229, 57, 88, 0.85);
   }
   .btn-gradient-rb:hover {
-    transform: translateY(-1px);
+    transform: translateY(-1px) scale(1.01);
     filter: brightness(1.07);
   }
   .btn-gradient-bg {
-    background: linear-gradient(90deg, #1676b7 0%, #18b48a 100%);
+    background: linear-gradient(90deg, #1683ff 0%, #18c98a 100%);
     color: #fff;
-    transition: transform 200ms ease, filter 200ms ease;
+    transition:
+      transform 200ms ease,
+      filter 200ms ease;
   }
   .btn-gradient-bg:hover {
     transform: translateY(-1px);
     filter: brightness(1.07);
   }
-  .nav-active-gradient {
-    background: linear-gradient(135deg, #d7264f 0%, #a1173c 100%);
-    color: #fff;
-    box-shadow: 0 10px 24px -12px rgba(215, 38, 79, 0.9);
+  .fleet-sidebar {
+    background: var(--fleet-sidebar-bg);
+    border: 1px solid var(--fleet-border);
+    border-radius: 28px;
+    box-shadow: var(--fleet-shadow);
+    backdrop-filter: blur(20px) saturate(140%);
   }
-}
+  .nav-active-gradient {
+    background: linear-gradient(135deg, #e53958 0%, #b7318f 55%, #7b3fe4 100%);
+    color: #fff;
+    box-shadow: 0 10px 26px -10px rgba(229, 57, 88, 0.75);
+  }
+
 
 
 /* Leaflet fixes for tailwind reset */
