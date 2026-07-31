@@ -29,6 +29,14 @@ type ReportForm = {
   dropoff_address: string;
   dropoff_odometer: string;
   signed_by_escort: boolean;
+  has_second_leg: boolean;
+  leg2_date: string;
+  leg2_pickup_time: string;
+  leg2_pickup_address: string;
+  leg2_pickup_odometer: string;
+  leg2_dropoff_time: string;
+  leg2_dropoff_address: string;
+  leg2_dropoff_odometer: string;
 };
 
 const EMPTY: ReportForm = {
@@ -36,7 +44,10 @@ const EMPTY: ReportForm = {
   vehicle_plate: "", vehicle_vin: "", leg_date: "", pickup_time: "", pickup_address: "",
   pickup_odometer: "", dropoff_time: "", dropoff_address: "", dropoff_odometer: "",
   signed_by_escort: false,
+  has_second_leg: false, leg2_date: "", leg2_pickup_time: "", leg2_pickup_address: "",
+  leg2_pickup_odometer: "", leg2_dropoff_time: "", leg2_dropoff_address: "", leg2_dropoff_odometer: "",
 };
+
 
 export function TripReportEditor({ tripId, triggerLabel = "Edit HCPF" }: { tripId: string; triggerLabel?: string }) {
   const load = useServerFn(getTripReportDraft);
