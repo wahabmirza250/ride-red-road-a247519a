@@ -399,13 +399,23 @@ export const saveTripReportDraft = createServerFn({ method: "POST" })
         const form = data.form_data;
         const pickupOdo = numericDraftValue(form.pickup_odometer);
         const dropoffOdo = numericDraftValue(form.dropoff_odometer);
+        const baseLegIndex = (trip as any).round_trip_leg === 2 ? 2 : 1;
+        const otherLegIndex = baseLegIndex === 1 ? 2 : 1;
+        const hasSecondLeg = form.has_second_leg === true;
+        const leg2PickupOdo = numericDraftValue(form.leg2_pickup_odometer);
+        const leg2DropoffOdo = numericDraftValue(form.leg2_dropoff_odometer);
+        const finalDropoffAddress = hasSecondLeg
+          ? (cleanText(form.leg2_dropoff_address) ?? cleanText(form.dropoff_address))
+          : cleanText(form.dropoff_address);
+        const finalOdometerEnd = hasSecondLeg ? (leg2DropoffOdo ?? dropoffOdo) : dropoffOdo;
         const { error: reportError } = await dataClient
           .from("medicaid_trips")
           .update({
             pickup_address: cleanText(form.pickup_address),
-            dropoff_address: cleanText(form.dropoff_address),
+            dropoff_address: finalDropoffAddress,
             odometer_start: pickupOdo,
-            odometer_end: dropoffOdo,
+            odometer_end: finalOdometerEnd,
+            trip_kind: normalizeTripKind(form.trip_kind),
             vehicle_type: normalizeVehicleType(cleanText(form.vehicle_type)),
             vehicle_plate: cleanText(form.vehicle_plate),
             vehicle_vin: cleanText(form.vehicle_vin),
@@ -419,7 +429,7 @@ export const saveTripReportDraft = createServerFn({ method: "POST" })
         if (reportError) throw new Error(reportError.message);
         const { error: legError } = await dataClient.from("medicaid_trip_legs").upsert({
           medicaid_trip_id: report.id,
-          leg_index: (trip as any).round_trip_leg === 2 ? 2 : 1,
+          leg_index: baseLegIndex,
           leg_date: cleanText(form.leg_date),
           pickup_time: cleanText(form.pickup_time),
           pickup_address: cleanText(form.pickup_address),
@@ -429,7 +439,42 @@ export const saveTripReportDraft = createServerFn({ method: "POST" })
           dropoff_odometer: dropoffOdo,
         } as any, { onConflict: "medicaid_trip_id,leg_index" });
         if (legError) throw new Error(legError.message);
+
+        if (hasSecondLeg) {
+          const { error: leg2Error } = await dataClient.from("medicaid_trip_legs").upsert({
+            medicaid_trip_id: report.id,
+            leg_index: otherLegIndex,
+            leg_date: cleanText(form.leg2_date) ?? cleanText(form.leg_date),
+            pickup_time: cleanText(form.leg2_pickup_time),
+            pickup_address: cleanText(form.leg2_pickup_address),
+            pickup_odometer: leg2PickupOdo,
+            dropoff_time: cleanText(form.leg2_dropoff_time),
+            dropoff_address: cleanText(form.leg2_dropoff_address),
+            dropoff_odometer: leg2DropoffOdo,
+          } as any, { onConflict: "medicaid_trip_id,leg_index" });
+          if (leg2Error) throw new Error(leg2Error.message);
+        } else if (form.has_second_leg === false) {
+          await dataClient
+            .from("medicaid_trip_legs")
+            .delete()
+            .eq("medicaid_trip_id", report.id)
+            .eq("leg_index", otherLegIndex);
+        }
+
+        // Recompute billed miles across whatever legs remain.
+        const { data: legRows } = await dataClient
+          .from("medicaid_trip_legs")
+          .select("pickup_odometer, dropoff_odometer")
+          .eq("medicaid_trip_id", report.id);
+        const miles = (legRows ?? []).reduce((sum: number, l: any) => {
+          const diff = Number(l.dropoff_odometer ?? 0) - Number(l.pickup_odometer ?? 0);
+          return sum + (Number.isFinite(diff) && diff > 0 ? diff : 0);
+        }, 0);
+        if (miles > 0) {
+          await dataClient.from("medicaid_trips").update({ miles } as any).eq("id", report.id);
+        }
       }
+
     }
     return { ok: true };
   });
