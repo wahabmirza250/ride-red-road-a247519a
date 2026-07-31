@@ -270,7 +270,7 @@ function PdfCanvasPage({
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [document, pageNumber, scale]);
+  }, [document, pageNumber, scale, availableWidth]);
 
   return (
     <div className="max-w-full overflow-auto rounded-md border border-border bg-background shadow-sm">
