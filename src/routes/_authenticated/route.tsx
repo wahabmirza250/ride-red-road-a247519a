@@ -147,14 +147,14 @@ function AuthenticatedLayout() {
           </nav>
 
 
-          <div className="flex w-full flex-col items-center gap-1 border-t border-border py-3">
+          <div className="fleet-border-token mt-1 flex w-full flex-col items-center gap-1 border-t pt-3">
             {isAdmin && <NotificationBell />}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={toggleTheme}
                   aria-label="Toggle theme"
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl fleet-text-muted transition hover:bg-[color:var(--fleet-panel-hover)] hover:text-[color:var(--fleet-text)]"
                 >
                   {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </button>
@@ -169,7 +169,7 @@ function AuthenticatedLayout() {
                     navigate({ to: "/auth", replace: true });
                   }}
                   aria-label="Sign out"
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl fleet-text-muted transition hover:bg-[color:var(--fleet-panel-hover)] hover:text-[color:var(--fleet-text)]"
                 >
                   <LogOut className="h-4 w-4" />
                 </button>
@@ -178,7 +178,7 @@ function AuthenticatedLayout() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                   {initials(meta?.first_name, meta?.last_name) === "?"
                     ? (user.email ?? "?").slice(0, 2).toUpperCase()
                     : initials(meta?.first_name, meta?.last_name)}
@@ -190,7 +190,9 @@ function AuthenticatedLayout() {
             </Tooltip>
           </div>
         </TooltipProvider>
+        </div>
       </aside>
+
 
 
 
