@@ -288,8 +288,9 @@ function DashboardPage() {
     `${selected?.profile?.first_name ?? ""} ${selected?.profile?.last_name ?? ""}`.trim();
 
   return (
-    <div className="fleet-shell -mx-4 -my-6 min-h-[calc(100vh-4rem)] px-4 py-6 md:-mx-6 md:-my-8 md:px-8 md:py-8">
+    <div className="min-h-[calc(100vh-8rem)]">
       <div className="animate-rise-in space-y-6">
+
         {/* Header */}
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
