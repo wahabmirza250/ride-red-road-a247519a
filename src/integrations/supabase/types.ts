@@ -2306,6 +2306,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_view_driver_media: {
+        Args: { _driver_user_id: string }
+        Returns: boolean
+      }
       copy_passenger_ssn_to_rider: {
         Args: { _passenger_id: string; _rider_id: string }
         Returns: undefined
@@ -2319,6 +2323,7 @@ export type Database = {
         Args: { _passenger_id: string }
         Returns: boolean
       }
+      driver_can_see_rider: { Args: { _rider_id: string }; Returns: boolean }
       get_decrypted_passenger_ssn: {
         Args: { _passenger_id: string }
         Returns: string
