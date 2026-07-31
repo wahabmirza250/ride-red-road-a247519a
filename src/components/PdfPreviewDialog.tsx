@@ -212,10 +212,12 @@ function PdfCanvasPage({
   document,
   pageNumber,
   scale,
+  availableWidth,
 }: {
   document: pdfjs.PDFDocumentProxy;
   pageNumber: number;
   scale: number;
+  availableWidth: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -234,7 +236,13 @@ function PdfCanvasPage({
           return;
         }
 
-        const viewport = page.getViewport({ scale: 1.35 * scale });
+        // Fit the page to the dialog width first, then apply the user's zoom.
+        // Without this the canvas renders wider than the panel and the right
+        // edge of the report gets clipped.
+        const base = page.getViewport({ scale: 1 });
+        const fitScale = availableWidth > 0 ? (availableWidth - 40) / base.width : 1.35;
+        const viewport = page.getViewport({ scale: Math.max(0.3, fitScale * scale) });
+
         const outputScale = window.devicePixelRatio || 1;
         const context = canvas.getContext("2d");
         if (!context) throw new Error("PDF canvas is unavailable");
