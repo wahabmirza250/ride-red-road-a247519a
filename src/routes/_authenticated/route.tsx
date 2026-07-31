@@ -41,27 +41,43 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
 });
 
-const ADMIN_NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/live-ops", label: "Live Ops", icon: Radio },
-  { to: "/planner", label: "Planner", icon: CalendarClock },
-
-  { to: "/trips", label: "Trips", icon: RouteIcon },
-  { to: "/medicaid-billing", label: "Medicaid Billing", icon: FileSignature },
-  { to: "/drivers", label: "Drivers", icon: Users },
-  { to: "/payroll", label: "Payroll", icon: Banknote },
-  { to: "/passengers", label: "Passengers", icon: UserRound },
-  { to: "/events", label: "Events", icon: Sparkles },
-  { to: "/team", label: "Team & apps", icon: Shield },
-  { to: "/messages", label: "Messages", icon: MessageSquare },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
-  { to: "/incidents", label: "Incidents", icon: AlertTriangle },
-  { to: "/schedules", label: "Schedules", icon: CalendarClock },
-  { to: "/news-feed", label: "News Feed", icon: Megaphone },
-  { to: "/news", label: "News", icon: Newspaper },
-  { to: "/games", label: "Games", icon: Gamepad2 },
-  { to: "/rewards-settings", label: "Rewards", icon: Trophy },
+const ADMIN_NAV_GROUPS = [
+  [
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/live-ops", label: "Live Ops", icon: Radio },
+    { to: "/planner", label: "Planner", icon: CalendarClock },
+  ],
+  [
+    { to: "/trips", label: "Trips", icon: RouteIcon },
+    { to: "/medicaid-billing", label: "Medicaid Billing", icon: FileSignature },
+    { to: "/schedules", label: "Schedules", icon: CalendarClock },
+  ],
+  [
+    { to: "/drivers", label: "Drivers", icon: Users },
+    { to: "/payroll", label: "Payroll", icon: Banknote },
+    { to: "/passengers", label: "Passengers", icon: UserRound },
+  ],
+  [
+    { to: "/reports", label: "Reports", icon: BarChart3 },
+    { to: "/incidents", label: "Incidents", icon: AlertTriangle },
+  ],
+  [
+    { to: "/team", label: "Team & apps", icon: Shield },
+    { to: "/events", label: "Events", icon: Sparkles },
+  ],
+  [
+    { to: "/messages", label: "Messages", icon: MessageSquare },
+    { to: "/news-feed", label: "News Feed", icon: Megaphone },
+    { to: "/news", label: "News", icon: Newspaper },
+  ],
+  [
+    { to: "/games", label: "Games", icon: Gamepad2 },
+    { to: "/rewards-settings", label: "Rewards", icon: Trophy },
+  ],
 ] as const;
+
+const ADMIN_NAV = ADMIN_NAV_GROUPS.flat();
+
 
 function AuthenticatedLayout() {
   const { loading, user, isAdmin, signOut } = useAuth();
