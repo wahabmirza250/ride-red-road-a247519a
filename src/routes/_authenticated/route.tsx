@@ -276,7 +276,7 @@ function AuthenticatedLayout() {
             );
           })}
         </nav>
-        <div className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-10 lg:pb-10">
+        <div className="mx-auto max-w-[1600px] px-4 pb-24 pt-6 sm:px-6 lg:px-6 lg:pb-8 lg:pt-2">
           <Outlet />
         </div>
       </main>
