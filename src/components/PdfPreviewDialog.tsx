@@ -36,6 +36,18 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [availableWidth, setAvailableWidth] = useState(0);
+
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([entry]) => setAvailableWidth(entry.contentRect.width));
+    ro.observe(el);
+    setAvailableWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, [pdfDocument]);
+
   useEffect(() => {
     if (!url) return;
     let cancelled = false;
