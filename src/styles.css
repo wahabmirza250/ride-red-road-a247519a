@@ -690,3 +690,37 @@
 
 
 
+
+@layer components {
+  /* ── Shared app chrome (matches the fleet dashboard) ─────────── */
+  .fleet-topbar {
+    background: var(--fleet-sidebar-bg);
+    border-bottom: 1px solid var(--fleet-border);
+    backdrop-filter: blur(18px) saturate(140%);
+  }
+  .fleet-bottom-nav {
+    background: var(--fleet-sidebar-bg);
+    border: 1px solid var(--fleet-border);
+    border-radius: 24px;
+    box-shadow: var(--fleet-shadow-lift);
+    backdrop-filter: blur(18px) saturate(140%);
+  }
+  .fleet-nav-item {
+    color: var(--fleet-muted);
+    border-radius: 16px;
+    transition:
+      color 200ms ease,
+      background-color 200ms ease,
+      transform 200ms ease;
+  }
+  .fleet-nav-item:hover {
+    color: var(--fleet-text);
+    background: var(--fleet-panel-hover);
+  }
+  .fleet-nav-item-active,
+  .fleet-nav-item-active:hover {
+    background: linear-gradient(160deg, #e53958 0%, #ff4d88 100%);
+    color: #ffffff;
+    box-shadow: 0 10px 24px -14px rgba(229, 57, 88, 0.75);
+  }
+}

@@ -58,8 +58,8 @@ function DispatchLayout() {
   }
 
   return (
-    <div className="surface-blue min-h-screen bg-surface-muted pb-20">
-      <header className="glass sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border px-4">
+    <div className="fleet-shell surface-blue min-h-screen pb-24">
+      <header className="fleet-topbar sticky top-0 z-30 flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <BrandMark className="h-8 w-8" />
           <span className="font-display text-sm font-semibold tracking-tight">RedArt Dispatch</span>
@@ -85,7 +85,7 @@ function DispatchLayout() {
         <Outlet />
       </main>
 
-      <nav className="fixed bottom-0 z-30 flex w-full items-center justify-around border-t border-border bg-surface/95 backdrop-blur">
+      <nav className="fleet-bottom-nav fixed bottom-3 left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center justify-around p-1.5">
         {NAV.map((item) => {
           const active = item.exact ? loc.pathname === item.to : loc.pathname.startsWith(item.to);
           const Icon = item.icon;
@@ -94,8 +94,8 @@ function DispatchLayout() {
               key={item.to}
               to={item.to}
               className={cn(
-                "flex flex-1 flex-col items-center gap-0.5 py-3 text-[11px] font-medium",
-                active ? "text-primary" : "text-muted-foreground",
+                "fleet-nav-item flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium",
+                active && "fleet-nav-item-active",
               )}
             >
               <Icon className="h-5 w-5" />

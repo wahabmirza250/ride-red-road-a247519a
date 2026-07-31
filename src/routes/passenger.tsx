@@ -99,12 +99,12 @@ function PassengerLayout() {
   return (
     <div
       className={cn(
-        "surface-green relative min-h-screen bg-background text-foreground",
+        "fleet-shell surface-green relative min-h-screen text-foreground",
         isBooking ? "pb-0" : "pb-24",
       )}
     >
       <AuroraBackdrop />
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/70 px-4 backdrop-blur-xl">
+      <header className="fleet-topbar sticky top-0 z-30 flex h-14 items-center justify-between px-4">
         <Link to="/passenger" className="flex items-center">
           <BrandWordmark className="hidden h-7 sm:block" />
           <BrandMark className="h-8 w-8 sm:hidden" />
@@ -133,7 +133,7 @@ function PassengerLayout() {
         <Outlet />
       </main>
       {!isBooking && (
-      <nav className="fixed bottom-3 left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center justify-around rounded-full border border-border/60 bg-background/80 p-1.5 shadow-lift backdrop-blur-xl">
+      <nav className="fleet-bottom-nav fixed bottom-3 left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center justify-around p-1.5">
         {TABS.map((t) => {
           const active = loc.pathname === t.to;
           const Icon = t.icon;
