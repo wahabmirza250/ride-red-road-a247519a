@@ -119,12 +119,13 @@ export function TripReportEditor({ tripId, triggerLabel = "Edit HCPF" }: { tripI
         <Pencil className="mr-1.5 h-3.5 w-3.5" /> {triggerLabel}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col overflow-hidden">
           <DialogHeader><DialogTitle>Edit HCPF trip report</DialogTitle></DialogHeader>
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin" /></div>
           ) : (
-            <div className="space-y-4">
+            <div className="-mx-6 flex-1 space-y-4 overflow-y-auto px-6 py-1">
+
               <div className="grid gap-3 sm:grid-cols-3">
                 <SelectField label="Identity verified" value={form.identity_verified || "blank"} onChange={(v) => field("identity_verified", v === "blank" ? "" : v as ReportForm["identity_verified"])} options={[["blank", "Leave blank"], ["yes", "Yes"], ["no", "No"]]} />
                 <SelectField label="Vehicle type" value={form.vehicle_type || "blank"} onChange={(v) => field("vehicle_type", v === "blank" ? "" : v as ReportForm["vehicle_type"])} options={[["blank", "Leave blank"], ["ground_ambulance", "Ground ambulance"], ["wheelchair_van", "Wheelchair van"], ["stretcher_van", "Stretcher van"], ["taxi", "Taxi"], ["ambulatory", "Ambulatory"]]} />
@@ -197,7 +198,7 @@ export function TripReportEditor({ tripId, triggerLabel = "Edit HCPF" }: { tripI
 
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t border-border/60 pt-3">
             <Button variant="secondary" onClick={() => setOpen(false)}>Close</Button>
             <Button onClick={saveAndRegenerate} disabled={loading || saving}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}

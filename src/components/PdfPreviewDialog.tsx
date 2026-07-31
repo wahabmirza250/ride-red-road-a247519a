@@ -36,6 +36,18 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [availableWidth, setAvailableWidth] = useState(0);
+
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([entry]) => setAvailableWidth(entry.contentRect.width));
+    ro.observe(el);
+    setAvailableWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, [pdfDocument]);
+
   useEffect(() => {
     if (!url) return;
     let cancelled = false;
@@ -145,7 +157,7 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
             </Button>
           </div>
         </DialogHeader>
-        <div className="relative flex-1 overflow-auto bg-muted/30">
+        <div ref={viewportRef} className="relative flex-1 overflow-auto bg-muted/30">
           {!pdfBytes && !error && (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading PDF…
@@ -160,15 +172,17 @@ export function PdfPreviewDialog({ url, filename, onClose }: Props) {
             <div className="mx-auto flex w-fit min-w-full flex-col items-center gap-4 p-4">
               {Array.from({ length: numPages }, (_, i) => (
                 <PdfCanvasPage
-                  key={`${filename}-${i + 1}-${scale}`}
+                  key={`${filename}-${i + 1}-${scale}-${Math.round(availableWidth)}`}
                   document={pdfDocument}
                   pageNumber={i + 1}
                   scale={scale}
+                  availableWidth={availableWidth}
                 />
               ))}
             </div>
           )}
         </div>
+
       </DialogContent>
     </Dialog>
   );
@@ -198,10 +212,12 @@ function PdfCanvasPage({
   document,
   pageNumber,
   scale,
+  availableWidth,
 }: {
   document: pdfjs.PDFDocumentProxy;
   pageNumber: number;
   scale: number;
+  availableWidth: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -220,7 +236,13 @@ function PdfCanvasPage({
           return;
         }
 
-        const viewport = page.getViewport({ scale: 1.35 * scale });
+        // Fit the page to the dialog width first, then apply the user's zoom.
+        // Without this the canvas renders wider than the panel and the right
+        // edge of the report gets clipped.
+        const base = page.getViewport({ scale: 1 });
+        const fitScale = availableWidth > 0 ? (availableWidth - 40) / base.width : 1.35;
+        const viewport = page.getViewport({ scale: Math.max(0.3, fitScale * scale) });
+
         const outputScale = window.devicePixelRatio || 1;
         const context = canvas.getContext("2d");
         if (!context) throw new Error("PDF canvas is unavailable");
@@ -248,7 +270,7 @@ function PdfCanvasPage({
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [document, pageNumber, scale]);
+  }, [document, pageNumber, scale, availableWidth]);
 
   return (
     <div className="max-w-full overflow-auto rounded-md border border-border bg-background shadow-sm">
