@@ -46,24 +46,6 @@ export function VerifyMedicaidButton({
     }
   }
 
-  const tone =
-    result?.status === "matched"
-      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-      : result?.status === "fuzzy"
-        ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-        : result?.status === "no_match"
-          ? "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300"
-          : result?.status === "unconfigured"
-            ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-            : "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300";
-
-  const Icon =
-    result?.status === "matched"
-      ? CheckCircle2
-      : result?.status === "no_match"
-        ? XCircle
-        : AlertTriangle;
-
   return (
     <div className={cn("space-y-2", className)}>
       <Button
@@ -81,26 +63,56 @@ export function VerifyMedicaidButton({
         )}
         {label}
       </Button>
-      {result && (
-        <div
-          role="status"
-          className={cn(
-            "flex items-start gap-2 rounded-lg border px-3 py-2 text-xs",
-            tone,
-          )}
-        >
-          <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <div className="space-y-0.5">
-            <div className="font-medium">{result.message}</div>
-            {result.medicaid_id && (
-              <div className="text-[11px] opacity-80">HFC ID: {result.medicaid_id}</div>
-            )}
-            <div className="text-[11px] opacity-70">
-              Checked using {result.used_identifier === "medicaid_id" ? "Medicaid ID" : result.used_identifier === "ssn_dob" ? "SSN + DOB" : "no identifier"}. Read-only — no claim submitted.
-            </div>
-          </div>
-        </div>
-      )}
+      {result && <VerifyResultCard result={result} />}
     </div>
   );
 }
+
+/**
+ * Shared result presentation, so every verification entry point (in-trip
+ * button, home-screen tool, manual entry) renders an identical outcome.
+ */
+export function VerifyResultCard({ result }: { result: VerifyResult }) {
+  const tone =
+    result.status === "matched"
+      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+      : result.status === "fuzzy"
+        ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+        : result.status === "no_match"
+          ? "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300"
+          : result.status === "unconfigured"
+            ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+            : "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300";
+
+  const Icon =
+    result.status === "matched"
+      ? CheckCircle2
+      : result.status === "no_match"
+        ? XCircle
+        : AlertTriangle;
+
+  return (
+    <div
+      role="status"
+      className={cn("flex items-start gap-2 rounded-lg border px-3 py-2 text-xs", tone)}
+    >
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <div className="space-y-0.5">
+        <div className="font-medium">{result.message}</div>
+        {result.medicaid_id && (
+          <div className="text-[11px] opacity-80">HFC ID: {result.medicaid_id}</div>
+        )}
+        <div className="text-[11px] opacity-70">
+          Checked using{" "}
+          {result.used_identifier === "medicaid_id"
+            ? "Medicaid ID"
+            : result.used_identifier === "ssn_dob"
+              ? "SSN + DOB"
+              : "no identifier"}
+          . Read-only — no claim submitted.
+        </div>
+      </div>
+    </div>
+  );
+}
+

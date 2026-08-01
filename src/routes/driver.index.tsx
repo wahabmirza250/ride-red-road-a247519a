@@ -45,6 +45,7 @@ import {
   saveTripReportDraft,
 } from "@/lib/nemtTrip.functions";
 import { VerifyMedicaidButton } from "@/components/VerifyMedicaidButton";
+import { VerifyMedicaidCard } from "@/components/driver/VerifyMedicaidCard";
 
 export const Route = createFileRoute("/driver/")({ component: DriverHome });
 
@@ -656,6 +657,11 @@ function DriverHome() {
           History
         </Link>
       </div>
+
+      {/* Standalone read-only Medicaid check — available with or without a trip */}
+      <VerifyMedicaidCard />
+
+
 
       {geoError && (
         <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">
