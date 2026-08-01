@@ -808,10 +808,15 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
     }
 
     // Terminal: PASS 1 finished — the claim was filled and read back, session closed.
+    const isFailureStatus =
+      typeof resultStatus === "string" &&
+      /^(BLOCKED|ERROR|FAILED|PORTAL_)/i.test(resultStatus);
     if (
       jobStatus === "done" &&
+      !isFailureStatus &&
       (resultStatus === "READY_FOR_HUMAN_REVIEW" || pass === "capture")
     ) {
+
       const captured = normalizeCapturedClaim(result) ?? normalizeCapturedClaim(body);
       const msg = captured
         ? "Claim data captured from the portal — review it below, then Confirm & Submit."
