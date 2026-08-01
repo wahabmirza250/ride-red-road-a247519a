@@ -60,6 +60,8 @@ export function PortalCredentialsCard() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [pendingDelete, setPendingDelete] = useState<any>(null);
+  const deleteFn = useServerFn(deletePortalCredential);
 
   const setDefault = useMutation({
     mutationFn: (portal_id: string) => setDefaultFn({ data: { portal_id } }),
@@ -70,10 +72,36 @@ export function PortalCredentialsCard() {
     onError: (e: unknown) => toast.error(friendlyErrorMessage(e, "Could not update the default portal")),
   });
 
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      try {
+        return await deleteFn({ data: { id } });
+      } catch (serverError) {
+        // Custom-domain edge deployments can reject server-function requests.
+        // Deleting directly is safe: RLS only allows admins to touch this table.
+        const { error } = await supabase
+          .from("state_portal_credentials")
+          .delete()
+          .eq("id", id);
+        if (error) throw serverError;
+        return { ok: true };
+      }
+    },
+    onSuccess: () => {
+      toast.success("Portal credential deleted");
+      setPendingDelete(null);
+      qc.invalidateQueries({ queryKey: ["portal_credentials"] });
+      qc.invalidateQueries({ queryKey: ["billing_settings"] });
+    },
+    onError: (e: unknown) =>
+      toast.error(friendlyErrorMessage(e, "Could not delete the portal credential")),
+  });
+
   const savedPortalIds = useMemo(
     () => new Set((creds.data ?? []).map((c: any) => c.portal_id)),
     [creds.data],
   );
+
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-5">
