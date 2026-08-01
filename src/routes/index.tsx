@@ -642,3 +642,64 @@ function Reveal({
     </div>
   );
 }
+
+/** Large red count-up figure — animates from $0 to the target when scrolled into view. */
+function CountUpMoney({
+  value,
+  duration = 1300,
+  className = "",
+}: {
+  value: number;
+  duration?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setDisplay(value);
+      return;
+    }
+    let raf = 0;
+    const run = () => {
+      const start = performance.now();
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        setDisplay(Math.round(value * eased));
+        if (t < 1) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    };
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            run();
+            io.disconnect();
+            break;
+          }
+        }
+      },
+      { threshold: 0.4 },
+    );
+    io.observe(node);
+    return () => {
+      io.disconnect();
+      cancelAnimationFrame(raf);
+    };
+  }, [value, duration]);
+
+  return (
+    <span
+      ref={ref}
+      className={`font-display text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl ${className}`}
+      style={{ color: BRAND.red }}
+    >
+      ${display.toLocaleString("en-US")}
+    </span>
+  );
+}
