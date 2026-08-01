@@ -686,7 +686,7 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
       .from("billing_records")
       .select(
         `id, status, trip_id,
-         medicaid_trips!inner(id, robot_job_id, robot_last_status, robot_last_message, robot_last_checked_at)`,
+         medicaid_trips!inner(id, robot_job_id, robot_pass, robot_last_status, robot_last_message, robot_last_checked_at)`,
       )
       .eq("id", data.id)
       .single();
