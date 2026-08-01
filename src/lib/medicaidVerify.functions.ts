@@ -153,7 +153,8 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
         ok?: boolean;
         portal_name?: string | null;
         matched?: boolean;
-        match_confidence?: number | null;
+        // The robot returns a label ("exact" / "fuzzy" / "partial"), not a number.
+        match_confidence?: number | string | null;
       };
 
       if (!body.ok) {
@@ -165,8 +166,20 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
       }
 
       const portalName = body.portal_name ?? null;
+      const rawConfidence = body.match_confidence;
       const confidence =
-        typeof body.match_confidence === "number" ? body.match_confidence : null;
+        typeof rawConfidence === "number"
+          ? rawConfidence
+          : typeof rawConfidence === "string"
+            ? /^exact$/i.test(rawConfidence.trim())
+              ? 1
+              : /^(fuzzy|partial|close)$/i.test(rawConfidence.trim())
+                ? 0.5
+                : Number.isFinite(Number(rawConfidence))
+                  ? Number(rawConfidence)
+                  : null
+            : null;
+
 
       // Exact = matched true AND confidence >= 0.95 (or null with matched=true)
       // Fuzzy = matched true but confidence < 0.95
