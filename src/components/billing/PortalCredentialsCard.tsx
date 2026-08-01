@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Plus, Loader2, KeyRound, Star } from "lucide-react";
+import { Plus, Loader2, KeyRound, Star, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -22,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  deletePortalCredential,
   getBillingSettings,
   listPortalCredentials,
   setDefaultBillingPortal,
@@ -49,6 +60,8 @@ export function PortalCredentialsCard() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [pendingDelete, setPendingDelete] = useState<any>(null);
+  const deleteFn = useServerFn(deletePortalCredential);
 
   const setDefault = useMutation({
     mutationFn: (portal_id: string) => setDefaultFn({ data: { portal_id } }),
@@ -59,10 +72,36 @@ export function PortalCredentialsCard() {
     onError: (e: unknown) => toast.error(friendlyErrorMessage(e, "Could not update the default portal")),
   });
 
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      try {
+        return await deleteFn({ data: { id } });
+      } catch (serverError) {
+        // Custom-domain edge deployments can reject server-function requests.
+        // Deleting directly is safe: RLS only allows admins to touch this table.
+        const { error } = await supabase
+          .from("state_portal_credentials")
+          .delete()
+          .eq("id", id);
+        if (error) throw serverError;
+        return { ok: true };
+      }
+    },
+    onSuccess: () => {
+      toast.success("Portal credential deleted");
+      setPendingDelete(null);
+      qc.invalidateQueries({ queryKey: ["portal_credentials"] });
+      qc.invalidateQueries({ queryKey: ["billing_settings"] });
+    },
+    onError: (e: unknown) =>
+      toast.error(friendlyErrorMessage(e, "Could not delete the portal credential")),
+  });
+
   const savedPortalIds = useMemo(
     () => new Set((creds.data ?? []).map((c: any) => c.portal_id)),
     [creds.data],
   );
+
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-5">
@@ -142,39 +181,54 @@ export function PortalCredentialsCard() {
             const isDefault =
               settings.data?.default_portal_id === c.portal_id;
             return (
-              <button
+              <div
                 key={c.id}
-                onClick={() => {
-                  setEditing(c);
-                  setOpen(true);
-                }}
-                className="flex w-full items-center justify-between rounded-xl border border-border px-3 py-2 text-left hover:border-primary/40"
+                className="flex w-full items-center gap-2 rounded-xl border border-border px-3 py-2 text-left transition hover:border-primary/40"
               >
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
-                    {def?.name ?? c.portal_name}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      · {def?.state ?? c.state}
-                    </span>
-                    {isDefault && (
-                      <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
-                        default
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(c);
+                    setOpen(true);
+                  }}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+                      {def?.name ?? c.portal_name}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        · {def?.state ?? c.state}
                       </span>
+                      {isDefault && (
+                        <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                          default
+                        </span>
+                      )}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {c.login_email} · password ••••
+                      {c.password_last4 ?? "····"}
+                    </div>
+                    {c.last_used_at && (
+                      <div className="text-[10px] text-muted-foreground">
+                        Last used {formatDateTime(c.last_used_at)}
+                      </div>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {c.login_email} · password ••••
-                    {c.password_last4 ?? "····"}
-                  </div>
-                  {c.last_used_at && (
-                    <div className="text-[10px] text-muted-foreground">
-                      Last used {formatDateTime(c.last_used_at)}
-                    </div>
-                  )}
-                </div>
-                <span className="text-xs text-muted-foreground">Edit</span>
-              </button>
+                  <span className="shrink-0 text-xs text-muted-foreground">Edit</span>
+                </button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Delete ${def?.name ?? c.portal_name} credential`}
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => setPendingDelete(c)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             );
           })}
           {creds.data?.length === 0 && (
@@ -184,9 +238,45 @@ export function PortalCredentialsCard() {
           )}
         </div>
       )}
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(o) => {
+          if (!o && !remove.isPending) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this portal credential?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getPortal(pendingDelete?.portal_id)?.name ??
+                pendingDelete?.portal_name}{" "}
+              ({pendingDelete?.login_email}) will be removed permanently. Any
+              billing automation using this portal will stop working until a new
+              login is saved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={remove.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={remove.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDelete) remove.mutate(pendingDelete.id);
+              }}
+            >
+              {remove.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
 
 function CredentialDialog({
   initial,

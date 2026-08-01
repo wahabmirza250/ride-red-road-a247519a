@@ -1034,6 +1034,20 @@ export const upsertPortalCredential = createServerFn({ method: "POST" })
     return { id };
   });
 
+export const deletePortalCredential = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { error } = await supabase
+      .from("state_portal_credentials")
+      .delete()
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 /* ---------- BILLING SETTINGS ---------- */
 
 export const getBillingSettings = createServerFn({ method: "GET" })
