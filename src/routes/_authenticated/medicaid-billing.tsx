@@ -164,9 +164,10 @@ function MedicaidBillingPage() {
 
   function countFor(key: TabKey) {
     const t = TABS.find((x) => x.key === key)!;
-    if (!counts.data) return null;
+    if (!counts.data || t.countKeys.length === 0) return null;
     return t.countKeys.reduce((sum, k) => sum + (counts.data![k] ?? 0), 0);
   }
+
 
   if (!isAdmin) {
     return <div className="p-6 text-sm text-muted-foreground">Admins only.</div>;
