@@ -131,7 +131,12 @@ export const verifyMedicaidIdAdHoc = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
 
     // AuthZ: staff only (driver, dispatch or admin).
-    const allowed = await isStaff(supabase, userId);
+    const [{ data: isAdmin }, { data: isDispatch }, { data: isDriver }] = await Promise.all([
+      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+      supabase.rpc("current_user_is_dispatch"),
+      supabase.rpc("has_role", { _user_id: userId, _role: "driver" }),
+    ]);
+    const allowed = !!isAdmin || !!isDispatch || !!isDriver;
     if (!allowed) throw new Error("Not authorized to run verification");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
