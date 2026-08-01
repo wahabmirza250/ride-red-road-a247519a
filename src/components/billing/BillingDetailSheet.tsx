@@ -405,6 +405,7 @@ export function BillingDetailSheet({
                     recordId={rec.id}
                     captured={trip?.robot_captured_claim}
                     capturedAt={trip?.robot_captured_at ?? null}
+                    vehicleType={(trip as any)?.vehicle_type ?? null}
                   />
                   <details className="rounded-xl border border-border/70 p-3">
                     <summary className="cursor-pointer text-xs text-muted-foreground">
