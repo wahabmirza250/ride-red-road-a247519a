@@ -166,14 +166,36 @@ export function ClaimReviewPanel({
         </span>
       </div>
 
+      {REAL_SUBMISSIONS_PAUSED ? (
+        <div className="flex items-start gap-2 border-t border-border/70 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Real portal submissions are <strong>paused</strong> while billing is being settled. The
+            claim stays in review — nothing is sent to the HCPF portal. Re-enable by setting
+            <code className="mx-1 rounded bg-black/10 px-1">REAL_SUBMISSIONS_PAUSED = false</code>
+            in this panel.
+          </span>
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-2 border-t border-border/70 px-4 py-3 sm:flex-row">
-        <Button className="flex-1" disabled={busy} onClick={() => confirm.mutate()}>
+        <Button
+          className="flex-1"
+          disabled={busy || REAL_SUBMISSIONS_PAUSED}
+          onClick={() => {
+            if (REAL_SUBMISSIONS_PAUSED) return;
+            setPhrase("");
+            setApprovalOpen(true);
+          }}
+        >
           {confirm.isPending ? (
             <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+          ) : REAL_SUBMISSIONS_PAUSED ? (
+            <Lock className="mr-1 h-4 w-4" />
           ) : (
             <Check className="mr-1 h-4 w-4" />
           )}
-          Confirm &amp; Submit
+          {REAL_SUBMISSIONS_PAUSED ? "Submission paused" : "Confirm & Submit"}
         </Button>
         <Button
           variant="secondary"
@@ -189,7 +211,41 @@ export function ClaimReviewPanel({
           Cancel
         </Button>
       </div>
+
+      <AlertDialog open={approvalOpen} onOpenChange={setApprovalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Admin approval required</AlertDialogTitle>
+            <AlertDialogDescription>
+              This sends a <strong>real</strong> claim to the HCPF portal and cannot be undone. Type{" "}
+              <strong>{UNLOCK_PHRASE}</strong> to approve.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={phrase}
+            onChange={(e) => setPhrase(e.target.value)}
+            placeholder={UNLOCK_PHRASE}
+            autoFocus
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!phraseOk || busy}
+              onClick={(e) => {
+                if (!phraseOk || REAL_SUBMISSIONS_PAUSED) {
+                  e.preventDefault();
+                  return;
+                }
+                confirm.mutate();
+              }}
+            >
+              Submit for real
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
 
