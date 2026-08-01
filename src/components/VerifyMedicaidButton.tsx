@@ -63,6 +63,20 @@ export function VerifyMedicaidButton({
         )}
         {label}
       </Button>
+      {loading && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs"
+        >
+          <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+          <div className="space-y-0.5">
+            <div className="font-medium">Checking with Colorado Medicaid…</div>
+            <div className="text-[11px] text-muted-foreground">
+              This usually takes 1–3 minutes. Keep this screen open — it's working.
+            </div>
+          </div>
+        </div>
+      )}
       {result && <VerifyResultCard result={result} />}
     </div>
   );
