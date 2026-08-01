@@ -5,6 +5,8 @@ export type VerifyStatus =
   | "matched"
   | "fuzzy"
   | "no_match"
+  | "found"
+  | "not_found"
   | "unconfigured"
   | "error";
 
