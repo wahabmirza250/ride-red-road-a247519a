@@ -1073,11 +1073,15 @@ export type Database = {
           reviewed_by: string | null
           ride_started_at: string | null
           rider_id: string
+          robot_captured_at: string | null
+          robot_captured_claim: Json | null
+          robot_confirmation_number: string | null
           robot_job_id: string | null
           robot_job_started_at: string | null
           robot_last_checked_at: string | null
           robot_last_message: string | null
           robot_last_status: string | null
+          robot_pass: string | null
           signature_name: string | null
           signature_path: string | null
           signed_by_escort: boolean | null
@@ -1126,11 +1130,15 @@ export type Database = {
           reviewed_by?: string | null
           ride_started_at?: string | null
           rider_id: string
+          robot_captured_at?: string | null
+          robot_captured_claim?: Json | null
+          robot_confirmation_number?: string | null
           robot_job_id?: string | null
           robot_job_started_at?: string | null
           robot_last_checked_at?: string | null
           robot_last_message?: string | null
           robot_last_status?: string | null
+          robot_pass?: string | null
           signature_name?: string | null
           signature_path?: string | null
           signed_by_escort?: boolean | null
@@ -1179,11 +1187,15 @@ export type Database = {
           reviewed_by?: string | null
           ride_started_at?: string | null
           rider_id?: string
+          robot_captured_at?: string | null
+          robot_captured_claim?: Json | null
+          robot_confirmation_number?: string | null
           robot_job_id?: string | null
           robot_job_started_at?: string | null
           robot_last_checked_at?: string | null
           robot_last_message?: string | null
           robot_last_status?: string | null
+          robot_pass?: string | null
           signature_name?: string | null
           signature_path?: string | null
           signed_by_escort?: boolean | null
