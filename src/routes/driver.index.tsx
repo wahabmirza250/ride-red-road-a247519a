@@ -45,6 +45,7 @@ import {
   saveTripReportDraft,
 } from "@/lib/nemtTrip.functions";
 import { VerifyMedicaidButton } from "@/components/VerifyMedicaidButton";
+import { VerifyMedicaidCard } from "@/components/driver/VerifyMedicaidCard";
 
 export const Route = createFileRoute("/driver/")({ component: DriverHome });
 
