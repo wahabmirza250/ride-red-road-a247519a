@@ -13,8 +13,10 @@ export async function callVerifyRobot(args: {
   dateOfBirth: string | null;
   usedIdentifier: VerifyResult["used_identifier"];
   apiKey: string;
+  /** ID-only lookup: report the portal name instead of comparing to a name. */
+  lookupOnly?: boolean;
 }): Promise<VerifyResult> {
-  const { expectedName, memberId, usedIdentifier } = args;
+  const { expectedName, memberId, usedIdentifier, lookupOnly } = args;
 
   const url = process.env.ROBOT_VERIFY_URL;
   if (!url) {
@@ -44,12 +46,15 @@ export async function callVerifyRobot(args: {
     });
 
     if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      console.error("[verify-member] HTTP", res.status, detail.slice(0, 300));
       return {
         status: "error",
         message: "Verification unavailable, try again.",
         used_identifier: usedIdentifier,
       };
     }
+
 
     const body = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
@@ -69,6 +74,26 @@ export async function callVerifyRobot(args: {
 
     const portalName = body.portal_name ?? null;
     const confidence = normalizeConfidence(body.match_confidence);
+
+    if (lookupOnly) {
+      if (portalName) {
+        return {
+          status: "found",
+          message: `This ID belongs to: ${portalName}`,
+          portal_name: portalName,
+          matched_name: portalName,
+          medicaid_id: memberId,
+          used_identifier: usedIdentifier,
+        };
+      }
+      return {
+        status: "not_found",
+        message: "No record found for this ID.",
+        medicaid_id: memberId,
+        used_identifier: usedIdentifier,
+      };
+    }
+
 
     // Exact = matched true AND confidence >= 0.95 (or null with matched=true)
     // Fuzzy = matched true but confidence < 0.95
@@ -103,7 +128,8 @@ export async function callVerifyRobot(args: {
       match_confidence: confidence,
       used_identifier: usedIdentifier,
     };
-  } catch {
+  } catch (e) {
+    console.error("[verify-member] fetch failed", e);
     return {
       status: "error",
       message: "Verification unavailable, try again.",

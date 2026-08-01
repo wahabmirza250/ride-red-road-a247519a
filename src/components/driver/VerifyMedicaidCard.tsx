@@ -185,7 +185,6 @@ function SavedPassengerPicker() {
 function ManualEntry() {
   const verify = useServerFn(verifyMedicaidIdAdHoc);
   const [medicaidId, setMedicaidId] = useState("");
-  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
 
@@ -194,14 +193,12 @@ function ManualEntry() {
     setResult(null);
     try {
       setResult(
-        (await verify({
-          data: { medicaid_id: medicaidId, expected_name: name },
-        })) as VerifyResult,
+        (await verify({ data: { medicaid_id: medicaidId } })) as VerifyResult,
       );
     } catch (e) {
       setResult({
         status: "error",
-        message: e instanceof Error ? e.message : "Verification failed",
+        message: e instanceof Error ? e.message : "Lookup failed",
         used_identifier: "none",
       });
     } finally {
@@ -209,7 +206,7 @@ function ManualEntry() {
     }
   }
 
-  const ready = medicaidId.trim().length > 0 && name.trim().length > 0;
+  const ready = medicaidId.trim().length > 0;
 
   return (
     <div className="space-y-2">
@@ -218,12 +215,7 @@ function ManualEntry() {
         onChange={(e) => setMedicaidId(e.target.value)}
         placeholder="Medicaid ID (e.g. M964077)"
         className="h-9"
-      />
-      <Input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Expected name (first last)"
-        className="h-9"
+        disabled={loading}
       />
       <Button
         type="button"
@@ -238,9 +230,29 @@ function ManualEntry() {
         ) : (
           <ShieldCheck className="mr-1.5 h-4 w-4" />
         )}
-        Verify Medicaid ID
+        Look up Medicaid ID
       </Button>
+      {loading && <CheckingNotice />}
       {result && <VerifyResultCard result={result} />}
     </div>
   );
 }
+
+/** Long-running portal lookup — make the wait feel intentional. */
+function CheckingNotice() {
+  return (
+    <div
+      role="status"
+      className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs"
+    >
+      <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+      <div className="space-y-0.5">
+        <div className="font-medium">Checking with Colorado Medicaid…</div>
+        <div className="text-[11px] text-muted-foreground">
+          This usually takes 1–3 minutes. Keep this screen open — it's working.
+        </div>
+      </div>
+    </div>
+  );
+}
+

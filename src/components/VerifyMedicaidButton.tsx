@@ -63,6 +63,20 @@ export function VerifyMedicaidButton({
         )}
         {label}
       </Button>
+      {loading && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs"
+        >
+          <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+          <div className="space-y-0.5">
+            <div className="font-medium">Checking with Colorado Medicaid…</div>
+            <div className="text-[11px] text-muted-foreground">
+              This usually takes 1–3 minutes. Keep this screen open — it's working.
+            </div>
+          </div>
+        </div>
+      )}
       {result && <VerifyResultCard result={result} />}
     </div>
   );
@@ -74,20 +88,20 @@ export function VerifyMedicaidButton({
  */
 export function VerifyResultCard({ result }: { result: VerifyResult }) {
   const tone =
-    result.status === "matched"
+    result.status === "matched" || result.status === "found"
       ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
       : result.status === "fuzzy"
         ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-        : result.status === "no_match"
+        : result.status === "no_match" || result.status === "not_found"
           ? "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300"
           : result.status === "unconfigured"
             ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
             : "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300";
 
   const Icon =
-    result.status === "matched"
+    result.status === "matched" || result.status === "found"
       ? CheckCircle2
-      : result.status === "no_match"
+      : result.status === "no_match" || result.status === "not_found"
         ? XCircle
         : AlertTriangle;
 
