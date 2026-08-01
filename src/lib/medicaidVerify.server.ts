@@ -72,6 +72,26 @@ export async function callVerifyRobot(args: {
     const portalName = body.portal_name ?? null;
     const confidence = normalizeConfidence(body.match_confidence);
 
+    if (lookupOnly) {
+      if (portalName) {
+        return {
+          status: "found",
+          message: `This ID belongs to: ${portalName}`,
+          portal_name: portalName,
+          matched_name: portalName,
+          medicaid_id: memberId,
+          used_identifier: usedIdentifier,
+        };
+      }
+      return {
+        status: "not_found",
+        message: "No record found for this ID.",
+        medicaid_id: memberId,
+        used_identifier: usedIdentifier,
+      };
+    }
+
+
     // Exact = matched true AND confidence >= 0.95 (or null with matched=true)
     // Fuzzy = matched true but confidence < 0.95
     // No match = matched false
