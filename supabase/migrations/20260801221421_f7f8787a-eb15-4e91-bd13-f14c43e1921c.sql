@@ -1,0 +1,2 @@
+INSERT INTO public.user_roles (user_id, role) VALUES ('70a5fcd8-e0cb-4ce5-b3b8-a0b4db36ba35','driver') ON CONFLICT DO NOTHING;
+INSERT INTO public.drivers (user_id) VALUES ('70a5fcd8-e0cb-4ce5-b3b8-a0b4db36ba35') ON CONFLICT DO NOTHING;
