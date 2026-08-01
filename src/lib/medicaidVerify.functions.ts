@@ -225,21 +225,3 @@ export const listVerifiablePassengers = createServerFn({ method: "POST" })
       phone: p.phone ?? null,
     }));
   });
-
-async function isStaff(
-  supabase: { rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown }> },
-  userId: string,
-) {
-  const { data: isAdmin } = await supabase.rpc("has_role", {
-    _user_id: userId,
-    _role: "admin",
-  });
-  if (isAdmin) return true;
-  const { data: isDispatch } = await supabase.rpc("current_user_is_dispatch");
-  if (isDispatch) return true;
-  const { data: isDriver } = await supabase.rpc("has_role", {
-    _user_id: userId,
-    _role: "driver",
-  });
-  return !!isDriver;
-}
