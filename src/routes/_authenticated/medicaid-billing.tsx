@@ -42,6 +42,8 @@ import { getPortal } from "@/lib/portals";
 import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
+import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
+
 import { getBillingCountsClient, listBillingRecordsClient } from "@/lib/billingClient";
 
 export const Route = createFileRoute("/_authenticated/medicaid-billing")({
