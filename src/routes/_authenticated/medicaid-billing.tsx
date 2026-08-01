@@ -48,7 +48,7 @@ export const Route = createFileRoute("/_authenticated/medicaid-billing")({
   component: MedicaidBillingPage,
 });
 
-type TabKey = "pending_review" | "ready_to_submit" | "awaiting_portal" | "submitted";
+type TabKey = "pending_review" | "ready_to_submit" | "awaiting_portal" | "submitted" | "claims_history";
 
 const TABS: {
   key: TabKey;
