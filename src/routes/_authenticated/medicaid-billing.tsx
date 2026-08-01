@@ -42,13 +42,15 @@ import { getPortal } from "@/lib/portals";
 import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
+import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
+
 import { getBillingCountsClient, listBillingRecordsClient } from "@/lib/billingClient";
 
 export const Route = createFileRoute("/_authenticated/medicaid-billing")({
   component: MedicaidBillingPage,
 });
 
-type TabKey = "pending_review" | "ready_to_submit" | "awaiting_portal" | "submitted";
+type TabKey = "pending_review" | "ready_to_submit" | "awaiting_portal" | "submitted" | "claims_history";
 
 const TABS: {
   key: TabKey;
@@ -87,7 +89,14 @@ const TABS: {
     statuses: ["submitted"],
     countKeys: ["submitted"],
   },
+  {
+    key: "claims_history",
+    label: "Claims History",
+    statuses: ["submitted"],
+    countKeys: [],
+  },
 ];
+
 
 function MedicaidBillingPage() {
   const { isAdmin } = useAuth();
@@ -157,9 +166,10 @@ function MedicaidBillingPage() {
 
   function countFor(key: TabKey) {
     const t = TABS.find((x) => x.key === key)!;
-    if (!counts.data) return null;
+    if (!counts.data || t.countKeys.length === 0) return null;
     return t.countKeys.reduce((sum, k) => sum + (counts.data![k] ?? 0), 0);
   }
+
 
   if (!isAdmin) {
     return <div className="p-6 text-sm text-muted-foreground">Admins only.</div>;
@@ -211,11 +221,14 @@ function MedicaidBillingPage() {
         </TabsList>
       </Tabs>
 
-      {rows.isLoading ? (
+      {tab === "claims_history" ? (
+        <ClaimsHistoryTab />
+      ) : rows.isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : tab === "pending_review" ? (
+
         <PendingReviewTab
           rows={rows.data ?? []}
           onOpen={setSelectedId}

@@ -104,16 +104,36 @@ export function extractConfirmationNumber(input: unknown): string | null {
     root.receiptNumber,
     root.claim_number,
     root.claimNumber,
+    root.claim_id,
+    root.claimId,
     root.tcn,
     root.captured?.confirmation_number,
     root.result?.confirmation_number,
+    root.result?.claim_id,
+    root.post_confirm_dump?.claim_id,
+    root.result?.post_confirm_dump?.claim_id,
   ];
   for (const c of candidates) {
     if (typeof c === "string" && c.trim()) return c.trim();
     if (typeof c === "number" && Number.isFinite(c)) return String(c);
   }
+  // Last resort: the receipt page text ("The Claim ID is 9426213001270.")
+  const texts = [
+    root.post_confirm_dump?.bodyTextFull,
+    root.post_confirm_dump?.bodyTextSnippet,
+    root.result?.post_confirm_dump?.bodyTextFull,
+    root.result?.post_confirm_dump?.bodyTextSnippet,
+    root.message,
+    root.result?.message,
+  ];
+  for (const t of texts) {
+    if (typeof t !== "string") continue;
+    const m = t.match(/Claim\s*ID\s*is\s*([0-9A-Za-z-]{6,})/i) ?? t.match(/Claim\s*ID[:\s]+([0-9]{8,})/i);
+    if (m?.[1]) return m[1].replace(/[.,;]$/, "");
+  }
   return null;
 }
+
 
 export function formatMoney(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "—";

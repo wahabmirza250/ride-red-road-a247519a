@@ -754,8 +754,18 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
               : "Submitted to the portal.",
             robot_last_checked_at: nowIso,
             robot_confirmation_number: confirmation,
+            // Canonical submission record — kept in sync so the trip row itself
+            // reflects the real portal submission without manual correction.
+            status: "submitted",
+            submitted_confirmation: confirmation,
+            portal_confirmation: confirmation,
+            portal_status: "submitted",
+            portal_submitted_at: nowIso,
+            submitted_at: nowIso,
+            submitted_by: userId,
           })
           .eq("id", trip.id);
+
         await supabase
           .from("billing_records")
           .update({
