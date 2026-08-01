@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Loader2, FileDown, Check, X, AlertCircle, RefreshCw, Bot } from "lucide-react";
 import { StatusPill } from "@/components/nemt/StatusPill";
+import { ClaimReviewPanel } from "@/components/billing/ClaimReviewPanel";
 import { formatDateTime } from "@/lib/format";
 import {
   approveBillingRecord,
@@ -399,25 +400,38 @@ export function BillingDetailSheet({
               )}
 
               {rec.status === "pending_submit" && (
-                <div>
-                  <Label>Confirmation / Receipt number from HCPF portal</Label>
-                  <Input
-                    value={confirmationNumber}
-                    onChange={(e) => setConfirmationNumber(e.target.value)}
-                    placeholder="Paste the portal's receipt number"
+                <div className="space-y-3">
+                  <ClaimReviewPanel
+                    recordId={rec.id}
+                    captured={trip?.robot_captured_claim}
+                    capturedAt={trip?.robot_captured_at ?? null}
                   />
-                  <Button
-                    className="mt-2 w-full"
-                    disabled={!confirmationNumber.trim() || markSubmitted.isPending}
-                    onClick={() => markSubmitted.mutate()}
-                  >
-                    {markSubmitted.isPending && (
-                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                    )}
-                    <Check className="mr-1 h-4 w-4" /> Mark as Submitted
-                  </Button>
+                  <details className="rounded-xl border border-border/70 p-3">
+                    <summary className="cursor-pointer text-xs text-muted-foreground">
+                      Enter a confirmation number manually instead
+                    </summary>
+                    <div className="mt-2">
+                      <Label>Confirmation / Receipt number from HCPF portal</Label>
+                      <Input
+                        value={confirmationNumber}
+                        onChange={(e) => setConfirmationNumber(e.target.value)}
+                        placeholder="Paste the portal's receipt number"
+                      />
+                      <Button
+                        className="mt-2 w-full"
+                        disabled={!confirmationNumber.trim() || markSubmitted.isPending}
+                        onClick={() => markSubmitted.mutate()}
+                      >
+                        {markSubmitted.isPending && (
+                          <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                        )}
+                        <Check className="mr-1 h-4 w-4" /> Mark as Submitted
+                      </Button>
+                    </div>
+                  </details>
                 </div>
               )}
+
 
               {rec.status === "submitted" && (
                 <>

@@ -3,6 +3,7 @@ import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateStateFormPdf, type Leg } from "@/lib/medicaidPdf";
+import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
 
 /** Utility: verify admin, throw on failure */
 async function assertAdmin(supabase: any, userId: string) {
@@ -504,9 +505,16 @@ function formatTripDateMDY(pickupAt: string | null | undefined): string {
 
 async function startRobotSubmission(
   supabase: any,
-  args: { billingRecordId: string; trip: any; providerUserId: string },
+  args: {
+    billingRecordId: string;
+    trip: any;
+    providerUserId: string;
+    /** "capture" = PASS 1 (fill + read back, never submit). "submit" = PASS 2. */
+    mode?: "capture" | "submit";
+  },
 ) {
   const { billingRecordId, trip, providerUserId } = args;
+  const mode = args.mode ?? "capture";
   const rider = trip.riders;
   const medicaidMemberId: string | null = rider?.medicaid_id ?? null;
   if (!medicaidMemberId) {
@@ -515,7 +523,7 @@ async function startRobotSubmission(
 
   // Unique job id per submission attempt. Server-side timestamp keeps it
   // monotonic even if two attempts race.
-  const jobId = `trip-${trip.id}-${Date.now()}`;
+  const jobId = `trip-${trip.id}-${mode}-${Date.now()}`;
 
   const payload = {
     id: jobId,
@@ -528,6 +536,14 @@ async function startRobotSubmission(
     pickup_odometer: Number(trip.odometer_start ?? 0),
     dropoff_odometer: Number(trip.odometer_end ?? 0),
     is_round_trip: trip.trip_kind === "round_trip",
+    // Two-pass contract with the automation service. Aliases are sent so the
+    // robot can read whichever flag name it implements.
+    mode,
+    capture_only: mode === "capture",
+    return_captured_data: true,
+    close_session: true,
+    confirm_submit: mode === "submit",
+    click_submit: mode === "submit",
   };
 
   const res = await fetch(`${ROBOT_BASE_URL}/submit-claim`, {
@@ -559,14 +575,100 @@ async function startRobotSubmission(
       robot_last_status: "started",
       robot_last_message: null,
       robot_last_checked_at: nowIso,
+      robot_pass: mode,
+      ...(mode === "capture"
+        ? { robot_captured_claim: null, robot_captured_at: null }
+        : {}),
     })
     .eq("id", trip.id);
 
   await supabase
     .from("billing_records")
-    .update({ status: "submitting", submission_error: null })
+    .update({
+      status: "submitting",
+      submission_error: null,
+      requires_human_step: false,
+    })
     .eq("id", billingRecordId);
 }
+
+const TRIP_SELECT_FOR_ROBOT = `id, status, trip_id,
+   medicaid_trips!inner(
+     id, pickup_at, odometer_start, odometer_end, signature_path,
+     vehicle_type, trip_kind, rider_id, robot_captured_claim,
+     riders(medicaid_id)
+   )`;
+
+/**
+ * PASS 2 — the human reviewed the captured claim and tapped "Confirm & Submit".
+ * Opens a fresh robot session that re-fills the claim and clicks through the
+ * portal's Submit + "Confirm Professional Claim" checkpoint for real.
+ */
+export const confirmAndSubmitClaim = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const { data: rec, error } = await supabase
+      .from("billing_records")
+      .select(TRIP_SELECT_FOR_ROBOT)
+      .eq("id", data.id)
+      .single();
+    if (error) throw new Error(error.message);
+    const trip: any = rec.medicaid_trips;
+    if (!trip) throw new Error("Trip not found");
+    if (!trip.robot_captured_claim) {
+      throw new Error(
+        "No captured claim to confirm yet — run the automation capture pass first.",
+      );
+    }
+
+    try {
+      await startRobotSubmission(supabase, {
+        billingRecordId: data.id,
+        trip,
+        providerUserId: userId,
+        mode: "submit",
+      });
+      await logAudit(supabase, data.id, userId, "claim_confirmed_submitting");
+      return { ok: true };
+    } catch (e: any) {
+      const msg = e?.message ?? "Could not start the real submission";
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "pending_submit",
+          requires_human_step: true,
+          submission_error: msg,
+        })
+        .eq("id", data.id);
+      await logAudit(supabase, data.id, userId, "claim_confirm_failed", msg);
+      throw new Error(msg);
+    }
+  });
+
+/**
+ * The human tapped "Cancel" on the review screen. Nothing touches the portal —
+ * the record simply stays where it is, with the review discarded.
+ */
+export const cancelClaimReview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    await logAudit(
+      supabase,
+      data.id,
+      userId,
+      "claim_review_cancelled",
+      "Reviewer cancelled — no portal session was opened.",
+    );
+    return { ok: true };
+  });
+
 
 /**
  * Poll the Railway automation service for job status and reconcile the
@@ -584,7 +686,7 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
       .from("billing_records")
       .select(
         `id, status, trip_id,
-         medicaid_trips!inner(id, robot_job_id, robot_last_status, robot_last_message, robot_last_checked_at)`,
+         medicaid_trips!inner(id, robot_job_id, robot_pass, robot_last_status, robot_last_message, robot_last_checked_at)`,
       )
       .eq("id", data.id)
       .single();
@@ -633,16 +735,100 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
       return { pending: true, status: jobStatus, message: resultReason };
     }
 
-    // Terminal: success path
-    if (jobStatus === "done" && resultStatus === "READY_FOR_HUMAN_REVIEW") {
-      const msg =
-        "Claim form is filled in the HCPF portal — please log in, review, and click Submit manually.";
+    const pass: "capture" | "submit" = trip?.robot_pass === "submit" ? "submit" : "capture";
+
+    // Terminal: PASS 2 finished — the robot really clicked Submit + Confirm.
+    if (jobStatus === "done" && pass === "submit") {
+      const confirmation = extractConfirmationNumber(result) ?? extractConfirmationNumber(body);
+      const submitted =
+        !!confirmation ||
+        ["SUBMITTED", "CONFIRMED", "SUCCESS", "COMPLETED"].includes(resultStatus.toUpperCase());
+
+      if (submitted) {
+        await supabase
+          .from("medicaid_trips")
+          .update({
+            robot_last_status: resultStatus || "SUBMITTED",
+            robot_last_message: confirmation
+              ? `Submitted. Portal confirmation #${confirmation}`
+              : "Submitted to the portal.",
+            robot_last_checked_at: nowIso,
+            robot_confirmation_number: confirmation,
+          })
+          .eq("id", trip.id);
+        await supabase
+          .from("billing_records")
+          .update({
+            status: "submitted",
+            state_confirmation_number: confirmation,
+            submitted_at: nowIso,
+            submission_error: null,
+            requires_human_step: false,
+          })
+          .eq("id", rec.id);
+        await logAudit(
+          supabase,
+          rec.id,
+          userId,
+          "robot_submitted",
+          confirmation ? `Confirmation #${confirmation}` : "Submitted (no confirmation number returned)",
+        );
+        return {
+          pending: false,
+          status: "submitted",
+          message: confirmation
+            ? `Submitted — confirmation #${confirmation}`
+            : "Submitted, but the portal did not return a confirmation number.",
+          confirmation_number: confirmation,
+        };
+      }
+
+      // Pass 2 did NOT complete — never silently mark as submitted.
+      const failMsg =
+        resultReason ||
+        `The real submission did not complete (portal returned "${resultStatus || jobStatus}"). The claim was NOT submitted.`;
       await supabase
         .from("medicaid_trips")
         .update({
-          robot_last_status: resultStatus,
+          robot_last_status: resultStatus || jobStatus,
+          robot_last_message: failMsg,
+          robot_last_checked_at: nowIso,
+        })
+        .eq("id", trip.id);
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "pending_submit",
+          requires_human_step: true,
+          submission_error: failMsg,
+        })
+        .eq("id", rec.id);
+      await logAudit(supabase, rec.id, userId, "robot_submit_failed", failMsg);
+      return { pending: false, status: resultStatus || jobStatus, message: failMsg };
+    }
+
+    // Terminal: PASS 1 finished — the claim was filled and read back, session closed.
+    const isFailureStatus =
+      typeof resultStatus === "string" &&
+      /^(BLOCKED|ERROR|FAILED|PORTAL_)/i.test(resultStatus);
+    if (
+      jobStatus === "done" &&
+      !isFailureStatus &&
+      (resultStatus === "READY_FOR_HUMAN_REVIEW" || pass === "capture")
+    ) {
+
+      const captured = normalizeCapturedClaim(result) ?? normalizeCapturedClaim(body);
+      const msg = captured
+        ? "Claim data captured from the portal — review it below, then Confirm & Submit."
+        : "The robot filled the claim but did not return readable claim data. Review in the portal before submitting.";
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: resultStatus || "CAPTURED",
           robot_last_message: msg,
           robot_last_checked_at: nowIso,
+          robot_captured_claim: captured ?? null,
+          robot_captured_at: captured ? nowIso : null,
         })
         .eq("id", trip.id);
       await supabase
@@ -653,9 +839,10 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
           submission_error: msg,
         })
         .eq("id", rec.id);
-      await logAudit(supabase, rec.id, userId, "robot_ready_for_review", msg);
-      return { pending: false, status: resultStatus, message: msg };
+      await logAudit(supabase, rec.id, userId, "robot_captured_for_review", msg);
+      return { pending: false, status: resultStatus || "CAPTURED", message: msg };
     }
+
 
     // Terminal: error / BLOCKED_*
     const errMsg =
