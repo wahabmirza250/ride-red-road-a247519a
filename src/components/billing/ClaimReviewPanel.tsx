@@ -92,6 +92,12 @@ export function ClaimReviewPanel({
 
   const busy = confirm.isPending || cancel.isPending;
 
+  // Explicit-approval gate for the real (PASS 2) submission.
+  const [approvalOpen, setApprovalOpen] = useState(false);
+  const [phrase, setPhrase] = useState("");
+  const phraseOk = phrase.trim().toUpperCase() === UNLOCK_PHRASE;
+
+
   if (!claim) {
     return (
       <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
