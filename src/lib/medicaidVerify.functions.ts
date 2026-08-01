@@ -117,17 +117,15 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
 
 /**
  * Same READ-ONLY portal check, but for a Medicaid ID typed in by hand — used
- * by the standalone verification tool on the driver home screen when the
- * person isn't a saved passenger yet. No record is created or modified.
+ * by the standalone lookup tool on the driver home screen. ID-only: it reports
+ * whichever name the portal has on file, with no name comparison.
  */
 export const verifyMedicaidIdAdHoc = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { medicaid_id: string; expected_name: string }) => {
+  .inputValidator((input: { medicaid_id: string }) => {
     const medicaid_id = (input.medicaid_id ?? "").trim();
-    const expected_name = (input.expected_name ?? "").trim();
     if (!medicaid_id) throw new Error("Medicaid ID is required");
-    if (!expected_name) throw new Error("Expected name is required");
-    return { medicaid_id, expected_name };
+    return { medicaid_id };
   })
   .handler(async ({ data, context }): Promise<VerifyResult> => {
     const { supabase, userId } = context;
@@ -148,14 +146,16 @@ export const verifyMedicaidIdAdHoc = createServerFn({ method: "POST" })
 
     return callVerifyRobot({
       providerUserId: await resolveProviderUserId(supabaseAdmin as any, userId),
-      expectedName: data.expected_name,
+      expectedName: "",
       memberId: data.medicaid_id,
       ssn: null,
       dateOfBirth: null,
       usedIdentifier: "medicaid_id",
+      lookupOnly: true,
       apiKey: await getRobotApiKey(supabaseAdmin as any),
     });
   });
+
 
 /**
  * Passengers this driver has driven (or is scheduled to drive), so the
