@@ -128,7 +128,8 @@ export async function callVerifyRobot(args: {
       match_confidence: confidence,
       used_identifier: usedIdentifier,
     };
-  } catch {
+  } catch (e) {
+    console.error("[verify-member] fetch failed", e);
     return {
       status: "error",
       message: "Verification unavailable, try again.",
