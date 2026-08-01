@@ -87,7 +87,14 @@ const TABS: {
     statuses: ["submitted"],
     countKeys: ["submitted"],
   },
+  {
+    key: "claims_history",
+    label: "Claims History",
+    statuses: ["submitted"],
+    countKeys: [],
+  },
 ];
+
 
 function MedicaidBillingPage() {
   const { isAdmin } = useAuth();
