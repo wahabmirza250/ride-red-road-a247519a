@@ -257,6 +257,56 @@ function LandingPage() {
         </div>
       </section>
 
+      {/* Why choose us */}
+      <section id="why-choose-us" className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
+        <Reveal>
+          <SectionHeader
+            kicker="Why choose us"
+            title="Stop Paying for What Software Can Do Better"
+            copy="The average NEMT billing team costs you more than you think."
+            accent="red"
+          />
+        </Reveal>
+        <div className="mt-12 grid gap-5 lg:grid-cols-2">
+          <Reveal>
+            <div className="h-full rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur sm:p-10">
+              <p className="text-muted-foreground">
+                Five billers on payroll runs close to{" "}
+                <CountUpMoney value={20000} className="align-baseline" /> a month —
+                salaries, benefits, training, turnover, and the mistakes that come with
+                manual data entry. RedArt replaces that entire workload with one automated
+                system that never calls in sick, never mistypes a diagnosis code, and never
+                misses a deadline.
+              </p>
+              <p className="mt-6 text-muted-foreground">
+                Save up to <CountUpMoney value={240000} /> a year. Redirect it into more
+                drivers, better vehicles, or your own pocket.
+              </p>
+            </div>
+          </Reveal>
+          <Reveal delay={90}>
+            <div className="h-full rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur sm:p-10">
+              <h3 className="font-display text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
+                Protect Yourself From What You Can't See
+              </h3>
+              <p className="mt-4 text-muted-foreground">
+                When drivers earn on commission, the incentive to pad mileage is real — and
+                every padded mile is a claim that doesn't match reality. One audit, one
+                flagged pattern, and your Medicaid provider account can be suspended
+                overnight.
+              </p>
+              <p className="mt-4 text-muted-foreground">
+                RedArt closes that gap automatically. Every trip is backed by GPS-verified
+                routes, timestamped odometer photos, and digitally signed proof of service —
+                captured the moment the trip happens, not typed in from memory afterward.
+                Your billing isn't just fast. It's defensible.
+              </p>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+
       {/* Why join */}
       <section id="why-join" className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
         <Reveal>
