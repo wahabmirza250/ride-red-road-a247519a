@@ -1,25 +1,24 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  ArrowUpRight,
-  BadgeDollarSign,
-  Building2,
-  Car,
-  FileCheck2,
-  Gauge,
-  MapPin,
-  Quote,
-  Radio,
-  ReceiptText,
-  ShieldCheck,
-  Signature,
-} from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { BrandWordmark } from "@/components/Brand";
+import {
+  Car,
+  Users,
+  Radio,
+  ShieldCheck,
+  Clock,
+  MapPin,
+  FileCheck2,
+  Sparkles,
+  BadgeDollarSign,
+  HeartPulse,
+} from "lucide-react";
 
-// RedArt logo palette — red leads, the rest are quiet accents.
+// RedArt logo palette — mixed across the page for a branded, non-monochrome feel.
 const BRAND = {
-  red: "#C8354E",
   yellow: "#F4C430",
+  red: "#C8354E",
   blue: "#1E6FB8",
   green: "#1F9D6A",
 } as const;
@@ -29,280 +28,394 @@ type BrandColor = keyof typeof BRAND;
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "RedArt — Automated NEMT dispatch, drivers & Medicaid billing" },
+      { title: "RedArt — Modern NEMT dispatch, drivers, and rider experience" },
       {
         name: "description",
         content:
-          "RedArt automates non-emergency medical transport end to end: live dispatch, a driver app with GPS-verified proof of service, and Medicaid claims prepared automatically for human review.",
+          "RedArt builds a modern non-emergency medical transport platform: realtime dispatch, a driver app, and a rider experience — all in one system built for Medicaid providers in Colorado.",
       },
-      { property: "og:title", content: "RedArt — Automated NEMT operations" },
+      { property: "og:title", content: "RedArt — Modern NEMT platform" },
       {
         property: "og:description",
         content:
-          "Replace manual billing staff and protect against fraud risk with automated, GPS-verified documentation for every trip.",
+          "One platform for dispatch, drivers, and riders. Purpose-built for NEMT and Medicaid billing.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: MarketingHome,
+  component: LandingPage,
 });
 
-function MarketingHome() {
+function LandingPage() {
   const year = new Date().getFullYear();
 
   return (
-    <div className="dark relative isolate min-h-screen overflow-x-hidden bg-[#07070a] text-foreground antialiased">
-      <BackgroundFX />
+    <div className="dark relative isolate min-h-screen overflow-hidden bg-[#07070a] text-foreground antialiased">
+      {/* Atmospheric layers — mixed logo colors, deep and minimal */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[70rem]"
+        style={{
+          background: `
+            radial-gradient(38% 32% at 18% 8%, ${BRAND.yellow}22, transparent 70%),
+            radial-gradient(42% 34% at 82% 4%, ${BRAND.blue}2b, transparent 72%),
+            radial-gradient(46% 38% at 50% 22%, ${BRAND.red}26, transparent 70%),
+            radial-gradient(34% 30% at 88% 42%, ${BRAND.green}22, transparent 72%)
+          `,
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,transparent_0%,#07070a_85%)]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.035] [background-image:linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] [background-size:64px_64px] [mask-image:radial-gradient(60%_50%_at_50%_20%,#000,transparent)]"
+      />
 
-      {/* Nav */}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#07070a]/75 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-5 py-4 sm:px-6">
-          <BrandWordmark className="h-7 w-auto shrink-0 sm:h-8" />
-          <nav className="ml-auto hidden items-center gap-8 text-sm text-muted-foreground md:flex">
-            <a href="#why" className="transition hover:text-foreground">Why RedArt</a>
-            <a href="#features" className="transition hover:text-foreground">Product</a>
-            <a href="#trust" className="transition hover:text-foreground">Customers</a>
-            <a href="#contact" className="transition hover:text-foreground">Contact</a>
+      {/* Top bar */}
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#07070a]/80 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+          <BrandWordmark className="h-8 w-auto" />
+          <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
+            <a href="#product" className="transition hover:text-foreground">
+              Product
+            </a>
+            <a href="#benefits" className="transition hover:text-foreground">
+              Benefits
+            </a>
+            <a href="#why-join" className="transition hover:text-foreground">
+              Why join
+            </a>
+            <a href="#contact" className="transition hover:text-foreground">
+              Contact
+            </a>
           </nav>
-          <a
-            href="#contact"
-            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold text-white shadow-[0_10px_30px_-12px_rgba(200,53,78,0.8)] transition hover:-translate-y-0.5 md:ml-0"
-            style={{ background: `linear-gradient(135deg, ${BRAND.red} 0%, #8f1f36 100%)` }}
+          <Link
+            to="/passenger"
+            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold text-white shadow-[0_8px_24px_-10px_rgba(200,53,78,0.6)] transition hover:-translate-y-0.5"
+            style={{
+              background: `linear-gradient(135deg, ${BRAND.red} 0%, ${BRAND.yellow} 100%)`,
+            }}
           >
-            Request a demo
+            Book a ride
             <ArrowUpRight className="h-3.5 w-3.5" />
-          </a>
+          </Link>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-20 pt-20 text-center sm:px-6 sm:pt-28">
+      <section className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-6 pb-24 pt-24 text-center sm:pt-32">
         <span
-          className="animate-fade-in inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.24em] text-muted-foreground backdrop-blur sm:text-[11px]"
+          className="animate-fade-in inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground backdrop-blur"
           style={{ animationDelay: "0ms", animationFillMode: "both" }}
         >
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ backgroundColor: BRAND.red }} />
-          NEMT operations platform
+          <span
+            className="h-1.5 w-1.5 animate-pulse rounded-full"
+            style={{ backgroundColor: BRAND.red }}
+          />
+          NEMT · Colorado
         </span>
 
         <h1
-          className="animate-fade-in mx-auto mt-7 max-w-4xl font-display text-4xl font-semibold leading-[1.02] tracking-tight sm:text-6xl lg:text-[4.75rem]"
+          className="animate-fade-in mt-6 max-w-4xl font-display text-[12vw] font-semibold leading-[0.95] tracking-tight sm:text-6xl md:text-7xl lg:text-[5.25rem]"
           style={{ animationDelay: "80ms", animationFillMode: "both" }}
         >
-          Run your entire NEMT operation
-          <br className="hidden sm:block" />{" "}
+          Non-emergency transport,
+          <br />
           <span
             className="bg-clip-text text-transparent"
-            style={{ backgroundImage: `linear-gradient(100deg, ${BRAND.red} 0%, #ff7a5c 55%, ${BRAND.yellow} 100%)` }}
+            style={{
+              backgroundImage: `linear-gradient(100deg, ${BRAND.yellow} 0%, ${BRAND.red} 38%, ${BRAND.blue} 72%, ${BRAND.green} 100%)`,
+            }}
           >
-            on autopilot.
+            reimagined for the road.
           </span>
         </h1>
 
         <p
-          className="animate-fade-in mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
-          style={{ animationDelay: "170ms", animationFillMode: "both" }}
+          className="animate-fade-in mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
+          style={{ animationDelay: "180ms", animationFillMode: "both" }}
         >
-          Dispatch, driver management, and Medicaid billing in one system. Replace
-          manual billing staff and protect yourself from fraud risk with automated,
-          GPS-verified documentation on every single trip.
+          RedArt is one platform for dispatch, drivers, and riders — purpose-built
+          for Medicaid transport. Ride requests in, clean claims out, everything
+          tracked in between.
         </p>
 
         <div
-          className="animate-fade-in mt-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row"
-          style={{ animationDelay: "250ms", animationFillMode: "both" }}
+          className="animate-fade-in mt-10 flex w-full max-w-md flex-col items-stretch gap-3 sm:flex-row sm:justify-center"
+          style={{ animationDelay: "260ms", animationFillMode: "both" }}
         >
           <a
-            href="#contact"
-            className="group inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-white shadow-[0_14px_40px_-14px_rgba(200,53,78,0.9)] transition-all duration-300 hover:-translate-y-0.5"
-            style={{ background: `linear-gradient(135deg, ${BRAND.red} 0%, #8f1f36 100%)` }}
+            href="#product"
+            className="group inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(200,53,78,0.6)] transition-all duration-300 hover:-translate-y-0.5"
+            style={{
+              background: `linear-gradient(135deg, ${BRAND.red} 0%, ${BRAND.yellow} 100%)`,
+            }}
           >
-            Book a call
+            See the product
             <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </a>
           <a
-            href="#features"
-            className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-7 py-3.5 text-sm font-semibold text-foreground backdrop-blur transition-all duration-300 hover:border-white/25 hover:bg-white/[0.06]"
+            href="#contact"
+            className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition-all duration-300 hover:border-white/20 hover:bg-white/[0.06]"
           >
-            See how it works
+            Talk to us
           </a>
         </div>
 
         <dl
-          className="animate-fade-in mx-auto mt-16 grid w-full max-w-3xl grid-cols-1 divide-y divide-white/10 rounded-3xl border border-white/10 bg-white/[0.02] backdrop-blur sm:grid-cols-3 sm:divide-x sm:divide-y-0"
-          style={{ animationDelay: "330ms", animationFillMode: "both" }}
+          className="animate-fade-in mt-16 grid w-full max-w-3xl grid-cols-3 divide-x divide-white/10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur"
+          style={{ animationDelay: "340ms", animationFillMode: "both" }}
         >
-          <Stat label="Dispatch" value="Live & automatic" accent="blue" />
-          <Stat label="Claims" value="Auto-prepared" accent="red" />
-          <Stat label="Every trip" value="GPS-verified" accent="green" />
+          <Stat label="Dispatch" value="Realtime" accent="blue" />
+          <Stat label="Drivers" value="On-demand" accent="yellow" />
+          <Stat label="Coverage" value="Statewide" accent="green" />
         </dl>
       </section>
 
-      {/* Why choose us */}
-      <section id="why" className="relative z-10 mx-auto w-full max-w-6xl px-5 py-20 sm:px-6">
+      {/* What we do */}
+      <section className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
         <Reveal>
           <SectionHeader
-            kicker="Why choose us"
-            title="The two problems that quietly cost you the most."
-            copy="Most NEMT providers lose money twice: once on the payroll it takes to bill, and again on the trips they can't prove."
+            kicker="What we do"
+            title="One platform. Every side of the ride."
+            copy="We replace the patchwork of scheduling spreadsheets, driver texts, and paper trip logs with a single system your team, drivers, and riders can actually use."
+            accent="blue"
           />
         </Reveal>
+      </section>
 
-        <div className="mt-14 grid gap-6 lg:grid-cols-2">
+      {/* Product */}
+      <section id="product" className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-20">
+        <div className="grid gap-5 md:grid-cols-3">
           <Reveal delay={0}>
-            <WhyCard
-              icon={BadgeDollarSign}
+            <ProductCard
+              icon={Radio}
+              name="Dispatch Console"
+              desc="Live map of every driver and ride, auto-matching by proximity and vehicle type, with instant fallback to a human dispatcher."
+              accent="blue"
+            />
+          </Reveal>
+          <Reveal delay={80}>
+            <ProductCard
+              icon={Car}
+              name="Driver App"
+              desc="Go online with one tap, accept offers, navigate turn-by-turn, log stops and cabin-clips, and submit gas receipts from the phone."
               accent="yellow"
-              title="Stop Paying for What Software Can Do Better"
-              paragraphs={[
-                "Billing staff, data-entry hours, and after-hours claim cleanup are recurring costs for work that never needed a human in the first place.",
-                "RedArt pulls trip data straight from the ride itself — mileage, times, stops, and codes — and prepares the claim for you. Your team reviews and submits instead of typing, so headcount goes to growth rather than paperwork.",
-              ]}
             />
           </Reveal>
-          <Reveal delay={110}>
-            <WhyCard
-              icon={ShieldCheck}
+          <Reveal delay={160}>
+            <ProductCard
+              icon={Users}
+              name="Rider App"
+              desc="Rideshare-quality booking with address autocomplete, live ETA, driver tracking, and guest-friendly flows for family members."
               accent="green"
-              title="Protect Yourself From What You Can't See"
-              paragraphs={[
-                "A trip you can't document is a trip you can't defend. Missing signatures, guessed mileage, and paper logs turn into clawbacks and fraud exposure long after the ride is over.",
-                "Every RedArt trip carries GPS breadcrumbs, odometer photos, timestamps, and a signed trip report — captured automatically, stored permanently, and ready the day a claim is questioned.",
-              ]}
             />
           </Reveal>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="relative z-10 mx-auto w-full max-w-6xl px-5 py-20 sm:px-6">
-        <Reveal>
-          <SectionHeader
-            kicker="Product"
-            title="Everything the ride touches, in one platform."
-            copy="Built specifically for non-emergency medical transport — not a generic fleet tool with a Medicaid sticker on it."
-          />
-        </Reveal>
-
-        <div className="mt-14 space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Reveal delay={0}>
-              <FeatureCard
-                icon={Radio}
-                accent="blue"
-                title="Automated dispatch"
-                desc="A live map of every driver, manual or automatic ride assignment, and multi-passenger route building with optimized stop ordering."
-                bullets={["Live fleet map", "Auto or manual assign", "Optimized multi-stop routes"]}
-              />
-            </Reveal>
-            <Reveal delay={110}>
-              <FeatureCard
-                icon={Car}
-                accent="yellow"
-                title="Driver app"
-                desc="A guided, step-by-step trip flow: turn-by-turn navigation handoff, odometer capture by photo or manual entry, digital passenger signatures, and identity verification."
-                bullets={["Navigation handoff", "Odometer photo capture", "Signature + ID verification"]}
-              />
-            </Reveal>
-          </div>
-
-          <Reveal delay={0}>
-            <FeatureWide
-              icon={ReceiptText}
+          <Reveal delay={0} className="md:col-span-3">
+            <ProductCard
+              icon={FileCheck2}
+              name="Medicaid Billing"
+              desc="Trip data auto-fills the HCPF portal. Review, submit, and track claims from Pending Review through Submitted in one queue."
               accent="red"
-              title="Automated Medicaid billing"
-              desc="Claims are filled and prepared automatically using your live billing rates, the correct procedure codes, and proper round-trip logic. A human reviews and submits — nothing goes out unverified."
-              bullets={["Live billing rates", "Correct procedure codes", "Round-trip billing logic", "Human review before submit"]}
             />
           </Reveal>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <Reveal delay={0}>
-              <FeatureCard
-                icon={FileCheck2}
-                accent="green"
-                title="Proof-of-service documentation"
-                desc="Every trip is backed by GPS logs, odometer photos, and a signed trip report — generated automatically and ready if a claim is ever questioned."
-                bullets={["GPS trip logs", "Odometer photos", "Signed trip reports"]}
-              />
-            </Reveal>
-            <Reveal delay={110}>
-              <FeatureCard
-                icon={Building2}
-                accent="blue"
-                title="Multi-tenant ready"
-                desc="Built for NEMT companies of any size — each with their own drivers, billing settings, and state portal credentials, fully isolated from one another."
-                bullets={["Isolated company data", "Per-company billing setup", "Own portal credentials"]}
-              />
-            </Reveal>
-          </div>
+          <Reveal delay={80} className="md:col-span-3">
+            <ProductCard
+              icon={HeartPulse}
+              name="Compliance & Proof"
+              desc="Vehicle inspections, driver documents, and per-trip proof (odometer, signatures, photos) captured and stored automatically."
+              accent="green"
+            />
+          </Reveal>
         </div>
       </section>
 
-      {/* Trust / social proof */}
-      <section id="trust" className="relative z-10 mx-auto w-full max-w-6xl px-5 py-20 sm:px-6">
+      {/* Benefits */}
+      <section id="benefits" className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
         <Reveal>
           <SectionHeader
-            kicker="Customers"
-            title="Built alongside real transport providers."
-            copy="We're onboarding our first providers now. Customer stories will live here — real names, real numbers, once they're live."
+            kicker="Benefits"
+            title="Built to save hours and unlock revenue."
+            copy="Every feature exists to remove a step that used to require a phone call, a spreadsheet, or a stack of paper."
+            accent="yellow"
           />
         </Reveal>
-        <div className="mt-14 grid gap-6 md:grid-cols-3">
-          {[0, 1, 2].map((i) => (
-            <Reveal key={i} delay={i * 100}>
-              <div className="flex h-full flex-col rounded-3xl border border-dashed border-white/12 bg-white/[0.02] p-7 backdrop-blur">
-                <Quote className="h-5 w-5" style={{ color: `${BRAND.red}cc` }} />
-                <div className="mt-5 space-y-2.5" aria-hidden>
-                  <div className="h-2.5 w-full rounded-full bg-white/[0.07]" />
-                  <div className="h-2.5 w-11/12 rounded-full bg-white/[0.06]" />
-                  <div className="h-2.5 w-8/12 rounded-full bg-white/[0.05]" />
-                </div>
-                <p className="mt-6 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Customer story coming soon
-                </p>
-              </div>
+        <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+          {[
+            { icon: Clock, title: "Hours back weekly", desc: "Auto-dispatch and auto-billing eliminate manual matching and claim entry.", accent: "yellow" as BrandColor },
+            { icon: BadgeDollarSign, title: "More clean claims", desc: "Structured trip data means fewer rejections and faster reimbursement.", accent: "green" as BrandColor },
+            { icon: MapPin, title: "Real visibility", desc: "One live map of drivers, rides, and status — no more group texts.", accent: "blue" as BrandColor },
+            { icon: ShieldCheck, title: "Audit-ready", desc: "Every trip carries proof: GPS, signatures, photos, and documents.", accent: "red" as BrandColor },
+          ].map((b, i) => (
+            <Reveal key={b.title} delay={i * 90}>
+              <Benefit {...b} />
             </Reveal>
           ))}
         </div>
       </section>
 
-      {/* CTA */}
-      <section id="contact" className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-24 sm:px-6">
+      {/* Why choose us */}
+      <section id="why-choose-us" className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
+        <Reveal>
+          <SectionHeader
+            kicker="Why choose us"
+            title="Stop Paying for What Software Can Do Better"
+            copy="The average NEMT billing team costs you more than you think."
+            accent="red"
+          />
+        </Reveal>
+        <div className="mt-12 grid gap-5 lg:grid-cols-2">
+          <Reveal>
+            <div className="h-full rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur sm:p-10">
+              <p className="text-muted-foreground">
+                Five billers on payroll runs close to{" "}
+                <CountUpMoney value={20000} className="align-baseline" /> a month —
+                salaries, benefits, training, turnover, and the mistakes that come with
+                manual data entry. RedArt replaces that entire workload with one automated
+                system that never calls in sick, never mistypes a diagnosis code, and never
+                misses a deadline.
+              </p>
+              <p className="mt-6 text-muted-foreground">
+                Save up to <CountUpMoney value={240000} /> a year. Redirect it into more
+                drivers, better vehicles, or your own pocket.
+              </p>
+            </div>
+          </Reveal>
+          <Reveal delay={90}>
+            <div className="h-full rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur sm:p-10">
+              <h3 className="font-display text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
+                Protect Yourself From What You Can't See
+              </h3>
+              <p className="mt-4 text-muted-foreground">
+                When drivers earn on commission, the incentive to pad mileage is real — and
+                every padded mile is a claim that doesn't match reality. One audit, one
+                flagged pattern, and your Medicaid provider account can be suspended
+                overnight.
+              </p>
+              <p className="mt-4 text-muted-foreground">
+                RedArt closes that gap automatically. Every trip is backed by GPS-verified
+                routes, timestamped odometer photos, and digitally signed proof of service —
+                captured the moment the trip happens, not typed in from memory afterward.
+                Your billing isn't just fast. It's defensible.
+              </p>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+
+      {/* Why join */}
+      <section id="why-join" className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
+        <Reveal>
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur sm:p-14">
+            <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr]">
+              <div>
+                <span
+                  className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em]"
+                  style={{
+                    borderColor: `${BRAND.red}55`,
+                    backgroundColor: `${BRAND.red}18`,
+                    color: BRAND.red,
+                  }}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Why join RedArt
+                </span>
+                <h2 className="mt-5 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+                  We're building the operating system for NEMT.
+                </h2>
+                <p className="mt-4 text-muted-foreground">
+                  Whether you drive, dispatch, or run a transport provider, RedArt
+                  gives you the tools bigger rideshare platforms have — tuned for
+                  the reality of medical transport and Medicaid billing.
+                </p>
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <Link
+                    to="/driver/signin"
+                    className="inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(30,111,184,0.6)] transition hover:-translate-y-0.5"
+                    style={{
+                      background: `linear-gradient(135deg, ${BRAND.blue} 0%, ${BRAND.green} 100%)`,
+                    }}
+                  >
+                    Drive with us
+                  </Link>
+                  <Link
+                    to="/auth"
+                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.02] px-5 py-2.5 text-sm font-semibold text-foreground transition hover:border-white/20"
+                  >
+                    Dispatch sign in
+                  </Link>
+                </div>
+              </div>
+              <ul className="space-y-4">
+                <Reason accent="yellow" title="Steady, predictable work" desc="Recurring Medicaid trips with clear pay — not surge-price roulette." />
+                <Reason accent="red" title="Tools that actually work" desc="A driver app built by people who ride along, not from a slide deck." />
+                <Reason accent="blue" title="Fast onboarding" desc="Upload documents once, get dispatched the same week you're approved." />
+                <Reason accent="green" title="Human support" desc="Real dispatch phone number. Real people. No infinite chatbots." />
+              </ul>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* CTA / contact */}
+      <section id="contact" className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-24 pt-4">
         <Reveal>
           <div
-            className="rounded-[2rem] border p-9 text-center sm:p-16"
+            className="rounded-3xl border p-10 text-center sm:p-16"
             style={{
               borderColor: "rgba(255,255,255,0.08)",
               background: `
-                radial-gradient(70% 120% at 20% 0%, ${BRAND.red}26, transparent 70%),
-                radial-gradient(60% 110% at 85% 10%, ${BRAND.yellow}16, transparent 70%),
-                radial-gradient(90% 130% at 50% 110%, ${BRAND.blue}1c, transparent 70%)
+                radial-gradient(60% 100% at 15% 0%, ${BRAND.yellow}1f, transparent 70%),
+                radial-gradient(60% 100% at 85% 0%, ${BRAND.blue}22, transparent 70%),
+                radial-gradient(80% 120% at 50% 100%, ${BRAND.red}22, transparent 70%)
               `,
             }}
           >
             <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
-              See it run on your own trips.
+              Ready to{" "}
+              <span
+                className="bg-clip-text text-transparent"
+                style={{
+                  backgroundImage: `linear-gradient(100deg, ${BRAND.yellow}, ${BRAND.red}, ${BRAND.blue}, ${BRAND.green})`,
+                }}
+              >
+                move
+              </span>
+              .
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-              A 20-minute walkthrough of dispatch, the driver app, and a claim
-              prepared end to end. Bring one of your real routes.
+              Book a ride, apply to drive, or sign in to dispatch. Everything you
+              need lives on one platform.
             </p>
-            <div className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row">
-              <a
-                href="mailto:hello@redartdigital.com?subject=RedArt%20demo%20request"
-                className="group inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-white shadow-[0_14px_40px_-14px_rgba(200,53,78,0.9)] transition-all duration-300 hover:-translate-y-0.5"
-                style={{ background: `linear-gradient(135deg, ${BRAND.red} 0%, #8f1f36 100%)` }}
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <Link
+                to="/passenger"
+                className="group inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(200,53,78,0.6)] transition-all duration-300 hover:-translate-y-0.5"
+                style={{
+                  background: `linear-gradient(135deg, ${BRAND.red} 0%, ${BRAND.yellow} 100%)`,
+                }}
               >
-                Request a demo
+                Book a ride
                 <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </a>
+              </Link>
+              <Link
+                to="/driver/signin"
+                className="inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(30,111,184,0.55)] transition hover:-translate-y-0.5"
+                style={{
+                  background: `linear-gradient(135deg, ${BRAND.blue} 0%, ${BRAND.green} 100%)`,
+                }}
+              >
+                Driver sign in
+              </Link>
               <Link
                 to="/auth"
-                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-7 py-3.5 text-sm font-semibold text-foreground backdrop-blur transition hover:border-white/25 hover:bg-white/[0.06]"
+                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-white/20 hover:bg-white/[0.06]"
               >
-                Sign in
+                Dispatch sign in
               </Link>
             </div>
           </div>
@@ -310,89 +423,29 @@ function MarketingHome() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-white/10">
-        <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-12 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
-          <div>
-            <BrandWordmark className="h-7 w-auto" />
-            <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-              The operating system for non-emergency medical transport —
-              dispatch, drivers, and Medicaid billing in one place.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">Contact</h3>
-            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-              <li>
-                <a className="transition hover:text-foreground" href="mailto:hello@redartdigital.com">
-                  hello@redartdigital.com
-                </a>
-              </li>
-              <li className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 shrink-0" />
-                Colorado, USA
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">Platform</h3>
-            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-              <li><a href="#features" className="transition hover:text-foreground">Product</a></li>
-              <li><a href="#why" className="transition hover:text-foreground">Why RedArt</a></li>
-              <li><Link to="/auth" className="transition hover:text-foreground">Sign in</Link></li>
-            </ul>
-          </div>
-        </div>
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 border-t border-white/10 px-5 py-6 text-[11px] text-muted-foreground sm:flex-row sm:px-6">
+      <footer className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 border-t border-white/10 px-6 py-8 text-[11px] text-muted-foreground sm:flex-row">
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BRAND.yellow }} />
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BRAND.red }} />
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BRAND.blue }} />
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BRAND.green }} />
+          </span>
           <span>© {year} RedArt LLC · All rights reserved</span>
-          <span className="uppercase tracking-widest">Colorado · NEMT</span>
         </div>
+        <span className="tracking-widest uppercase">Colorado · NEMT</span>
       </footer>
     </div>
-  );
-}
-
-/* ---------------- pieces ---------------- */
-
-function BackgroundFX() {
-  return (
-    <>
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[75rem] animate-[drift_22s_ease-in-out_infinite_alternate]"
-        style={{
-          background: `
-            radial-gradient(40% 32% at 20% 6%, ${BRAND.red}2e, transparent 70%),
-            radial-gradient(42% 34% at 80% 2%, ${BRAND.blue}22, transparent 72%),
-            radial-gradient(48% 40% at 50% 26%, ${BRAND.yellow}14, transparent 70%),
-            radial-gradient(34% 30% at 88% 44%, ${BRAND.green}16, transparent 72%)
-          `,
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,transparent_0%,#07070a_88%)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.035] [background-image:linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] [background-size:64px_64px] [mask-image:radial-gradient(60%_50%_at_50%_18%,#000,transparent)]"
-      />
-      <style>{`
-        @keyframes drift {
-          0%   { transform: translate3d(0,0,0) scale(1); }
-          100% { transform: translate3d(0,-2.5%,0) scale(1.06); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .animate-\\[drift_22s_ease-in-out_infinite_alternate\\] { animation: none; }
-        }
-      `}</style>
-    </>
   );
 }
 
 function Stat({ label, value, accent }: { label: string; value: string; accent: BrandColor }) {
   return (
     <div className="flex flex-col items-center gap-1 px-4 py-5">
-      <dt className="text-[10px] font-medium uppercase tracking-[0.22em]" style={{ color: BRAND[accent] }}>
+      <dt
+        className="text-[10px] font-medium uppercase tracking-[0.22em]"
+        style={{ color: BRAND[accent] }}
+      >
         {label}
       </dt>
       <dd className="text-sm font-semibold text-foreground sm:text-base">{value}</dd>
@@ -400,13 +453,26 @@ function Stat({ label, value, accent }: { label: string; value: string; accent: 
   );
 }
 
-function SectionHeader({ kicker, title, copy }: { kicker: string; title: string; copy: string }) {
+function SectionHeader({
+  kicker,
+  title,
+  copy,
+  accent = "red",
+}: {
+  kicker: string;
+  title: string;
+  copy: string;
+  accent?: BrandColor;
+}) {
   return (
     <div className="mx-auto max-w-2xl text-center">
-      <span className="text-[11px] font-medium uppercase tracking-[0.24em]" style={{ color: BRAND.red }}>
+      <span
+        className="text-[11px] font-medium uppercase tracking-[0.24em]"
+        style={{ color: BRAND[accent] }}
+      >
         {kicker}
       </span>
-      <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl md:text-[2.75rem]">
+      <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl md:text-5xl">
         {title}
       </h2>
       <p className="mt-4 text-muted-foreground">{copy}</p>
@@ -416,121 +482,116 @@ function SectionHeader({ kicker, title, copy }: { kicker: string; title: string;
 
 type IconType = React.ComponentType<{ className?: string }>;
 
-function AccentIcon({ icon: Icon, accent, big }: { icon: IconType; accent: BrandColor; big?: boolean }) {
-  const color = BRAND[accent];
-  return (
-    <div
-      className={`flex shrink-0 items-center justify-center rounded-2xl border ${big ? "h-14 w-14" : "h-11 w-11"}`}
-      style={{ borderColor: `${color}55`, backgroundColor: `${color}1a`, color }}
-    >
-      <Icon className={big ? "h-6 w-6" : "h-5 w-5"} />
-    </div>
-  );
-}
-
-function WhyCard({
-  icon,
+function ProductCard({
+  icon: Icon,
+  name,
+  desc,
   accent,
-  title,
-  paragraphs,
 }: {
   icon: IconType;
+  name: string;
+  desc: string;
   accent: BrandColor;
-  title: string;
-  paragraphs: string[];
 }) {
   const color = BRAND[accent];
   return (
-    <div className="group relative h-full overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur transition duration-300 hover:-translate-y-1 hover:bg-white/[0.05] sm:p-10">
+    <div
+      className="group relative h-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur transition hover:bg-white/[0.05]"
+      style={{
+        // subtle accent border tint on hover via box-shadow inset ring
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = `${color}66`;
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = "";
+      }}
+    >
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full blur-3xl transition duration-500 group-hover:scale-125"
-        style={{ backgroundColor: `${color}2e` }}
+        className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full blur-3xl transition group-hover:opacity-80"
+        style={{ backgroundColor: `${color}33` }}
       />
-      <div className="relative">
-        <AccentIcon icon={icon} accent={accent} big />
-        <h3 className="mt-6 font-display text-2xl font-semibold leading-snug tracking-tight">{title}</h3>
-        {paragraphs.map((p) => (
-          <p key={p} className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base">
-            {p}
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Bullets({ items, accent }: { items: string[]; accent: BrandColor }) {
-  return (
-    <ul className="mt-5 flex flex-wrap gap-2">
-      {items.map((b) => (
-        <li
-          key={b}
-          className="rounded-full border px-3 py-1 text-[11px] font-medium text-muted-foreground"
-          style={{ borderColor: `${BRAND[accent]}3d`, backgroundColor: `${BRAND[accent]}12` }}
+      <div className="relative flex items-start gap-4">
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
+          style={{
+            borderColor: `${color}55`,
+            backgroundColor: `${color}1a`,
+            color,
+          }}
         >
-          {b}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function FeatureCard({
-  icon,
-  accent,
-  title,
-  desc,
-  bullets,
-}: {
-  icon: IconType;
-  accent: BrandColor;
-  title: string;
-  desc: string;
-  bullets: string[];
-}) {
-  return (
-    <div className="group h-full rounded-3xl border border-white/10 bg-white/[0.03] p-7 backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.05]">
-      <AccentIcon icon={icon} accent={accent} />
-      <h3 className="mt-5 text-lg font-semibold text-foreground">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{desc}</p>
-      <Bullets items={bullets} accent={accent} />
-    </div>
-  );
-}
-
-function FeatureWide({
-  icon,
-  accent,
-  title,
-  desc,
-  bullets,
-}: {
-  icon: IconType;
-  accent: BrandColor;
-  title: string;
-  desc: string;
-  bullets: string[];
-}) {
-  const color = BRAND[accent];
-  return (
-    <div
-      className="relative overflow-hidden rounded-3xl border border-white/10 p-8 backdrop-blur transition duration-300 hover:-translate-y-1 sm:p-10"
-      style={{ background: `linear-gradient(120deg, ${color}1c 0%, rgba(255,255,255,0.03) 55%)` }}
-    >
-      <div className="grid gap-7 md:grid-cols-[auto_1fr] md:items-start">
-        <AccentIcon icon={icon} accent={accent} big />
-        <div className="min-w-0">
-          <h3 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h3>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">{desc}</p>
-          <Bullets items={bullets} accent={accent} />
-          <div className="mt-6 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5"><Gauge className="h-3.5 w-3.5" /> Mileage pulled from the trip</span>
-            <span className="inline-flex items-center gap-1.5"><Signature className="h-3.5 w-3.5" /> Signed report attached</span>
-          </div>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <h3 className="text-base font-semibold text-foreground">{name}</h3>
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+            {desc}
+          </p>
         </div>
       </div>
     </div>
+  );
+}
+
+function Benefit({
+  icon: Icon,
+  title,
+  desc,
+  accent,
+}: {
+  icon: IconType;
+  title: string;
+  desc: string;
+  accent: BrandColor;
+}) {
+  const color = BRAND[accent];
+  return (
+    <div
+      className="h-full rounded-2xl border border-white/10 bg-white/[0.02] p-6 backdrop-blur transition"
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = `${color}55`;
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = "";
+      }}
+    >
+      <div
+        className="flex h-10 w-10 items-center justify-center rounded-xl border"
+        style={{
+          borderColor: `${color}55`,
+          backgroundColor: `${color}1a`,
+          color,
+        }}
+      >
+        <Icon className="h-5 w-5" />
+      </div>
+      <h3 className="mt-4 text-base font-semibold text-foreground">{title}</h3>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{desc}</p>
+    </div>
+  );
+}
+
+function Reason({
+  title,
+  desc,
+  accent,
+}: {
+  title: string;
+  desc: string;
+  accent: BrandColor;
+}) {
+  return (
+    <li className="flex gap-3">
+      <span
+        className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: BRAND[accent] }}
+      />
+      <div>
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{desc}</p>
+      </div>
+    </li>
   );
 }
 
@@ -563,7 +624,7 @@ function Reveal({
           }
         }
       },
-      { threshold: 0.12, rootMargin: "0px 0px -60px 0px" },
+      { threshold: 0.15, rootMargin: "0px 0px -60px 0px" },
     );
     io.observe(node);
     return () => io.disconnect();
@@ -572,12 +633,73 @@ function Reveal({
   return (
     <div
       ref={ref}
-      className={`${className} h-full transition-all duration-700 ease-out will-change-transform ${
-        shown ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+      className={`${className} transition-all duration-700 ease-out will-change-transform ${
+        shown ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
       }`}
       style={{ transitionDelay: `${delay}ms` }}
     >
       {children}
     </div>
+  );
+}
+
+/** Large red count-up figure — animates from $0 to the target when scrolled into view. */
+function CountUpMoney({
+  value,
+  duration = 1300,
+  className = "",
+}: {
+  value: number;
+  duration?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setDisplay(value);
+      return;
+    }
+    let raf = 0;
+    const run = () => {
+      const start = performance.now();
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        setDisplay(Math.round(value * eased));
+        if (t < 1) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    };
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            run();
+            io.disconnect();
+            break;
+          }
+        }
+      },
+      { threshold: 0.4 },
+    );
+    io.observe(node);
+    return () => {
+      io.disconnect();
+      cancelAnimationFrame(raf);
+    };
+  }, [value, duration]);
+
+  return (
+    <span
+      ref={ref}
+      className={`font-display text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl ${className}`}
+      style={{ color: BRAND.red }}
+    >
+      ${display.toLocaleString("en-US")}
+    </span>
   );
 }
