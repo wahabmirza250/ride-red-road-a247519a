@@ -3,6 +3,7 @@ import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateStateFormPdf, type Leg } from "@/lib/medicaidPdf";
+import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
 
 /** Utility: verify admin, throw on failure */
 async function assertAdmin(supabase: any, userId: string) {
