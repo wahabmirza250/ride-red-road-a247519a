@@ -1,33 +1,45 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Check, ClipboardCheck, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cancelClaimReview, confirmAndSubmitClaim } from "@/lib/billing.functions";
-import { formatMoney, normalizeCapturedClaim, type CapturedClaim } from "@/lib/claimReview";
+import { listBillingRateSettings, type BillingRateSetting } from "@/lib/billingRates.functions";
+import { formatMoney, normalizeCapturedClaim, type CapturedClaim, type CapturedServiceLine } from "@/lib/claimReview";
 import { friendlyErrorMessage } from "@/lib/errorMessage";
 import { formatDateTime } from "@/lib/format";
 
 /**
  * PASS 1 result review. Shows the claim exactly as the robot read it back off
- * the HCPF portal, with Confirm & Submit (starts PASS 2) and Cancel (no-op).
+ * the HCPF portal, laid out like the portal's own "Confirm Professional Claim"
+ * page, with a per-line calculation breakdown.
  */
 export function ClaimReviewPanel({
   recordId,
   captured,
   capturedAt,
+  vehicleType,
   onDone,
 }: {
   recordId: string;
   captured: unknown;
   capturedAt?: string | null;
+  vehicleType?: string | null;
   onDone?: () => void;
 }) {
   const qc = useQueryClient();
   const confirmFn = useServerFn(confirmAndSubmitClaim);
   const cancelFn = useServerFn(cancelClaimReview);
+  const listRates = useServerFn(listBillingRateSettings);
 
   const claim: CapturedClaim | null = normalizeCapturedClaim(captured);
+
+  const ratesQuery = useQuery({
+    queryKey: ["billing_rate_settings"],
+    queryFn: () => listRates(),
+    staleTime: 5 * 60_000,
+  });
+  const rates: BillingRateSetting[] = (ratesQuery.data as BillingRateSetting[]) ?? [];
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["billing_list"] });
@@ -80,24 +92,23 @@ export function ClaimReviewPanel({
         </div>
       </div>
 
+      <SectionBar tone="blue">Patient Information</SectionBar>
       <dl className="grid grid-cols-1 gap-x-6 gap-y-3 px-4 py-4 text-sm sm:grid-cols-3">
         <Field label="Member ID" value={claim.member_id || "—"} mono />
         <Field label="Member name" value={claim.member_name || "—"} />
         <Field label="Diagnosis code" value={claim.diagnosis_code || "—"} mono />
       </dl>
 
-      <div className="px-4 pb-2">
-        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Service lines
-        </div>
+      <SectionBar tone="blue">Service Details</SectionBar>
+      <div className="px-4 py-4">
         <div className="overflow-x-auto rounded-xl border border-border/70">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">Procedure</th>
-                <th className="px-3 py-2 text-left font-medium">Place of service</th>
+                <th className="px-3 py-2 text-left font-medium">Procedure Code</th>
+                <th className="px-3 py-2 text-left font-medium">Place of Service</th>
+                <th className="px-3 py-2 text-right font-medium">Charge Amount</th>
                 <th className="px-3 py-2 text-right font-medium">Units</th>
-                <th className="px-3 py-2 text-right font-medium">Charge</th>
               </tr>
             </thead>
             <tbody>
@@ -109,27 +120,22 @@ export function ClaimReviewPanel({
                 </tr>
               ) : (
                 claim.service_lines.map((line, i) => (
-                  <tr key={i} className="border-t border-border/60">
-                    <td className="px-3 py-2 font-mono">{line.procedure_code || "—"}</td>
-                    <td className="px-3 py-2">{line.place_of_service || "—"}</td>
-                    <td className="px-3 py-2 text-right">{line.units ?? "—"}</td>
-                    <td className="px-3 py-2 text-right">{formatMoney(line.charge_amount)}</td>
-                  </tr>
+                  <ServiceLineRows key={i} line={line} rates={rates} vehicleType={vehicleType} />
                 ))
               )}
             </tbody>
-            <tfoot>
-              <tr className="border-t border-border bg-muted/30">
-                <td colSpan={3} className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Total charged
-                </td>
-                <td className="px-3 py-2 text-right text-base font-semibold">
-                  {formatMoney(claim.total_charged_amount)}
-                </td>
-              </tr>
-            </tfoot>
           </table>
         </div>
+      </div>
+
+      <SectionBar tone="green">Total</SectionBar>
+      <div className="flex items-baseline justify-between px-4 py-4">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Total charged amount
+        </span>
+        <span className="text-2xl font-semibold tabular-nums">
+          {formatMoney(claim.total_charged_amount)}
+        </span>
       </div>
 
       <div className="flex flex-col gap-2 border-t border-border/70 px-4 py-3 sm:flex-row">
@@ -155,6 +161,92 @@ export function ClaimReviewPanel({
           Cancel
         </Button>
       </div>
+    </div>
+  );
+}
+
+function ServiceLineRows({
+  line,
+  rates,
+  vehicleType,
+}: {
+  line: CapturedServiceLine;
+  rates: BillingRateSetting[];
+  vehicleType?: string | null;
+}) {
+  return (
+    <>
+      <tr className="border-t border-border/60">
+        <td className="px-3 py-2 font-mono">{line.procedure_code || "—"}</td>
+        <td className="px-3 py-2">{line.place_of_service || "—"}</td>
+        <td className="px-3 py-2 text-right tabular-nums">{formatMoney(line.charge_amount)}</td>
+        <td className="px-3 py-2 text-right tabular-nums">{formatUnits(line.units)}</td>
+      </tr>
+      <tr className="border-t border-border/30 bg-muted/20">
+        <td colSpan={4} className="px-3 pb-2 pt-1 text-xs text-muted-foreground">
+          {explainLine(line, rates, vehicleType)}
+        </td>
+      </tr>
+    </>
+  );
+}
+
+function matchRate(
+  line: CapturedServiceLine,
+  rates: BillingRateSetting[],
+  vehicleType?: string | null,
+): BillingRateSetting | undefined {
+  const code = line.procedure_code?.trim().toUpperCase();
+  const byVehicle = vehicleType ? rates.filter((r) => r.vehicle_type === vehicleType) : rates;
+  const pool = byVehicle.length ? byVehicle : rates;
+  return pool.find((r) => r.procedure_code?.trim().toUpperCase() === code);
+}
+
+function isMileageLine(line: CapturedServiceLine, rate?: BillingRateSetting) {
+  if (rate) return rate.unit_type === "mile";
+  return (line.units ?? 0) > 4;
+}
+
+function explainLine(
+  line: CapturedServiceLine,
+  rates: BillingRateSetting[],
+  vehicleType?: string | null,
+): string {
+  const units = line.units;
+  const charge = line.charge_amount;
+  if (units == null || charge == null || units === 0) {
+    return "Rate breakdown unavailable for this line.";
+  }
+  const rate = matchRate(line, rates, vehicleType);
+  const perUnit = rate ? Number(rate.charge_amount) : charge / units;
+  const mileage = isMileageLine(line, rate);
+
+  if (mileage) {
+    return `Mileage: ${formatUnits(units)} miles × ${money(perUnit)}/mile = ${money(charge)}`;
+  }
+  const kind = units === 2 ? " (round trip)" : units === 1 ? " (one way)" : "";
+  return `Trip charge: ${formatUnits(units)} unit(s)${kind} × ${money(perUnit)}/unit = ${money(charge)}`;
+}
+
+function money(v: number) {
+  return v.toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+function formatUnits(v: number | null | undefined) {
+  if (v == null || !Number.isFinite(v)) return "—";
+  return Number.isInteger(v) ? String(v) : String(Number(v.toFixed(3)));
+}
+
+function SectionBar({ children, tone }: { children: React.ReactNode; tone: "blue" | "green" }) {
+  const toneClass =
+    tone === "green"
+      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+      : "border-primary/40 bg-primary/10 text-primary";
+  return (
+    <div
+      className={`border-y px-4 py-2 text-xs font-semibold uppercase tracking-wider ${toneClass}`}
+    >
+      {children}
     </div>
   );
 }
