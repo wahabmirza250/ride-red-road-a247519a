@@ -13,8 +13,10 @@ export async function callVerifyRobot(args: {
   dateOfBirth: string | null;
   usedIdentifier: VerifyResult["used_identifier"];
   apiKey: string;
+  /** ID-only lookup: report the portal name instead of comparing to a name. */
+  lookupOnly?: boolean;
 }): Promise<VerifyResult> {
-  const { expectedName, memberId, usedIdentifier } = args;
+  const { expectedName, memberId, usedIdentifier, lookupOnly } = args;
 
   const url = process.env.ROBOT_VERIFY_URL;
   if (!url) {
