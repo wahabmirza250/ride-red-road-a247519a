@@ -1,8 +1,20 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Check, ClipboardCheck, Loader2, X } from "lucide-react";
+import { Check, ClipboardCheck, Loader2, Lock, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cancelClaimReview, confirmAndSubmitClaim } from "@/lib/billing.functions";
 import { listBillingRateSettings, type BillingRateSetting } from "@/lib/billingRates.functions";
 import { formatMoney, normalizeCapturedClaim, type CapturedClaim, type CapturedServiceLine } from "@/lib/claimReview";
@@ -10,10 +22,20 @@ import { friendlyErrorMessage } from "@/lib/errorMessage";
 import { formatDateTime } from "@/lib/format";
 
 /**
+ * TEMPORARY SAFETY GATE — real portal submissions (PASS 2 / confirm_submit)
+ * are paused while billing is being settled. Flip this to `false` to re-enable
+ * the "Confirm & Submit" button. No submission code was removed.
+ */
+const REAL_SUBMISSIONS_PAUSED = true;
+/** Phrase an admin must type to unlock the button when the pause is lifted. */
+const UNLOCK_PHRASE = "SUBMIT";
+
+/**
  * PASS 1 result review. Shows the claim exactly as the robot read it back off
  * the HCPF portal, laid out like the portal's own "Confirm Professional Claim"
  * page, with a per-line calculation breakdown.
  */
+
 export function ClaimReviewPanel({
   recordId,
   captured,
