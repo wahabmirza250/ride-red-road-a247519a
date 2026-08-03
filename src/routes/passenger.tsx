@@ -40,6 +40,12 @@ function PassengerLayout() {
   const loc = useLocation();
   const track = useServerFn(trackVisitor);
   const { user, isPassenger, isAdmin, isDriver, loading } = useAuth();
+  // Guests must arrive through a company-specific link. Resolved after mount
+  // so SSR/hydration stay in sync.
+  const [companySlug, setSlug] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    setSlug(getCompanySlug());
+  }, []);
 
   useEffect(() => {
     // Auto-subscribe signed-in passengers to push (idempotent, one-time prompt).
@@ -47,6 +53,7 @@ function PassengerLayout() {
       ensurePushSubscribed().catch(() => {});
     }
   }, [user]);
+
 
 
 
