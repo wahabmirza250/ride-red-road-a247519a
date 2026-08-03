@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * Public slug resolution for company entry links (`/{slug}/passenger`).
@@ -21,6 +22,26 @@ export const resolveCompanySlug = createServerFn({ method: "POST" })
       name: company.name,
       url_slug: company.url_slug,
       logo_url: company.logo_url,
+      active: company.status === "active",
+    };
+  });
+
+/**
+ * Authoritative company of the signed-in caller. This is what the URL slug is
+ * checked against — a user can never view another company's slug-scoped app.
+ */
+export const getMyCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { companyIdForUser, getCompanyById } = await import("@/lib/company.server");
+    const userId = (context as { userId: string }).userId;
+    const id = await companyIdForUser(userId);
+    if (!id) return { slug: null as string | null, name: null as string | null, active: false };
+    const company = await getCompanyById(id);
+    if (!company) return { slug: null as string | null, name: null as string | null, active: false };
+    return {
+      slug: company.url_slug,
+      name: company.name,
       active: company.status === "active",
     };
   });
