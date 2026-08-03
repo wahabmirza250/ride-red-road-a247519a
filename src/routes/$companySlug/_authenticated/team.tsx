@@ -37,6 +37,7 @@ function TeamPage() {
   const [openNew, setOpenNew] = useState(false);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const slug = useCompanySlug() ?? "";
 
   return (
     <div className="space-y-6">
