@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { useAppNavigate } from "@/lib/appLink";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -12,7 +13,7 @@ import { submitRideRequest } from "@/lib/passengerPublic.functions";
 import { passengerRequestRide } from "@/lib/dispatch.functions";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/passenger/apply")({
+export const Route = createFileRoute("/$companySlug/$companySlug/passenger/apply")({
   validateSearch: (search: Record<string, unknown>) => ({
     dropoff: typeof search.dropoff === "string" ? search.dropoff : undefined,
     pickup: typeof search.pickup === "string" ? search.pickup : undefined,
@@ -23,7 +24,7 @@ export const Route = createFileRoute("/passenger/apply")({
 
 function ApplyForRide() {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const submit = useServerFn(submitRideRequest);
   const submitAuthed = useServerFn(passengerRequestRide);
   const search = Route.useSearch();

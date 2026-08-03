@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { fmtMoney } from "@/lib/rideMath";
 
-export const Route = createFileRoute("/driver/earnings")({
+export const Route = createFileRoute("/$companySlug/$companySlug/driver/earnings")({
   component: Earnings,
 });
 

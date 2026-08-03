@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AppLink } from "@/lib/appLink";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -26,7 +27,7 @@ import {
 import { PortalCredentialsCard } from "@/components/billing/PortalCredentialsCard";
 import { RobotApiKeyCard } from "@/components/team/RobotApiKeyCard";
 
-export const Route = createFileRoute("/_authenticated/team")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/team")({
   component: TeamPage,
 });
 

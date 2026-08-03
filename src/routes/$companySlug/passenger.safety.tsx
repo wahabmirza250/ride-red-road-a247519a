@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink } from "@/lib/appLink";
 import {
   Shield,
   Phone,
@@ -8,7 +9,7 @@ import {
   ChevronLeft,
 } from "lucide-react";
 
-export const Route = createFileRoute("/passenger/safety")({
+export const Route = createFileRoute("/$companySlug/$companySlug/passenger/safety")({
   component: SafetyHub,
 });
 
@@ -16,13 +17,13 @@ function SafetyHub() {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-2">
-        <Link
+        <AppLink
           to="/passenger/profile"
           className="flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-surface text-muted-foreground transition hover:text-foreground"
           aria-label="Back"
         >
           <ChevronLeft className="h-4 w-4" />
-        </Link>
+        </AppLink>
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Safety Hub</h1>
           <p className="text-xs text-muted-foreground">

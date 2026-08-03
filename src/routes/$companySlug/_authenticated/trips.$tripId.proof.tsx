@@ -1,11 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink } from "@/lib/appLink";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Printer, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getTripProofBundle } from "@/lib/tripMedia.functions";
 
-export const Route = createFileRoute("/_authenticated/trips/$tripId/proof")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/trips/$tripId/proof")({
   component: ProofPage,
 });
 
@@ -30,9 +31,9 @@ function ProofPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-4 print:p-0">
       <div className="flex items-center justify-between print:hidden">
-        <Link to="/trips" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <AppLink to="/trips" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to trips
-        </Link>
+        </AppLink>
         <Button size="sm" variant="outline" onClick={() => window.print()}>
           <Printer className="mr-1 h-4 w-4" /> Print / PDF
         </Button>

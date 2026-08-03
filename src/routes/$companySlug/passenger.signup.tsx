@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink, useAppNavigate } from "@/lib/appLink";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
@@ -11,13 +12,13 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { signInAsRole } from "@/lib/roleGuardedSignIn";
 
-export const Route = createFileRoute("/passenger/signup")({
+export const Route = createFileRoute("/$companySlug/$companySlug/passenger/signup")({
   ssr: false,
   component: PassengerAuthPage,
 });
 
 function PassengerAuthPage() {
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const { user, loading, isPassenger } = useAuth();
   const [mode, setMode] = useState<"signup" | "signin">("signup");
   const [email, setEmail] = useState("");
@@ -88,12 +89,12 @@ function PassengerAuthPage() {
   return (
     <div className="surface-green flex min-h-screen items-center justify-center bg-gradient-to-b from-surface-muted to-background px-4 py-10">
       <div className="w-full max-w-md">
-        <Link
+        <AppLink
           to="/passenger"
           className="mb-4 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back
-        </Link>
+        </AppLink>
 
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="flex items-center gap-2">
@@ -207,14 +208,14 @@ function PassengerAuthPage() {
 
         <p className="mt-6 text-center text-[11px] text-muted-foreground">
           Driver?{" "}
-          <Link to="/driver/signin" className="font-medium text-foreground hover:underline">
+          <AppLink to="/driver/signin" className="font-medium text-foreground hover:underline">
             Driver sign in
-          </Link>
+          </AppLink>
           {" · "}
           Dispatch?{" "}
-          <Link to="/auth" className="font-medium text-foreground hover:underline">
+          <AppLink to="/auth" className="font-medium text-foreground hover:underline">
             Staff sign in
-          </Link>
+          </AppLink>
         </p>
       </div>
     </div>

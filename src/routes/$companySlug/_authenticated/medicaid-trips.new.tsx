@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { useAppNavigate } from "@/lib/appLink";
 import { useEffect, useMemo, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { supabase } from "@/lib/supabaseBrowser";
@@ -13,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, Search, UserPlus, Eraser, Check } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/medicaid-trips/new")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/medicaid-trips/new")({
   component: NewMedicaidTripPage,
 });
 
@@ -28,7 +29,7 @@ type Rider = {
 
 function NewMedicaidTripPage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const [tab, setTab] = useState("trip");
 
   // Rider search

@@ -24,7 +24,7 @@ import {
   type PayrollRow,
 } from "@/lib/payroll.functions";
 
-export const Route = createFileRoute("/_authenticated/payroll/")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/payroll/")({
   head: () => ({
     meta: [
       { title: "Driver Payroll — RedArt NEMT" },

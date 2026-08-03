@@ -23,7 +23,7 @@ import {
   adminMarkDelivered,
 } from "@/lib/rewards.functions";
 
-export const Route = createFileRoute("/_authenticated/rewards-settings")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/rewards-settings")({
   component: RewardsAdmin,
 });
 

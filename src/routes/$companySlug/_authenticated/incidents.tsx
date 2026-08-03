@@ -11,7 +11,7 @@ import { formatDateTime, humanizeStatus } from "@/lib/format";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_authenticated/incidents")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/incidents")({
   component: IncidentsPage,
 });
 

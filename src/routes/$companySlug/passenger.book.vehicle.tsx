@@ -1,4 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink, useAppNavigate } from "@/lib/appLink";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -16,7 +17,7 @@ import { getCompanySlug } from "@/lib/companyContext";
 import { cn } from "@/lib/utils";
 
 
-export const Route = createFileRoute("/passenger/book/vehicle")({
+export const Route = createFileRoute("/$companySlug/$companySlug/passenger/book/vehicle")({
   ssr: false,
   validateSearch: (s: Record<string, unknown>) => ({
     pickup: typeof s.pickup === "string" ? s.pickup : "",
@@ -48,7 +49,7 @@ const VEHICLES: {
 
 function VehicleSelect() {
   const s = Route.useSearch();
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const { user } = useAuth();
   const request = useServerFn(passengerRequestRide);
   const etas = useServerFn(getVehicleEtas);
@@ -207,7 +208,7 @@ function VehicleSelect() {
       {/* Top: route summary */}
       <div className="sticky top-14 z-10 border-b border-border/60 bg-background/95 px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-start gap-3">
-          <Link
+          <AppLink
             to="/passenger/book/pickup"
             search={{
               pickup: s.pickup, pLat: s.pLat, pLng: s.pLng,
@@ -218,7 +219,7 @@ function VehicleSelect() {
             aria-label="Edit locations"
           >
             <ChevronLeft className="h-4 w-4" />
-          </Link>
+          </AppLink>
           <button
             onClick={() => navigate({ to: "/passenger/book/pickup", search: {
               pickup: s.pickup, pLat: s.pLat, pLng: s.pLng,

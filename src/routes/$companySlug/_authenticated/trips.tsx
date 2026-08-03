@@ -43,7 +43,7 @@ import { toast } from "sonner";
 import { friendlyErrorMessage } from "@/lib/errorMessage";
 import { haversineMiles } from "@/lib/geo";
 
-export const Route = createFileRoute("/_authenticated/trips")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/trips")({
   component: TripsPage,
 });
 

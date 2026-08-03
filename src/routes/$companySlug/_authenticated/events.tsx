@@ -34,7 +34,7 @@ import {
   type EventInput,
 } from "@/lib/events.functions";
 
-export const Route = createFileRoute("/_authenticated/events")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/events")({
   component: EventsPage,
 });
 

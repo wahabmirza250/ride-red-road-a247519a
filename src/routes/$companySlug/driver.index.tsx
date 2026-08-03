@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink } from "@/lib/appLink";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -47,7 +48,7 @@ import {
 import { VerifyMedicaidButton } from "@/components/VerifyMedicaidButton";
 import { VerifyMedicaidCard } from "@/components/driver/VerifyMedicaidCard";
 
-export const Route = createFileRoute("/driver/")({ component: DriverHome });
+export const Route = createFileRoute("/$companySlug/$companySlug/driver/")({ component: DriverHome });
 
 type DriverRow = {
   id: string;
@@ -644,18 +645,18 @@ function DriverHome() {
       />
 
       <div className="grid grid-cols-3 gap-2">
-        <Link to="/driver/expenses"
+        <AppLink to="/driver/expenses"
           className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface py-2 text-xs">
           <Fuel className="h-3.5 w-3.5" /> Gas
-        </Link>
-        <Link to="/driver/earnings"
+        </AppLink>
+        <AppLink to="/driver/earnings"
           className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface py-2 text-xs">
           Earnings
-        </Link>
-        <Link to="/driver/history"
+        </AppLink>
+        <AppLink to="/driver/history"
           className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface py-2 text-xs">
           History
-        </Link>
+        </AppLink>
       </div>
 
       {/* Standalone read-only Medicaid check — available with or without a trip */}
@@ -856,13 +857,13 @@ function DriverHome() {
                   <Plus className="mr-1 h-3.5 w-3.5" /> Add stop
                 </Button>
                 {active.trip_id && tripStatus === "in_progress" && (
-                  <Link
+                  <AppLink
                     to="/trips/$tripId/proof"
                     params={{ tripId: active.trip_id }}
                     className="inline-flex h-8 items-center justify-center rounded-full px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
                   >
                     <FileCheck className="mr-1 h-3.5 w-3.5" /> Proof
-                  </Link>
+                  </AppLink>
                 )}
               </div>
               <button

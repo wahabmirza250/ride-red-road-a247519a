@@ -12,7 +12,7 @@ const searchSchema = z.object({
   to: z.string(),
 });
 
-export const Route = createFileRoute("/_authenticated/payroll/$driverId")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/payroll/$driverId")({
   validateSearch: (s) => searchSchema.parse(s),
   component: PayrollPrintPage,
 });

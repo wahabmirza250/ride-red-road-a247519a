@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { useAppNavigate } from "@/lib/appLink";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -39,7 +40,7 @@ import { getRiderIdentifierForPdf } from "@/lib/rider.functions";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 
 
-export const Route = createFileRoute("/driver/trip/new")({
+export const Route = createFileRoute("/$companySlug/$companySlug/driver/trip/new")({
   validateSearch: (search) => ({
     tripId: typeof search.tripId === "string" ? search.tripId : undefined,
   }),
@@ -109,7 +110,7 @@ function emptyLeg(index: 1 | 2): LegForm {
 function NewNemtTripWizard() {
   const { tripId } = Route.useSearch();
   const { user, isDriver } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const [tab, setTab] = useState("vehicle");
   const [assignedTrip, setAssignedTrip] = useState<AssignedTrip | null>(null);
   const [assignedPassengerName, setAssignedPassengerName] = useState<string | null>(null);

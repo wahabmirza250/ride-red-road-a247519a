@@ -1,4 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink, useAppNavigate } from "@/lib/appLink";
 import { useEffect, useState } from "react";
 import { ChevronLeft, MapPin, StickyNote, Loader2, Crosshair, Plus, X, CircleDot } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ function parseStops(v: unknown): BookingStop[] {
   }
 }
 
-export const Route = createFileRoute("/passenger/book/pickup")({
+export const Route = createFileRoute("/$companySlug/$companySlug/passenger/book/pickup")({
   ssr: false,
   validateSearch: (s: Record<string, unknown>) => ({
     dropoff: typeof s.dropoff === "string" ? s.dropoff : undefined,
@@ -76,7 +77,7 @@ function saveDraft(d: DraftShape) {
 
 function ConfirmPickup() {
   const search = Route.useSearch();
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const { pos, err: geoErr } = useCurrentPosition();
   const draft = loadDraft();
 
@@ -290,13 +291,13 @@ function ConfirmPickup() {
           </div>
         )}
 
-        <Link
+        <AppLink
           to="/passenger"
           className="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-background/90 text-foreground shadow-lift backdrop-blur"
           aria-label="Back"
         >
           <ChevronLeft className="h-5 w-5" />
-        </Link>
+        </AppLink>
 
         <button
           type="button"

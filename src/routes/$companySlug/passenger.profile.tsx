@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink } from "@/lib/appLink";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -34,7 +35,7 @@ import {
   upsertPassengerProfile,
 } from "@/lib/passengerPublic.functions";
 
-export const Route = createFileRoute("/passenger/profile")({
+export const Route = createFileRoute("/$companySlug/$companySlug/passenger/profile")({
   component: ProfilePage,
 });
 
@@ -509,7 +510,7 @@ function RowLink({
   tint?: keyof typeof TINTS;
 }) {
   return (
-    <Link
+    <AppLink
       to={to}
       className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-surface-muted"
     >
@@ -521,7 +522,7 @@ function RowLink({
         <div className="truncate text-xs text-muted-foreground">{body}</div>
       </div>
       <ChevronRight className="h-4 w-4 text-muted-foreground" />
-    </Link>
+    </AppLink>
   );
 }
 
@@ -597,10 +598,10 @@ function QuickTile({
   }`;
   if (to) {
     return (
-      <Link to={to} className={cls}>
+      <AppLink to={to} className={cls}>
         {icon}
         {label}
-      </Link>
+      </AppLink>
     );
   }
   return (

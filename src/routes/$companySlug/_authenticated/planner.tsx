@@ -9,7 +9,7 @@ import { adminReassignDriver, adminListAssignableDrivers, rescheduleRide } from 
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_authenticated/planner")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/planner")({
   component: PlannerPage,
 });
 

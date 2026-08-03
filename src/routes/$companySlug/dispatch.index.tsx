@@ -18,7 +18,7 @@ import { buildRouteFromRequests } from "@/lib/routes.functions";
 import { setAutoAssign } from "@/lib/settings.functions";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/dispatch/")({
+export const Route = createFileRoute("/$companySlug/$companySlug/dispatch/")({
   component: DispatchBoard,
 });
 

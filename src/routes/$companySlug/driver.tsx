@@ -1,4 +1,5 @@
-import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { AppLink, useAppNavigate } from "@/lib/appLink";
 import { useEffect } from "react";
 import { Car, DollarSign, LogOut, Sun, Moon, Loader2, MessageSquare, User, History } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -7,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { AccessDenied } from "@/components/AccessDenied";
 
-export const Route = createFileRoute("/driver")({
+export const Route = createFileRoute("/$companySlug/$companySlug/driver")({
   ssr: false,
   component: DriverLayout,
 });
@@ -22,7 +23,7 @@ const NAV = [
 
 function DriverLayout() {
   const { loading, user, isDriver, signOut } = useAuth();
-  const nav = useNavigate();
+  const nav = useAppNavigate();
   const loc = useLocation();
   const { theme, toggle } = useTheme();
   const pathname = typeof window !== "undefined" ? window.location.pathname : loc.pathname;
@@ -82,7 +83,7 @@ function DriverLayout() {
           const active = item.exact ? loc.pathname === item.to : loc.pathname.startsWith(item.to);
           const Icon = item.icon;
           return (
-            <Link
+            <AppLink
               key={item.to}
               to={item.to}
               className={cn(
@@ -92,7 +93,7 @@ function DriverLayout() {
             >
               <Icon className="h-5 w-5" />
               {item.label}
-            </Link>
+            </AppLink>
           );
         })}
       </nav>

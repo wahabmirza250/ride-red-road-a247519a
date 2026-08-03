@@ -9,7 +9,7 @@ import { adminReassignDriver, adminCancelTrip } from "@/lib/dispatchAdmin.functi
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAutoAssign, setAutoAssign } from "@/lib/settings.functions";
 
-export const Route = createFileRoute("/_authenticated/live-ops")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/live-ops")({
   component: LiveOps,
 });
 

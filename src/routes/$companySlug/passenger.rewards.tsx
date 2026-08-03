@@ -1,11 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink } from "@/lib/appLink";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Trophy, Sparkles, Loader2, CheckCircle2, Lock } from "lucide-react";
 import { getRewardsPublic, getMyProgress } from "@/lib/rewards.functions";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/passenger/rewards")({
+export const Route = createFileRoute("/$companySlug/$companySlug/passenger/rewards")({
   ssr: false,
   component: RewardsPage,
 });
@@ -35,9 +36,9 @@ function RewardsPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           Track your rides and enter contests for prizes.
         </p>
-        <Link to="/passenger/signup" className="mt-4 inline-block text-sm font-medium text-primary hover:underline">
+        <AppLink to="/passenger/signup" className="mt-4 inline-block text-sm font-medium text-primary hover:underline">
           Sign in
-        </Link>
+        </AppLink>
       </div>
     );
   }

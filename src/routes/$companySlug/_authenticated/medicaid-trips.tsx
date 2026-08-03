@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink } from "@/lib/appLink";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 
-export const Route = createFileRoute("/_authenticated/medicaid-trips")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/medicaid-trips")({
   component: MedicaidTripsPage,
 });
 
@@ -35,11 +36,11 @@ function MedicaidTripsPage() {
         title={isAdmin ? "All Medicaid Trips" : "My Medicaid Trips"}
         description="Colorado NEMT trip records"
         actions={
-          <Link to="/medicaid-trips/new">
+          <AppLink to="/medicaid-trips/new">
             <Button className="rounded-full">
               <Plus className="mr-1 h-4 w-4" /> New Trip
             </Button>
-          </Link>
+          </AppLink>
         }
       />
 

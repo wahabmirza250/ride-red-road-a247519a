@@ -1,4 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink, useAppNavigate } from "@/lib/appLink";
 import { useEffect, useMemo, useState } from "react";
 import { Search, CalendarClock, MapPin, PlusCircle, Navigation, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
@@ -6,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { useCurrentPosition } from "@/lib/useGeolocation";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
-export const Route = createFileRoute("/passenger/")({
+export const Route = createFileRoute("/$companySlug/$companySlug/passenger/")({
   ssr: false,
   component: PassengerHome,
 });
@@ -16,7 +17,7 @@ type RecentTrip = { id: string; dropoff_address: string; created_at: string };
 
 function PassengerHome() {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const { pos } = useCurrentPosition();
   const [firstName, setFirstName] = useState<string>("");
   const [recent, setRecent] = useState<RecentTrip[]>([]);
@@ -108,7 +109,7 @@ function PassengerHome() {
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3">
-        <Link
+        <AppLink
           to="/passenger/apply"
           search={{ dropoff: undefined, pickup: undefined, eventTitle: undefined }}
           className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface p-3.5 shadow-soft transition hover:border-primary/60"
@@ -120,8 +121,8 @@ function PassengerHome() {
             <span className="block text-sm font-semibold">Schedule ahead</span>
             <span className="block text-[11px] text-muted-foreground">Book a future ride</span>
           </span>
-        </Link>
-        <Link
+        </AppLink>
+        <AppLink
           to="/passenger/track"
           className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface p-3.5 shadow-soft transition hover:border-primary/60"
         >
@@ -132,7 +133,7 @@ function PassengerHome() {
             <span className="block text-sm font-semibold">Track a ride</span>
             <span className="block text-[11px] text-muted-foreground">Phone or Medicaid ID</span>
           </span>
-        </Link>
+        </AppLink>
       </div>
 
       {/* Saved / recent locations */}

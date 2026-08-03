@@ -9,7 +9,7 @@ import { Avatar } from "@/components/Avatar";
 import { toast } from "sonner";
 import { Camera, Loader2, LogOut } from "lucide-react";
 
-export const Route = createFileRoute("/driver/profile")({
+export const Route = createFileRoute("/$companySlug/$companySlug/driver/profile")({
   component: DriverProfile,
 });
 

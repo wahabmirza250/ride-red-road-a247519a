@@ -1,4 +1,5 @@
-import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { AppLink, useAppNavigate } from "@/lib/appLink";
 import { useEffect } from "react";
 import {
   LayoutDashboard,
@@ -36,7 +37,7 @@ import { AccessDenied } from "@/components/AccessDenied";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
-export const Route = createFileRoute("/_authenticated")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated")({
   ssr: false,
   component: AuthenticatedLayout,
 });
@@ -81,7 +82,7 @@ const ADMIN_NAV = ADMIN_NAV_GROUPS.flat();
 
 function AuthenticatedLayout() {
   const { loading, user, isAdmin, signOut } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const location = useLocation();
   const { theme, toggle: toggleTheme } = useTheme();
 
@@ -140,7 +141,7 @@ function AuthenticatedLayout() {
                     return (
                       <Tooltip key={item.to}>
                         <TooltipTrigger asChild>
-                          <Link
+                          <AppLink
                             to={item.to}
                             aria-label={item.label}
                             className={cn(
@@ -149,7 +150,7 @@ function AuthenticatedLayout() {
                             )}
                           >
                             <Icon className="h-[22px] w-[22px]" strokeWidth={1.75} />
-                          </Link>
+                          </AppLink>
                         </TooltipTrigger>
                         <TooltipContent side="right">{item.label}</TooltipContent>
                       </Tooltip>
@@ -269,7 +270,7 @@ function AuthenticatedLayout() {
               location.pathname === item.to || location.pathname.startsWith(item.to + "/");
             const Icon = item.icon;
             return (
-              <Link
+              <AppLink
                 key={item.to}
                 to={item.to}
                 className={cn(
@@ -279,7 +280,7 @@ function AuthenticatedLayout() {
               >
                 <Icon className="h-5 w-5" />
                 {item.label}
-              </Link>
+              </AppLink>
             );
           })}
         </nav>

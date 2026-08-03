@@ -1,4 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink, useAppNavigate } from "@/lib/appLink";
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -9,7 +10,7 @@ import { lookupPassengerRides } from "@/lib/passenger.functions";
 import { fmtMoney } from "@/lib/rideMath";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/passenger/track")({
+export const Route = createFileRoute("/$companySlug/$companySlug/passenger/track")({
   ssr: false,
   component: TrackExisting,
 });
@@ -36,7 +37,7 @@ type Trip = {
  */
 function TrackExisting() {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const lookup = useServerFn(lookupPassengerRides);
   const [busy, setBusy] = useState(false);
   const [trips, setTrips] = useState<Trip[] | null>(null);
@@ -73,9 +74,9 @@ function TrackExisting() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <Link to="/passenger" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-muted-foreground hover:text-foreground">
+          <AppLink to="/passenger" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-muted-foreground hover:text-foreground">
             <ChevronLeft className="h-4 w-4" />
-          </Link>
+          </AppLink>
           <h1 className="text-lg font-semibold tracking-tight">My rides</h1>
         </div>
         <div className="space-y-3 rounded-2xl border border-border bg-surface p-6 text-sm shadow-soft">
@@ -100,9 +101,9 @@ function TrackExisting() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <Link to="/passenger" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-muted-foreground hover:text-foreground">
+        <AppLink to="/passenger" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-4 w-4" />
-        </Link>
+        </AppLink>
         <h1 className="text-lg font-semibold tracking-tight">My rides</h1>
       </div>
 

@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink } from "@/lib/appLink";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -9,7 +10,7 @@ import { listActiveEvents } from "@/lib/events.functions";
 import { ensurePushSubscribed, pushSupported } from "@/lib/push";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/passenger/events")({
+export const Route = createFileRoute("/$companySlug/$companySlug/passenger/events")({
   ssr: false,
   component: EventsFeed,
 });
@@ -92,9 +93,9 @@ function EventsFeed() {
         </div>
         {!user && (
           <div className="mt-3 rounded-xl border border-dashed border-border p-3 text-xs text-muted-foreground">
-            <Link to="/passenger/signup" className="font-medium text-primary hover:underline">
+            <AppLink to="/passenger/signup" className="font-medium text-primary hover:underline">
               Sign in
-            </Link>{" "}
+            </AppLink>{" "}
             to get push notifications when new events are posted.
           </div>
         )}
@@ -154,9 +155,9 @@ function EventCard({ ev }: { ev: EventRow }) {
         {ev.description && (
           <p className="mt-2 text-sm text-foreground/90">{ev.description}</p>
         )}
-        <Link to={bookHref}>
+        <AppLink to={bookHref}>
           <Button className="mt-4 w-full rounded-full">Book a ride</Button>
-        </Link>
+        </AppLink>
       </div>
     </li>
   );

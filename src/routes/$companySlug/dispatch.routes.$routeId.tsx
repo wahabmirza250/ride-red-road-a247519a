@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink } from "@/lib/appLink";
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -20,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/dispatch/routes/$routeId")({
+export const Route = createFileRoute("/$companySlug/$companySlug/dispatch/routes/$routeId")({
   component: RouteDetail,
 });
 
@@ -109,9 +110,9 @@ function RouteDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/dispatch/routes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <AppLink to="/dispatch/routes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> All routes
-      </Link>
+      </AppLink>
 
       <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">

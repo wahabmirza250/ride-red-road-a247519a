@@ -6,7 +6,7 @@ import { Loader2, ExternalLink, MapPin, RefreshCw } from "lucide-react";
 import { getDriverLocations, getLocationNews, type NewsItem, type DriverLocation } from "@/lib/news.functions";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/_authenticated/news")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/news")({
   ssr: false,
   component: NewsPage,
   head: () => ({

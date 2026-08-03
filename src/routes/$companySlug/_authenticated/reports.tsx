@@ -19,7 +19,7 @@ import { getPayroll } from "@/lib/admin.functions";
 import { RouteMap } from "@/components/nemt/useClientMap";
 import { detectStops } from "@/lib/geo";
 
-export const Route = createFileRoute("/_authenticated/reports")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/reports")({
   component: ReportsPage,
 });
 

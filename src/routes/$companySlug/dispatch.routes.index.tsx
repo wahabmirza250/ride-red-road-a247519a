@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLink } from "@/lib/appLink";
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/dispatch/routes/")({
+export const Route = createFileRoute("/$companySlug/$companySlug/dispatch/routes/")({
   component: RoutesView,
 });
 
@@ -235,7 +236,7 @@ function RoutesView() {
       ) : (
         <div className="space-y-2">
           {rows.map((r) => (
-            <Link
+            <AppLink
               key={r.id}
               to="/dispatch/routes/$routeId"
               params={{ routeId: r.id }}
@@ -259,7 +260,7 @@ function RoutesView() {
               >
                 {String(r.status).replace(/_/g, " ")}
               </span>
-            </Link>
+            </AppLink>
           ))}
         </div>
       )}

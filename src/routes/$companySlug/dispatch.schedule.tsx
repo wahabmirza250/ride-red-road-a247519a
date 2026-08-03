@@ -7,7 +7,7 @@ import { getTodaysSchedule } from "@/lib/dispatchApp.functions";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/dispatch/schedule")({
+export const Route = createFileRoute("/$companySlug/$companySlug/dispatch/schedule")({
   component: ScheduleView,
 });
 

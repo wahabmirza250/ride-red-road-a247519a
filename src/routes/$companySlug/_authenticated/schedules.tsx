@@ -24,7 +24,7 @@ import { ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
 import { addDays, formatTime, startOfWeek } from "@/lib/format";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/schedules")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/schedules")({
   component: SchedulesPage,
 });
 

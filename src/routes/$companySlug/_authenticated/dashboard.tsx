@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AppLink } from "@/lib/appLink";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseBrowser";
@@ -27,7 +28,7 @@ import { Link } from "@tanstack/react-router";
 import { formatDateTime } from "@/lib/format";
 import type { ReactNode } from "react";
 
-export const Route = createFileRoute("/_authenticated/dashboard")({
+export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/dashboard")({
   component: DashboardPage,
 });
 
@@ -480,14 +481,14 @@ function DashboardPage() {
               />
             </div>
 
-            <Link
+            <AppLink
               to="/messages"
               className="btn-gradient-rb mt-auto flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-semibold"
               style={{ marginTop: "1.25rem" }}
             >
               <MessageSquare className="h-4 w-4" />
               Start a chat
-            </Link>
+            </AppLink>
           </div>
 
           {/* Driver roster */}
@@ -549,13 +550,13 @@ function DashboardPage() {
                 );
               })}
             </div>
-            <Link
+            <AppLink
               to="/trips"
               className="fleet-row mt-5 flex items-center justify-center gap-2 rounded-2xl py-3 text-xs font-semibold text-[color:var(--fleet-text)]"
             >
               <History className="h-3.5 w-3.5" /> View history
               <ArrowUpRight className="h-3.5 w-3.5 opacity-60" />
-            </Link>
+            </AppLink>
           </div>
         </div>
 

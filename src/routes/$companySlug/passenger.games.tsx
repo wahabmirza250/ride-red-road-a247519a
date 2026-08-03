@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Loader2, Gamepad2, X } from "lucide-react";
 import { listPublicGames } from "@/lib/passengerPublic.functions";
 
-export const Route = createFileRoute("/passenger/games")({
+export const Route = createFileRoute("/$companySlug/$companySlug/passenger/games")({
   component: GamesPage,
 });
 

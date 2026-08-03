@@ -1,4 +1,5 @@
-import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { AppLink } from "@/lib/appLink";
 import { useEffect, useState } from "react";
 import { getCompanySlug } from "@/lib/companyContext";
 import { CompanyLinkRequired } from "@/components/CompanyLinkRequired";
@@ -16,7 +17,7 @@ import { useAuth } from "@/lib/auth";
 import { ensurePushSubscribed } from "@/lib/push";
 import { AccessDenied } from "@/components/AccessDenied";
 
-export const Route = createFileRoute("/passenger")({
+export const Route = createFileRoute("/$companySlug/$companySlug/passenger")({
   ssr: false,
   component: PassengerLayout,
 });
@@ -124,10 +125,10 @@ function PassengerLayout() {
     >
       <AuroraBackdrop />
       <header className="fleet-topbar sticky top-0 z-30 flex h-14 items-center justify-between px-4">
-        <Link to="/passenger" className="flex items-center">
+        <AppLink to="/passenger" className="flex items-center">
           <BrandWordmark className="hidden h-7 sm:block" />
           <BrandMark className="h-8 w-8 sm:hidden" />
-        </Link>
+        </AppLink>
 
         {user ? (
           hasSession && (
@@ -140,12 +141,12 @@ function PassengerLayout() {
             </button>
           )
         ) : (
-          <Link
+          <AppLink
             to="/passenger/signup"
             className="rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
           >
             Sign in / Sign up
-          </Link>
+          </AppLink>
         )}
       </header>
       <main className="mx-auto max-w-2xl p-4 animate-rise-in">
@@ -157,7 +158,7 @@ function PassengerLayout() {
           const active = loc.pathname === t.to;
           const Icon = t.icon;
           return (
-            <Link
+            <AppLink
               key={t.to}
               to={t.to}
               className={cn(
@@ -169,7 +170,7 @@ function PassengerLayout() {
             >
               <Icon className="h-4 w-4" />
               {t.label}
-            </Link>
+            </AppLink>
           );
         })}
       </nav>
