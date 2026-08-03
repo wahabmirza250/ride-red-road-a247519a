@@ -14,6 +14,7 @@ import { VerifyMedicaidButton, VerifyResultCard } from "@/components/VerifyMedic
 import {
   listVerifiablePassengers,
   verifyMedicaidIdAdHoc,
+  lookupLocalMedicaidId,
   type KnownPassenger,
   type VerifyResult,
 } from "@/lib/medicaidVerify.functions";
@@ -184,17 +185,19 @@ function SavedPassengerPicker() {
 
 function ManualEntry() {
   const verify = useServerFn(verifyMedicaidIdAdHoc);
+  const localLookup = useServerFn(lookupLocalMedicaidId);
   const [medicaidId, setMedicaidId] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
 
-  async function run() {
+  async function runPortal() {
     setLoading(true);
     setResult(null);
     try {
-      setResult(
-        (await verify({ data: { medicaid_id: medicaidId } })) as VerifyResult,
-      );
+      setResult({
+        ...((await verify({ data: { medicaid_id: medicaidId } })) as VerifyResult),
+        source: "portal",
+      });
     } catch (e) {
       setResult({
         status: "error",
@@ -204,6 +207,26 @@ function ManualEntry() {
     } finally {
       setLoading(false);
     }
+  }
+
+  /** Our own records first — instant. Only fall through to the slow portal
+   *  check when we have nothing on file for this ID. */
+  async function run() {
+    setLoading(true);
+    setResult(null);
+    try {
+      const local = (await localLookup({
+        data: { medicaid_id: medicaidId },
+      })) as VerifyResult | null;
+      if (local) {
+        setResult(local);
+        setLoading(false);
+        return;
+      }
+    } catch {
+      /* fall through to the portal check */
+    }
+    await runPortal();
   }
 
   const ready = medicaidId.trim().length > 0;
@@ -234,6 +257,17 @@ function ManualEntry() {
       </Button>
       {loading && <CheckingNotice />}
       {result && <VerifyResultCard result={result} />}
+      {result?.source === "local" && !loading && (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="rounded-full text-xs"
+          onClick={runPortal}
+        >
+          Check the state portal anyway (1–3 min)
+        </Button>
+      )}
     </div>
   );
 }
