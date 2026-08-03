@@ -109,7 +109,27 @@ function OwnerConsole() {
     };
   }, [loading, user, checkOwner, reload]);
 
-  if (loading || allowed === null) return <LoadingScreen />;
+  if (loading || (user && allowed === null)) return <LoadingScreen />;
+
+  // Signed out → this isn't "access denied", they just need to sign in.
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="max-w-md rounded-3xl border border-border bg-surface p-8 text-center shadow-soft">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <ShieldAlert className="h-6 w-6" />
+          </div>
+          <h1 className="mt-4 text-xl font-semibold">Sign in required</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            The owner console is private. Sign in with your platform owner account to continue.
+          </p>
+          <Button asChild className="mt-6 w-full rounded-full">
+            <a href="/auth">Go to sign in</a>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (!allowed) {
     return (
@@ -121,6 +141,7 @@ function OwnerConsole() {
       />
     );
   }
+
 
   return (
     <div className="min-h-screen bg-background">
