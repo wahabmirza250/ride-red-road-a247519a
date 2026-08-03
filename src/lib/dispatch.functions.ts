@@ -600,12 +600,16 @@ export const dispatcherRequestRide = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { requireStaff } = await import("@/lib/staffGuard.server");
+    const { requireCompanyId } = await import("@/lib/company.server");
     await requireStaff(context.userId);
+    const companyId = await requireCompanyId(context.userId);
 
     const { data: inserted, error } = await supabaseAdmin
       .from("ride_requests")
       .insert({
+        company_id: companyId,
         passenger_id: data.passenger_id || null,
+
         pickup_address: data.pickup_address.trim(),
         pickup_lat: data.pickup_lat,
         pickup_lng: data.pickup_lng,
