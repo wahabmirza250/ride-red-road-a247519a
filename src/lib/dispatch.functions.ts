@@ -45,7 +45,7 @@ export const dispatchRideRequest = createServerFn({ method: "POST" })
     const { data: req, error: reqErr } = await supabaseAdmin
       .from("ride_requests")
       .select(
-        "id, status, pickup_address, pickup_lat, pickup_lng, dropoff_address, driver_id, declined_driver_ids",
+        "id, status, company_id, pickup_address, pickup_lat, pickup_lng, dropoff_address, driver_id, declined_driver_ids",
       )
       .eq("id", data.request_id)
       .maybeSingle();
@@ -57,14 +57,22 @@ export const dispatchRideRequest = createServerFn({ method: "POST" })
       return { assigned: null, reason: "no_pickup_coords" };
     }
 
+    // TENANT ISOLATION: a request may only ever be offered to drivers of the
+    // same company. Never widen this filter.
+    if (!req.company_id) {
+      return { assigned: null, reason: "no_company_on_request" };
+    }
+
     const pickup: Coord = { lat: Number(req.pickup_lat), lng: Number(req.pickup_lng) };
     const declined = (req.declined_driver_ids ?? []) as string[];
 
     const { data: drivers, error: dErr } = await supabaseAdmin
       .from("drivers")
-      .select("id, user_id, current_lat, current_lng, status")
+      .select("id, user_id, current_lat, current_lng, status, company_id")
+      .eq("company_id", req.company_id)
       .eq("status", "available");
     if (dErr) throw new Error(dErr.message);
+
 
     const eligible = (drivers ?? [])
       .filter(
