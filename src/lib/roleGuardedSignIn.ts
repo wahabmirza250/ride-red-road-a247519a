@@ -46,22 +46,21 @@ export async function signInAsRole(
   }
 
   // A suspended company blocks every one of its accounts, whatever the role.
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("company_id")
-    .eq("id", userId)
-    .maybeSingle();
-  if (profile?.company_id) {
-    const { data: company } = await supabase
-      .from("companies")
-      .select("name, status")
-      .eq("id", profile.company_id)
-      .maybeSingle();
-    if (company && company.status !== "active") {
+  // Resolved server-side from the bearer token so it can't be skipped by RLS
+  // visibility quirks or a tampered client.
+  try {
+    const mine = await getMyCompany({});
+    if (mine.slug && !mine.active) {
       await supabase.auth.signOut();
-      throw new Error(
-        `${company.name}'s account is suspended. Please contact RedArt Digital to restore access.`,
+      throw new SuspendedError(
+        `${mine.name ?? "This provider"}'s account is suspended. Please contact RedArt Digital to restore access.`,
       );
     }
+  } catch (e) {
+    if (e instanceof SuspendedError) throw e;
+    // A transient lookup failure must not lock anyone out; the tenant gate
+    // re-checks company status on every page load.
   }
 }
+
+class SuspendedError extends Error {}
