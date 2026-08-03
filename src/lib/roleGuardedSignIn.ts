@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseBrowser";
+import { getMyCompany } from "@/lib/companyPublic.functions";
 import type { AppRole } from "@/lib/auth";
 
 const LABEL: Record<AppRole, string> = {
