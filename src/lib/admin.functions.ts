@@ -42,6 +42,8 @@ export const createDriver = createServerFn({ method: "POST" })
   .inputValidator((input: CreateDriverInput) => input)
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.supabase, context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
@@ -53,6 +55,7 @@ export const createDriver = createServerFn({ method: "POST" })
         last_name: data.last_name,
         phone: data.phone,
         role: "driver",
+        company_id: companyId,
       },
     });
     if (error || !created.user) throw new Error(error?.message ?? "Failed to create user");
@@ -63,7 +66,10 @@ export const createDriver = createServerFn({ method: "POST" })
     // Force role to driver.
     await supabaseAdmin
       .from("user_roles")
-      .upsert({ user_id: userId, role: "driver" }, { onConflict: "user_id,role" });
+      .upsert(
+        { user_id: userId, role: "driver", company_id: companyId },
+        { onConflict: "user_id,role" },
+      );
     await supabaseAdmin
       .from("user_roles")
       .delete()
@@ -73,13 +79,19 @@ export const createDriver = createServerFn({ method: "POST" })
     // Update profile with any info the trigger may have missed
     await supabaseAdmin
       .from("profiles")
-      .update({ first_name: data.first_name, last_name: data.last_name, phone: data.phone })
+      .update({
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: data.phone,
+        company_id: companyId,
+      })
       .eq("id", userId);
 
     // Create/update driver row (trigger may have already inserted one)
     const { error: dErr } = await supabaseAdmin.from("drivers").upsert(
       {
         user_id: userId,
+        company_id: companyId,
         license_number: data.license_number,
         vehicle_make: data.vehicle_make,
         vehicle_model: data.vehicle_model,
@@ -101,10 +113,13 @@ export const deleteDriver = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
     const { data: d } = await supabaseAdmin
       .from("drivers")
       .select("user_id")
       .eq("id", data.driver_id)
+      .eq("company_id", companyId)
       .maybeSingle();
     if (!d?.user_id) throw new Error("Driver not found");
     const uid = d.user_id;
@@ -128,6 +143,8 @@ export const createAdmin = createServerFn({ method: "POST" })
   .inputValidator((input: CreateAdminInput) => input)
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.supabase, context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
@@ -138,17 +155,26 @@ export const createAdmin = createServerFn({ method: "POST" })
         last_name: data.last_name,
         phone: data.phone ?? "",
         role: "admin",
+        company_id: companyId,
       },
     });
     if (error || !created.user) throw new Error(error?.message ?? "Failed to create user");
     const userId = created.user.id;
     await supabaseAdmin
       .from("user_roles")
-      .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
+      .upsert(
+        { user_id: userId, role: "admin", company_id: companyId },
+        { onConflict: "user_id,role" },
+      );
     await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).neq("role", "admin");
     await supabaseAdmin
       .from("profiles")
-      .update({ first_name: data.first_name, last_name: data.last_name, phone: data.phone ?? "" })
+      .update({
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: data.phone ?? "",
+        company_id: companyId,
+      })
       .eq("id", userId);
     return { ok: true, user_id: userId };
   });
@@ -193,6 +219,8 @@ export const createDispatcher = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.supabase, context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email.trim().toLowerCase(),
@@ -203,13 +231,17 @@ export const createDispatcher = createServerFn({ method: "POST" })
         last_name: data.last_name,
         phone: data.phone ?? "",
         role: "dispatch",
+        company_id: companyId,
       },
     });
     if (error || !created.user) throw new Error(error?.message ?? "Failed to create user");
     const userId = created.user.id;
     await supabaseAdmin
       .from("user_roles")
-      .upsert({ user_id: userId, role: "dispatch" }, { onConflict: "user_id,role" });
+      .upsert(
+        { user_id: userId, role: "dispatch", company_id: companyId },
+        { onConflict: "user_id,role" },
+      );
     await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).neq("role", "dispatch");
     await supabaseAdmin
       .from("profiles")
@@ -217,6 +249,7 @@ export const createDispatcher = createServerFn({ method: "POST" })
         first_name: data.first_name,
         last_name: data.last_name,
         phone: data.phone ?? "",
+        company_id: companyId,
       })
       .eq("id", userId);
     return { ok: true, user_id: userId };
@@ -248,11 +281,14 @@ export const deleteDispatcher = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
     const { data: role } = await supabaseAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", data.user_id)
       .eq("role", "dispatch")
+      .eq("company_id", companyId)
       .maybeSingle();
     if (!role) throw new Error("Not a dispatcher account");
     await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
@@ -265,10 +301,13 @@ export const createPassengerAccount = createServerFn({ method: "POST" })
   .inputValidator((input: CreatePassengerInput) => input)
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.supabase, context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: inserted, error } = await supabaseAdmin
       .from("passengers")
       .insert({
+        company_id: companyId,
         first_name: data.first_name,
         last_name: data.last_name,
         medicaid_id: data.medicaid_id,
