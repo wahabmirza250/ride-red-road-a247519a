@@ -44,4 +44,24 @@ export async function signInAsRole(
       `This account is not registered as ${LABEL[requiredRole]}. Please use the correct sign-in page.`,
     );
   }
+
+  // A suspended company blocks every one of its accounts, whatever the role.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("company_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profile?.company_id) {
+    const { data: company } = await supabase
+      .from("companies")
+      .select("name, status")
+      .eq("id", profile.company_id)
+      .maybeSingle();
+    if (company && company.status !== "active") {
+      await supabase.auth.signOut();
+      throw new Error(
+        `${company.name}'s account is suspended. Please contact RedArt Digital to restore access.`,
+      );
+    }
+  }
 }

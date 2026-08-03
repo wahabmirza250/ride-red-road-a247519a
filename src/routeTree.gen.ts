@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OwnerRouteImport } from './routes/owner'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CompanySlugRouteRouteImport } from './routes/$companySlug/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -73,6 +74,11 @@ import { Route as CompanySlugAuthenticatedPayrollDriverIdRouteImport } from './r
 import { Route as CompanySlugAuthenticatedMedicaidTripsNewRouteImport } from './routes/$companySlug/_authenticated/medicaid-trips.new'
 import { Route as CompanySlugAuthenticatedTripsTripIdProofRouteImport } from './routes/$companySlug/_authenticated/trips.$tripId.proof'
 
+const OwnerRoute = OwnerRouteImport.update({
+  id: '/owner',
+  path: '/owner',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -440,6 +446,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/owner': typeof OwnerRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/$companySlug/dispatch': typeof CompanySlugDispatchRouteWithChildren
   '/$companySlug/driver': typeof CompanySlugDriverRouteWithChildren
@@ -503,6 +510,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/owner': typeof OwnerRoute
   '/$companySlug': typeof CompanySlugIndexRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/dispatch/signin': typeof DispatchSigninRoute
@@ -564,6 +572,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/owner': typeof OwnerRoute
   '/$companySlug/_authenticated': typeof CompanySlugAuthenticatedRouteRouteWithChildren
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/$companySlug/dispatch': typeof CompanySlugDispatchRouteWithChildren
@@ -631,6 +640,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$companySlug'
     | '/auth'
+    | '/owner'
     | '/$companySlug/$'
     | '/$companySlug/dispatch'
     | '/$companySlug/driver'
@@ -694,6 +704,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/owner'
     | '/$companySlug'
     | '/$companySlug/$'
     | '/dispatch/signin'
@@ -754,6 +765,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$companySlug'
     | '/auth'
+    | '/owner'
     | '/$companySlug/_authenticated'
     | '/$companySlug/$'
     | '/$companySlug/dispatch'
@@ -820,6 +832,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CompanySlugRouteRoute: typeof CompanySlugRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  OwnerRoute: typeof OwnerRoute
   DispatchSigninRoute: typeof DispatchSigninRoute
   DriverSigninRoute: typeof DriverSigninRoute
   RideRequestIdRoute: typeof RideRequestIdRoute
@@ -831,6 +844,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/owner': {
+      id: '/owner'
+      path: '/owner'
+      fullPath: '/owner'
+      preLoaderRoute: typeof OwnerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -1485,6 +1505,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CompanySlugRouteRoute: CompanySlugRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  OwnerRoute: OwnerRoute,
   DispatchSigninRoute: DispatchSigninRoute,
   DriverSigninRoute: DriverSigninRoute,
   RideRequestIdRoute: RideRequestIdRoute,
