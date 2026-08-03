@@ -71,10 +71,12 @@ function VehicleSelect() {
 
   useEffect(() => {
     if (missingCoords) return;
-    void etas({ data: { lat: s.pLat, lng: s.pLng } })
+    // ETAs must reflect only the booking company's fleet.
+    void etas({ data: { lat: s.pLat, lng: s.pLng, company_slug: getCompanySlug() } })
       .then((r) => setEtaMap(r as Record<string, number>))
       .catch(() => setEtaMap({}));
   }, [etas, s.pLat, s.pLng, missingCoords]);
+
 
   useEffect(() => {
     if (!user) return;
