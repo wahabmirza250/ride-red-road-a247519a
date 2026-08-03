@@ -70,6 +70,8 @@ export const getDispatchBoard = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { requireStaff } = await import("@/lib/staffGuard.server");
     const { isAdmin, isDispatch } = await requireStaff(context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const callerCompany = await requireCompanyId(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const [{ data: driverRows }, { data: reqRows }, { data: settings }] =
@@ -78,12 +80,14 @@ export const getDispatchBoard = createServerFn({ method: "GET" })
           .from("drivers")
           .select(
             "id, user_id, status, current_lat, current_lng, last_location_at, default_vehicle_type, vehicle_make, vehicle_model, vehicle_plate",
-          ),
+          )
+          .eq("company_id", callerCompany),
         supabaseAdmin
           .from("ride_requests")
           .select(
             "id, status, driver_id, trip_id, contact_name, contact_phone, pickup_address, dropoff_address, pickup_lat, pickup_lng, requested_pickup_time, vehicle_type, notes, is_group, created_at, passenger_id",
           )
+          .eq("company_id", callerCompany)
           .in("status", ["pending", "accepted"])
           .order("created_at", { ascending: false })
           .limit(200),
@@ -118,6 +122,7 @@ export const getDispatchBoard = createServerFn({ method: "GET" })
     const { data: activeTrips } = await supabaseAdmin
       .from("trips")
       .select("id, driver_id, status, scheduled_pickup_time")
+      .eq("company_id", callerCompany)
       .in("status", [
         "assigned",
         "driver_en_route_to_pickup",
@@ -289,26 +294,35 @@ export const getTodaysSchedule = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { requireStaff } = await import("@/lib/staffGuard.server");
     await requireStaff(context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const callerCompany = await requireCompanyId(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const day = data?.date || new Date().toISOString().slice(0, 10);
     const dayStart = `${day}T00:00:00.000Z`;
     const dayEnd = `${day}T23:59:59.999Z`;
 
-    const [{ data: shifts }, { data: driverRows }, { data: scheduledTrips }] =
+    const { data: companyDrivers } = await supabaseAdmin
+      .from("drivers")
+      .select("id, user_id, status, default_vehicle_type, last_location_at")
+      .eq("company_id", callerCompany);
+    const companyDriverIds = (companyDrivers ?? []).map((d) => d.id);
+
+    const [{ data: shifts }, { data: scheduledTrips }] =
       await Promise.all([
-        supabaseAdmin
-          .from("shifts")
-          .select("id, driver_id, shift_date, start_time, end_time, status, notes")
-          .eq("shift_date", day),
-        supabaseAdmin
-          .from("drivers")
-          .select("id, user_id, status, default_vehicle_type, last_location_at"),
+        companyDriverIds.length
+          ? supabaseAdmin
+              .from("shifts")
+              .select("id, driver_id, shift_date, start_time, end_time, status, notes")
+              .in("driver_id", companyDriverIds)
+              .eq("shift_date", day)
+          : Promise.resolve({ data: [] as never[] }),
         supabaseAdmin
           .from("ride_requests")
           .select(
             "id, driver_id, status, contact_name, pickup_address, dropoff_address, requested_pickup_time, vehicle_type",
           )
+          .eq("company_id", callerCompany)
           .gte("requested_pickup_time", dayStart)
           .lte("requested_pickup_time", dayEnd)
           .order("requested_pickup_time", { ascending: true }),
@@ -357,13 +371,21 @@ export const getDispatchDayHistory = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { requireStaff } = await import("@/lib/staffGuard.server");
     await requireStaff(context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const callerCompany = await requireCompanyId(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const day = data?.date || new Date().toISOString().slice(0, 10);
     const dayStart = `${day}T00:00:00.000Z`;
     const dayEnd = `${day}T23:59:59.999Z`;
 
-    const [{ data: events }, { data: trips }] = await Promise.all([
+    const { data: companyDriverRows } = await supabaseAdmin
+      .from("drivers")
+      .select("id")
+      .eq("company_id", callerCompany);
+    const companyDriverIds = new Set((companyDriverRows ?? []).map((d) => d.id));
+
+    const [{ data: allEvents }, { data: trips }] = await Promise.all([
       supabaseAdmin
         .from("dispatch_events")
         .select("*")
@@ -375,6 +397,7 @@ export const getDispatchDayHistory = createServerFn({ method: "GET" })
         .select(
           "id, driver_id, status, created_at, actual_pickup_time, actual_dropoff_time, pickup_address, dropoff_address",
         )
+        .eq("company_id", callerCompany)
         .gte("created_at", dayStart)
         .lte("created_at", dayEnd)
         .order("created_at", { ascending: true }),
@@ -433,10 +456,13 @@ export const getPlannableRides = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { requireStaff } = await import("@/lib/staffGuard.server");
     await requireStaff(context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const callerCompany = await requireCompanyId(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     let q = supabaseAdmin
       .from("ride_requests")
+      .eq("company_id", callerCompany)
       .select(
         "id, status, driver_id, trip_id, contact_name, contact_phone, pickup_address, dropoff_address, requested_pickup_time, vehicle_type, notes, is_group, created_at",
       )
