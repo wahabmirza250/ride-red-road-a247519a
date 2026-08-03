@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CompanySlugRouteRouteImport } from './routes/$companySlug/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CompanySlugIndexRouteImport } from './routes/$companySlug/index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
 import { Route as RideRequestIdRouteImport } from './routes/ride.$requestId'
 import { Route as DriverSigninRouteImport } from './routes/driver.signin'
@@ -86,6 +87,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CompanySlugIndexRoute = CompanySlugIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CompanySlugRouteRoute,
 } as any)
 const TrackTripIdRoute = TrackTripIdRouteImport.update({
   id: '/track/$tripId',
@@ -442,6 +448,7 @@ export interface FileRoutesByFullPath {
   '/driver/signin': typeof DriverSigninRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
+  '/$companySlug/': typeof CompanySlugIndexRoute
   '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
   '/$companySlug/events': typeof CompanySlugAuthenticatedEventsRoute
@@ -495,8 +502,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/$companySlug': typeof CompanySlugIndexRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
@@ -566,6 +573,7 @@ export interface FileRoutesById {
   '/driver/signin': typeof DriverSigninRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
+  '/$companySlug/': typeof CompanySlugIndexRoute
   '/$companySlug/_authenticated/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/_authenticated/drivers': typeof CompanySlugAuthenticatedDriversRoute
   '/$companySlug/_authenticated/events': typeof CompanySlugAuthenticatedEventsRoute
@@ -631,6 +639,7 @@ export interface FileRouteTypes {
     | '/driver/signin'
     | '/ride/$requestId'
     | '/track/$tripId'
+    | '/$companySlug/'
     | '/$companySlug/dashboard'
     | '/$companySlug/drivers'
     | '/$companySlug/events'
@@ -684,8 +693,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/$companySlug'
     | '/auth'
+    | '/$companySlug'
     | '/$companySlug/$'
     | '/dispatch/signin'
     | '/driver/signin'
@@ -754,6 +763,7 @@ export interface FileRouteTypes {
     | '/driver/signin'
     | '/ride/$requestId'
     | '/track/$tripId'
+    | '/$companySlug/'
     | '/$companySlug/_authenticated/dashboard'
     | '/$companySlug/_authenticated/drivers'
     | '/$companySlug/_authenticated/events'
@@ -841,6 +851,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/$companySlug/': {
+      id: '/$companySlug/'
+      path: '/'
+      fullPath: '/$companySlug/'
+      preLoaderRoute: typeof CompanySlugIndexRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
     }
     '/track/$tripId': {
       id: '/track/$tripId'
@@ -1448,6 +1465,7 @@ interface CompanySlugRouteRouteChildren {
   CompanySlugDispatchRoute: typeof CompanySlugDispatchRouteWithChildren
   CompanySlugDriverRoute: typeof CompanySlugDriverRouteWithChildren
   CompanySlugPassengerRoute: typeof CompanySlugPassengerRouteWithChildren
+  CompanySlugIndexRoute: typeof CompanySlugIndexRoute
 }
 
 const CompanySlugRouteRouteChildren: CompanySlugRouteRouteChildren = {
@@ -1457,6 +1475,7 @@ const CompanySlugRouteRouteChildren: CompanySlugRouteRouteChildren = {
   CompanySlugDispatchRoute: CompanySlugDispatchRouteWithChildren,
   CompanySlugDriverRoute: CompanySlugDriverRouteWithChildren,
   CompanySlugPassengerRoute: CompanySlugPassengerRouteWithChildren,
+  CompanySlugIndexRoute: CompanySlugIndexRoute,
 }
 
 const CompanySlugRouteRouteWithChildren =
