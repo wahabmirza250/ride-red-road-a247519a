@@ -47,14 +47,35 @@ export const Route = createFileRoute("/api/public/get-portal-credential")({
           return json({ error: "company_id must be a UUID" }, 400);
         }
 
+        // Credentials are company-scoped. Older robot callers don't send a
+        // company_id — resolve it when exactly one company has this portal.
+        let resolvedCompanyId: string | null = company_id;
+        if (!resolvedCompanyId) {
+          const { data: owners } = await supabaseAdmin
+            .from("state_portal_credentials")
+            .select("company_id")
+            .eq("portal_id", portal_id);
+          const ids = Array.from(
+            new Set((owners ?? []).map((o) => o.company_id).filter(Boolean)),
+          ) as string[];
+          if (ids.length > 1) {
+            return json(
+              { error: "company_id is required: multiple companies use this portal" },
+              400,
+            );
+          }
+          resolvedCompanyId = ids[0] ?? null;
+        }
+
         // Call service-role RPC to decrypt from vault
         const { data, error } = await supabaseAdmin.rpc(
           "get_portal_credential_for_submission" as any,
           {
             _portal_id: portal_id,
-            _company_id: company_id ?? null,
+            _company_id: resolvedCompanyId,
           },
         );
+
 
         if (error) {
           console.error("get-portal-credential rpc error", {
