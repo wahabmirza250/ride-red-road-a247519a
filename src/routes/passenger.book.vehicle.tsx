@@ -11,6 +11,8 @@ import { updatePassengerIdentity } from "@/lib/passenger.functions";
 import { getMyPassengerProfile } from "@/lib/passengerPublic.functions";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseBrowser";
+import { getCompanySlug } from "@/lib/companyContext";
+
 import { cn } from "@/lib/utils";
 
 
