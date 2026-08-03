@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Pencil, Trash2, ExternalLink, X, Gamepad2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/games")({
+export const Route = createFileRoute("/$companySlug/_authenticated/games")({
   ssr: false,
   component: GamesPage,
   head: () => ({

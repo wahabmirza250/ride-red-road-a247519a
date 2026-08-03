@@ -18,7 +18,7 @@ import { Route as DispatchSigninRouteImport } from './routes/dispatch.signin'
 import { Route as CompanySlugPassengerRouteImport } from './routes/$companySlug/passenger'
 import { Route as CompanySlugDriverRouteImport } from './routes/$companySlug/driver'
 import { Route as CompanySlugDispatchRouteImport } from './routes/$companySlug/dispatch'
-import { Route as CompanySlugSplatRouteImport } from './routes/$companySlug.$'
+import { Route as CompanySlugSplatRouteImport } from './routes/$companySlug/$'
 import { Route as CompanySlugAuthenticatedRouteRouteImport } from './routes/$companySlug/_authenticated/route'
 import { Route as CompanySlugPassengerIndexRouteImport } from './routes/$companySlug/passenger.index'
 import { Route as CompanySlugDriverIndexRouteImport } from './routes/$companySlug/driver.index'
@@ -1452,13 +1452,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

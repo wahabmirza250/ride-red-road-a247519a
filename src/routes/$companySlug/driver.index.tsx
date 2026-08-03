@@ -48,7 +48,7 @@ import {
 import { VerifyMedicaidButton } from "@/components/VerifyMedicaidButton";
 import { VerifyMedicaidCard } from "@/components/driver/VerifyMedicaidCard";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/driver/")({ component: DriverHome });
+export const Route = createFileRoute("/$companySlug/driver/")({ component: DriverHome });
 
 type DriverRow = {
   id: string;

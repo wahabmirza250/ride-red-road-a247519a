@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/medicaid-trips")({
+export const Route = createFileRoute("/$companySlug/_authenticated/medicaid-trips")({
   component: MedicaidTripsPage,
 });
 

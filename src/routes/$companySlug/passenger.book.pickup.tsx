@@ -29,7 +29,7 @@ function parseStops(v: unknown): BookingStop[] {
   }
 }
 
-export const Route = createFileRoute("/$companySlug/$companySlug/passenger/book/pickup")({
+export const Route = createFileRoute("/$companySlug/passenger/book/pickup")({
   ssr: false,
   validateSearch: (s: Record<string, unknown>) => ({
     dropoff: typeof s.dropoff === "string" ? s.dropoff : undefined,

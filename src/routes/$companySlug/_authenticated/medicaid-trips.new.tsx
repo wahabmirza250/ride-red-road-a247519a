@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, Search, UserPlus, Eraser, Check } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/medicaid-trips/new")({
+export const Route = createFileRoute("/$companySlug/_authenticated/medicaid-trips/new")({
   component: NewMedicaidTripPage,
 });
 

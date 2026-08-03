@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { submitGasReceipt, listMyGasReceipts } from "@/lib/gasReceipts.functions";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/driver/expenses")({
+export const Route = createFileRoute("/$companySlug/driver/expenses")({
   component: ExpensesPage,
 });
 

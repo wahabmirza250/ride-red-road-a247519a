@@ -40,7 +40,7 @@ import { getRiderIdentifierForPdf } from "@/lib/rider.functions";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 
 
-export const Route = createFileRoute("/$companySlug/$companySlug/driver/trip/new")({
+export const Route = createFileRoute("/$companySlug/driver/trip/new")({
   validateSearch: (search) => ({
     tripId: typeof search.tripId === "string" ? search.tripId : undefined,
   }),

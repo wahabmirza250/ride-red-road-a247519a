@@ -13,7 +13,7 @@ import { submitRideRequest } from "@/lib/passengerPublic.functions";
 import { passengerRequestRide } from "@/lib/dispatch.functions";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/passenger/apply")({
+export const Route = createFileRoute("/$companySlug/passenger/apply")({
   validateSearch: (search: Record<string, unknown>) => ({
     dropoff: typeof search.dropoff === "string" ? search.dropoff : undefined,
     pickup: typeof search.pickup === "string" ? search.pickup : undefined,

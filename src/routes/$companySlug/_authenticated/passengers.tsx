@@ -22,7 +22,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { createPassengerAccount } from "@/lib/admin.functions";
 import { VerifyMedicaidButton } from "@/components/VerifyMedicaidButton";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/passengers")({
+export const Route = createFileRoute("/$companySlug/_authenticated/passengers")({
   component: PassengersPage,
 });
 

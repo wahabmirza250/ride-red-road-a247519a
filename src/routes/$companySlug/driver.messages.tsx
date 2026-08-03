@@ -7,7 +7,7 @@ import { ChatThread, ensureAdminConversation } from "@/components/chat/ChatThrea
 import { Loader2, MessageSquare, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/driver/messages")({
+export const Route = createFileRoute("/$companySlug/driver/messages")({
   ssr: false,
   component: DriverMessagesPage,
 });

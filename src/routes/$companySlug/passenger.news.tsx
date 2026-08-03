@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Newspaper, ExternalLink, MapPin } from "lucide-react";
 import { getRegionalNews, listPublicNews } from "@/lib/passengerPublic.functions";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/passenger/news")({
+export const Route = createFileRoute("/$companySlug/passenger/news")({
   component: NewsPage,
 });
 

@@ -17,7 +17,7 @@ import { useAuth } from "@/lib/auth";
 import { ensurePushSubscribed } from "@/lib/push";
 import { AccessDenied } from "@/components/AccessDenied";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/passenger")({
+export const Route = createFileRoute("/$companySlug/passenger")({
   ssr: false,
   component: PassengerLayout,
 });

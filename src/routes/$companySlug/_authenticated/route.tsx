@@ -37,7 +37,7 @@ import { AccessDenied } from "@/components/AccessDenied";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
-export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated")({
+export const Route = createFileRoute("/$companySlug/_authenticated")({
   ssr: false,
   component: AuthenticatedLayout,
 });

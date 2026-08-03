@@ -8,7 +8,7 @@ import { Loader2, MessageSquare, Car, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { initials } from "@/lib/format";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/messages")({
+export const Route = createFileRoute("/$companySlug/_authenticated/messages")({
   component: DispatchInboxPage,
 });
 

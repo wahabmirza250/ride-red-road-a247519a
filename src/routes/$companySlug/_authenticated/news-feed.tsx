@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/news-feed")({
+export const Route = createFileRoute("/$companySlug/_authenticated/news-feed")({
   component: NewsAdmin,
 });
 

@@ -10,7 +10,7 @@ import { listActiveEvents } from "@/lib/events.functions";
 import { ensurePushSubscribed, pushSupported } from "@/lib/push";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/passenger/events")({
+export const Route = createFileRoute("/$companySlug/passenger/events")({
   ssr: false,
   component: EventsFeed,
 });

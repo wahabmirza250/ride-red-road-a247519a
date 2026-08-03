@@ -35,7 +35,7 @@ import {
   upsertPassengerProfile,
 } from "@/lib/passengerPublic.functions";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/passenger/profile")({
+export const Route = createFileRoute("/$companySlug/passenger/profile")({
   component: ProfilePage,
 });
 

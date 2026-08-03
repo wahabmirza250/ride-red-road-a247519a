@@ -17,7 +17,7 @@ import { getCompanySlug } from "@/lib/companyContext";
 import { cn } from "@/lib/utils";
 
 
-export const Route = createFileRoute("/$companySlug/$companySlug/passenger/book/vehicle")({
+export const Route = createFileRoute("/$companySlug/passenger/book/vehicle")({
   ssr: false,
   validateSearch: (s: Record<string, unknown>) => ({
     pickup: typeof s.pickup === "string" ? s.pickup : "",

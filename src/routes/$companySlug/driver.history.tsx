@@ -6,7 +6,7 @@ import { fmtMoney } from "@/lib/rideMath";
 import { formatDateTime } from "@/lib/format";
 import { Loader2 } from "lucide-react";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/driver/history")({
+export const Route = createFileRoute("/$companySlug/driver/history")({
   component: DriverHistory,
 });
 

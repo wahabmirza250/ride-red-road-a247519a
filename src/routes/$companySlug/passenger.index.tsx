@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { useCurrentPosition } from "@/lib/useGeolocation";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/passenger/")({
+export const Route = createFileRoute("/$companySlug/passenger/")({
   ssr: false,
   component: PassengerHome,
 });

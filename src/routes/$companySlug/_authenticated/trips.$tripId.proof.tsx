@@ -6,7 +6,7 @@ import { ArrowLeft, Printer, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getTripProofBundle } from "@/lib/tripMedia.functions";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/trips/$tripId/proof")({
+export const Route = createFileRoute("/$companySlug/_authenticated/trips/$tripId/proof")({
   component: ProofPage,
 });
 

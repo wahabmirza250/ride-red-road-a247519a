@@ -8,7 +8,7 @@ import { getDispatchDayHistory } from "@/lib/dispatchApp.functions";
 import { Input } from "@/components/ui/input";
 import { TripPdfButton, TripReportEditor } from "@/components/nemt/TripReportEditor";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/dispatch/history")({
+export const Route = createFileRoute("/$companySlug/dispatch/history")({
   component: HistoryView,
 });
 

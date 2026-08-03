@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { AccessDenied } from "@/components/AccessDenied";
 import { BrandMark } from "@/components/Brand";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/dispatch")({
+export const Route = createFileRoute("/$companySlug/dispatch")({
   ssr: false,
   component: DispatchLayout,
 });

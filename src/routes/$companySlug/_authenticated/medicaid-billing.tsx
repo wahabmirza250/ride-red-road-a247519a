@@ -46,7 +46,7 @@ import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
 
 import { getBillingCountsClient, listBillingRecordsClient } from "@/lib/billingClient";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/medicaid-billing")({
+export const Route = createFileRoute("/$companySlug/_authenticated/medicaid-billing")({
   component: MedicaidBillingPage,
 });
 

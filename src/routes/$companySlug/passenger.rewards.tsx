@@ -6,7 +6,7 @@ import { Trophy, Sparkles, Loader2, CheckCircle2, Lock } from "lucide-react";
 import { getRewardsPublic, getMyProgress } from "@/lib/rewards.functions";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/passenger/rewards")({
+export const Route = createFileRoute("/$companySlug/passenger/rewards")({
   ssr: false,
   component: RewardsPage,
 });

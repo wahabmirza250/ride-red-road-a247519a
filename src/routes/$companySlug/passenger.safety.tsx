@@ -9,7 +9,7 @@ import {
   ChevronLeft,
 } from "lucide-react";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/passenger/safety")({
+export const Route = createFileRoute("/$companySlug/passenger/safety")({
   component: SafetyHub,
 });
 

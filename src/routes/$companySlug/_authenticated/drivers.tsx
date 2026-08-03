@@ -32,7 +32,7 @@ import { DriverPayPanel } from "@/components/admin/DriverPayPanel";
 import { DriverActivityPanel } from "@/components/admin/DriverActivityPanel";
 import { GasReceiptsPanel } from "@/components/expenses/GasReceiptsPanel";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/drivers")({
+export const Route = createFileRoute("/$companySlug/_authenticated/drivers")({
   component: DriversPage,
 });
 

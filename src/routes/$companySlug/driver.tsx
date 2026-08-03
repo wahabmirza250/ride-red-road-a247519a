@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { AccessDenied } from "@/components/AccessDenied";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/driver")({
+export const Route = createFileRoute("/$companySlug/driver")({
   ssr: false,
   component: DriverLayout,
 });

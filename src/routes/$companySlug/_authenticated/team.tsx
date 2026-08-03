@@ -27,7 +27,7 @@ import {
 import { PortalCredentialsCard } from "@/components/billing/PortalCredentialsCard";
 import { RobotApiKeyCard } from "@/components/team/RobotApiKeyCard";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/team")({
+export const Route = createFileRoute("/$companySlug/_authenticated/team")({
   component: TeamPage,
 });
 

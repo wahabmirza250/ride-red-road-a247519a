@@ -12,7 +12,7 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { signInAsRole } from "@/lib/roleGuardedSignIn";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/passenger/signup")({
+export const Route = createFileRoute("/$companySlug/passenger/signup")({
   ssr: false,
   component: PassengerAuthPage,
 });

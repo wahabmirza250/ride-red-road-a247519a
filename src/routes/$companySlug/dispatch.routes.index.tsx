@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/dispatch/routes/")({
+export const Route = createFileRoute("/$companySlug/dispatch/routes/")({
   component: RoutesView,
 });
 

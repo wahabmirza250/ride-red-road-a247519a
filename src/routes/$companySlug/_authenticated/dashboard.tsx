@@ -28,7 +28,7 @@ import { Link } from "@tanstack/react-router";
 import { formatDateTime } from "@/lib/format";
 import type { ReactNode } from "react";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/_authenticated/dashboard")({
+export const Route = createFileRoute("/$companySlug/_authenticated/dashboard")({
   component: DashboardPage,
 });
 

@@ -10,7 +10,7 @@ import { lookupPassengerRides } from "@/lib/passenger.functions";
 import { fmtMoney } from "@/lib/rideMath";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/$companySlug/$companySlug/passenger/track")({
+export const Route = createFileRoute("/$companySlug/passenger/track")({
   ssr: false,
   component: TrackExisting,
 });
