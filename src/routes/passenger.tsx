@@ -105,6 +105,15 @@ function PassengerLayout() {
     return <AccessDenied appName="passenger" signInHref="/passenger/signup" signInLabel="passenger sign in" email={user.email} />;
   }
 
+  // Tenant safety — a guest with no company context must never be dropped
+  // into some default company's booking flow. Signed-in passengers are scoped
+  // by their own account's company, so they pass through.
+  if (!loading && !user && companySlug === null) {
+    return <CompanyLinkRequired />;
+  }
+
+
+
 
   return (
     <div
