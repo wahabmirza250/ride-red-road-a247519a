@@ -466,6 +466,62 @@ export type Database = {
           },
         ]
       }
+      driver_hour_clearings: {
+        Row: {
+          cleared_at: string
+          cleared_by: string | null
+          created_at: string
+          driver_id: string
+          earnings: number | null
+          hourly_rate: number | null
+          hours: number
+          id: string
+          note: string | null
+          period_end: string | null
+          period_start: string | null
+          shift_count: number
+          updated_at: string
+        }
+        Insert: {
+          cleared_at?: string
+          cleared_by?: string | null
+          created_at?: string
+          driver_id: string
+          earnings?: number | null
+          hourly_rate?: number | null
+          hours?: number
+          id?: string
+          note?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          shift_count?: number
+          updated_at?: string
+        }
+        Update: {
+          cleared_at?: string
+          cleared_by?: string | null
+          created_at?: string
+          driver_id?: string
+          earnings?: number | null
+          hourly_rate?: number | null
+          hours?: number
+          id?: string
+          note?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          shift_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_hour_clearings_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_pay: {
         Row: {
           created_at: string
@@ -565,6 +621,8 @@ export type Database = {
       }
       driver_shifts: {
         Row: {
+          cleared_at: string | null
+          cleared_batch_id: string | null
           clock_in_at: string
           clock_out_at: string | null
           created_at: string
@@ -578,6 +636,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cleared_at?: string | null
+          cleared_batch_id?: string | null
           clock_in_at?: string
           clock_out_at?: string | null
           created_at?: string
@@ -591,6 +651,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cleared_at?: string | null
+          cleared_batch_id?: string | null
           clock_in_at?: string
           clock_out_at?: string | null
           created_at?: string

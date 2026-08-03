@@ -18,6 +18,8 @@ export type VerifyResult = {
   medicaid_id?: string | null;
   match_confidence?: number | null;
   used_identifier: "medicaid_id" | "ssn_dob" | "none";
+  /** Where the answer came from: our own database or the live state portal. */
+  source?: "local" | "portal";
 };
 
 export type KnownPassenger = {
@@ -158,6 +160,66 @@ export const verifyMedicaidIdAdHoc = createServerFn({ method: "POST" })
     });
   });
 
+
+/**
+ * Local-database-first lookup. Checks our own passengers/riders records for a
+ * Medicaid ID match before anyone pays the 1–3 minute portal round trip.
+ * Read-only, staff only.
+ */
+export const lookupLocalMedicaidId = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { medicaid_id: string }) => {
+    const medicaid_id = (input.medicaid_id ?? "").trim();
+    if (!medicaid_id) throw new Error("Medicaid ID is required");
+    return { medicaid_id };
+  })
+  .handler(async ({ data, context }): Promise<VerifyResult | null> => {
+    const { supabase, userId } = context;
+
+    const [{ data: isAdmin }, { data: isDispatch }, { data: isDriver }] = await Promise.all([
+      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+      supabase.rpc("current_user_is_dispatch"),
+      supabase.rpc("has_role", { _user_id: userId, _role: "driver" }),
+    ]);
+    if (!isAdmin && !isDispatch && !isDriver) throw new Error("Not authorized to run verification");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const id = data.medicaid_id;
+
+    const [{ data: pax }, { data: rider }] = await Promise.all([
+      supabaseAdmin
+        .from("passengers")
+        .select("first_name, last_name, medicaid_id")
+        .ilike("medicaid_id", id)
+        .limit(1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("riders")
+        .select("full_name, medicaid_id")
+        .ilike("medicaid_id", id)
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    const name = pax
+      ? `${pax.first_name ?? ""} ${pax.last_name ?? ""}`.trim()
+      : rider
+        ? (rider.full_name ?? "").trim()
+        : "";
+    const matchedId = (pax?.medicaid_id ?? rider?.medicaid_id ?? "").trim();
+    const usable =
+      !!name && !!matchedId && !matchedId.startsWith("SELF-") && !matchedId.startsWith("WALK-");
+    if (!usable) return null;
+
+    return {
+      status: "found",
+      message: `This ID belongs to: ${name.toUpperCase()}`,
+      matched_name: name,
+      medicaid_id: matchedId,
+      used_identifier: "medicaid_id",
+      source: "local",
+    };
+  });
 
 /**
  * Passengers this driver has driven (or is scheduled to drive), so the

@@ -29,6 +29,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Avatar } from "@/components/Avatar";
 import { useSignedUrl } from "@/lib/signedUrl";
 import { DriverPayPanel } from "@/components/admin/DriverPayPanel";
+import { DriverActivityPanel } from "@/components/admin/DriverActivityPanel";
 import { GasReceiptsPanel } from "@/components/expenses/GasReceiptsPanel";
 
 export const Route = createFileRoute("/_authenticated/drivers")({
@@ -525,6 +526,7 @@ function EditDriverDialog({ driver, onClose }: { driver: DriverWithProfile; onCl
 
       <div className="mt-4 space-y-3">
         <DriverPayPanel driverId={driver.id} />
+        <DriverActivityPanel driverId={driver.id} />
         <GasReceiptsPanel driverId={driver.id} />
       </div>
 

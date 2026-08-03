@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Fuel, Loader2, Check } from "lucide-react";
+import { Fuel, Loader2, Check, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { listStaffGasReceipts, markGasReceiptReimbursed } from "@/lib/gasReceipts.functions";
@@ -70,6 +70,13 @@ export function GasReceiptsPanel({ driverId }: { driverId?: string }) {
                 </div>
               )}
             </div>
+            {r.photo_url && (
+              <a href={r.photo_url} target="_blank" rel="noreferrer" download>
+                <Button size="sm" variant="outline" className="rounded-full">
+                  <Download className="mr-1 h-3.5 w-3.5" /> View
+                </Button>
+              </a>
+            )}
             {q.data.can_reimburse && (
               <Button
                 size="sm"

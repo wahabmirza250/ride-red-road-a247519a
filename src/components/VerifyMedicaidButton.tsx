@@ -117,6 +117,11 @@ export function VerifyResultCard({ result }: { result: VerifyResult }) {
           <div className="text-[11px] opacity-80">HFC ID: {result.medicaid_id}</div>
         )}
         <div className="text-[11px] opacity-70">
+          {result.source === "local"
+            ? "Matched instantly from our own records. "
+            : result.source === "portal"
+              ? "Checked live with the state portal. "
+              : ""}
           Checked using{" "}
           {result.used_identifier === "medicaid_id"
             ? "Medicaid ID"
