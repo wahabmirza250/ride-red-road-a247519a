@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CompanySlugRouteRouteImport } from './routes/$companySlug/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
 import { Route as RideRequestIdRouteImport } from './routes/ride.$requestId'
@@ -76,6 +77,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CompanySlugRouteRoute = CompanySlugRouteRouteImport.update({
+  id: '/$companySlug',
+  path: '/$companySlug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -102,30 +108,29 @@ const DispatchSigninRoute = DispatchSigninRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompanySlugPassengerRoute = CompanySlugPassengerRouteImport.update({
-  id: '/$companySlug/passenger',
-  path: '/$companySlug/passenger',
-  getParentRoute: () => rootRouteImport,
+  id: '/passenger',
+  path: '/passenger',
+  getParentRoute: () => CompanySlugRouteRoute,
 } as any)
 const CompanySlugDriverRoute = CompanySlugDriverRouteImport.update({
-  id: '/$companySlug/driver',
-  path: '/$companySlug/driver',
-  getParentRoute: () => rootRouteImport,
+  id: '/driver',
+  path: '/driver',
+  getParentRoute: () => CompanySlugRouteRoute,
 } as any)
 const CompanySlugDispatchRoute = CompanySlugDispatchRouteImport.update({
-  id: '/$companySlug/dispatch',
-  path: '/$companySlug/dispatch',
-  getParentRoute: () => rootRouteImport,
+  id: '/dispatch',
+  path: '/dispatch',
+  getParentRoute: () => CompanySlugRouteRoute,
 } as any)
 const CompanySlugSplatRoute = CompanySlugSplatRouteImport.update({
-  id: '/$companySlug/$',
-  path: '/$companySlug/$',
-  getParentRoute: () => rootRouteImport,
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => CompanySlugRouteRoute,
 } as any)
 const CompanySlugAuthenticatedRouteRoute =
   CompanySlugAuthenticatedRouteRouteImport.update({
-    id: '/$companySlug/_authenticated',
-    path: '/$companySlug',
-    getParentRoute: () => rootRouteImport,
+    id: '/_authenticated',
+    getParentRoute: () => CompanySlugRouteRoute,
   } as any)
 const CompanySlugPassengerIndexRoute =
   CompanySlugPassengerIndexRouteImport.update({
@@ -427,8 +432,8 @@ const CompanySlugAuthenticatedTripsTripIdProofRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/$companySlug': typeof CompanySlugAuthenticatedRouteRouteWithChildren
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/$companySlug/dispatch': typeof CompanySlugDispatchRouteWithChildren
   '/$companySlug/driver': typeof CompanySlugDriverRouteWithChildren
@@ -490,8 +495,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/$companySlug': typeof CompanySlugAuthenticatedRouteRouteWithChildren
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
@@ -550,6 +555,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/$companySlug/_authenticated': typeof CompanySlugAuthenticatedRouteRouteWithChildren
   '/$companySlug/$': typeof CompanySlugSplatRoute
@@ -615,8 +621,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/auth'
     | '/$companySlug'
+    | '/auth'
     | '/$companySlug/$'
     | '/$companySlug/dispatch'
     | '/$companySlug/driver'
@@ -678,8 +684,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/auth'
     | '/$companySlug'
+    | '/auth'
     | '/$companySlug/$'
     | '/dispatch/signin'
     | '/driver/signin'
@@ -737,6 +743,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/$companySlug'
     | '/auth'
     | '/$companySlug/_authenticated'
     | '/$companySlug/$'
@@ -801,12 +808,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CompanySlugRouteRoute: typeof CompanySlugRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  CompanySlugAuthenticatedRouteRoute: typeof CompanySlugAuthenticatedRouteRouteWithChildren
-  CompanySlugSplatRoute: typeof CompanySlugSplatRoute
-  CompanySlugDispatchRoute: typeof CompanySlugDispatchRouteWithChildren
-  CompanySlugDriverRoute: typeof CompanySlugDriverRouteWithChildren
-  CompanySlugPassengerRoute: typeof CompanySlugPassengerRouteWithChildren
   DispatchSigninRoute: typeof DispatchSigninRoute
   DriverSigninRoute: typeof DriverSigninRoute
   RideRequestIdRoute: typeof RideRequestIdRoute
@@ -823,6 +826,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$companySlug': {
+      id: '/$companySlug'
+      path: '/$companySlug'
+      fullPath: '/$companySlug'
+      preLoaderRoute: typeof CompanySlugRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -862,38 +872,38 @@ declare module '@tanstack/react-router' {
     }
     '/$companySlug/passenger': {
       id: '/$companySlug/passenger'
-      path: '/$companySlug/passenger'
+      path: '/passenger'
       fullPath: '/$companySlug/passenger'
       preLoaderRoute: typeof CompanySlugPassengerRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
     }
     '/$companySlug/driver': {
       id: '/$companySlug/driver'
-      path: '/$companySlug/driver'
+      path: '/driver'
       fullPath: '/$companySlug/driver'
       preLoaderRoute: typeof CompanySlugDriverRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
     }
     '/$companySlug/dispatch': {
       id: '/$companySlug/dispatch'
-      path: '/$companySlug/dispatch'
+      path: '/dispatch'
       fullPath: '/$companySlug/dispatch'
       preLoaderRoute: typeof CompanySlugDispatchRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
     }
     '/$companySlug/$': {
       id: '/$companySlug/$'
-      path: '/$companySlug/$'
+      path: '/$'
       fullPath: '/$companySlug/$'
       preLoaderRoute: typeof CompanySlugSplatRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
     }
     '/$companySlug/_authenticated': {
       id: '/$companySlug/_authenticated'
-      path: '/$companySlug'
+      path: ''
       fullPath: '/$companySlug'
       preLoaderRoute: typeof CompanySlugAuthenticatedRouteRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
     }
     '/$companySlug/passenger/': {
       id: '/$companySlug/passenger/'
@@ -1432,15 +1442,30 @@ const CompanySlugPassengerRouteChildren: CompanySlugPassengerRouteChildren = {
 const CompanySlugPassengerRouteWithChildren =
   CompanySlugPassengerRoute._addFileChildren(CompanySlugPassengerRouteChildren)
 
-const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AuthRoute: AuthRoute,
+interface CompanySlugRouteRouteChildren {
+  CompanySlugAuthenticatedRouteRoute: typeof CompanySlugAuthenticatedRouteRouteWithChildren
+  CompanySlugSplatRoute: typeof CompanySlugSplatRoute
+  CompanySlugDispatchRoute: typeof CompanySlugDispatchRouteWithChildren
+  CompanySlugDriverRoute: typeof CompanySlugDriverRouteWithChildren
+  CompanySlugPassengerRoute: typeof CompanySlugPassengerRouteWithChildren
+}
+
+const CompanySlugRouteRouteChildren: CompanySlugRouteRouteChildren = {
   CompanySlugAuthenticatedRouteRoute:
     CompanySlugAuthenticatedRouteRouteWithChildren,
   CompanySlugSplatRoute: CompanySlugSplatRoute,
   CompanySlugDispatchRoute: CompanySlugDispatchRouteWithChildren,
   CompanySlugDriverRoute: CompanySlugDriverRouteWithChildren,
   CompanySlugPassengerRoute: CompanySlugPassengerRouteWithChildren,
+}
+
+const CompanySlugRouteRouteWithChildren =
+  CompanySlugRouteRoute._addFileChildren(CompanySlugRouteRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  CompanySlugRouteRoute: CompanySlugRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
   DispatchSigninRoute: DispatchSigninRoute,
   DriverSigninRoute: DriverSigninRoute,
   RideRequestIdRoute: RideRequestIdRoute,
