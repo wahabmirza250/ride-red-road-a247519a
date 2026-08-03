@@ -328,6 +328,7 @@ export const getTodaysSchedule = createServerFn({ method: "GET" })
           .order("requested_pickup_time", { ascending: true }),
       ]);
 
+    const driverRows = companyDrivers;
     const ids = (driverRows ?? []).map((d) => d.user_id).filter(Boolean);
     const nameMap = new Map<string, string>();
     if (ids.length) {
@@ -403,6 +404,10 @@ export const getDispatchDayHistory = createServerFn({ method: "GET" })
         .order("created_at", { ascending: true }),
     ]);
 
+    const events = (allEvents ?? []).filter(
+      (e) => !e.driver_id || companyDriverIds.has(e.driver_id),
+    );
+
     const driverIds = Array.from(
       new Set([
         ...(events ?? []).map((e) => e.driver_id),
@@ -462,10 +467,10 @@ export const getPlannableRides = createServerFn({ method: "GET" })
 
     let q = supabaseAdmin
       .from("ride_requests")
-      .eq("company_id", callerCompany)
       .select(
         "id, status, driver_id, trip_id, contact_name, contact_phone, pickup_address, dropoff_address, requested_pickup_time, vehicle_type, notes, is_group, created_at",
       )
+      .eq("company_id", callerCompany)
       .in("status", ["pending", "accepted"])
       .order("requested_pickup_time", { ascending: true, nullsFirst: false })
       .limit(500);
