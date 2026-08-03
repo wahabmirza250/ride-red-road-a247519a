@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AppLink } from "@/lib/appLink";
+import { useCompanySlug } from "@/lib/appLink";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -46,22 +46,22 @@ function TeamPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <AppLink
+        <AppCard
           href={`${origin}/`}
           title="Landing"
           desc="Home page — pick which app to open"
           icon={<Shield className="h-5 w-5" />}
           tone="amber"
         />
-        <AppLink
+        <AppCard
           href={`${origin}/driver/signin`}
           title="Driver app"
           desc="Sign in with driver credentials"
           icon={<Car className="h-5 w-5" />}
           tone="primary"
         />
-        <AppLink
-          href={`${origin}/passenger`}
+        <AppCard
+          href={`${origin}/${slug}/passenger`}
           title="Passenger app"
           desc="Open — no sign-up required"
           icon={<User className="h-5 w-5" />}
@@ -146,7 +146,7 @@ function TeamPage() {
   );
 }
 
-function AppLink({
+function AppCard({
   href,
   title,
   desc,
