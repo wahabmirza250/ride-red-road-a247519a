@@ -57,11 +57,37 @@ function PassengerHome() {
   });
 
   function goToSearch(extra?: { dropoff?: string; dLat?: number; dLng?: number }) {
-    void navigate({ to: "/passenger/book/pickup", search: extra ?? {} });
+    void navigate({
+      to: "/passenger/book/pickup",
+      search: {
+        dropoff: extra?.dropoff,
+        dLat: extra?.dLat,
+        dLng: extra?.dLng,
+        pickup: undefined,
+        pLat: undefined,
+        pLng: undefined,
+        notes: undefined,
+        purpose: undefined,
+        stops: undefined,
+      },
+    });
   }
 
   function pickRecent(addr: string) {
-    void navigate({ to: "/passenger/book/pickup", search: { dropoff: addr } });
+    void navigate({
+      to: "/passenger/book/pickup",
+      search: {
+        dropoff: addr,
+        dLat: undefined,
+        dLng: undefined,
+        pickup: undefined,
+        pLat: undefined,
+        pLng: undefined,
+        notes: undefined,
+        purpose: undefined,
+        stops: undefined,
+      },
+    });
   }
 
 
@@ -84,6 +110,7 @@ function PassengerHome() {
       <div className="grid grid-cols-2 gap-3">
         <Link
           to="/passenger/apply"
+          search={{ dropoff: undefined, pickup: undefined, eventTitle: undefined }}
           className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface p-3.5 shadow-soft transition hover:border-primary/60"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-amber-500">
