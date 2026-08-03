@@ -57,6 +57,7 @@ import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedEventsRouteImport } from './routes/_authenticated/events'
 import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as CompanySlugSplatRouteImport } from './routes/$companySlug.$'
 import { Route as DispatchRoutesIndexRouteImport } from './routes/dispatch.routes.index'
 import { Route as AuthenticatedPayrollIndexRouteImport } from './routes/_authenticated/payroll.index'
 import { Route as PassengerBookVehicleRouteImport } from './routes/passenger.book.vehicle'
@@ -312,6 +313,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const CompanySlugSplatRoute = CompanySlugSplatRouteImport.update({
+  id: '/$companySlug/$',
+  path: '/$companySlug/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DispatchRoutesIndexRoute = DispatchRoutesIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -384,6 +390,7 @@ export interface FileRoutesByFullPath {
   '/dispatch': typeof DispatchRouteWithChildren
   '/driver': typeof DriverRouteWithChildren
   '/passenger': typeof PassengerRouteWithChildren
+  '/$companySlug/$': typeof CompanySlugSplatRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/drivers': typeof AuthenticatedDriversRoute
   '/events': typeof AuthenticatedEventsRoute
@@ -442,6 +449,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/$companySlug/$': typeof CompanySlugSplatRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/drivers': typeof AuthenticatedDriversRoute
   '/events': typeof AuthenticatedEventsRoute
@@ -504,6 +512,7 @@ export interface FileRoutesById {
   '/dispatch': typeof DispatchRouteWithChildren
   '/driver': typeof DriverRouteWithChildren
   '/passenger': typeof PassengerRouteWithChildren
+  '/$companySlug/$': typeof CompanySlugSplatRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/drivers': typeof AuthenticatedDriversRoute
   '/_authenticated/events': typeof AuthenticatedEventsRoute
@@ -567,6 +576,7 @@ export interface FileRouteTypes {
     | '/dispatch'
     | '/driver'
     | '/passenger'
+    | '/$companySlug/$'
     | '/dashboard'
     | '/drivers'
     | '/events'
@@ -625,6 +635,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/$companySlug/$'
     | '/dashboard'
     | '/drivers'
     | '/events'
@@ -686,6 +697,7 @@ export interface FileRouteTypes {
     | '/dispatch'
     | '/driver'
     | '/passenger'
+    | '/$companySlug/$'
     | '/_authenticated/dashboard'
     | '/_authenticated/drivers'
     | '/_authenticated/events'
@@ -749,6 +761,7 @@ export interface RootRouteChildren {
   DispatchRoute: typeof DispatchRouteWithChildren
   DriverRoute: typeof DriverRouteWithChildren
   PassengerRoute: typeof PassengerRouteWithChildren
+  CompanySlugSplatRoute: typeof CompanySlugSplatRoute
   RideRequestIdRoute: typeof RideRequestIdRoute
   TrackTripIdRoute: typeof TrackTripIdRoute
   ApiPublicGetBillingRateRoute: typeof ApiPublicGetBillingRateRoute
@@ -1094,6 +1107,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/$companySlug/$': {
+      id: '/$companySlug/$'
+      path: '/$companySlug/$'
+      fullPath: '/$companySlug/$'
+      preLoaderRoute: typeof CompanySlugSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dispatch/routes/': {
       id: '/dispatch/routes/'
       path: '/'
@@ -1355,6 +1375,7 @@ const rootRouteChildren: RootRouteChildren = {
   DispatchRoute: DispatchRouteWithChildren,
   DriverRoute: DriverRouteWithChildren,
   PassengerRoute: PassengerRouteWithChildren,
+  CompanySlugSplatRoute: CompanySlugSplatRoute,
   RideRequestIdRoute: RideRequestIdRoute,
   TrackTripIdRoute: TrackTripIdRoute,
   ApiPublicGetBillingRateRoute: ApiPublicGetBillingRateRoute,

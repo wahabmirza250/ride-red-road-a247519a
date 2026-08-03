@@ -11,6 +11,8 @@ import { updatePassengerIdentity } from "@/lib/passenger.functions";
 import { getMyPassengerProfile } from "@/lib/passengerPublic.functions";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseBrowser";
+import { getCompanySlug } from "@/lib/companyContext";
+
 import { cn } from "@/lib/utils";
 
 
@@ -71,10 +73,12 @@ function VehicleSelect() {
 
   useEffect(() => {
     if (missingCoords) return;
-    void etas({ data: { lat: s.pLat, lng: s.pLng } })
+    // ETAs must reflect only the booking company's fleet.
+    void etas({ data: { lat: s.pLat, lng: s.pLng, company_slug: getCompanySlug() } })
       .then((r) => setEtaMap(r as Record<string, number>))
       .catch(() => setEtaMap({}));
   }, [etas, s.pLat, s.pLng, missingCoords]);
+
 
   useEffect(() => {
     if (!user) return;

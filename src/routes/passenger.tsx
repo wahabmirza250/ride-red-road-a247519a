@@ -1,5 +1,8 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { getCompanySlug } from "@/lib/companyContext";
+import { CompanyLinkRequired } from "@/components/CompanyLinkRequired";
+
 import { useServerFn } from "@tanstack/react-start";
 import { Home, PlusCircle, Newspaper, Sparkles, UserCircle2, LogOut, Trophy } from "lucide-react";
 import { BrandMark, BrandWordmark } from "@/components/Brand";
@@ -40,6 +43,12 @@ function PassengerLayout() {
   const loc = useLocation();
   const track = useServerFn(trackVisitor);
   const { user, isPassenger, isAdmin, isDriver, loading } = useAuth();
+  // Guests must arrive through a company-specific link. Resolved after mount
+  // so SSR/hydration stay in sync.
+  const [companySlug, setSlug] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    setSlug(getCompanySlug());
+  }, []);
 
   useEffect(() => {
     // Auto-subscribe signed-in passengers to push (idempotent, one-time prompt).
@@ -47,6 +56,7 @@ function PassengerLayout() {
       ensurePushSubscribed().catch(() => {});
     }
   }, [user]);
+
 
 
 
@@ -94,6 +104,15 @@ function PassengerLayout() {
   if (!loading && user && !isPassenger && (isAdmin || isDriver)) {
     return <AccessDenied appName="passenger" signInHref="/passenger/signup" signInLabel="passenger sign in" email={user.email} />;
   }
+
+  // Tenant safety — a guest with no company context must never be dropped
+  // into some default company's booking flow. Signed-in passengers are scoped
+  // by their own account's company, so they pass through.
+  if (!loading && !user && companySlug === null) {
+    return <CompanyLinkRequired />;
+  }
+
+
 
 
   return (
