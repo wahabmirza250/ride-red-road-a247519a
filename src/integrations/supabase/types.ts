@@ -109,6 +109,7 @@ export type Database = {
       billing_rate_settings: {
         Row: {
           charge_amount: number
+          company_id: string | null
           created_at: string
           default_diagnosis_code: string | null
           id: string
@@ -121,6 +122,7 @@ export type Database = {
         }
         Insert: {
           charge_amount: number
+          company_id?: string | null
           created_at?: string
           default_diagnosis_code?: string | null
           id?: string
@@ -133,6 +135,7 @@ export type Database = {
         }
         Update: {
           charge_amount?: number
+          company_id?: string | null
           created_at?: string
           default_diagnosis_code?: string | null
           id?: string
@@ -143,10 +146,19 @@ export type Database = {
           updated_at?: string
           vehicle_type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "billing_rate_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       billing_records: {
         Row: {
+          company_id: string | null
           created_at: string
           fix_notes: string | null
           id: string
@@ -163,6 +175,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           fix_notes?: string | null
           id?: string
@@ -179,6 +192,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           fix_notes?: string | null
           id?: string
@@ -195,6 +209,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "billing_records_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "billing_records_trip_id_fkey1"
             columns: ["trip_id"]
@@ -306,6 +327,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      companies: {
+        Row: {
+          created_at: string
+          id: string
+          logo_url: string | null
+          name: string
+          status: string
+          updated_at: string
+          url_slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name: string
+          status?: string
+          updated_at?: string
+          url_slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          status?: string
+          updated_at?: string
+          url_slug?: string
+        }
+        Relationships: []
       }
       contest_entries: {
         Row: {
@@ -625,6 +676,7 @@ export type Database = {
           cleared_batch_id: string | null
           clock_in_at: string
           clock_out_at: string | null
+          company_id: string | null
           created_at: string
           driver_id: string
           earnings: number
@@ -640,6 +692,7 @@ export type Database = {
           cleared_batch_id?: string | null
           clock_in_at?: string
           clock_out_at?: string | null
+          company_id?: string | null
           created_at?: string
           driver_id: string
           earnings?: number
@@ -655,6 +708,7 @@ export type Database = {
           cleared_batch_id?: string | null
           clock_in_at?: string
           clock_out_at?: string | null
+          company_id?: string | null
           created_at?: string
           driver_id?: string
           earnings?: number
@@ -667,6 +721,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "driver_shifts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "driver_shifts_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
@@ -677,6 +738,7 @@ export type Database = {
       }
       drivers: {
         Row: {
+          company_id: string | null
           created_at: string
           current_lat: number | null
           current_lng: number | null
@@ -703,6 +765,7 @@ export type Database = {
           vehicle_year: number | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           current_lat?: number | null
           current_lng?: number | null
@@ -729,6 +792,7 @@ export type Database = {
           vehicle_year?: number | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           current_lat?: number | null
           current_lng?: number | null
@@ -754,7 +818,15 @@ export type Database = {
           vehicle_plate?: string | null
           vehicle_year?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "drivers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       events: {
         Row: {
@@ -896,6 +968,7 @@ export type Database = {
       gas_receipts: {
         Row: {
           amount: number
+          company_id: string | null
           created_at: string
           driver_id: string
           gallons: number | null
@@ -909,6 +982,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          company_id?: string | null
           created_at?: string
           driver_id: string
           gallons?: number | null
@@ -922,6 +996,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          company_id?: string | null
           created_at?: string
           driver_id?: string
           gallons?: number | null
@@ -934,6 +1009,13 @@ export type Database = {
           submitted_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "gas_receipts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "gas_receipts_driver_id_fkey"
             columns: ["driver_id"]
@@ -1105,6 +1187,7 @@ export type Database = {
         Row: {
           arrived_dropoff_at: string | null
           arrived_pickup_at: string | null
+          company_id: string | null
           created_at: string
           dispatch_trip_id: string | null
           driver_id: string
@@ -1162,6 +1245,7 @@ export type Database = {
         Insert: {
           arrived_dropoff_at?: string | null
           arrived_pickup_at?: string | null
+          company_id?: string | null
           created_at?: string
           dispatch_trip_id?: string | null
           driver_id: string
@@ -1219,6 +1303,7 @@ export type Database = {
         Update: {
           arrived_dropoff_at?: string | null
           arrived_pickup_at?: string | null
+          company_id?: string | null
           created_at?: string
           dispatch_trip_id?: string | null
           driver_id?: string
@@ -1274,6 +1359,13 @@ export type Database = {
           vehicle_vin?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "medicaid_trips_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "medicaid_trips_rider_id_fkey"
             columns: ["rider_id"]
@@ -1362,6 +1454,7 @@ export type Database = {
           address: string | null
           approx_city: string | null
           approx_region: string | null
+          company_id: string | null
           county: string | null
           created_at: string
           date_of_birth: string | null
@@ -1385,6 +1478,7 @@ export type Database = {
           address?: string | null
           approx_city?: string | null
           approx_region?: string | null
+          company_id?: string | null
           county?: string | null
           created_at?: string
           date_of_birth?: string | null
@@ -1408,6 +1502,7 @@ export type Database = {
           address?: string | null
           approx_city?: string | null
           approx_region?: string | null
+          company_id?: string | null
           county?: string | null
           created_at?: string
           date_of_birth?: string | null
@@ -1427,7 +1522,15 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "passengers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pricing_config: {
         Row: {
@@ -1465,6 +1568,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          company_id: string | null
           created_at: string
           email: string | null
           first_name: string | null
@@ -1476,6 +1580,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          company_id?: string | null
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -1487,6 +1592,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          company_id?: string | null
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -1496,7 +1602,15 @@ export type Database = {
           phone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {
@@ -1635,6 +1749,7 @@ export type Database = {
       }
       ride_requests: {
         Row: {
+          company_id: string | null
           contact_medicaid: string | null
           contact_name: string | null
           contact_phone: string | null
@@ -1666,6 +1781,7 @@ export type Database = {
           vehicle_type: string | null
         }
         Insert: {
+          company_id?: string | null
           contact_medicaid?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -1697,6 +1813,7 @@ export type Database = {
           vehicle_type?: string | null
         }
         Update: {
+          company_id?: string | null
           contact_medicaid?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -1729,6 +1846,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "ride_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ride_requests_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
@@ -1747,6 +1871,7 @@ export type Database = {
       riders: {
         Row: {
           address: string | null
+          company_id: string | null
           created_at: string
           created_by: string | null
           dob: string | null
@@ -1761,6 +1886,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           dob?: string | null
@@ -1775,6 +1901,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           dob?: string | null
@@ -1787,7 +1914,15 @@ export type Database = {
           ssn_secret_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "riders_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       robot_api_keys: {
         Row: {
@@ -1884,6 +2019,7 @@ export type Database = {
       }
       routes: {
         Row: {
+          company_id: string | null
           completed_at: string | null
           created_at: string
           created_by: string | null
@@ -1897,6 +2033,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -1910,6 +2047,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -1923,6 +2061,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "routes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "routes_driver_id_fkey"
             columns: ["driver_id"]
@@ -2204,6 +2349,7 @@ export type Database = {
           actual_pickup_time: string | null
           assignment_type: string
           billing_status: Database["public"]["Enums"]["billing_status"]
+          company_id: string | null
           computed_miles: number | null
           created_at: string
           driver_id: string | null
@@ -2250,6 +2396,7 @@ export type Database = {
           actual_pickup_time?: string | null
           assignment_type?: string
           billing_status?: Database["public"]["Enums"]["billing_status"]
+          company_id?: string | null
           computed_miles?: number | null
           created_at?: string
           driver_id?: string | null
@@ -2296,6 +2443,7 @@ export type Database = {
           actual_pickup_time?: string | null
           assignment_type?: string
           billing_status?: Database["public"]["Enums"]["billing_status"]
+          company_id?: string | null
           computed_miles?: number | null
           created_at?: string
           driver_id?: string | null
@@ -2339,6 +2487,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "trips_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "trips_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
@@ -2356,24 +2511,35 @@ export type Database = {
       }
       user_roles: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -2384,10 +2550,12 @@ export type Database = {
         Args: { _driver_user_id: string }
         Returns: boolean
       }
+      company_is_active: { Args: { _company_id: string }; Returns: boolean }
       copy_passenger_ssn_to_rider: {
         Args: { _passenger_id: string; _rider_id: string }
         Returns: undefined
       }
+      current_user_company_id: { Args: never; Returns: string }
       current_user_has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
@@ -2422,6 +2590,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_platform_owner: { Args: never; Returns: boolean }
       requests_on_route: {
         Args: { _ids: string[] }
         Returns: {
@@ -2453,7 +2622,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "driver" | "passenger" | "dispatch"
+      app_role: "admin" | "driver" | "passenger" | "dispatch" | "platform_owner"
       billing_status: "pending" | "submitted" | "paid" | "rejected"
       driver_pay_type: "per_hour" | "commission"
       driver_status: "available" | "busy" | "offline"
@@ -2615,7 +2784,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "driver", "passenger", "dispatch"],
+      app_role: ["admin", "driver", "passenger", "dispatch", "platform_owner"],
       billing_status: ["pending", "submitted", "paid", "rejected"],
       driver_pay_type: ["per_hour", "commission"],
       driver_status: ["available", "busy", "offline"],

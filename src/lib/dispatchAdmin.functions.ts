@@ -26,26 +26,31 @@ export const adminReassignDriver = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { requireStaff, logDispatchEvent } = await import("@/lib/staffGuard.server");
     const { isAdmin } = await requireStaff(context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const callerCompany = await requireCompanyId(context.userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: req, error: reqErr } = await supabaseAdmin
       .from("ride_requests")
       .select(
-        "id, status, driver_id, trip_id, pickup_address, dropoff_address",
+        "id, status, driver_id, trip_id, pickup_address, dropoff_address, company_id",
       )
       .eq("id", data.request_id)
+      .eq("company_id", callerCompany)
       .maybeSingle();
     if (reqErr) throw new Error(reqErr.message);
     if (!req) throw new Error("Ride request not found");
 
     const { data: newDriver, error: dErr } = await supabaseAdmin
       .from("drivers")
-      .select("id, user_id, status")
+      .select("id, user_id, status, company_id")
       .eq("id", data.driver_id)
+      .eq("company_id", callerCompany)
       .maybeSingle();
     if (dErr) throw new Error(dErr.message);
     if (!newDriver) throw new Error("Selected driver not found");
+
 
     const oldDriverId = req.driver_id;
     const expires = new Date(Date.now() + OFFER_TTL_MS).toISOString();
@@ -143,6 +148,8 @@ export const adminListAssignableDrivers = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { requireStaff } = await import("@/lib/staffGuard.server");
     await requireStaff(context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const callerCompany = await requireCompanyId(context.userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
@@ -150,6 +157,7 @@ export const adminListAssignableDrivers = createServerFn({ method: "GET" })
       .select(
         "id, user_id, status, current_lat, current_lng, last_location_at, default_vehicle_type, vehicle_make, vehicle_model, vehicle_plate",
       )
+      .eq("company_id", callerCompany)
       .order("status", { ascending: true });
     if (error) throw new Error(error.message);
 
@@ -191,10 +199,14 @@ export const adminCancelTrip = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const callerCompany = await requireCompanyId(context.userId);
+
     const { data: req, error: reqErr } = await supabaseAdmin
       .from("ride_requests")
       .select("id, driver_id, trip_id, status, pickup_address, dropoff_address")
       .eq("id", data.request_id)
+      .eq("company_id", callerCompany)
       .maybeSingle();
     if (reqErr) throw new Error(reqErr.message);
     if (!req) throw new Error("Ride request not found");
@@ -270,10 +282,14 @@ export const rescheduleRide = createServerFn({ method: "POST" })
     const { isAdmin } = await requireStaff(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const callerCompany = await requireCompanyId(context.userId);
+
     const { data: req, error: rErr } = await supabaseAdmin
       .from("ride_requests")
       .select("id, status, trip_id")
       .eq("id", data.request_id)
+      .eq("company_id", callerCompany)
       .maybeSingle();
     if (rErr) throw new Error(rErr.message);
     if (!req) throw new Error("Ride request not found");

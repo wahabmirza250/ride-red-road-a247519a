@@ -45,7 +45,7 @@ export const dispatchRideRequest = createServerFn({ method: "POST" })
     const { data: req, error: reqErr } = await supabaseAdmin
       .from("ride_requests")
       .select(
-        "id, status, pickup_address, pickup_lat, pickup_lng, dropoff_address, driver_id, declined_driver_ids",
+        "id, status, company_id, pickup_address, pickup_lat, pickup_lng, dropoff_address, driver_id, declined_driver_ids",
       )
       .eq("id", data.request_id)
       .maybeSingle();
@@ -57,14 +57,22 @@ export const dispatchRideRequest = createServerFn({ method: "POST" })
       return { assigned: null, reason: "no_pickup_coords" };
     }
 
+    // TENANT ISOLATION: a request may only ever be offered to drivers of the
+    // same company. Never widen this filter.
+    if (!req.company_id) {
+      return { assigned: null, reason: "no_company_on_request" };
+    }
+
     const pickup: Coord = { lat: Number(req.pickup_lat), lng: Number(req.pickup_lng) };
     const declined = (req.declined_driver_ids ?? []) as string[];
 
     const { data: drivers, error: dErr } = await supabaseAdmin
       .from("drivers")
-      .select("id, user_id, current_lat, current_lng, status")
+      .select("id, user_id, current_lat, current_lng, status, company_id")
+      .eq("company_id", req.company_id)
       .eq("status", "available");
     if (dErr) throw new Error(dErr.message);
+
 
     const eligible = (drivers ?? [])
       .filter(
@@ -536,10 +544,15 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
       }
     }
 
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
+
     const { data: inserted, error } = await supabaseAdmin
       .from("ride_requests")
       .insert({
+        company_id: companyId,
         passenger_id: context.userId,
+
         pickup_address: data.pickup_address.trim(),
         pickup_lat: data.pickup_lat,
         pickup_lng: data.pickup_lng,
@@ -587,12 +600,16 @@ export const dispatcherRequestRide = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { requireStaff } = await import("@/lib/staffGuard.server");
+    const { requireCompanyId } = await import("@/lib/company.server");
     await requireStaff(context.userId);
+    const companyId = await requireCompanyId(context.userId);
 
     const { data: inserted, error } = await supabaseAdmin
       .from("ride_requests")
       .insert({
+        company_id: companyId,
         passenger_id: data.passenger_id || null,
+
         pickup_address: data.pickup_address.trim(),
         pickup_lat: data.pickup_lat,
         pickup_lng: data.pickup_lng,
@@ -619,16 +636,24 @@ export const dispatcherRequestRide = createServerFn({ method: "POST" })
  *  from a given pickup coordinate. Returns null when no available driver
  *  of that type has GPS. Used by the passenger vehicle picker. */
 export const getVehicleEtas = createServerFn({ method: "POST" })
-  .inputValidator((input: { lat: number; lng: number }) => {
+  .inputValidator((input: { lat: number; lng: number; company_slug?: string | null }) => {
     if (input?.lat == null || input?.lng == null) throw new Error("Pickup coords required");
     return input;
   })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: drivers } = await supabaseAdmin
+    const { getCompanyBySlug } = await import("@/lib/company.server");
+
+    // ETAs must only ever reflect the booking company's own fleet.
+    const company = data.company_slug ? await getCompanyBySlug(data.company_slug) : null;
+
+    let query = supabaseAdmin
       .from("drivers")
-      .select("id, default_vehicle_type, current_lat, current_lng, status")
+      .select("id, default_vehicle_type, current_lat, current_lng, status, company_id")
       .eq("status", "available");
+    if (company) query = query.eq("company_id", company.id);
+    const { data: drivers } = await query;
+
 
     const pickup = { lat: data.lat, lng: data.lng };
     const bestByType: Record<string, number> = {};

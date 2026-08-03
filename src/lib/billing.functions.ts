@@ -1032,13 +1032,16 @@ export const upsertPortalCredential = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
+    // Credentials are always bound to the admin's own company.
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(userId);
     const { data: id, error } = await supabase.rpc("upsert_portal_credential", {
       _portal_id: data.portal_id,
       _portal_name: data.portal_name,
       _state: data.state,
       _login_email: data.login_email,
       _login_password: data.login_password,
-      _company_id: data.company_id ?? undefined,
+      _company_id: companyId,
     });
     if (error) throw new Error(error.message);
     return { id };
@@ -1065,10 +1068,12 @@ export const getBillingSettings = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(userId);
     const { data, error } = await supabase
       .from("billing_settings")
       .select("id, company_id, default_portal_id")
-      .is("company_id", null)
+      .eq("company_id", companyId)
       .order("updated_at", { ascending: false })
       .limit(1);
     if (error) throw new Error(error.message);
@@ -1086,8 +1091,11 @@ export const setDefaultBillingPortal = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(userId);
     const { error } = await supabase.rpc("set_default_billing_portal", {
       _portal_id: data.portal_id,
+      _company_id: companyId,
     });
     if (error) throw new Error(error.message);
     return { ok: true };
