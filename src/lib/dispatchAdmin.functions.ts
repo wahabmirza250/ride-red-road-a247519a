@@ -26,26 +26,31 @@ export const adminReassignDriver = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { requireStaff, logDispatchEvent } = await import("@/lib/staffGuard.server");
     const { isAdmin } = await requireStaff(context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const callerCompany = await requireCompanyId(context.userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: req, error: reqErr } = await supabaseAdmin
       .from("ride_requests")
       .select(
-        "id, status, driver_id, trip_id, pickup_address, dropoff_address",
+        "id, status, driver_id, trip_id, pickup_address, dropoff_address, company_id",
       )
       .eq("id", data.request_id)
+      .eq("company_id", callerCompany)
       .maybeSingle();
     if (reqErr) throw new Error(reqErr.message);
     if (!req) throw new Error("Ride request not found");
 
     const { data: newDriver, error: dErr } = await supabaseAdmin
       .from("drivers")
-      .select("id, user_id, status")
+      .select("id, user_id, status, company_id")
       .eq("id", data.driver_id)
+      .eq("company_id", callerCompany)
       .maybeSingle();
     if (dErr) throw new Error(dErr.message);
     if (!newDriver) throw new Error("Selected driver not found");
+
 
     const oldDriverId = req.driver_id;
     const expires = new Date(Date.now() + OFFER_TTL_MS).toISOString();
