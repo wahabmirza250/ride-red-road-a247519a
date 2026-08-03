@@ -1,5 +1,8 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { getCompanySlug } from "@/lib/companyContext";
+import { CompanyLinkRequired } from "@/components/CompanyLinkRequired";
+
 import { useServerFn } from "@tanstack/react-start";
 import { Home, PlusCircle, Newspaper, Sparkles, UserCircle2, LogOut, Trophy } from "lucide-react";
 import { BrandMark, BrandWordmark } from "@/components/Brand";
