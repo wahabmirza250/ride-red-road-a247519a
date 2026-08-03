@@ -9,90 +9,78 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PassengerRouteImport } from './routes/passenger'
-import { Route as DriverRouteImport } from './routes/driver'
-import { Route as DispatchRouteImport } from './routes/dispatch'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as CompanySlugRouteRouteImport } from './routes/$companySlug/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PassengerIndexRouteImport } from './routes/passenger.index'
-import { Route as DriverIndexRouteImport } from './routes/driver.index'
-import { Route as DispatchIndexRouteImport } from './routes/dispatch.index'
+import { Route as CompanySlugIndexRouteImport } from './routes/$companySlug/index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
 import { Route as RideRequestIdRouteImport } from './routes/ride.$requestId'
-import { Route as PassengerTrackRouteImport } from './routes/passenger.track'
-import { Route as PassengerSignupRouteImport } from './routes/passenger.signup'
-import { Route as PassengerSafetyRouteImport } from './routes/passenger.safety'
-import { Route as PassengerRewardsRouteImport } from './routes/passenger.rewards'
-import { Route as PassengerProfileRouteImport } from './routes/passenger.profile'
-import { Route as PassengerNewsRouteImport } from './routes/passenger.news'
-import { Route as PassengerGamesRouteImport } from './routes/passenger.games'
-import { Route as PassengerEventsRouteImport } from './routes/passenger.events'
-import { Route as PassengerApplyRouteImport } from './routes/passenger.apply'
 import { Route as DriverSigninRouteImport } from './routes/driver.signin'
-import { Route as DriverProfileRouteImport } from './routes/driver.profile'
-import { Route as DriverMessagesRouteImport } from './routes/driver.messages'
-import { Route as DriverHistoryRouteImport } from './routes/driver.history'
-import { Route as DriverExpensesRouteImport } from './routes/driver.expenses'
-import { Route as DriverEarningsRouteImport } from './routes/driver.earnings'
 import { Route as DispatchSigninRouteImport } from './routes/dispatch.signin'
-import { Route as DispatchScheduleRouteImport } from './routes/dispatch.schedule'
-import { Route as DispatchRoutesRouteImport } from './routes/dispatch.routes'
-import { Route as DispatchHistoryRouteImport } from './routes/dispatch.history'
-import { Route as AuthenticatedTripsRouteImport } from './routes/_authenticated/trips'
-import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
-import { Route as AuthenticatedSchedulesRouteImport } from './routes/_authenticated/schedules'
-import { Route as AuthenticatedRewardsSettingsRouteImport } from './routes/_authenticated/rewards-settings'
-import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
-import { Route as AuthenticatedPlannerRouteImport } from './routes/_authenticated/planner'
-import { Route as AuthenticatedPassengersRouteImport } from './routes/_authenticated/passengers'
-import { Route as AuthenticatedNewsFeedRouteImport } from './routes/_authenticated/news-feed'
-import { Route as AuthenticatedNewsRouteImport } from './routes/_authenticated/news'
-import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
-import { Route as AuthenticatedMedicaidTripsRouteImport } from './routes/_authenticated/medicaid-trips'
-import { Route as AuthenticatedMedicaidBillingRouteImport } from './routes/_authenticated/medicaid-billing'
-import { Route as AuthenticatedLiveOpsRouteImport } from './routes/_authenticated/live-ops'
-import { Route as AuthenticatedIncidentsRouteImport } from './routes/_authenticated/incidents'
-import { Route as AuthenticatedGamesRouteImport } from './routes/_authenticated/games'
-import { Route as AuthenticatedEventsRouteImport } from './routes/_authenticated/events'
-import { Route as AuthenticatedDriversRouteImport } from './routes/_authenticated/drivers'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as CompanySlugSplatRouteImport } from './routes/$companySlug.$'
-import { Route as DispatchRoutesIndexRouteImport } from './routes/dispatch.routes.index'
-import { Route as AuthenticatedPayrollIndexRouteImport } from './routes/_authenticated/payroll.index'
-import { Route as PassengerBookVehicleRouteImport } from './routes/passenger.book.vehicle'
-import { Route as PassengerBookPickupRouteImport } from './routes/passenger.book.pickup'
-import { Route as DriverTripNewRouteImport } from './routes/driver.trip.new'
-import { Route as DispatchRoutesRouteIdRouteImport } from './routes/dispatch.routes.$routeId'
+import { Route as CompanySlugPassengerRouteImport } from './routes/$companySlug/passenger'
+import { Route as CompanySlugDriverRouteImport } from './routes/$companySlug/driver'
+import { Route as CompanySlugDispatchRouteImport } from './routes/$companySlug/dispatch'
+import { Route as CompanySlugSplatRouteImport } from './routes/$companySlug/$'
+import { Route as CompanySlugAuthenticatedRouteRouteImport } from './routes/$companySlug/_authenticated/route'
+import { Route as CompanySlugPassengerIndexRouteImport } from './routes/$companySlug/passenger.index'
+import { Route as CompanySlugDriverIndexRouteImport } from './routes/$companySlug/driver.index'
+import { Route as CompanySlugDispatchIndexRouteImport } from './routes/$companySlug/dispatch.index'
 import { Route as ApiPublicGetTripPdfRouteImport } from './routes/api/public/get-trip-pdf'
 import { Route as ApiPublicGetPortalCredentialRouteImport } from './routes/api/public/get-portal-credential'
 import { Route as ApiPublicGetBillingRateRouteImport } from './routes/api/public/get-billing-rate'
-import { Route as AuthenticatedPayrollDriverIdRouteImport } from './routes/_authenticated/payroll.$driverId'
-import { Route as AuthenticatedMedicaidTripsNewRouteImport } from './routes/_authenticated/medicaid-trips.new'
-import { Route as AuthenticatedTripsTripIdProofRouteImport } from './routes/_authenticated/trips.$tripId.proof'
+import { Route as CompanySlugPassengerTrackRouteImport } from './routes/$companySlug/passenger.track'
+import { Route as CompanySlugPassengerSignupRouteImport } from './routes/$companySlug/passenger.signup'
+import { Route as CompanySlugPassengerSafetyRouteImport } from './routes/$companySlug/passenger.safety'
+import { Route as CompanySlugPassengerRewardsRouteImport } from './routes/$companySlug/passenger.rewards'
+import { Route as CompanySlugPassengerProfileRouteImport } from './routes/$companySlug/passenger.profile'
+import { Route as CompanySlugPassengerNewsRouteImport } from './routes/$companySlug/passenger.news'
+import { Route as CompanySlugPassengerGamesRouteImport } from './routes/$companySlug/passenger.games'
+import { Route as CompanySlugPassengerEventsRouteImport } from './routes/$companySlug/passenger.events'
+import { Route as CompanySlugPassengerApplyRouteImport } from './routes/$companySlug/passenger.apply'
+import { Route as CompanySlugDriverProfileRouteImport } from './routes/$companySlug/driver.profile'
+import { Route as CompanySlugDriverMessagesRouteImport } from './routes/$companySlug/driver.messages'
+import { Route as CompanySlugDriverHistoryRouteImport } from './routes/$companySlug/driver.history'
+import { Route as CompanySlugDriverExpensesRouteImport } from './routes/$companySlug/driver.expenses'
+import { Route as CompanySlugDriverEarningsRouteImport } from './routes/$companySlug/driver.earnings'
+import { Route as CompanySlugDispatchScheduleRouteImport } from './routes/$companySlug/dispatch.schedule'
+import { Route as CompanySlugDispatchRoutesRouteImport } from './routes/$companySlug/dispatch.routes'
+import { Route as CompanySlugDispatchHistoryRouteImport } from './routes/$companySlug/dispatch.history'
+import { Route as CompanySlugAuthenticatedTripsRouteImport } from './routes/$companySlug/_authenticated/trips'
+import { Route as CompanySlugAuthenticatedTeamRouteImport } from './routes/$companySlug/_authenticated/team'
+import { Route as CompanySlugAuthenticatedSchedulesRouteImport } from './routes/$companySlug/_authenticated/schedules'
+import { Route as CompanySlugAuthenticatedRewardsSettingsRouteImport } from './routes/$companySlug/_authenticated/rewards-settings'
+import { Route as CompanySlugAuthenticatedReportsRouteImport } from './routes/$companySlug/_authenticated/reports'
+import { Route as CompanySlugAuthenticatedPlannerRouteImport } from './routes/$companySlug/_authenticated/planner'
+import { Route as CompanySlugAuthenticatedPassengersRouteImport } from './routes/$companySlug/_authenticated/passengers'
+import { Route as CompanySlugAuthenticatedNewsFeedRouteImport } from './routes/$companySlug/_authenticated/news-feed'
+import { Route as CompanySlugAuthenticatedNewsRouteImport } from './routes/$companySlug/_authenticated/news'
+import { Route as CompanySlugAuthenticatedMessagesRouteImport } from './routes/$companySlug/_authenticated/messages'
+import { Route as CompanySlugAuthenticatedMedicaidTripsRouteImport } from './routes/$companySlug/_authenticated/medicaid-trips'
+import { Route as CompanySlugAuthenticatedMedicaidBillingRouteImport } from './routes/$companySlug/_authenticated/medicaid-billing'
+import { Route as CompanySlugAuthenticatedLiveOpsRouteImport } from './routes/$companySlug/_authenticated/live-ops'
+import { Route as CompanySlugAuthenticatedIncidentsRouteImport } from './routes/$companySlug/_authenticated/incidents'
+import { Route as CompanySlugAuthenticatedGamesRouteImport } from './routes/$companySlug/_authenticated/games'
+import { Route as CompanySlugAuthenticatedEventsRouteImport } from './routes/$companySlug/_authenticated/events'
+import { Route as CompanySlugAuthenticatedDriversRouteImport } from './routes/$companySlug/_authenticated/drivers'
+import { Route as CompanySlugAuthenticatedDashboardRouteImport } from './routes/$companySlug/_authenticated/dashboard'
+import { Route as CompanySlugDispatchRoutesIndexRouteImport } from './routes/$companySlug/dispatch.routes.index'
+import { Route as CompanySlugAuthenticatedPayrollIndexRouteImport } from './routes/$companySlug/_authenticated/payroll.index'
+import { Route as CompanySlugPassengerBookVehicleRouteImport } from './routes/$companySlug/passenger.book.vehicle'
+import { Route as CompanySlugPassengerBookPickupRouteImport } from './routes/$companySlug/passenger.book.pickup'
+import { Route as CompanySlugDriverTripNewRouteImport } from './routes/$companySlug/driver.trip.new'
+import { Route as CompanySlugDispatchRoutesRouteIdRouteImport } from './routes/$companySlug/dispatch.routes.$routeId'
+import { Route as CompanySlugAuthenticatedPayrollDriverIdRouteImport } from './routes/$companySlug/_authenticated/payroll.$driverId'
+import { Route as CompanySlugAuthenticatedMedicaidTripsNewRouteImport } from './routes/$companySlug/_authenticated/medicaid-trips.new'
+import { Route as CompanySlugAuthenticatedTripsTripIdProofRouteImport } from './routes/$companySlug/_authenticated/trips.$tripId.proof'
 
-const PassengerRoute = PassengerRouteImport.update({
-  id: '/passenger',
-  path: '/passenger',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DriverRoute = DriverRouteImport.update({
-  id: '/driver',
-  path: '/driver',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DispatchRoute = DispatchRouteImport.update({
-  id: '/dispatch',
-  path: '/dispatch',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const CompanySlugRouteRoute = CompanySlugRouteRouteImport.update({
+  id: '/$companySlug',
+  path: '/$companySlug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -100,20 +88,10 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PassengerIndexRoute = PassengerIndexRouteImport.update({
+const CompanySlugIndexRoute = CompanySlugIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => PassengerRoute,
-} as any)
-const DriverIndexRoute = DriverIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => DriverRoute,
-} as any)
-const DispatchIndexRoute = DispatchIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => DispatchRoute,
+  getParentRoute: () => CompanySlugRouteRoute,
 } as any)
 const TrackTripIdRoute = TrackTripIdRouteImport.update({
   id: '/track/$tripId',
@@ -125,230 +103,58 @@ const RideRequestIdRoute = RideRequestIdRouteImport.update({
   path: '/ride/$requestId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PassengerTrackRoute = PassengerTrackRouteImport.update({
-  id: '/track',
-  path: '/track',
-  getParentRoute: () => PassengerRoute,
-} as any)
-const PassengerSignupRoute = PassengerSignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => PassengerRoute,
-} as any)
-const PassengerSafetyRoute = PassengerSafetyRouteImport.update({
-  id: '/safety',
-  path: '/safety',
-  getParentRoute: () => PassengerRoute,
-} as any)
-const PassengerRewardsRoute = PassengerRewardsRouteImport.update({
-  id: '/rewards',
-  path: '/rewards',
-  getParentRoute: () => PassengerRoute,
-} as any)
-const PassengerProfileRoute = PassengerProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => PassengerRoute,
-} as any)
-const PassengerNewsRoute = PassengerNewsRouteImport.update({
-  id: '/news',
-  path: '/news',
-  getParentRoute: () => PassengerRoute,
-} as any)
-const PassengerGamesRoute = PassengerGamesRouteImport.update({
-  id: '/games',
-  path: '/games',
-  getParentRoute: () => PassengerRoute,
-} as any)
-const PassengerEventsRoute = PassengerEventsRouteImport.update({
-  id: '/events',
-  path: '/events',
-  getParentRoute: () => PassengerRoute,
-} as any)
-const PassengerApplyRoute = PassengerApplyRouteImport.update({
-  id: '/apply',
-  path: '/apply',
-  getParentRoute: () => PassengerRoute,
-} as any)
 const DriverSigninRoute = DriverSigninRouteImport.update({
-  id: '/signin',
-  path: '/signin',
-  getParentRoute: () => DriverRoute,
-} as any)
-const DriverProfileRoute = DriverProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => DriverRoute,
-} as any)
-const DriverMessagesRoute = DriverMessagesRouteImport.update({
-  id: '/messages',
-  path: '/messages',
-  getParentRoute: () => DriverRoute,
-} as any)
-const DriverHistoryRoute = DriverHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => DriverRoute,
-} as any)
-const DriverExpensesRoute = DriverExpensesRouteImport.update({
-  id: '/expenses',
-  path: '/expenses',
-  getParentRoute: () => DriverRoute,
-} as any)
-const DriverEarningsRoute = DriverEarningsRouteImport.update({
-  id: '/earnings',
-  path: '/earnings',
-  getParentRoute: () => DriverRoute,
-} as any)
-const DispatchSigninRoute = DispatchSigninRouteImport.update({
-  id: '/signin',
-  path: '/signin',
-  getParentRoute: () => DispatchRoute,
-} as any)
-const DispatchScheduleRoute = DispatchScheduleRouteImport.update({
-  id: '/schedule',
-  path: '/schedule',
-  getParentRoute: () => DispatchRoute,
-} as any)
-const DispatchRoutesRoute = DispatchRoutesRouteImport.update({
-  id: '/routes',
-  path: '/routes',
-  getParentRoute: () => DispatchRoute,
-} as any)
-const DispatchHistoryRoute = DispatchHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => DispatchRoute,
-} as any)
-const AuthenticatedTripsRoute = AuthenticatedTripsRouteImport.update({
-  id: '/trips',
-  path: '/trips',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
-  id: '/team',
-  path: '/team',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSchedulesRoute = AuthenticatedSchedulesRouteImport.update({
-  id: '/schedules',
-  path: '/schedules',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedRewardsSettingsRoute =
-  AuthenticatedRewardsSettingsRouteImport.update({
-    id: '/rewards-settings',
-    path: '/rewards-settings',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPlannerRoute = AuthenticatedPlannerRouteImport.update({
-  id: '/planner',
-  path: '/planner',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPassengersRoute = AuthenticatedPassengersRouteImport.update({
-  id: '/passengers',
-  path: '/passengers',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedNewsFeedRoute = AuthenticatedNewsFeedRouteImport.update({
-  id: '/news-feed',
-  path: '/news-feed',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedNewsRoute = AuthenticatedNewsRouteImport.update({
-  id: '/news',
-  path: '/news',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedMessagesRoute = AuthenticatedMessagesRouteImport.update({
-  id: '/messages',
-  path: '/messages',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedMedicaidTripsRoute =
-  AuthenticatedMedicaidTripsRouteImport.update({
-    id: '/medicaid-trips',
-    path: '/medicaid-trips',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedMedicaidBillingRoute =
-  AuthenticatedMedicaidBillingRouteImport.update({
-    id: '/medicaid-billing',
-    path: '/medicaid-billing',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedLiveOpsRoute = AuthenticatedLiveOpsRouteImport.update({
-  id: '/live-ops',
-  path: '/live-ops',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedIncidentsRoute = AuthenticatedIncidentsRouteImport.update({
-  id: '/incidents',
-  path: '/incidents',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedGamesRoute = AuthenticatedGamesRouteImport.update({
-  id: '/games',
-  path: '/games',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedEventsRoute = AuthenticatedEventsRouteImport.update({
-  id: '/events',
-  path: '/events',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDriversRoute = AuthenticatedDriversRouteImport.update({
-  id: '/drivers',
-  path: '/drivers',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const CompanySlugSplatRoute = CompanySlugSplatRouteImport.update({
-  id: '/$companySlug/$',
-  path: '/$companySlug/$',
+  id: '/driver/signin',
+  path: '/driver/signin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DispatchRoutesIndexRoute = DispatchRoutesIndexRouteImport.update({
+const DispatchSigninRoute = DispatchSigninRouteImport.update({
+  id: '/dispatch/signin',
+  path: '/dispatch/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompanySlugPassengerRoute = CompanySlugPassengerRouteImport.update({
+  id: '/passenger',
+  path: '/passenger',
+  getParentRoute: () => CompanySlugRouteRoute,
+} as any)
+const CompanySlugDriverRoute = CompanySlugDriverRouteImport.update({
+  id: '/driver',
+  path: '/driver',
+  getParentRoute: () => CompanySlugRouteRoute,
+} as any)
+const CompanySlugDispatchRoute = CompanySlugDispatchRouteImport.update({
+  id: '/dispatch',
+  path: '/dispatch',
+  getParentRoute: () => CompanySlugRouteRoute,
+} as any)
+const CompanySlugSplatRoute = CompanySlugSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => CompanySlugRouteRoute,
+} as any)
+const CompanySlugAuthenticatedRouteRoute =
+  CompanySlugAuthenticatedRouteRouteImport.update({
+    id: '/_authenticated',
+    getParentRoute: () => CompanySlugRouteRoute,
+  } as any)
+const CompanySlugPassengerIndexRoute =
+  CompanySlugPassengerIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
+const CompanySlugDriverIndexRoute = CompanySlugDriverIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => DispatchRoutesRoute,
+  getParentRoute: () => CompanySlugDriverRoute,
 } as any)
-const AuthenticatedPayrollIndexRoute =
-  AuthenticatedPayrollIndexRouteImport.update({
-    id: '/payroll/',
-    path: '/payroll/',
-    getParentRoute: () => AuthenticatedRouteRoute,
+const CompanySlugDispatchIndexRoute =
+  CompanySlugDispatchIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => CompanySlugDispatchRoute,
   } as any)
-const PassengerBookVehicleRoute = PassengerBookVehicleRouteImport.update({
-  id: '/book/vehicle',
-  path: '/book/vehicle',
-  getParentRoute: () => PassengerRoute,
-} as any)
-const PassengerBookPickupRoute = PassengerBookPickupRouteImport.update({
-  id: '/book/pickup',
-  path: '/book/pickup',
-  getParentRoute: () => PassengerRoute,
-} as any)
-const DriverTripNewRoute = DriverTripNewRouteImport.update({
-  id: '/trip/new',
-  path: '/trip/new',
-  getParentRoute: () => DriverRoute,
-} as any)
-const DispatchRoutesRouteIdRoute = DispatchRoutesRouteIdRouteImport.update({
-  id: '/$routeId',
-  path: '/$routeId',
-  getParentRoute: () => DispatchRoutesRoute,
-} as any)
 const ApiPublicGetTripPdfRoute = ApiPublicGetTripPdfRouteImport.update({
   id: '/api/public/get-trip-pdf',
   path: '/api/public/get-trip-pdf',
@@ -365,403 +171,657 @@ const ApiPublicGetBillingRateRoute = ApiPublicGetBillingRateRouteImport.update({
   path: '/api/public/get-billing-rate',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedPayrollDriverIdRoute =
-  AuthenticatedPayrollDriverIdRouteImport.update({
+const CompanySlugPassengerTrackRoute =
+  CompanySlugPassengerTrackRouteImport.update({
+    id: '/track',
+    path: '/track',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
+const CompanySlugPassengerSignupRoute =
+  CompanySlugPassengerSignupRouteImport.update({
+    id: '/signup',
+    path: '/signup',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
+const CompanySlugPassengerSafetyRoute =
+  CompanySlugPassengerSafetyRouteImport.update({
+    id: '/safety',
+    path: '/safety',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
+const CompanySlugPassengerRewardsRoute =
+  CompanySlugPassengerRewardsRouteImport.update({
+    id: '/rewards',
+    path: '/rewards',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
+const CompanySlugPassengerProfileRoute =
+  CompanySlugPassengerProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
+const CompanySlugPassengerNewsRoute =
+  CompanySlugPassengerNewsRouteImport.update({
+    id: '/news',
+    path: '/news',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
+const CompanySlugPassengerGamesRoute =
+  CompanySlugPassengerGamesRouteImport.update({
+    id: '/games',
+    path: '/games',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
+const CompanySlugPassengerEventsRoute =
+  CompanySlugPassengerEventsRouteImport.update({
+    id: '/events',
+    path: '/events',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
+const CompanySlugPassengerApplyRoute =
+  CompanySlugPassengerApplyRouteImport.update({
+    id: '/apply',
+    path: '/apply',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
+const CompanySlugDriverProfileRoute =
+  CompanySlugDriverProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => CompanySlugDriverRoute,
+  } as any)
+const CompanySlugDriverMessagesRoute =
+  CompanySlugDriverMessagesRouteImport.update({
+    id: '/messages',
+    path: '/messages',
+    getParentRoute: () => CompanySlugDriverRoute,
+  } as any)
+const CompanySlugDriverHistoryRoute =
+  CompanySlugDriverHistoryRouteImport.update({
+    id: '/history',
+    path: '/history',
+    getParentRoute: () => CompanySlugDriverRoute,
+  } as any)
+const CompanySlugDriverExpensesRoute =
+  CompanySlugDriverExpensesRouteImport.update({
+    id: '/expenses',
+    path: '/expenses',
+    getParentRoute: () => CompanySlugDriverRoute,
+  } as any)
+const CompanySlugDriverEarningsRoute =
+  CompanySlugDriverEarningsRouteImport.update({
+    id: '/earnings',
+    path: '/earnings',
+    getParentRoute: () => CompanySlugDriverRoute,
+  } as any)
+const CompanySlugDispatchScheduleRoute =
+  CompanySlugDispatchScheduleRouteImport.update({
+    id: '/schedule',
+    path: '/schedule',
+    getParentRoute: () => CompanySlugDispatchRoute,
+  } as any)
+const CompanySlugDispatchRoutesRoute =
+  CompanySlugDispatchRoutesRouteImport.update({
+    id: '/routes',
+    path: '/routes',
+    getParentRoute: () => CompanySlugDispatchRoute,
+  } as any)
+const CompanySlugDispatchHistoryRoute =
+  CompanySlugDispatchHistoryRouteImport.update({
+    id: '/history',
+    path: '/history',
+    getParentRoute: () => CompanySlugDispatchRoute,
+  } as any)
+const CompanySlugAuthenticatedTripsRoute =
+  CompanySlugAuthenticatedTripsRouteImport.update({
+    id: '/trips',
+    path: '/trips',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedTeamRoute =
+  CompanySlugAuthenticatedTeamRouteImport.update({
+    id: '/team',
+    path: '/team',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedSchedulesRoute =
+  CompanySlugAuthenticatedSchedulesRouteImport.update({
+    id: '/schedules',
+    path: '/schedules',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedRewardsSettingsRoute =
+  CompanySlugAuthenticatedRewardsSettingsRouteImport.update({
+    id: '/rewards-settings',
+    path: '/rewards-settings',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedReportsRoute =
+  CompanySlugAuthenticatedReportsRouteImport.update({
+    id: '/reports',
+    path: '/reports',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedPlannerRoute =
+  CompanySlugAuthenticatedPlannerRouteImport.update({
+    id: '/planner',
+    path: '/planner',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedPassengersRoute =
+  CompanySlugAuthenticatedPassengersRouteImport.update({
+    id: '/passengers',
+    path: '/passengers',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedNewsFeedRoute =
+  CompanySlugAuthenticatedNewsFeedRouteImport.update({
+    id: '/news-feed',
+    path: '/news-feed',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedNewsRoute =
+  CompanySlugAuthenticatedNewsRouteImport.update({
+    id: '/news',
+    path: '/news',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedMessagesRoute =
+  CompanySlugAuthenticatedMessagesRouteImport.update({
+    id: '/messages',
+    path: '/messages',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedMedicaidTripsRoute =
+  CompanySlugAuthenticatedMedicaidTripsRouteImport.update({
+    id: '/medicaid-trips',
+    path: '/medicaid-trips',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedMedicaidBillingRoute =
+  CompanySlugAuthenticatedMedicaidBillingRouteImport.update({
+    id: '/medicaid-billing',
+    path: '/medicaid-billing',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedLiveOpsRoute =
+  CompanySlugAuthenticatedLiveOpsRouteImport.update({
+    id: '/live-ops',
+    path: '/live-ops',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedIncidentsRoute =
+  CompanySlugAuthenticatedIncidentsRouteImport.update({
+    id: '/incidents',
+    path: '/incidents',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedGamesRoute =
+  CompanySlugAuthenticatedGamesRouteImport.update({
+    id: '/games',
+    path: '/games',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedEventsRoute =
+  CompanySlugAuthenticatedEventsRouteImport.update({
+    id: '/events',
+    path: '/events',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedDriversRoute =
+  CompanySlugAuthenticatedDriversRouteImport.update({
+    id: '/drivers',
+    path: '/drivers',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugAuthenticatedDashboardRoute =
+  CompanySlugAuthenticatedDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugDispatchRoutesIndexRoute =
+  CompanySlugDispatchRoutesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => CompanySlugDispatchRoutesRoute,
+  } as any)
+const CompanySlugAuthenticatedPayrollIndexRoute =
+  CompanySlugAuthenticatedPayrollIndexRouteImport.update({
+    id: '/payroll/',
+    path: '/payroll/',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
+const CompanySlugPassengerBookVehicleRoute =
+  CompanySlugPassengerBookVehicleRouteImport.update({
+    id: '/book/vehicle',
+    path: '/book/vehicle',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
+const CompanySlugPassengerBookPickupRoute =
+  CompanySlugPassengerBookPickupRouteImport.update({
+    id: '/book/pickup',
+    path: '/book/pickup',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
+const CompanySlugDriverTripNewRoute =
+  CompanySlugDriverTripNewRouteImport.update({
+    id: '/trip/new',
+    path: '/trip/new',
+    getParentRoute: () => CompanySlugDriverRoute,
+  } as any)
+const CompanySlugDispatchRoutesRouteIdRoute =
+  CompanySlugDispatchRoutesRouteIdRouteImport.update({
+    id: '/$routeId',
+    path: '/$routeId',
+    getParentRoute: () => CompanySlugDispatchRoutesRoute,
+  } as any)
+const CompanySlugAuthenticatedPayrollDriverIdRoute =
+  CompanySlugAuthenticatedPayrollDriverIdRouteImport.update({
     id: '/payroll/$driverId',
     path: '/payroll/$driverId',
-    getParentRoute: () => AuthenticatedRouteRoute,
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
   } as any)
-const AuthenticatedMedicaidTripsNewRoute =
-  AuthenticatedMedicaidTripsNewRouteImport.update({
+const CompanySlugAuthenticatedMedicaidTripsNewRoute =
+  CompanySlugAuthenticatedMedicaidTripsNewRouteImport.update({
     id: '/new',
     path: '/new',
-    getParentRoute: () => AuthenticatedMedicaidTripsRoute,
+    getParentRoute: () => CompanySlugAuthenticatedMedicaidTripsRoute,
   } as any)
-const AuthenticatedTripsTripIdProofRoute =
-  AuthenticatedTripsTripIdProofRouteImport.update({
+const CompanySlugAuthenticatedTripsTripIdProofRoute =
+  CompanySlugAuthenticatedTripsTripIdProofRouteImport.update({
     id: '/$tripId/proof',
     path: '/$tripId/proof',
-    getParentRoute: () => AuthenticatedTripsRoute,
+    getParentRoute: () => CompanySlugAuthenticatedTripsRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/dispatch': typeof DispatchRouteWithChildren
-  '/driver': typeof DriverRouteWithChildren
-  '/passenger': typeof PassengerRouteWithChildren
   '/$companySlug/$': typeof CompanySlugSplatRoute
-  '/dashboard': typeof AuthenticatedDashboardRoute
-  '/drivers': typeof AuthenticatedDriversRoute
-  '/events': typeof AuthenticatedEventsRoute
-  '/games': typeof AuthenticatedGamesRoute
-  '/incidents': typeof AuthenticatedIncidentsRoute
-  '/live-ops': typeof AuthenticatedLiveOpsRoute
-  '/medicaid-billing': typeof AuthenticatedMedicaidBillingRoute
-  '/medicaid-trips': typeof AuthenticatedMedicaidTripsRouteWithChildren
-  '/messages': typeof AuthenticatedMessagesRoute
-  '/news': typeof AuthenticatedNewsRoute
-  '/news-feed': typeof AuthenticatedNewsFeedRoute
-  '/passengers': typeof AuthenticatedPassengersRoute
-  '/planner': typeof AuthenticatedPlannerRoute
-  '/reports': typeof AuthenticatedReportsRoute
-  '/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
-  '/schedules': typeof AuthenticatedSchedulesRoute
-  '/team': typeof AuthenticatedTeamRoute
-  '/trips': typeof AuthenticatedTripsRouteWithChildren
-  '/dispatch/history': typeof DispatchHistoryRoute
-  '/dispatch/routes': typeof DispatchRoutesRouteWithChildren
-  '/dispatch/schedule': typeof DispatchScheduleRoute
+  '/$companySlug/dispatch': typeof CompanySlugDispatchRouteWithChildren
+  '/$companySlug/driver': typeof CompanySlugDriverRouteWithChildren
+  '/$companySlug/passenger': typeof CompanySlugPassengerRouteWithChildren
   '/dispatch/signin': typeof DispatchSigninRoute
-  '/driver/earnings': typeof DriverEarningsRoute
-  '/driver/expenses': typeof DriverExpensesRoute
-  '/driver/history': typeof DriverHistoryRoute
-  '/driver/messages': typeof DriverMessagesRoute
-  '/driver/profile': typeof DriverProfileRoute
   '/driver/signin': typeof DriverSigninRoute
-  '/passenger/apply': typeof PassengerApplyRoute
-  '/passenger/events': typeof PassengerEventsRoute
-  '/passenger/games': typeof PassengerGamesRoute
-  '/passenger/news': typeof PassengerNewsRoute
-  '/passenger/profile': typeof PassengerProfileRoute
-  '/passenger/rewards': typeof PassengerRewardsRoute
-  '/passenger/safety': typeof PassengerSafetyRoute
-  '/passenger/signup': typeof PassengerSignupRoute
-  '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
-  '/dispatch/': typeof DispatchIndexRoute
-  '/driver/': typeof DriverIndexRoute
-  '/passenger/': typeof PassengerIndexRoute
-  '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
-  '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
+  '/$companySlug/': typeof CompanySlugIndexRoute
+  '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
+  '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
+  '/$companySlug/events': typeof CompanySlugAuthenticatedEventsRoute
+  '/$companySlug/games': typeof CompanySlugAuthenticatedGamesRoute
+  '/$companySlug/incidents': typeof CompanySlugAuthenticatedIncidentsRoute
+  '/$companySlug/live-ops': typeof CompanySlugAuthenticatedLiveOpsRoute
+  '/$companySlug/medicaid-billing': typeof CompanySlugAuthenticatedMedicaidBillingRoute
+  '/$companySlug/medicaid-trips': typeof CompanySlugAuthenticatedMedicaidTripsRouteWithChildren
+  '/$companySlug/messages': typeof CompanySlugAuthenticatedMessagesRoute
+  '/$companySlug/news': typeof CompanySlugAuthenticatedNewsRoute
+  '/$companySlug/news-feed': typeof CompanySlugAuthenticatedNewsFeedRoute
+  '/$companySlug/passengers': typeof CompanySlugAuthenticatedPassengersRoute
+  '/$companySlug/planner': typeof CompanySlugAuthenticatedPlannerRoute
+  '/$companySlug/reports': typeof CompanySlugAuthenticatedReportsRoute
+  '/$companySlug/rewards-settings': typeof CompanySlugAuthenticatedRewardsSettingsRoute
+  '/$companySlug/schedules': typeof CompanySlugAuthenticatedSchedulesRoute
+  '/$companySlug/team': typeof CompanySlugAuthenticatedTeamRoute
+  '/$companySlug/trips': typeof CompanySlugAuthenticatedTripsRouteWithChildren
+  '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
+  '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesRouteWithChildren
+  '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
+  '/$companySlug/driver/earnings': typeof CompanySlugDriverEarningsRoute
+  '/$companySlug/driver/expenses': typeof CompanySlugDriverExpensesRoute
+  '/$companySlug/driver/history': typeof CompanySlugDriverHistoryRoute
+  '/$companySlug/driver/messages': typeof CompanySlugDriverMessagesRoute
+  '/$companySlug/driver/profile': typeof CompanySlugDriverProfileRoute
+  '/$companySlug/passenger/apply': typeof CompanySlugPassengerApplyRoute
+  '/$companySlug/passenger/events': typeof CompanySlugPassengerEventsRoute
+  '/$companySlug/passenger/games': typeof CompanySlugPassengerGamesRoute
+  '/$companySlug/passenger/news': typeof CompanySlugPassengerNewsRoute
+  '/$companySlug/passenger/profile': typeof CompanySlugPassengerProfileRoute
+  '/$companySlug/passenger/rewards': typeof CompanySlugPassengerRewardsRoute
+  '/$companySlug/passenger/safety': typeof CompanySlugPassengerSafetyRoute
+  '/$companySlug/passenger/signup': typeof CompanySlugPassengerSignupRoute
+  '/$companySlug/passenger/track': typeof CompanySlugPassengerTrackRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
-  '/dispatch/routes/$routeId': typeof DispatchRoutesRouteIdRoute
-  '/driver/trip/new': typeof DriverTripNewRoute
-  '/passenger/book/pickup': typeof PassengerBookPickupRoute
-  '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
-  '/payroll/': typeof AuthenticatedPayrollIndexRoute
-  '/dispatch/routes/': typeof DispatchRoutesIndexRoute
-  '/trips/$tripId/proof': typeof AuthenticatedTripsTripIdProofRoute
+  '/$companySlug/dispatch/': typeof CompanySlugDispatchIndexRoute
+  '/$companySlug/driver/': typeof CompanySlugDriverIndexRoute
+  '/$companySlug/passenger/': typeof CompanySlugPassengerIndexRoute
+  '/$companySlug/medicaid-trips/new': typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
+  '/$companySlug/payroll/$driverId': typeof CompanySlugAuthenticatedPayrollDriverIdRoute
+  '/$companySlug/dispatch/routes/$routeId': typeof CompanySlugDispatchRoutesRouteIdRoute
+  '/$companySlug/driver/trip/new': typeof CompanySlugDriverTripNewRoute
+  '/$companySlug/passenger/book/pickup': typeof CompanySlugPassengerBookPickupRoute
+  '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
+  '/$companySlug/payroll/': typeof CompanySlugAuthenticatedPayrollIndexRoute
+  '/$companySlug/dispatch/routes/': typeof CompanySlugDispatchRoutesIndexRoute
+  '/$companySlug/trips/$tripId/proof': typeof CompanySlugAuthenticatedTripsTripIdProofRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/$companySlug': typeof CompanySlugIndexRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
-  '/dashboard': typeof AuthenticatedDashboardRoute
-  '/drivers': typeof AuthenticatedDriversRoute
-  '/events': typeof AuthenticatedEventsRoute
-  '/games': typeof AuthenticatedGamesRoute
-  '/incidents': typeof AuthenticatedIncidentsRoute
-  '/live-ops': typeof AuthenticatedLiveOpsRoute
-  '/medicaid-billing': typeof AuthenticatedMedicaidBillingRoute
-  '/medicaid-trips': typeof AuthenticatedMedicaidTripsRouteWithChildren
-  '/messages': typeof AuthenticatedMessagesRoute
-  '/news': typeof AuthenticatedNewsRoute
-  '/news-feed': typeof AuthenticatedNewsFeedRoute
-  '/passengers': typeof AuthenticatedPassengersRoute
-  '/planner': typeof AuthenticatedPlannerRoute
-  '/reports': typeof AuthenticatedReportsRoute
-  '/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
-  '/schedules': typeof AuthenticatedSchedulesRoute
-  '/team': typeof AuthenticatedTeamRoute
-  '/trips': typeof AuthenticatedTripsRouteWithChildren
-  '/dispatch/history': typeof DispatchHistoryRoute
-  '/dispatch/schedule': typeof DispatchScheduleRoute
   '/dispatch/signin': typeof DispatchSigninRoute
-  '/driver/earnings': typeof DriverEarningsRoute
-  '/driver/expenses': typeof DriverExpensesRoute
-  '/driver/history': typeof DriverHistoryRoute
-  '/driver/messages': typeof DriverMessagesRoute
-  '/driver/profile': typeof DriverProfileRoute
   '/driver/signin': typeof DriverSigninRoute
-  '/passenger/apply': typeof PassengerApplyRoute
-  '/passenger/events': typeof PassengerEventsRoute
-  '/passenger/games': typeof PassengerGamesRoute
-  '/passenger/news': typeof PassengerNewsRoute
-  '/passenger/profile': typeof PassengerProfileRoute
-  '/passenger/rewards': typeof PassengerRewardsRoute
-  '/passenger/safety': typeof PassengerSafetyRoute
-  '/passenger/signup': typeof PassengerSignupRoute
-  '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
-  '/dispatch': typeof DispatchIndexRoute
-  '/driver': typeof DriverIndexRoute
-  '/passenger': typeof PassengerIndexRoute
-  '/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
-  '/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
+  '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
+  '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
+  '/$companySlug/events': typeof CompanySlugAuthenticatedEventsRoute
+  '/$companySlug/games': typeof CompanySlugAuthenticatedGamesRoute
+  '/$companySlug/incidents': typeof CompanySlugAuthenticatedIncidentsRoute
+  '/$companySlug/live-ops': typeof CompanySlugAuthenticatedLiveOpsRoute
+  '/$companySlug/medicaid-billing': typeof CompanySlugAuthenticatedMedicaidBillingRoute
+  '/$companySlug/medicaid-trips': typeof CompanySlugAuthenticatedMedicaidTripsRouteWithChildren
+  '/$companySlug/messages': typeof CompanySlugAuthenticatedMessagesRoute
+  '/$companySlug/news': typeof CompanySlugAuthenticatedNewsRoute
+  '/$companySlug/news-feed': typeof CompanySlugAuthenticatedNewsFeedRoute
+  '/$companySlug/passengers': typeof CompanySlugAuthenticatedPassengersRoute
+  '/$companySlug/planner': typeof CompanySlugAuthenticatedPlannerRoute
+  '/$companySlug/reports': typeof CompanySlugAuthenticatedReportsRoute
+  '/$companySlug/rewards-settings': typeof CompanySlugAuthenticatedRewardsSettingsRoute
+  '/$companySlug/schedules': typeof CompanySlugAuthenticatedSchedulesRoute
+  '/$companySlug/team': typeof CompanySlugAuthenticatedTeamRoute
+  '/$companySlug/trips': typeof CompanySlugAuthenticatedTripsRouteWithChildren
+  '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
+  '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
+  '/$companySlug/driver/earnings': typeof CompanySlugDriverEarningsRoute
+  '/$companySlug/driver/expenses': typeof CompanySlugDriverExpensesRoute
+  '/$companySlug/driver/history': typeof CompanySlugDriverHistoryRoute
+  '/$companySlug/driver/messages': typeof CompanySlugDriverMessagesRoute
+  '/$companySlug/driver/profile': typeof CompanySlugDriverProfileRoute
+  '/$companySlug/passenger/apply': typeof CompanySlugPassengerApplyRoute
+  '/$companySlug/passenger/events': typeof CompanySlugPassengerEventsRoute
+  '/$companySlug/passenger/games': typeof CompanySlugPassengerGamesRoute
+  '/$companySlug/passenger/news': typeof CompanySlugPassengerNewsRoute
+  '/$companySlug/passenger/profile': typeof CompanySlugPassengerProfileRoute
+  '/$companySlug/passenger/rewards': typeof CompanySlugPassengerRewardsRoute
+  '/$companySlug/passenger/safety': typeof CompanySlugPassengerSafetyRoute
+  '/$companySlug/passenger/signup': typeof CompanySlugPassengerSignupRoute
+  '/$companySlug/passenger/track': typeof CompanySlugPassengerTrackRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
-  '/dispatch/routes/$routeId': typeof DispatchRoutesRouteIdRoute
-  '/driver/trip/new': typeof DriverTripNewRoute
-  '/passenger/book/pickup': typeof PassengerBookPickupRoute
-  '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
-  '/payroll': typeof AuthenticatedPayrollIndexRoute
-  '/dispatch/routes': typeof DispatchRoutesIndexRoute
-  '/trips/$tripId/proof': typeof AuthenticatedTripsTripIdProofRoute
+  '/$companySlug/dispatch': typeof CompanySlugDispatchIndexRoute
+  '/$companySlug/driver': typeof CompanySlugDriverIndexRoute
+  '/$companySlug/passenger': typeof CompanySlugPassengerIndexRoute
+  '/$companySlug/medicaid-trips/new': typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
+  '/$companySlug/payroll/$driverId': typeof CompanySlugAuthenticatedPayrollDriverIdRoute
+  '/$companySlug/dispatch/routes/$routeId': typeof CompanySlugDispatchRoutesRouteIdRoute
+  '/$companySlug/driver/trip/new': typeof CompanySlugDriverTripNewRoute
+  '/$companySlug/passenger/book/pickup': typeof CompanySlugPassengerBookPickupRoute
+  '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
+  '/$companySlug/payroll': typeof CompanySlugAuthenticatedPayrollIndexRoute
+  '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesIndexRoute
+  '/$companySlug/trips/$tripId/proof': typeof CompanySlugAuthenticatedTripsTripIdProofRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/dispatch': typeof DispatchRouteWithChildren
-  '/driver': typeof DriverRouteWithChildren
-  '/passenger': typeof PassengerRouteWithChildren
+  '/$companySlug/_authenticated': typeof CompanySlugAuthenticatedRouteRouteWithChildren
   '/$companySlug/$': typeof CompanySlugSplatRoute
-  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/drivers': typeof AuthenticatedDriversRoute
-  '/_authenticated/events': typeof AuthenticatedEventsRoute
-  '/_authenticated/games': typeof AuthenticatedGamesRoute
-  '/_authenticated/incidents': typeof AuthenticatedIncidentsRoute
-  '/_authenticated/live-ops': typeof AuthenticatedLiveOpsRoute
-  '/_authenticated/medicaid-billing': typeof AuthenticatedMedicaidBillingRoute
-  '/_authenticated/medicaid-trips': typeof AuthenticatedMedicaidTripsRouteWithChildren
-  '/_authenticated/messages': typeof AuthenticatedMessagesRoute
-  '/_authenticated/news': typeof AuthenticatedNewsRoute
-  '/_authenticated/news-feed': typeof AuthenticatedNewsFeedRoute
-  '/_authenticated/passengers': typeof AuthenticatedPassengersRoute
-  '/_authenticated/planner': typeof AuthenticatedPlannerRoute
-  '/_authenticated/reports': typeof AuthenticatedReportsRoute
-  '/_authenticated/rewards-settings': typeof AuthenticatedRewardsSettingsRoute
-  '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
-  '/_authenticated/team': typeof AuthenticatedTeamRoute
-  '/_authenticated/trips': typeof AuthenticatedTripsRouteWithChildren
-  '/dispatch/history': typeof DispatchHistoryRoute
-  '/dispatch/routes': typeof DispatchRoutesRouteWithChildren
-  '/dispatch/schedule': typeof DispatchScheduleRoute
+  '/$companySlug/dispatch': typeof CompanySlugDispatchRouteWithChildren
+  '/$companySlug/driver': typeof CompanySlugDriverRouteWithChildren
+  '/$companySlug/passenger': typeof CompanySlugPassengerRouteWithChildren
   '/dispatch/signin': typeof DispatchSigninRoute
-  '/driver/earnings': typeof DriverEarningsRoute
-  '/driver/expenses': typeof DriverExpensesRoute
-  '/driver/history': typeof DriverHistoryRoute
-  '/driver/messages': typeof DriverMessagesRoute
-  '/driver/profile': typeof DriverProfileRoute
   '/driver/signin': typeof DriverSigninRoute
-  '/passenger/apply': typeof PassengerApplyRoute
-  '/passenger/events': typeof PassengerEventsRoute
-  '/passenger/games': typeof PassengerGamesRoute
-  '/passenger/news': typeof PassengerNewsRoute
-  '/passenger/profile': typeof PassengerProfileRoute
-  '/passenger/rewards': typeof PassengerRewardsRoute
-  '/passenger/safety': typeof PassengerSafetyRoute
-  '/passenger/signup': typeof PassengerSignupRoute
-  '/passenger/track': typeof PassengerTrackRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
-  '/dispatch/': typeof DispatchIndexRoute
-  '/driver/': typeof DriverIndexRoute
-  '/passenger/': typeof PassengerIndexRoute
-  '/_authenticated/medicaid-trips/new': typeof AuthenticatedMedicaidTripsNewRoute
-  '/_authenticated/payroll/$driverId': typeof AuthenticatedPayrollDriverIdRoute
+  '/$companySlug/': typeof CompanySlugIndexRoute
+  '/$companySlug/_authenticated/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
+  '/$companySlug/_authenticated/drivers': typeof CompanySlugAuthenticatedDriversRoute
+  '/$companySlug/_authenticated/events': typeof CompanySlugAuthenticatedEventsRoute
+  '/$companySlug/_authenticated/games': typeof CompanySlugAuthenticatedGamesRoute
+  '/$companySlug/_authenticated/incidents': typeof CompanySlugAuthenticatedIncidentsRoute
+  '/$companySlug/_authenticated/live-ops': typeof CompanySlugAuthenticatedLiveOpsRoute
+  '/$companySlug/_authenticated/medicaid-billing': typeof CompanySlugAuthenticatedMedicaidBillingRoute
+  '/$companySlug/_authenticated/medicaid-trips': typeof CompanySlugAuthenticatedMedicaidTripsRouteWithChildren
+  '/$companySlug/_authenticated/messages': typeof CompanySlugAuthenticatedMessagesRoute
+  '/$companySlug/_authenticated/news': typeof CompanySlugAuthenticatedNewsRoute
+  '/$companySlug/_authenticated/news-feed': typeof CompanySlugAuthenticatedNewsFeedRoute
+  '/$companySlug/_authenticated/passengers': typeof CompanySlugAuthenticatedPassengersRoute
+  '/$companySlug/_authenticated/planner': typeof CompanySlugAuthenticatedPlannerRoute
+  '/$companySlug/_authenticated/reports': typeof CompanySlugAuthenticatedReportsRoute
+  '/$companySlug/_authenticated/rewards-settings': typeof CompanySlugAuthenticatedRewardsSettingsRoute
+  '/$companySlug/_authenticated/schedules': typeof CompanySlugAuthenticatedSchedulesRoute
+  '/$companySlug/_authenticated/team': typeof CompanySlugAuthenticatedTeamRoute
+  '/$companySlug/_authenticated/trips': typeof CompanySlugAuthenticatedTripsRouteWithChildren
+  '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
+  '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesRouteWithChildren
+  '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
+  '/$companySlug/driver/earnings': typeof CompanySlugDriverEarningsRoute
+  '/$companySlug/driver/expenses': typeof CompanySlugDriverExpensesRoute
+  '/$companySlug/driver/history': typeof CompanySlugDriverHistoryRoute
+  '/$companySlug/driver/messages': typeof CompanySlugDriverMessagesRoute
+  '/$companySlug/driver/profile': typeof CompanySlugDriverProfileRoute
+  '/$companySlug/passenger/apply': typeof CompanySlugPassengerApplyRoute
+  '/$companySlug/passenger/events': typeof CompanySlugPassengerEventsRoute
+  '/$companySlug/passenger/games': typeof CompanySlugPassengerGamesRoute
+  '/$companySlug/passenger/news': typeof CompanySlugPassengerNewsRoute
+  '/$companySlug/passenger/profile': typeof CompanySlugPassengerProfileRoute
+  '/$companySlug/passenger/rewards': typeof CompanySlugPassengerRewardsRoute
+  '/$companySlug/passenger/safety': typeof CompanySlugPassengerSafetyRoute
+  '/$companySlug/passenger/signup': typeof CompanySlugPassengerSignupRoute
+  '/$companySlug/passenger/track': typeof CompanySlugPassengerTrackRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
-  '/dispatch/routes/$routeId': typeof DispatchRoutesRouteIdRoute
-  '/driver/trip/new': typeof DriverTripNewRoute
-  '/passenger/book/pickup': typeof PassengerBookPickupRoute
-  '/passenger/book/vehicle': typeof PassengerBookVehicleRoute
-  '/_authenticated/payroll/': typeof AuthenticatedPayrollIndexRoute
-  '/dispatch/routes/': typeof DispatchRoutesIndexRoute
-  '/_authenticated/trips/$tripId/proof': typeof AuthenticatedTripsTripIdProofRoute
+  '/$companySlug/dispatch/': typeof CompanySlugDispatchIndexRoute
+  '/$companySlug/driver/': typeof CompanySlugDriverIndexRoute
+  '/$companySlug/passenger/': typeof CompanySlugPassengerIndexRoute
+  '/$companySlug/_authenticated/medicaid-trips/new': typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
+  '/$companySlug/_authenticated/payroll/$driverId': typeof CompanySlugAuthenticatedPayrollDriverIdRoute
+  '/$companySlug/dispatch/routes/$routeId': typeof CompanySlugDispatchRoutesRouteIdRoute
+  '/$companySlug/driver/trip/new': typeof CompanySlugDriverTripNewRoute
+  '/$companySlug/passenger/book/pickup': typeof CompanySlugPassengerBookPickupRoute
+  '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
+  '/$companySlug/_authenticated/payroll/': typeof CompanySlugAuthenticatedPayrollIndexRoute
+  '/$companySlug/dispatch/routes/': typeof CompanySlugDispatchRoutesIndexRoute
+  '/$companySlug/_authenticated/trips/$tripId/proof': typeof CompanySlugAuthenticatedTripsTripIdProofRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/$companySlug'
     | '/auth'
-    | '/dispatch'
-    | '/driver'
-    | '/passenger'
     | '/$companySlug/$'
-    | '/dashboard'
-    | '/drivers'
-    | '/events'
-    | '/games'
-    | '/incidents'
-    | '/live-ops'
-    | '/medicaid-billing'
-    | '/medicaid-trips'
-    | '/messages'
-    | '/news'
-    | '/news-feed'
-    | '/passengers'
-    | '/planner'
-    | '/reports'
-    | '/rewards-settings'
-    | '/schedules'
-    | '/team'
-    | '/trips'
-    | '/dispatch/history'
-    | '/dispatch/routes'
-    | '/dispatch/schedule'
+    | '/$companySlug/dispatch'
+    | '/$companySlug/driver'
+    | '/$companySlug/passenger'
     | '/dispatch/signin'
-    | '/driver/earnings'
-    | '/driver/expenses'
-    | '/driver/history'
-    | '/driver/messages'
-    | '/driver/profile'
     | '/driver/signin'
-    | '/passenger/apply'
-    | '/passenger/events'
-    | '/passenger/games'
-    | '/passenger/news'
-    | '/passenger/profile'
-    | '/passenger/rewards'
-    | '/passenger/safety'
-    | '/passenger/signup'
-    | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
-    | '/dispatch/'
-    | '/driver/'
-    | '/passenger/'
-    | '/medicaid-trips/new'
-    | '/payroll/$driverId'
+    | '/$companySlug/'
+    | '/$companySlug/dashboard'
+    | '/$companySlug/drivers'
+    | '/$companySlug/events'
+    | '/$companySlug/games'
+    | '/$companySlug/incidents'
+    | '/$companySlug/live-ops'
+    | '/$companySlug/medicaid-billing'
+    | '/$companySlug/medicaid-trips'
+    | '/$companySlug/messages'
+    | '/$companySlug/news'
+    | '/$companySlug/news-feed'
+    | '/$companySlug/passengers'
+    | '/$companySlug/planner'
+    | '/$companySlug/reports'
+    | '/$companySlug/rewards-settings'
+    | '/$companySlug/schedules'
+    | '/$companySlug/team'
+    | '/$companySlug/trips'
+    | '/$companySlug/dispatch/history'
+    | '/$companySlug/dispatch/routes'
+    | '/$companySlug/dispatch/schedule'
+    | '/$companySlug/driver/earnings'
+    | '/$companySlug/driver/expenses'
+    | '/$companySlug/driver/history'
+    | '/$companySlug/driver/messages'
+    | '/$companySlug/driver/profile'
+    | '/$companySlug/passenger/apply'
+    | '/$companySlug/passenger/events'
+    | '/$companySlug/passenger/games'
+    | '/$companySlug/passenger/news'
+    | '/$companySlug/passenger/profile'
+    | '/$companySlug/passenger/rewards'
+    | '/$companySlug/passenger/safety'
+    | '/$companySlug/passenger/signup'
+    | '/$companySlug/passenger/track'
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
-    | '/dispatch/routes/$routeId'
-    | '/driver/trip/new'
-    | '/passenger/book/pickup'
-    | '/passenger/book/vehicle'
-    | '/payroll/'
-    | '/dispatch/routes/'
-    | '/trips/$tripId/proof'
+    | '/$companySlug/dispatch/'
+    | '/$companySlug/driver/'
+    | '/$companySlug/passenger/'
+    | '/$companySlug/medicaid-trips/new'
+    | '/$companySlug/payroll/$driverId'
+    | '/$companySlug/dispatch/routes/$routeId'
+    | '/$companySlug/driver/trip/new'
+    | '/$companySlug/passenger/book/pickup'
+    | '/$companySlug/passenger/book/vehicle'
+    | '/$companySlug/payroll/'
+    | '/$companySlug/dispatch/routes/'
+    | '/$companySlug/trips/$tripId/proof'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/$companySlug'
     | '/$companySlug/$'
-    | '/dashboard'
-    | '/drivers'
-    | '/events'
-    | '/games'
-    | '/incidents'
-    | '/live-ops'
-    | '/medicaid-billing'
-    | '/medicaid-trips'
-    | '/messages'
-    | '/news'
-    | '/news-feed'
-    | '/passengers'
-    | '/planner'
-    | '/reports'
-    | '/rewards-settings'
-    | '/schedules'
-    | '/team'
-    | '/trips'
-    | '/dispatch/history'
-    | '/dispatch/schedule'
     | '/dispatch/signin'
-    | '/driver/earnings'
-    | '/driver/expenses'
-    | '/driver/history'
-    | '/driver/messages'
-    | '/driver/profile'
     | '/driver/signin'
-    | '/passenger/apply'
-    | '/passenger/events'
-    | '/passenger/games'
-    | '/passenger/news'
-    | '/passenger/profile'
-    | '/passenger/rewards'
-    | '/passenger/safety'
-    | '/passenger/signup'
-    | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
-    | '/dispatch'
-    | '/driver'
-    | '/passenger'
-    | '/medicaid-trips/new'
-    | '/payroll/$driverId'
+    | '/$companySlug/dashboard'
+    | '/$companySlug/drivers'
+    | '/$companySlug/events'
+    | '/$companySlug/games'
+    | '/$companySlug/incidents'
+    | '/$companySlug/live-ops'
+    | '/$companySlug/medicaid-billing'
+    | '/$companySlug/medicaid-trips'
+    | '/$companySlug/messages'
+    | '/$companySlug/news'
+    | '/$companySlug/news-feed'
+    | '/$companySlug/passengers'
+    | '/$companySlug/planner'
+    | '/$companySlug/reports'
+    | '/$companySlug/rewards-settings'
+    | '/$companySlug/schedules'
+    | '/$companySlug/team'
+    | '/$companySlug/trips'
+    | '/$companySlug/dispatch/history'
+    | '/$companySlug/dispatch/schedule'
+    | '/$companySlug/driver/earnings'
+    | '/$companySlug/driver/expenses'
+    | '/$companySlug/driver/history'
+    | '/$companySlug/driver/messages'
+    | '/$companySlug/driver/profile'
+    | '/$companySlug/passenger/apply'
+    | '/$companySlug/passenger/events'
+    | '/$companySlug/passenger/games'
+    | '/$companySlug/passenger/news'
+    | '/$companySlug/passenger/profile'
+    | '/$companySlug/passenger/rewards'
+    | '/$companySlug/passenger/safety'
+    | '/$companySlug/passenger/signup'
+    | '/$companySlug/passenger/track'
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
-    | '/dispatch/routes/$routeId'
-    | '/driver/trip/new'
-    | '/passenger/book/pickup'
-    | '/passenger/book/vehicle'
-    | '/payroll'
-    | '/dispatch/routes'
-    | '/trips/$tripId/proof'
+    | '/$companySlug/dispatch'
+    | '/$companySlug/driver'
+    | '/$companySlug/passenger'
+    | '/$companySlug/medicaid-trips/new'
+    | '/$companySlug/payroll/$driverId'
+    | '/$companySlug/dispatch/routes/$routeId'
+    | '/$companySlug/driver/trip/new'
+    | '/$companySlug/passenger/book/pickup'
+    | '/$companySlug/passenger/book/vehicle'
+    | '/$companySlug/payroll'
+    | '/$companySlug/dispatch/routes'
+    | '/$companySlug/trips/$tripId/proof'
   id:
     | '__root__'
     | '/'
-    | '/_authenticated'
+    | '/$companySlug'
     | '/auth'
-    | '/dispatch'
-    | '/driver'
-    | '/passenger'
+    | '/$companySlug/_authenticated'
     | '/$companySlug/$'
-    | '/_authenticated/dashboard'
-    | '/_authenticated/drivers'
-    | '/_authenticated/events'
-    | '/_authenticated/games'
-    | '/_authenticated/incidents'
-    | '/_authenticated/live-ops'
-    | '/_authenticated/medicaid-billing'
-    | '/_authenticated/medicaid-trips'
-    | '/_authenticated/messages'
-    | '/_authenticated/news'
-    | '/_authenticated/news-feed'
-    | '/_authenticated/passengers'
-    | '/_authenticated/planner'
-    | '/_authenticated/reports'
-    | '/_authenticated/rewards-settings'
-    | '/_authenticated/schedules'
-    | '/_authenticated/team'
-    | '/_authenticated/trips'
-    | '/dispatch/history'
-    | '/dispatch/routes'
-    | '/dispatch/schedule'
+    | '/$companySlug/dispatch'
+    | '/$companySlug/driver'
+    | '/$companySlug/passenger'
     | '/dispatch/signin'
-    | '/driver/earnings'
-    | '/driver/expenses'
-    | '/driver/history'
-    | '/driver/messages'
-    | '/driver/profile'
     | '/driver/signin'
-    | '/passenger/apply'
-    | '/passenger/events'
-    | '/passenger/games'
-    | '/passenger/news'
-    | '/passenger/profile'
-    | '/passenger/rewards'
-    | '/passenger/safety'
-    | '/passenger/signup'
-    | '/passenger/track'
     | '/ride/$requestId'
     | '/track/$tripId'
-    | '/dispatch/'
-    | '/driver/'
-    | '/passenger/'
-    | '/_authenticated/medicaid-trips/new'
-    | '/_authenticated/payroll/$driverId'
+    | '/$companySlug/'
+    | '/$companySlug/_authenticated/dashboard'
+    | '/$companySlug/_authenticated/drivers'
+    | '/$companySlug/_authenticated/events'
+    | '/$companySlug/_authenticated/games'
+    | '/$companySlug/_authenticated/incidents'
+    | '/$companySlug/_authenticated/live-ops'
+    | '/$companySlug/_authenticated/medicaid-billing'
+    | '/$companySlug/_authenticated/medicaid-trips'
+    | '/$companySlug/_authenticated/messages'
+    | '/$companySlug/_authenticated/news'
+    | '/$companySlug/_authenticated/news-feed'
+    | '/$companySlug/_authenticated/passengers'
+    | '/$companySlug/_authenticated/planner'
+    | '/$companySlug/_authenticated/reports'
+    | '/$companySlug/_authenticated/rewards-settings'
+    | '/$companySlug/_authenticated/schedules'
+    | '/$companySlug/_authenticated/team'
+    | '/$companySlug/_authenticated/trips'
+    | '/$companySlug/dispatch/history'
+    | '/$companySlug/dispatch/routes'
+    | '/$companySlug/dispatch/schedule'
+    | '/$companySlug/driver/earnings'
+    | '/$companySlug/driver/expenses'
+    | '/$companySlug/driver/history'
+    | '/$companySlug/driver/messages'
+    | '/$companySlug/driver/profile'
+    | '/$companySlug/passenger/apply'
+    | '/$companySlug/passenger/events'
+    | '/$companySlug/passenger/games'
+    | '/$companySlug/passenger/news'
+    | '/$companySlug/passenger/profile'
+    | '/$companySlug/passenger/rewards'
+    | '/$companySlug/passenger/safety'
+    | '/$companySlug/passenger/signup'
+    | '/$companySlug/passenger/track'
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
-    | '/dispatch/routes/$routeId'
-    | '/driver/trip/new'
-    | '/passenger/book/pickup'
-    | '/passenger/book/vehicle'
-    | '/_authenticated/payroll/'
-    | '/dispatch/routes/'
-    | '/_authenticated/trips/$tripId/proof'
+    | '/$companySlug/dispatch/'
+    | '/$companySlug/driver/'
+    | '/$companySlug/passenger/'
+    | '/$companySlug/_authenticated/medicaid-trips/new'
+    | '/$companySlug/_authenticated/payroll/$driverId'
+    | '/$companySlug/dispatch/routes/$routeId'
+    | '/$companySlug/driver/trip/new'
+    | '/$companySlug/passenger/book/pickup'
+    | '/$companySlug/passenger/book/vehicle'
+    | '/$companySlug/_authenticated/payroll/'
+    | '/$companySlug/dispatch/routes/'
+    | '/$companySlug/_authenticated/trips/$tripId/proof'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  CompanySlugRouteRoute: typeof CompanySlugRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  DispatchRoute: typeof DispatchRouteWithChildren
-  DriverRoute: typeof DriverRouteWithChildren
-  PassengerRoute: typeof PassengerRouteWithChildren
-  CompanySlugSplatRoute: typeof CompanySlugSplatRoute
+  DispatchSigninRoute: typeof DispatchSigninRoute
+  DriverSigninRoute: typeof DriverSigninRoute
   RideRequestIdRoute: typeof RideRequestIdRoute
   TrackTripIdRoute: typeof TrackTripIdRoute
   ApiPublicGetBillingRateRoute: typeof ApiPublicGetBillingRateRoute
@@ -771,27 +831,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/passenger': {
-      id: '/passenger'
-      path: '/passenger'
-      fullPath: '/passenger'
-      preLoaderRoute: typeof PassengerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/driver': {
-      id: '/driver'
-      path: '/driver'
-      fullPath: '/driver'
-      preLoaderRoute: typeof DriverRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dispatch': {
-      id: '/dispatch'
-      path: '/dispatch'
-      fullPath: '/dispatch'
-      preLoaderRoute: typeof DispatchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -799,11 +838,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+    '/$companySlug': {
+      id: '/$companySlug'
+      path: '/$companySlug'
+      fullPath: '/$companySlug'
+      preLoaderRoute: typeof CompanySlugRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -813,26 +852,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/passenger/': {
-      id: '/passenger/'
+    '/$companySlug/': {
+      id: '/$companySlug/'
       path: '/'
-      fullPath: '/passenger/'
-      preLoaderRoute: typeof PassengerIndexRouteImport
-      parentRoute: typeof PassengerRoute
-    }
-    '/driver/': {
-      id: '/driver/'
-      path: '/'
-      fullPath: '/driver/'
-      preLoaderRoute: typeof DriverIndexRouteImport
-      parentRoute: typeof DriverRoute
-    }
-    '/dispatch/': {
-      id: '/dispatch/'
-      path: '/'
-      fullPath: '/dispatch/'
-      preLoaderRoute: typeof DispatchIndexRouteImport
-      parentRoute: typeof DispatchRoute
+      fullPath: '/$companySlug/'
+      preLoaderRoute: typeof CompanySlugIndexRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
     }
     '/track/$tripId': {
       id: '/track/$tripId'
@@ -848,313 +873,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RideRequestIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/passenger/track': {
-      id: '/passenger/track'
-      path: '/track'
-      fullPath: '/passenger/track'
-      preLoaderRoute: typeof PassengerTrackRouteImport
-      parentRoute: typeof PassengerRoute
-    }
-    '/passenger/signup': {
-      id: '/passenger/signup'
-      path: '/signup'
-      fullPath: '/passenger/signup'
-      preLoaderRoute: typeof PassengerSignupRouteImport
-      parentRoute: typeof PassengerRoute
-    }
-    '/passenger/safety': {
-      id: '/passenger/safety'
-      path: '/safety'
-      fullPath: '/passenger/safety'
-      preLoaderRoute: typeof PassengerSafetyRouteImport
-      parentRoute: typeof PassengerRoute
-    }
-    '/passenger/rewards': {
-      id: '/passenger/rewards'
-      path: '/rewards'
-      fullPath: '/passenger/rewards'
-      preLoaderRoute: typeof PassengerRewardsRouteImport
-      parentRoute: typeof PassengerRoute
-    }
-    '/passenger/profile': {
-      id: '/passenger/profile'
-      path: '/profile'
-      fullPath: '/passenger/profile'
-      preLoaderRoute: typeof PassengerProfileRouteImport
-      parentRoute: typeof PassengerRoute
-    }
-    '/passenger/news': {
-      id: '/passenger/news'
-      path: '/news'
-      fullPath: '/passenger/news'
-      preLoaderRoute: typeof PassengerNewsRouteImport
-      parentRoute: typeof PassengerRoute
-    }
-    '/passenger/games': {
-      id: '/passenger/games'
-      path: '/games'
-      fullPath: '/passenger/games'
-      preLoaderRoute: typeof PassengerGamesRouteImport
-      parentRoute: typeof PassengerRoute
-    }
-    '/passenger/events': {
-      id: '/passenger/events'
-      path: '/events'
-      fullPath: '/passenger/events'
-      preLoaderRoute: typeof PassengerEventsRouteImport
-      parentRoute: typeof PassengerRoute
-    }
-    '/passenger/apply': {
-      id: '/passenger/apply'
-      path: '/apply'
-      fullPath: '/passenger/apply'
-      preLoaderRoute: typeof PassengerApplyRouteImport
-      parentRoute: typeof PassengerRoute
-    }
     '/driver/signin': {
       id: '/driver/signin'
-      path: '/signin'
+      path: '/driver/signin'
       fullPath: '/driver/signin'
       preLoaderRoute: typeof DriverSigninRouteImport
-      parentRoute: typeof DriverRoute
-    }
-    '/driver/profile': {
-      id: '/driver/profile'
-      path: '/profile'
-      fullPath: '/driver/profile'
-      preLoaderRoute: typeof DriverProfileRouteImport
-      parentRoute: typeof DriverRoute
-    }
-    '/driver/messages': {
-      id: '/driver/messages'
-      path: '/messages'
-      fullPath: '/driver/messages'
-      preLoaderRoute: typeof DriverMessagesRouteImport
-      parentRoute: typeof DriverRoute
-    }
-    '/driver/history': {
-      id: '/driver/history'
-      path: '/history'
-      fullPath: '/driver/history'
-      preLoaderRoute: typeof DriverHistoryRouteImport
-      parentRoute: typeof DriverRoute
-    }
-    '/driver/expenses': {
-      id: '/driver/expenses'
-      path: '/expenses'
-      fullPath: '/driver/expenses'
-      preLoaderRoute: typeof DriverExpensesRouteImport
-      parentRoute: typeof DriverRoute
-    }
-    '/driver/earnings': {
-      id: '/driver/earnings'
-      path: '/earnings'
-      fullPath: '/driver/earnings'
-      preLoaderRoute: typeof DriverEarningsRouteImport
-      parentRoute: typeof DriverRoute
+      parentRoute: typeof rootRouteImport
     }
     '/dispatch/signin': {
       id: '/dispatch/signin'
-      path: '/signin'
+      path: '/dispatch/signin'
       fullPath: '/dispatch/signin'
       preLoaderRoute: typeof DispatchSigninRouteImport
-      parentRoute: typeof DispatchRoute
+      parentRoute: typeof rootRouteImport
     }
-    '/dispatch/schedule': {
-      id: '/dispatch/schedule'
-      path: '/schedule'
-      fullPath: '/dispatch/schedule'
-      preLoaderRoute: typeof DispatchScheduleRouteImport
-      parentRoute: typeof DispatchRoute
+    '/$companySlug/passenger': {
+      id: '/$companySlug/passenger'
+      path: '/passenger'
+      fullPath: '/$companySlug/passenger'
+      preLoaderRoute: typeof CompanySlugPassengerRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
     }
-    '/dispatch/routes': {
-      id: '/dispatch/routes'
-      path: '/routes'
-      fullPath: '/dispatch/routes'
-      preLoaderRoute: typeof DispatchRoutesRouteImport
-      parentRoute: typeof DispatchRoute
+    '/$companySlug/driver': {
+      id: '/$companySlug/driver'
+      path: '/driver'
+      fullPath: '/$companySlug/driver'
+      preLoaderRoute: typeof CompanySlugDriverRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
     }
-    '/dispatch/history': {
-      id: '/dispatch/history'
-      path: '/history'
-      fullPath: '/dispatch/history'
-      preLoaderRoute: typeof DispatchHistoryRouteImport
-      parentRoute: typeof DispatchRoute
-    }
-    '/_authenticated/trips': {
-      id: '/_authenticated/trips'
-      path: '/trips'
-      fullPath: '/trips'
-      preLoaderRoute: typeof AuthenticatedTripsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/team': {
-      id: '/_authenticated/team'
-      path: '/team'
-      fullPath: '/team'
-      preLoaderRoute: typeof AuthenticatedTeamRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/schedules': {
-      id: '/_authenticated/schedules'
-      path: '/schedules'
-      fullPath: '/schedules'
-      preLoaderRoute: typeof AuthenticatedSchedulesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/rewards-settings': {
-      id: '/_authenticated/rewards-settings'
-      path: '/rewards-settings'
-      fullPath: '/rewards-settings'
-      preLoaderRoute: typeof AuthenticatedRewardsSettingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/reports': {
-      id: '/_authenticated/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof AuthenticatedReportsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/planner': {
-      id: '/_authenticated/planner'
-      path: '/planner'
-      fullPath: '/planner'
-      preLoaderRoute: typeof AuthenticatedPlannerRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/passengers': {
-      id: '/_authenticated/passengers'
-      path: '/passengers'
-      fullPath: '/passengers'
-      preLoaderRoute: typeof AuthenticatedPassengersRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/news-feed': {
-      id: '/_authenticated/news-feed'
-      path: '/news-feed'
-      fullPath: '/news-feed'
-      preLoaderRoute: typeof AuthenticatedNewsFeedRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/news': {
-      id: '/_authenticated/news'
-      path: '/news'
-      fullPath: '/news'
-      preLoaderRoute: typeof AuthenticatedNewsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/messages': {
-      id: '/_authenticated/messages'
-      path: '/messages'
-      fullPath: '/messages'
-      preLoaderRoute: typeof AuthenticatedMessagesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/medicaid-trips': {
-      id: '/_authenticated/medicaid-trips'
-      path: '/medicaid-trips'
-      fullPath: '/medicaid-trips'
-      preLoaderRoute: typeof AuthenticatedMedicaidTripsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/medicaid-billing': {
-      id: '/_authenticated/medicaid-billing'
-      path: '/medicaid-billing'
-      fullPath: '/medicaid-billing'
-      preLoaderRoute: typeof AuthenticatedMedicaidBillingRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/live-ops': {
-      id: '/_authenticated/live-ops'
-      path: '/live-ops'
-      fullPath: '/live-ops'
-      preLoaderRoute: typeof AuthenticatedLiveOpsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/incidents': {
-      id: '/_authenticated/incidents'
-      path: '/incidents'
-      fullPath: '/incidents'
-      preLoaderRoute: typeof AuthenticatedIncidentsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/games': {
-      id: '/_authenticated/games'
-      path: '/games'
-      fullPath: '/games'
-      preLoaderRoute: typeof AuthenticatedGamesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/events': {
-      id: '/_authenticated/events'
-      path: '/events'
-      fullPath: '/events'
-      preLoaderRoute: typeof AuthenticatedEventsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/drivers': {
-      id: '/_authenticated/drivers'
-      path: '/drivers'
-      fullPath: '/drivers'
-      preLoaderRoute: typeof AuthenticatedDriversRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/$companySlug/dispatch': {
+      id: '/$companySlug/dispatch'
+      path: '/dispatch'
+      fullPath: '/$companySlug/dispatch'
+      preLoaderRoute: typeof CompanySlugDispatchRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
     }
     '/$companySlug/$': {
       id: '/$companySlug/$'
-      path: '/$companySlug/$'
+      path: '/$'
       fullPath: '/$companySlug/$'
       preLoaderRoute: typeof CompanySlugSplatRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
     }
-    '/dispatch/routes/': {
-      id: '/dispatch/routes/'
+    '/$companySlug/_authenticated': {
+      id: '/$companySlug/_authenticated'
+      path: ''
+      fullPath: '/$companySlug'
+      preLoaderRoute: typeof CompanySlugAuthenticatedRouteRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
+    }
+    '/$companySlug/passenger/': {
+      id: '/$companySlug/passenger/'
       path: '/'
-      fullPath: '/dispatch/routes/'
-      preLoaderRoute: typeof DispatchRoutesIndexRouteImport
-      parentRoute: typeof DispatchRoutesRoute
+      fullPath: '/$companySlug/passenger/'
+      preLoaderRoute: typeof CompanySlugPassengerIndexRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
     }
-    '/_authenticated/payroll/': {
-      id: '/_authenticated/payroll/'
-      path: '/payroll'
-      fullPath: '/payroll/'
-      preLoaderRoute: typeof AuthenticatedPayrollIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/$companySlug/driver/': {
+      id: '/$companySlug/driver/'
+      path: '/'
+      fullPath: '/$companySlug/driver/'
+      preLoaderRoute: typeof CompanySlugDriverIndexRouteImport
+      parentRoute: typeof CompanySlugDriverRoute
     }
-    '/passenger/book/vehicle': {
-      id: '/passenger/book/vehicle'
-      path: '/book/vehicle'
-      fullPath: '/passenger/book/vehicle'
-      preLoaderRoute: typeof PassengerBookVehicleRouteImport
-      parentRoute: typeof PassengerRoute
-    }
-    '/passenger/book/pickup': {
-      id: '/passenger/book/pickup'
-      path: '/book/pickup'
-      fullPath: '/passenger/book/pickup'
-      preLoaderRoute: typeof PassengerBookPickupRouteImport
-      parentRoute: typeof PassengerRoute
-    }
-    '/driver/trip/new': {
-      id: '/driver/trip/new'
-      path: '/trip/new'
-      fullPath: '/driver/trip/new'
-      preLoaderRoute: typeof DriverTripNewRouteImport
-      parentRoute: typeof DriverRoute
-    }
-    '/dispatch/routes/$routeId': {
-      id: '/dispatch/routes/$routeId'
-      path: '/$routeId'
-      fullPath: '/dispatch/routes/$routeId'
-      preLoaderRoute: typeof DispatchRoutesRouteIdRouteImport
-      parentRoute: typeof DispatchRoutesRoute
+    '/$companySlug/dispatch/': {
+      id: '/$companySlug/dispatch/'
+      path: '/'
+      fullPath: '/$companySlug/dispatch/'
+      preLoaderRoute: typeof CompanySlugDispatchIndexRouteImport
+      parentRoute: typeof CompanySlugDispatchRoute
     }
     '/api/public/get-trip-pdf': {
       id: '/api/public/get-trip-pdf'
@@ -1177,205 +964,529 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGetBillingRateRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/payroll/$driverId': {
-      id: '/_authenticated/payroll/$driverId'
+    '/$companySlug/passenger/track': {
+      id: '/$companySlug/passenger/track'
+      path: '/track'
+      fullPath: '/$companySlug/passenger/track'
+      preLoaderRoute: typeof CompanySlugPassengerTrackRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/passenger/signup': {
+      id: '/$companySlug/passenger/signup'
+      path: '/signup'
+      fullPath: '/$companySlug/passenger/signup'
+      preLoaderRoute: typeof CompanySlugPassengerSignupRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/passenger/safety': {
+      id: '/$companySlug/passenger/safety'
+      path: '/safety'
+      fullPath: '/$companySlug/passenger/safety'
+      preLoaderRoute: typeof CompanySlugPassengerSafetyRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/passenger/rewards': {
+      id: '/$companySlug/passenger/rewards'
+      path: '/rewards'
+      fullPath: '/$companySlug/passenger/rewards'
+      preLoaderRoute: typeof CompanySlugPassengerRewardsRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/passenger/profile': {
+      id: '/$companySlug/passenger/profile'
+      path: '/profile'
+      fullPath: '/$companySlug/passenger/profile'
+      preLoaderRoute: typeof CompanySlugPassengerProfileRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/passenger/news': {
+      id: '/$companySlug/passenger/news'
+      path: '/news'
+      fullPath: '/$companySlug/passenger/news'
+      preLoaderRoute: typeof CompanySlugPassengerNewsRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/passenger/games': {
+      id: '/$companySlug/passenger/games'
+      path: '/games'
+      fullPath: '/$companySlug/passenger/games'
+      preLoaderRoute: typeof CompanySlugPassengerGamesRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/passenger/events': {
+      id: '/$companySlug/passenger/events'
+      path: '/events'
+      fullPath: '/$companySlug/passenger/events'
+      preLoaderRoute: typeof CompanySlugPassengerEventsRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/passenger/apply': {
+      id: '/$companySlug/passenger/apply'
+      path: '/apply'
+      fullPath: '/$companySlug/passenger/apply'
+      preLoaderRoute: typeof CompanySlugPassengerApplyRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/driver/profile': {
+      id: '/$companySlug/driver/profile'
+      path: '/profile'
+      fullPath: '/$companySlug/driver/profile'
+      preLoaderRoute: typeof CompanySlugDriverProfileRouteImport
+      parentRoute: typeof CompanySlugDriverRoute
+    }
+    '/$companySlug/driver/messages': {
+      id: '/$companySlug/driver/messages'
+      path: '/messages'
+      fullPath: '/$companySlug/driver/messages'
+      preLoaderRoute: typeof CompanySlugDriverMessagesRouteImport
+      parentRoute: typeof CompanySlugDriverRoute
+    }
+    '/$companySlug/driver/history': {
+      id: '/$companySlug/driver/history'
+      path: '/history'
+      fullPath: '/$companySlug/driver/history'
+      preLoaderRoute: typeof CompanySlugDriverHistoryRouteImport
+      parentRoute: typeof CompanySlugDriverRoute
+    }
+    '/$companySlug/driver/expenses': {
+      id: '/$companySlug/driver/expenses'
+      path: '/expenses'
+      fullPath: '/$companySlug/driver/expenses'
+      preLoaderRoute: typeof CompanySlugDriverExpensesRouteImport
+      parentRoute: typeof CompanySlugDriverRoute
+    }
+    '/$companySlug/driver/earnings': {
+      id: '/$companySlug/driver/earnings'
+      path: '/earnings'
+      fullPath: '/$companySlug/driver/earnings'
+      preLoaderRoute: typeof CompanySlugDriverEarningsRouteImport
+      parentRoute: typeof CompanySlugDriverRoute
+    }
+    '/$companySlug/dispatch/schedule': {
+      id: '/$companySlug/dispatch/schedule'
+      path: '/schedule'
+      fullPath: '/$companySlug/dispatch/schedule'
+      preLoaderRoute: typeof CompanySlugDispatchScheduleRouteImport
+      parentRoute: typeof CompanySlugDispatchRoute
+    }
+    '/$companySlug/dispatch/routes': {
+      id: '/$companySlug/dispatch/routes'
+      path: '/routes'
+      fullPath: '/$companySlug/dispatch/routes'
+      preLoaderRoute: typeof CompanySlugDispatchRoutesRouteImport
+      parentRoute: typeof CompanySlugDispatchRoute
+    }
+    '/$companySlug/dispatch/history': {
+      id: '/$companySlug/dispatch/history'
+      path: '/history'
+      fullPath: '/$companySlug/dispatch/history'
+      preLoaderRoute: typeof CompanySlugDispatchHistoryRouteImport
+      parentRoute: typeof CompanySlugDispatchRoute
+    }
+    '/$companySlug/_authenticated/trips': {
+      id: '/$companySlug/_authenticated/trips'
+      path: '/trips'
+      fullPath: '/$companySlug/trips'
+      preLoaderRoute: typeof CompanySlugAuthenticatedTripsRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/team': {
+      id: '/$companySlug/_authenticated/team'
+      path: '/team'
+      fullPath: '/$companySlug/team'
+      preLoaderRoute: typeof CompanySlugAuthenticatedTeamRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/schedules': {
+      id: '/$companySlug/_authenticated/schedules'
+      path: '/schedules'
+      fullPath: '/$companySlug/schedules'
+      preLoaderRoute: typeof CompanySlugAuthenticatedSchedulesRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/rewards-settings': {
+      id: '/$companySlug/_authenticated/rewards-settings'
+      path: '/rewards-settings'
+      fullPath: '/$companySlug/rewards-settings'
+      preLoaderRoute: typeof CompanySlugAuthenticatedRewardsSettingsRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/reports': {
+      id: '/$companySlug/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/$companySlug/reports'
+      preLoaderRoute: typeof CompanySlugAuthenticatedReportsRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/planner': {
+      id: '/$companySlug/_authenticated/planner'
+      path: '/planner'
+      fullPath: '/$companySlug/planner'
+      preLoaderRoute: typeof CompanySlugAuthenticatedPlannerRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/passengers': {
+      id: '/$companySlug/_authenticated/passengers'
+      path: '/passengers'
+      fullPath: '/$companySlug/passengers'
+      preLoaderRoute: typeof CompanySlugAuthenticatedPassengersRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/news-feed': {
+      id: '/$companySlug/_authenticated/news-feed'
+      path: '/news-feed'
+      fullPath: '/$companySlug/news-feed'
+      preLoaderRoute: typeof CompanySlugAuthenticatedNewsFeedRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/news': {
+      id: '/$companySlug/_authenticated/news'
+      path: '/news'
+      fullPath: '/$companySlug/news'
+      preLoaderRoute: typeof CompanySlugAuthenticatedNewsRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/messages': {
+      id: '/$companySlug/_authenticated/messages'
+      path: '/messages'
+      fullPath: '/$companySlug/messages'
+      preLoaderRoute: typeof CompanySlugAuthenticatedMessagesRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/medicaid-trips': {
+      id: '/$companySlug/_authenticated/medicaid-trips'
+      path: '/medicaid-trips'
+      fullPath: '/$companySlug/medicaid-trips'
+      preLoaderRoute: typeof CompanySlugAuthenticatedMedicaidTripsRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/medicaid-billing': {
+      id: '/$companySlug/_authenticated/medicaid-billing'
+      path: '/medicaid-billing'
+      fullPath: '/$companySlug/medicaid-billing'
+      preLoaderRoute: typeof CompanySlugAuthenticatedMedicaidBillingRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/live-ops': {
+      id: '/$companySlug/_authenticated/live-ops'
+      path: '/live-ops'
+      fullPath: '/$companySlug/live-ops'
+      preLoaderRoute: typeof CompanySlugAuthenticatedLiveOpsRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/incidents': {
+      id: '/$companySlug/_authenticated/incidents'
+      path: '/incidents'
+      fullPath: '/$companySlug/incidents'
+      preLoaderRoute: typeof CompanySlugAuthenticatedIncidentsRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/games': {
+      id: '/$companySlug/_authenticated/games'
+      path: '/games'
+      fullPath: '/$companySlug/games'
+      preLoaderRoute: typeof CompanySlugAuthenticatedGamesRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/events': {
+      id: '/$companySlug/_authenticated/events'
+      path: '/events'
+      fullPath: '/$companySlug/events'
+      preLoaderRoute: typeof CompanySlugAuthenticatedEventsRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/drivers': {
+      id: '/$companySlug/_authenticated/drivers'
+      path: '/drivers'
+      fullPath: '/$companySlug/drivers'
+      preLoaderRoute: typeof CompanySlugAuthenticatedDriversRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/_authenticated/dashboard': {
+      id: '/$companySlug/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/$companySlug/dashboard'
+      preLoaderRoute: typeof CompanySlugAuthenticatedDashboardRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/dispatch/routes/': {
+      id: '/$companySlug/dispatch/routes/'
+      path: '/'
+      fullPath: '/$companySlug/dispatch/routes/'
+      preLoaderRoute: typeof CompanySlugDispatchRoutesIndexRouteImport
+      parentRoute: typeof CompanySlugDispatchRoutesRoute
+    }
+    '/$companySlug/_authenticated/payroll/': {
+      id: '/$companySlug/_authenticated/payroll/'
+      path: '/payroll'
+      fullPath: '/$companySlug/payroll/'
+      preLoaderRoute: typeof CompanySlugAuthenticatedPayrollIndexRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
+    '/$companySlug/passenger/book/vehicle': {
+      id: '/$companySlug/passenger/book/vehicle'
+      path: '/book/vehicle'
+      fullPath: '/$companySlug/passenger/book/vehicle'
+      preLoaderRoute: typeof CompanySlugPassengerBookVehicleRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/passenger/book/pickup': {
+      id: '/$companySlug/passenger/book/pickup'
+      path: '/book/pickup'
+      fullPath: '/$companySlug/passenger/book/pickup'
+      preLoaderRoute: typeof CompanySlugPassengerBookPickupRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/driver/trip/new': {
+      id: '/$companySlug/driver/trip/new'
+      path: '/trip/new'
+      fullPath: '/$companySlug/driver/trip/new'
+      preLoaderRoute: typeof CompanySlugDriverTripNewRouteImport
+      parentRoute: typeof CompanySlugDriverRoute
+    }
+    '/$companySlug/dispatch/routes/$routeId': {
+      id: '/$companySlug/dispatch/routes/$routeId'
+      path: '/$routeId'
+      fullPath: '/$companySlug/dispatch/routes/$routeId'
+      preLoaderRoute: typeof CompanySlugDispatchRoutesRouteIdRouteImport
+      parentRoute: typeof CompanySlugDispatchRoutesRoute
+    }
+    '/$companySlug/_authenticated/payroll/$driverId': {
+      id: '/$companySlug/_authenticated/payroll/$driverId'
       path: '/payroll/$driverId'
-      fullPath: '/payroll/$driverId'
-      preLoaderRoute: typeof AuthenticatedPayrollDriverIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      fullPath: '/$companySlug/payroll/$driverId'
+      preLoaderRoute: typeof CompanySlugAuthenticatedPayrollDriverIdRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
     }
-    '/_authenticated/medicaid-trips/new': {
-      id: '/_authenticated/medicaid-trips/new'
+    '/$companySlug/_authenticated/medicaid-trips/new': {
+      id: '/$companySlug/_authenticated/medicaid-trips/new'
       path: '/new'
-      fullPath: '/medicaid-trips/new'
-      preLoaderRoute: typeof AuthenticatedMedicaidTripsNewRouteImport
-      parentRoute: typeof AuthenticatedMedicaidTripsRoute
+      fullPath: '/$companySlug/medicaid-trips/new'
+      preLoaderRoute: typeof CompanySlugAuthenticatedMedicaidTripsNewRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedMedicaidTripsRoute
     }
-    '/_authenticated/trips/$tripId/proof': {
-      id: '/_authenticated/trips/$tripId/proof'
+    '/$companySlug/_authenticated/trips/$tripId/proof': {
+      id: '/$companySlug/_authenticated/trips/$tripId/proof'
       path: '/$tripId/proof'
-      fullPath: '/trips/$tripId/proof'
-      preLoaderRoute: typeof AuthenticatedTripsTripIdProofRouteImport
-      parentRoute: typeof AuthenticatedTripsRoute
+      fullPath: '/$companySlug/trips/$tripId/proof'
+      preLoaderRoute: typeof CompanySlugAuthenticatedTripsTripIdProofRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedTripsRoute
     }
   }
 }
 
-interface AuthenticatedMedicaidTripsRouteChildren {
-  AuthenticatedMedicaidTripsNewRoute: typeof AuthenticatedMedicaidTripsNewRoute
+interface CompanySlugAuthenticatedMedicaidTripsRouteChildren {
+  CompanySlugAuthenticatedMedicaidTripsNewRoute: typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
 }
 
-const AuthenticatedMedicaidTripsRouteChildren: AuthenticatedMedicaidTripsRouteChildren =
+const CompanySlugAuthenticatedMedicaidTripsRouteChildren: CompanySlugAuthenticatedMedicaidTripsRouteChildren =
   {
-    AuthenticatedMedicaidTripsNewRoute: AuthenticatedMedicaidTripsNewRoute,
+    CompanySlugAuthenticatedMedicaidTripsNewRoute:
+      CompanySlugAuthenticatedMedicaidTripsNewRoute,
   }
 
-const AuthenticatedMedicaidTripsRouteWithChildren =
-  AuthenticatedMedicaidTripsRoute._addFileChildren(
-    AuthenticatedMedicaidTripsRouteChildren,
+const CompanySlugAuthenticatedMedicaidTripsRouteWithChildren =
+  CompanySlugAuthenticatedMedicaidTripsRoute._addFileChildren(
+    CompanySlugAuthenticatedMedicaidTripsRouteChildren,
   )
 
-interface AuthenticatedTripsRouteChildren {
-  AuthenticatedTripsTripIdProofRoute: typeof AuthenticatedTripsTripIdProofRoute
+interface CompanySlugAuthenticatedTripsRouteChildren {
+  CompanySlugAuthenticatedTripsTripIdProofRoute: typeof CompanySlugAuthenticatedTripsTripIdProofRoute
 }
 
-const AuthenticatedTripsRouteChildren: AuthenticatedTripsRouteChildren = {
-  AuthenticatedTripsTripIdProofRoute: AuthenticatedTripsTripIdProofRoute,
+const CompanySlugAuthenticatedTripsRouteChildren: CompanySlugAuthenticatedTripsRouteChildren =
+  {
+    CompanySlugAuthenticatedTripsTripIdProofRoute:
+      CompanySlugAuthenticatedTripsTripIdProofRoute,
+  }
+
+const CompanySlugAuthenticatedTripsRouteWithChildren =
+  CompanySlugAuthenticatedTripsRoute._addFileChildren(
+    CompanySlugAuthenticatedTripsRouteChildren,
+  )
+
+interface CompanySlugAuthenticatedRouteRouteChildren {
+  CompanySlugAuthenticatedDashboardRoute: typeof CompanySlugAuthenticatedDashboardRoute
+  CompanySlugAuthenticatedDriversRoute: typeof CompanySlugAuthenticatedDriversRoute
+  CompanySlugAuthenticatedEventsRoute: typeof CompanySlugAuthenticatedEventsRoute
+  CompanySlugAuthenticatedGamesRoute: typeof CompanySlugAuthenticatedGamesRoute
+  CompanySlugAuthenticatedIncidentsRoute: typeof CompanySlugAuthenticatedIncidentsRoute
+  CompanySlugAuthenticatedLiveOpsRoute: typeof CompanySlugAuthenticatedLiveOpsRoute
+  CompanySlugAuthenticatedMedicaidBillingRoute: typeof CompanySlugAuthenticatedMedicaidBillingRoute
+  CompanySlugAuthenticatedMedicaidTripsRoute: typeof CompanySlugAuthenticatedMedicaidTripsRouteWithChildren
+  CompanySlugAuthenticatedMessagesRoute: typeof CompanySlugAuthenticatedMessagesRoute
+  CompanySlugAuthenticatedNewsRoute: typeof CompanySlugAuthenticatedNewsRoute
+  CompanySlugAuthenticatedNewsFeedRoute: typeof CompanySlugAuthenticatedNewsFeedRoute
+  CompanySlugAuthenticatedPassengersRoute: typeof CompanySlugAuthenticatedPassengersRoute
+  CompanySlugAuthenticatedPlannerRoute: typeof CompanySlugAuthenticatedPlannerRoute
+  CompanySlugAuthenticatedReportsRoute: typeof CompanySlugAuthenticatedReportsRoute
+  CompanySlugAuthenticatedRewardsSettingsRoute: typeof CompanySlugAuthenticatedRewardsSettingsRoute
+  CompanySlugAuthenticatedSchedulesRoute: typeof CompanySlugAuthenticatedSchedulesRoute
+  CompanySlugAuthenticatedTeamRoute: typeof CompanySlugAuthenticatedTeamRoute
+  CompanySlugAuthenticatedTripsRoute: typeof CompanySlugAuthenticatedTripsRouteWithChildren
+  CompanySlugAuthenticatedPayrollDriverIdRoute: typeof CompanySlugAuthenticatedPayrollDriverIdRoute
+  CompanySlugAuthenticatedPayrollIndexRoute: typeof CompanySlugAuthenticatedPayrollIndexRoute
 }
 
-const AuthenticatedTripsRouteWithChildren =
-  AuthenticatedTripsRoute._addFileChildren(AuthenticatedTripsRouteChildren)
+const CompanySlugAuthenticatedRouteRouteChildren: CompanySlugAuthenticatedRouteRouteChildren =
+  {
+    CompanySlugAuthenticatedDashboardRoute:
+      CompanySlugAuthenticatedDashboardRoute,
+    CompanySlugAuthenticatedDriversRoute: CompanySlugAuthenticatedDriversRoute,
+    CompanySlugAuthenticatedEventsRoute: CompanySlugAuthenticatedEventsRoute,
+    CompanySlugAuthenticatedGamesRoute: CompanySlugAuthenticatedGamesRoute,
+    CompanySlugAuthenticatedIncidentsRoute:
+      CompanySlugAuthenticatedIncidentsRoute,
+    CompanySlugAuthenticatedLiveOpsRoute: CompanySlugAuthenticatedLiveOpsRoute,
+    CompanySlugAuthenticatedMedicaidBillingRoute:
+      CompanySlugAuthenticatedMedicaidBillingRoute,
+    CompanySlugAuthenticatedMedicaidTripsRoute:
+      CompanySlugAuthenticatedMedicaidTripsRouteWithChildren,
+    CompanySlugAuthenticatedMessagesRoute:
+      CompanySlugAuthenticatedMessagesRoute,
+    CompanySlugAuthenticatedNewsRoute: CompanySlugAuthenticatedNewsRoute,
+    CompanySlugAuthenticatedNewsFeedRoute:
+      CompanySlugAuthenticatedNewsFeedRoute,
+    CompanySlugAuthenticatedPassengersRoute:
+      CompanySlugAuthenticatedPassengersRoute,
+    CompanySlugAuthenticatedPlannerRoute: CompanySlugAuthenticatedPlannerRoute,
+    CompanySlugAuthenticatedReportsRoute: CompanySlugAuthenticatedReportsRoute,
+    CompanySlugAuthenticatedRewardsSettingsRoute:
+      CompanySlugAuthenticatedRewardsSettingsRoute,
+    CompanySlugAuthenticatedSchedulesRoute:
+      CompanySlugAuthenticatedSchedulesRoute,
+    CompanySlugAuthenticatedTeamRoute: CompanySlugAuthenticatedTeamRoute,
+    CompanySlugAuthenticatedTripsRoute:
+      CompanySlugAuthenticatedTripsRouteWithChildren,
+    CompanySlugAuthenticatedPayrollDriverIdRoute:
+      CompanySlugAuthenticatedPayrollDriverIdRoute,
+    CompanySlugAuthenticatedPayrollIndexRoute:
+      CompanySlugAuthenticatedPayrollIndexRoute,
+  }
 
-interface AuthenticatedRouteRouteChildren {
-  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedDriversRoute: typeof AuthenticatedDriversRoute
-  AuthenticatedEventsRoute: typeof AuthenticatedEventsRoute
-  AuthenticatedGamesRoute: typeof AuthenticatedGamesRoute
-  AuthenticatedIncidentsRoute: typeof AuthenticatedIncidentsRoute
-  AuthenticatedLiveOpsRoute: typeof AuthenticatedLiveOpsRoute
-  AuthenticatedMedicaidBillingRoute: typeof AuthenticatedMedicaidBillingRoute
-  AuthenticatedMedicaidTripsRoute: typeof AuthenticatedMedicaidTripsRouteWithChildren
-  AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRoute
-  AuthenticatedNewsRoute: typeof AuthenticatedNewsRoute
-  AuthenticatedNewsFeedRoute: typeof AuthenticatedNewsFeedRoute
-  AuthenticatedPassengersRoute: typeof AuthenticatedPassengersRoute
-  AuthenticatedPlannerRoute: typeof AuthenticatedPlannerRoute
-  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
-  AuthenticatedRewardsSettingsRoute: typeof AuthenticatedRewardsSettingsRoute
-  AuthenticatedSchedulesRoute: typeof AuthenticatedSchedulesRoute
-  AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
-  AuthenticatedTripsRoute: typeof AuthenticatedTripsRouteWithChildren
-  AuthenticatedPayrollDriverIdRoute: typeof AuthenticatedPayrollDriverIdRoute
-  AuthenticatedPayrollIndexRoute: typeof AuthenticatedPayrollIndexRoute
+const CompanySlugAuthenticatedRouteRouteWithChildren =
+  CompanySlugAuthenticatedRouteRoute._addFileChildren(
+    CompanySlugAuthenticatedRouteRouteChildren,
+  )
+
+interface CompanySlugDispatchRoutesRouteChildren {
+  CompanySlugDispatchRoutesRouteIdRoute: typeof CompanySlugDispatchRoutesRouteIdRoute
+  CompanySlugDispatchRoutesIndexRoute: typeof CompanySlugDispatchRoutesIndexRoute
 }
 
-const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedDriversRoute: AuthenticatedDriversRoute,
-  AuthenticatedEventsRoute: AuthenticatedEventsRoute,
-  AuthenticatedGamesRoute: AuthenticatedGamesRoute,
-  AuthenticatedIncidentsRoute: AuthenticatedIncidentsRoute,
-  AuthenticatedLiveOpsRoute: AuthenticatedLiveOpsRoute,
-  AuthenticatedMedicaidBillingRoute: AuthenticatedMedicaidBillingRoute,
-  AuthenticatedMedicaidTripsRoute: AuthenticatedMedicaidTripsRouteWithChildren,
-  AuthenticatedMessagesRoute: AuthenticatedMessagesRoute,
-  AuthenticatedNewsRoute: AuthenticatedNewsRoute,
-  AuthenticatedNewsFeedRoute: AuthenticatedNewsFeedRoute,
-  AuthenticatedPassengersRoute: AuthenticatedPassengersRoute,
-  AuthenticatedPlannerRoute: AuthenticatedPlannerRoute,
-  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
-  AuthenticatedRewardsSettingsRoute: AuthenticatedRewardsSettingsRoute,
-  AuthenticatedSchedulesRoute: AuthenticatedSchedulesRoute,
-  AuthenticatedTeamRoute: AuthenticatedTeamRoute,
-  AuthenticatedTripsRoute: AuthenticatedTripsRouteWithChildren,
-  AuthenticatedPayrollDriverIdRoute: AuthenticatedPayrollDriverIdRoute,
-  AuthenticatedPayrollIndexRoute: AuthenticatedPayrollIndexRoute,
+const CompanySlugDispatchRoutesRouteChildren: CompanySlugDispatchRoutesRouteChildren =
+  {
+    CompanySlugDispatchRoutesRouteIdRoute:
+      CompanySlugDispatchRoutesRouteIdRoute,
+    CompanySlugDispatchRoutesIndexRoute: CompanySlugDispatchRoutesIndexRoute,
+  }
+
+const CompanySlugDispatchRoutesRouteWithChildren =
+  CompanySlugDispatchRoutesRoute._addFileChildren(
+    CompanySlugDispatchRoutesRouteChildren,
+  )
+
+interface CompanySlugDispatchRouteChildren {
+  CompanySlugDispatchHistoryRoute: typeof CompanySlugDispatchHistoryRoute
+  CompanySlugDispatchRoutesRoute: typeof CompanySlugDispatchRoutesRouteWithChildren
+  CompanySlugDispatchScheduleRoute: typeof CompanySlugDispatchScheduleRoute
+  CompanySlugDispatchIndexRoute: typeof CompanySlugDispatchIndexRoute
 }
 
-const AuthenticatedRouteRouteWithChildren =
-  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
-
-interface DispatchRoutesRouteChildren {
-  DispatchRoutesRouteIdRoute: typeof DispatchRoutesRouteIdRoute
-  DispatchRoutesIndexRoute: typeof DispatchRoutesIndexRoute
+const CompanySlugDispatchRouteChildren: CompanySlugDispatchRouteChildren = {
+  CompanySlugDispatchHistoryRoute: CompanySlugDispatchHistoryRoute,
+  CompanySlugDispatchRoutesRoute: CompanySlugDispatchRoutesRouteWithChildren,
+  CompanySlugDispatchScheduleRoute: CompanySlugDispatchScheduleRoute,
+  CompanySlugDispatchIndexRoute: CompanySlugDispatchIndexRoute,
 }
 
-const DispatchRoutesRouteChildren: DispatchRoutesRouteChildren = {
-  DispatchRoutesRouteIdRoute: DispatchRoutesRouteIdRoute,
-  DispatchRoutesIndexRoute: DispatchRoutesIndexRoute,
+const CompanySlugDispatchRouteWithChildren =
+  CompanySlugDispatchRoute._addFileChildren(CompanySlugDispatchRouteChildren)
+
+interface CompanySlugDriverRouteChildren {
+  CompanySlugDriverEarningsRoute: typeof CompanySlugDriverEarningsRoute
+  CompanySlugDriverExpensesRoute: typeof CompanySlugDriverExpensesRoute
+  CompanySlugDriverHistoryRoute: typeof CompanySlugDriverHistoryRoute
+  CompanySlugDriverMessagesRoute: typeof CompanySlugDriverMessagesRoute
+  CompanySlugDriverProfileRoute: typeof CompanySlugDriverProfileRoute
+  CompanySlugDriverIndexRoute: typeof CompanySlugDriverIndexRoute
+  CompanySlugDriverTripNewRoute: typeof CompanySlugDriverTripNewRoute
 }
 
-const DispatchRoutesRouteWithChildren = DispatchRoutesRoute._addFileChildren(
-  DispatchRoutesRouteChildren,
-)
-
-interface DispatchRouteChildren {
-  DispatchHistoryRoute: typeof DispatchHistoryRoute
-  DispatchRoutesRoute: typeof DispatchRoutesRouteWithChildren
-  DispatchScheduleRoute: typeof DispatchScheduleRoute
-  DispatchSigninRoute: typeof DispatchSigninRoute
-  DispatchIndexRoute: typeof DispatchIndexRoute
+const CompanySlugDriverRouteChildren: CompanySlugDriverRouteChildren = {
+  CompanySlugDriverEarningsRoute: CompanySlugDriverEarningsRoute,
+  CompanySlugDriverExpensesRoute: CompanySlugDriverExpensesRoute,
+  CompanySlugDriverHistoryRoute: CompanySlugDriverHistoryRoute,
+  CompanySlugDriverMessagesRoute: CompanySlugDriverMessagesRoute,
+  CompanySlugDriverProfileRoute: CompanySlugDriverProfileRoute,
+  CompanySlugDriverIndexRoute: CompanySlugDriverIndexRoute,
+  CompanySlugDriverTripNewRoute: CompanySlugDriverTripNewRoute,
 }
 
-const DispatchRouteChildren: DispatchRouteChildren = {
-  DispatchHistoryRoute: DispatchHistoryRoute,
-  DispatchRoutesRoute: DispatchRoutesRouteWithChildren,
-  DispatchScheduleRoute: DispatchScheduleRoute,
-  DispatchSigninRoute: DispatchSigninRoute,
-  DispatchIndexRoute: DispatchIndexRoute,
+const CompanySlugDriverRouteWithChildren =
+  CompanySlugDriverRoute._addFileChildren(CompanySlugDriverRouteChildren)
+
+interface CompanySlugPassengerRouteChildren {
+  CompanySlugPassengerApplyRoute: typeof CompanySlugPassengerApplyRoute
+  CompanySlugPassengerEventsRoute: typeof CompanySlugPassengerEventsRoute
+  CompanySlugPassengerGamesRoute: typeof CompanySlugPassengerGamesRoute
+  CompanySlugPassengerNewsRoute: typeof CompanySlugPassengerNewsRoute
+  CompanySlugPassengerProfileRoute: typeof CompanySlugPassengerProfileRoute
+  CompanySlugPassengerRewardsRoute: typeof CompanySlugPassengerRewardsRoute
+  CompanySlugPassengerSafetyRoute: typeof CompanySlugPassengerSafetyRoute
+  CompanySlugPassengerSignupRoute: typeof CompanySlugPassengerSignupRoute
+  CompanySlugPassengerTrackRoute: typeof CompanySlugPassengerTrackRoute
+  CompanySlugPassengerIndexRoute: typeof CompanySlugPassengerIndexRoute
+  CompanySlugPassengerBookPickupRoute: typeof CompanySlugPassengerBookPickupRoute
+  CompanySlugPassengerBookVehicleRoute: typeof CompanySlugPassengerBookVehicleRoute
 }
 
-const DispatchRouteWithChildren = DispatchRoute._addFileChildren(
-  DispatchRouteChildren,
-)
-
-interface DriverRouteChildren {
-  DriverEarningsRoute: typeof DriverEarningsRoute
-  DriverExpensesRoute: typeof DriverExpensesRoute
-  DriverHistoryRoute: typeof DriverHistoryRoute
-  DriverMessagesRoute: typeof DriverMessagesRoute
-  DriverProfileRoute: typeof DriverProfileRoute
-  DriverSigninRoute: typeof DriverSigninRoute
-  DriverIndexRoute: typeof DriverIndexRoute
-  DriverTripNewRoute: typeof DriverTripNewRoute
+const CompanySlugPassengerRouteChildren: CompanySlugPassengerRouteChildren = {
+  CompanySlugPassengerApplyRoute: CompanySlugPassengerApplyRoute,
+  CompanySlugPassengerEventsRoute: CompanySlugPassengerEventsRoute,
+  CompanySlugPassengerGamesRoute: CompanySlugPassengerGamesRoute,
+  CompanySlugPassengerNewsRoute: CompanySlugPassengerNewsRoute,
+  CompanySlugPassengerProfileRoute: CompanySlugPassengerProfileRoute,
+  CompanySlugPassengerRewardsRoute: CompanySlugPassengerRewardsRoute,
+  CompanySlugPassengerSafetyRoute: CompanySlugPassengerSafetyRoute,
+  CompanySlugPassengerSignupRoute: CompanySlugPassengerSignupRoute,
+  CompanySlugPassengerTrackRoute: CompanySlugPassengerTrackRoute,
+  CompanySlugPassengerIndexRoute: CompanySlugPassengerIndexRoute,
+  CompanySlugPassengerBookPickupRoute: CompanySlugPassengerBookPickupRoute,
+  CompanySlugPassengerBookVehicleRoute: CompanySlugPassengerBookVehicleRoute,
 }
 
-const DriverRouteChildren: DriverRouteChildren = {
-  DriverEarningsRoute: DriverEarningsRoute,
-  DriverExpensesRoute: DriverExpensesRoute,
-  DriverHistoryRoute: DriverHistoryRoute,
-  DriverMessagesRoute: DriverMessagesRoute,
-  DriverProfileRoute: DriverProfileRoute,
-  DriverSigninRoute: DriverSigninRoute,
-  DriverIndexRoute: DriverIndexRoute,
-  DriverTripNewRoute: DriverTripNewRoute,
+const CompanySlugPassengerRouteWithChildren =
+  CompanySlugPassengerRoute._addFileChildren(CompanySlugPassengerRouteChildren)
+
+interface CompanySlugRouteRouteChildren {
+  CompanySlugAuthenticatedRouteRoute: typeof CompanySlugAuthenticatedRouteRouteWithChildren
+  CompanySlugSplatRoute: typeof CompanySlugSplatRoute
+  CompanySlugDispatchRoute: typeof CompanySlugDispatchRouteWithChildren
+  CompanySlugDriverRoute: typeof CompanySlugDriverRouteWithChildren
+  CompanySlugPassengerRoute: typeof CompanySlugPassengerRouteWithChildren
+  CompanySlugIndexRoute: typeof CompanySlugIndexRoute
 }
 
-const DriverRouteWithChildren =
-  DriverRoute._addFileChildren(DriverRouteChildren)
-
-interface PassengerRouteChildren {
-  PassengerApplyRoute: typeof PassengerApplyRoute
-  PassengerEventsRoute: typeof PassengerEventsRoute
-  PassengerGamesRoute: typeof PassengerGamesRoute
-  PassengerNewsRoute: typeof PassengerNewsRoute
-  PassengerProfileRoute: typeof PassengerProfileRoute
-  PassengerRewardsRoute: typeof PassengerRewardsRoute
-  PassengerSafetyRoute: typeof PassengerSafetyRoute
-  PassengerSignupRoute: typeof PassengerSignupRoute
-  PassengerTrackRoute: typeof PassengerTrackRoute
-  PassengerIndexRoute: typeof PassengerIndexRoute
-  PassengerBookPickupRoute: typeof PassengerBookPickupRoute
-  PassengerBookVehicleRoute: typeof PassengerBookVehicleRoute
+const CompanySlugRouteRouteChildren: CompanySlugRouteRouteChildren = {
+  CompanySlugAuthenticatedRouteRoute:
+    CompanySlugAuthenticatedRouteRouteWithChildren,
+  CompanySlugSplatRoute: CompanySlugSplatRoute,
+  CompanySlugDispatchRoute: CompanySlugDispatchRouteWithChildren,
+  CompanySlugDriverRoute: CompanySlugDriverRouteWithChildren,
+  CompanySlugPassengerRoute: CompanySlugPassengerRouteWithChildren,
+  CompanySlugIndexRoute: CompanySlugIndexRoute,
 }
 
-const PassengerRouteChildren: PassengerRouteChildren = {
-  PassengerApplyRoute: PassengerApplyRoute,
-  PassengerEventsRoute: PassengerEventsRoute,
-  PassengerGamesRoute: PassengerGamesRoute,
-  PassengerNewsRoute: PassengerNewsRoute,
-  PassengerProfileRoute: PassengerProfileRoute,
-  PassengerRewardsRoute: PassengerRewardsRoute,
-  PassengerSafetyRoute: PassengerSafetyRoute,
-  PassengerSignupRoute: PassengerSignupRoute,
-  PassengerTrackRoute: PassengerTrackRoute,
-  PassengerIndexRoute: PassengerIndexRoute,
-  PassengerBookPickupRoute: PassengerBookPickupRoute,
-  PassengerBookVehicleRoute: PassengerBookVehicleRoute,
-}
-
-const PassengerRouteWithChildren = PassengerRoute._addFileChildren(
-  PassengerRouteChildren,
-)
+const CompanySlugRouteRouteWithChildren =
+  CompanySlugRouteRoute._addFileChildren(CompanySlugRouteRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  CompanySlugRouteRoute: CompanySlugRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  DispatchRoute: DispatchRouteWithChildren,
-  DriverRoute: DriverRouteWithChildren,
-  PassengerRoute: PassengerRouteWithChildren,
-  CompanySlugSplatRoute: CompanySlugSplatRoute,
+  DispatchSigninRoute: DispatchSigninRoute,
+  DriverSigninRoute: DriverSigninRoute,
   RideRequestIdRoute: RideRequestIdRoute,
   TrackTripIdRoute: TrackTripIdRoute,
   ApiPublicGetBillingRateRoute: ApiPublicGetBillingRateRoute,
