@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseBrowser";
+import { getMyCompany } from "@/lib/companyPublic.functions";
 import type { AppRole } from "@/lib/auth";
 
 const LABEL: Record<AppRole, string> = {
@@ -44,4 +45,23 @@ export async function signInAsRole(
       `This account is not registered as ${LABEL[requiredRole]}. Please use the correct sign-in page.`,
     );
   }
+
+  // A suspended company blocks every one of its accounts, whatever the role.
+  // Resolved server-side from the bearer token so it can't be skipped by RLS
+  // visibility quirks or a tampered client.
+  try {
+    const mine = await getMyCompany({});
+    if (mine.slug && !mine.active) {
+      await supabase.auth.signOut();
+      throw new SuspendedError(
+        `${mine.name ?? "This provider"}'s account is suspended. Please contact RedArt Digital to restore access.`,
+      );
+    }
+  } catch (e) {
+    if (e instanceof SuspendedError) throw e;
+    // A transient lookup failure must not lock anyone out; the tenant gate
+    // re-checks company status on every page load.
+  }
 }
+
+class SuspendedError extends Error {}
