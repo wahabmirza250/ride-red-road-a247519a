@@ -544,10 +544,15 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
       }
     }
 
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
+
     const { data: inserted, error } = await supabaseAdmin
       .from("ride_requests")
       .insert({
+        company_id: companyId,
         passenger_id: context.userId,
+
         pickup_address: data.pickup_address.trim(),
         pickup_lat: data.pickup_lat,
         pickup_lng: data.pickup_lng,
