@@ -51,16 +51,13 @@ function AuthPage() {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      await signInAsRole(email, password, "admin");
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("role", "platform_owner");
-      if ((data ?? []).length > 0) {
+      const result = await signInAsRole(email, password, "admin");
+      if (result.isOwner) {
         window.location.replace("/owner");
         return;
       }
       toast.success("Signed in");
+      window.location.replace(result.companySlug ? `/${result.companySlug}/dashboard` : "/dashboard");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
       window.sessionStorage.setItem(BLOCK_KEY, msg);

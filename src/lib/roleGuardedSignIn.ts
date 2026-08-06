@@ -1,5 +1,4 @@
 import { supabase } from "@/lib/supabaseBrowser";
-import { getMyCompany } from "@/lib/companyPublic.functions";
 import type { AppRole } from "@/lib/auth";
 
 const LABEL: Record<AppRole, string> = {
@@ -20,7 +19,7 @@ export async function signInAsRole(
   email: string,
   password: string,
   requiredRole: AppRole,
-): Promise<void> {
+): Promise<{ companySlug: string | null; isOwner: boolean }> {
   const { data, error } = await supabase.auth.signInWithPassword({
     email: email.trim().toLowerCase(),
     password,
@@ -49,39 +48,37 @@ export async function signInAsRole(
 
   // The platform owner is above tenancy — a suspended company can never lock
   // the owner out of the platform console.
-  if (roles.includes("platform_owner")) return;
-
-  // A suspended company blocks every one of its accounts, whatever the role.
-  // Resolved server-side from the bearer token so it can't be skipped by RLS
-  // visibility quirks or a tampered client. The bearer attachment can lag a
-  // freshly minted session by a tick, so retry before falling back to a
-  // direct (RLS-scoped) read — never let a race silently allow a login.
-  let status: { name: string | null; active: boolean } | null = null;
-
-  for (let attempt = 0; attempt < 3 && !status; attempt++) {
-    try {
-      const mine = await getMyCompany({});
-      if (mine.slug) status = { name: mine.name, active: mine.active };
-      else return; // no company linked; the tenant gate handles it
-    } catch {
-      await new Promise((r) => setTimeout(r, 400));
-    }
+  if (roles.includes("platform_owner")) {
+    return { companySlug: null, isOwner: true };
   }
 
-  if (!status) {
-    const { data: prof } = await supabase
-      .from("profiles")
-      .select("company_id")
-      .eq("id", userId)
+  // A suspended company blocks every one of its accounts, whatever the role.
+  // Resolve the tenant directly with the freshly authenticated browser
+  // session. This avoids a server-function bearer race immediately after
+  // sign-in and gives the caller a deterministic redirect destination.
+  let status: { name: string | null; active: boolean } | null = null;
+  let companySlug: string | null = null;
+  const { data: prof, error: profileError } = await supabase
+    .from("profiles")
+    .select("company_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profileError) {
+    await supabase.auth.signOut();
+    throw new Error("Could not verify the account's company. Please try again.");
+  }
+  if (prof?.company_id) {
+    const { data: co, error: companyError } = await supabase
+      .from("companies")
+      .select("name, status, url_slug")
+      .eq("id", prof.company_id)
       .maybeSingle();
-    if (prof?.company_id) {
-      const { data: co } = await supabase
-        .from("companies")
-        .select("name, status")
-        .eq("id", prof.company_id)
-        .maybeSingle();
-      if (co) status = { name: co.name, active: co.status === "active" };
+    if (companyError || !co) {
+      await supabase.auth.signOut();
+      throw new Error("Could not verify the account's company. Please try again.");
     }
+    status = { name: co.name, active: co.status === "active" };
+    companySlug = co.url_slug;
   }
 
   if (status && !status.active) {
@@ -90,6 +87,8 @@ export async function signInAsRole(
       `${status.name ?? "This provider"}'s account is suspended. Please contact RedArt Digital to restore access.`,
     );
   }
+
+  return { companySlug, isOwner: false };
 }
 
 
