@@ -21,7 +21,7 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 
 export const startInstance = createStart(() => ({
   functionMiddleware: [
-    attachSupabaseAuth,
+    // Project-specific bearer attacher (uses the single browser client below).
     createMiddleware({ type: "function" }).client(async ({ next }) => {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
