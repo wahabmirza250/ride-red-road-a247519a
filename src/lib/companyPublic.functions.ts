@@ -19,6 +19,7 @@ export const resolveCompanySlug = createServerFn({ method: "POST" })
     if (!company) return { found: false as const };
     return {
       found: true as const,
+      id: company.id,
       name: company.name,
       url_slug: company.url_slug,
       logo_url: company.logo_url,

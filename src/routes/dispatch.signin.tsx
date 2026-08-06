@@ -32,8 +32,9 @@ function DispatchSignIn() {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      await signInAsRole(email, password, "dispatch");
+      const result = await signInAsRole(email, password, "dispatch");
       toast.success("Welcome");
+      window.location.replace(result.companySlug ? `/${result.companySlug}/dispatch` : "/dispatch");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
       setErrorMsg(msg);

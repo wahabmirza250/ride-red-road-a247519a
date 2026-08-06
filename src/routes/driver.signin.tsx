@@ -33,8 +33,9 @@ function DriverSignIn() {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      await signInAsRole(email, password, "driver");
+      const result = await signInAsRole(email, password, "driver");
       toast.success("Welcome");
+      window.location.replace(result.companySlug ? `/${result.companySlug}/driver` : "/driver");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
       setErrorMsg(msg);

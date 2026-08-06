@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
-import { AppLink, useAppNavigate } from "@/lib/appLink";
+import { AppLink } from "@/lib/appLink";
 import { useEffect } from "react";
 import { Radio, LogOut, Sun, Moon, Loader2, Waypoints, CalendarClock, History } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -23,7 +23,6 @@ const NAV = [
 
 function DispatchLayout() {
   const { loading, user, isDispatch, signOut } = useAuth();
-  const nav = useAppNavigate();
   const loc = useLocation();
   const { theme, toggle } = useTheme();
   const pathname = typeof window !== "undefined" ? window.location.pathname : loc.pathname;
@@ -32,8 +31,8 @@ function DispatchLayout() {
   useEffect(() => {
     if (isPublicAuthRoute) return;
     if (loading) return;
-    if (!user) nav({ to: "/dispatch/signin", replace: true });
-  }, [isPublicAuthRoute, loading, user, nav]);
+    if (!user) window.location.replace("/dispatch/signin");
+  }, [isPublicAuthRoute, loading, user]);
 
   if (isPublicAuthRoute) return <Outlet />;
 
@@ -72,7 +71,7 @@ function DispatchLayout() {
           <button
             onClick={async () => {
               await signOut();
-              nav({ to: "/dispatch/signin", replace: true });
+               window.location.replace("/dispatch/signin");
             }}
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
             title={`Sign out (${user.email})`}

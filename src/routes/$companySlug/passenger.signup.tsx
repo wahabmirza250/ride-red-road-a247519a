@@ -11,6 +11,7 @@ import { BrandMark, BrandWordmark } from "@/components/Brand";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { signInAsRole } from "@/lib/roleGuardedSignIn";
+import { resolveCompanySlug } from "@/lib/companyPublic.functions";
 
 export const Route = createFileRoute("/$companySlug/passenger/signup")({
   ssr: false,
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/$companySlug/passenger/signup")({
 });
 
 function PassengerAuthPage() {
+  const { companySlug } = Route.useParams();
   const navigate = useAppNavigate();
   const { user, loading, isPassenger } = useAuth();
   const [mode, setMode] = useState<"signup" | "signin">("signup");
@@ -40,18 +42,23 @@ function PassengerAuthPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const company = await resolveCompanySlug({ data: { slug: companySlug } });
+      if (!company.found || !company.active) {
+        throw new Error("This company link is unavailable.");
+      }
       const { error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
         options: {
           emailRedirectTo:
-            typeof window !== "undefined" ? `${window.location.origin}/passenger` : undefined,
+            typeof window !== "undefined" ? `${window.location.origin}/${companySlug}/passenger` : undefined,
           data: {
             first_name: firstName.trim(),
             last_name: lastName.trim(),
             phone: phone.trim(),
             medicaid_id: medicaidId.trim() || null,
             role: "passenger",
+            company_id: company.id,
           },
         },
       });
@@ -75,8 +82,9 @@ function PassengerAuthPage() {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      await signInAsRole(email, password, "passenger");
+      const result = await signInAsRole(email, password, "passenger");
       toast.success("Signed in");
+      window.location.replace(result.companySlug ? `/${result.companySlug}/passenger` : "/passenger");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
       setErrorMsg(msg);
