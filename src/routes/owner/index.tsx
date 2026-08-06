@@ -44,7 +44,7 @@ import {
   type OwnerCompany,
 } from "@/lib/owner.functions";
 
-export const Route = createFileRoute("/owner")({
+export const Route = createFileRoute("/owner/")({
   ssr: false,
   head: () => ({
     meta: [
@@ -124,7 +124,7 @@ function OwnerConsole() {
             The owner console is private. Sign in with your platform owner account to continue.
           </p>
           <Button asChild className="mt-6 w-full rounded-full">
-            <a href="/auth">Go to sign in</a>
+            <a href="/owner/signin">Go to owner sign in</a>
           </Button>
         </div>
       </div>
@@ -135,8 +135,8 @@ function OwnerConsole() {
     return (
       <AccessDenied
         appName="RedArt owner console"
-        signInHref="/auth"
-        signInLabel="admin sign in"
+        signInHref="/owner/signin"
+        signInLabel="owner sign in"
         email={user?.email ?? null}
       />
     );
