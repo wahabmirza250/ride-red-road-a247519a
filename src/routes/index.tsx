@@ -92,7 +92,7 @@ function LandingPage() {
               Contact
             </a>
           </nav>
-          <Link
+          <a
             href="/passenger"
             className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold text-white shadow-[0_8px_24px_-10px_rgba(200,53,78,0.6)] transition hover:-translate-y-0.5"
             style={{
@@ -101,7 +101,7 @@ function LandingPage() {
           >
             Book a ride
             <ArrowUpRight className="h-3.5 w-3.5" />
-          </Link>
+          </a>
         </div>
       </header>
 
@@ -392,7 +392,7 @@ function LandingPage() {
               need lives on one platform.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link
+              <a
                 href="/passenger"
                 className="group inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(200,53,78,0.6)] transition-all duration-300 hover:-translate-y-0.5"
                 style={{
@@ -401,7 +401,7 @@ function LandingPage() {
               >
                 Book a ride
                 <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </Link>
+              </a>
               <Link
                 to="/driver/signin"
                 className="inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(30,111,184,0.55)] transition hover:-translate-y-0.5"

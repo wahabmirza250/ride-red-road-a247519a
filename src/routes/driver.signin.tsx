@@ -114,7 +114,7 @@ function DriverSignIn() {
             Passenger?{" "}
             <a href="/passenger" className="font-medium text-primary hover:underline">
               Open passenger app
-            </Link>
+            </a>
           </div>
         </div>
       </div>

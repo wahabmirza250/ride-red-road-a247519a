@@ -130,7 +130,7 @@ function AuthPage() {
           Passenger?{" "}
           <a href="/passenger/signup" className="font-medium text-foreground hover:underline">
             Create a passenger account
-          </Link>
+          </a>
           {" · "}
           Driver?{" "}
           <Link to="/driver/signin" className="font-medium text-foreground hover:underline">
