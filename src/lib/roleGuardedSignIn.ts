@@ -93,4 +93,3 @@ export async function signInAsRole(
 }
 
 
-class SuspendedError extends Error {}
