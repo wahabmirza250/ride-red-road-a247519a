@@ -47,6 +47,10 @@ export async function signInAsRole(
     );
   }
 
+  // The platform owner is above tenancy — a suspended company can never lock
+  // the owner out of the platform console.
+  if (roles.includes("platform_owner")) return;
+
   // A suspended company blocks every one of its accounts, whatever the role.
   // Resolved server-side from the bearer token so it can't be skipped by RLS
   // visibility quirks or a tampered client.

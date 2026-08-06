@@ -16,19 +16,22 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, isOwner } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Only auto-redirect if the already-signed-in user actually is an admin.
-  // A signed-in non-admin viewing this page can sign out and try again;
-  // we never bounce them into another app's surface from here.
+  // Platform owner takes absolute priority over every other role: that account
+  // always lands on the owner console, never on a company dashboard.
   useEffect(() => {
     if (loading || !user) return;
+    if (isOwner) {
+      window.location.replace("/owner");
+      return;
+    }
     if (isAdmin) navigate({ to: "/dashboard", replace: true });
-  }, [loading, user, isAdmin, navigate]);
+  }, [loading, user, isAdmin, isOwner, navigate]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -36,6 +39,14 @@ function AuthPage() {
     setErrorMsg(null);
     try {
       await signInAsRole(email, password, "admin");
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("role", "platform_owner");
+      if ((data ?? []).length > 0) {
+        window.location.replace("/owner");
+        return;
+      }
       toast.success("Signed in");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
