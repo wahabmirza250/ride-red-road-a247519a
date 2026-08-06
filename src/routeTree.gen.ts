@@ -9,13 +9,14 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as OwnerRouteImport } from './routes/owner'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CompanySlugRouteRouteImport } from './routes/$companySlug/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OwnerIndexRouteImport } from './routes/owner/index'
 import { Route as CompanySlugIndexRouteImport } from './routes/$companySlug/index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
 import { Route as RideRequestIdRouteImport } from './routes/ride.$requestId'
+import { Route as OwnerSigninRouteImport } from './routes/owner/signin'
 import { Route as DriverSigninRouteImport } from './routes/driver.signin'
 import { Route as DispatchSigninRouteImport } from './routes/dispatch.signin'
 import { Route as CompanySlugPassengerRouteImport } from './routes/$companySlug/passenger'
@@ -74,11 +75,6 @@ import { Route as CompanySlugAuthenticatedPayrollDriverIdRouteImport } from './r
 import { Route as CompanySlugAuthenticatedMedicaidTripsNewRouteImport } from './routes/$companySlug/_authenticated/medicaid-trips.new'
 import { Route as CompanySlugAuthenticatedTripsTripIdProofRouteImport } from './routes/$companySlug/_authenticated/trips.$tripId.proof'
 
-const OwnerRoute = OwnerRouteImport.update({
-  id: '/owner',
-  path: '/owner',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -94,6 +90,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OwnerIndexRoute = OwnerIndexRouteImport.update({
+  id: '/owner/',
+  path: '/owner/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CompanySlugIndexRoute = CompanySlugIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -107,6 +108,11 @@ const TrackTripIdRoute = TrackTripIdRouteImport.update({
 const RideRequestIdRoute = RideRequestIdRouteImport.update({
   id: '/ride/$requestId',
   path: '/ride/$requestId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OwnerSigninRoute = OwnerSigninRouteImport.update({
+  id: '/owner/signin',
+  path: '/owner/signin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DriverSigninRoute = DriverSigninRouteImport.update({
@@ -446,16 +452,17 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/owner': typeof OwnerRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/$companySlug/dispatch': typeof CompanySlugDispatchRouteWithChildren
   '/$companySlug/driver': typeof CompanySlugDriverRouteWithChildren
   '/$companySlug/passenger': typeof CompanySlugPassengerRouteWithChildren
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
+  '/owner/signin': typeof OwnerSigninRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/$companySlug/': typeof CompanySlugIndexRoute
+  '/owner/': typeof OwnerIndexRoute
   '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
   '/$companySlug/events': typeof CompanySlugAuthenticatedEventsRoute
@@ -510,13 +517,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/owner': typeof OwnerRoute
   '/$companySlug': typeof CompanySlugIndexRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
+  '/owner/signin': typeof OwnerSigninRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
+  '/owner': typeof OwnerIndexRoute
   '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
   '/$companySlug/events': typeof CompanySlugAuthenticatedEventsRoute
@@ -572,7 +580,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/owner': typeof OwnerRoute
   '/$companySlug/_authenticated': typeof CompanySlugAuthenticatedRouteRouteWithChildren
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/$companySlug/dispatch': typeof CompanySlugDispatchRouteWithChildren
@@ -580,9 +587,11 @@ export interface FileRoutesById {
   '/$companySlug/passenger': typeof CompanySlugPassengerRouteWithChildren
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
+  '/owner/signin': typeof OwnerSigninRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/$companySlug/': typeof CompanySlugIndexRoute
+  '/owner/': typeof OwnerIndexRoute
   '/$companySlug/_authenticated/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/_authenticated/drivers': typeof CompanySlugAuthenticatedDriversRoute
   '/$companySlug/_authenticated/events': typeof CompanySlugAuthenticatedEventsRoute
@@ -640,16 +649,17 @@ export interface FileRouteTypes {
     | '/'
     | '/$companySlug'
     | '/auth'
-    | '/owner'
     | '/$companySlug/$'
     | '/$companySlug/dispatch'
     | '/$companySlug/driver'
     | '/$companySlug/passenger'
     | '/dispatch/signin'
     | '/driver/signin'
+    | '/owner/signin'
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/$companySlug/'
+    | '/owner/'
     | '/$companySlug/dashboard'
     | '/$companySlug/drivers'
     | '/$companySlug/events'
@@ -704,13 +714,14 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/owner'
     | '/$companySlug'
     | '/$companySlug/$'
     | '/dispatch/signin'
     | '/driver/signin'
+    | '/owner/signin'
     | '/ride/$requestId'
     | '/track/$tripId'
+    | '/owner'
     | '/$companySlug/dashboard'
     | '/$companySlug/drivers'
     | '/$companySlug/events'
@@ -765,7 +776,6 @@ export interface FileRouteTypes {
     | '/'
     | '/$companySlug'
     | '/auth'
-    | '/owner'
     | '/$companySlug/_authenticated'
     | '/$companySlug/$'
     | '/$companySlug/dispatch'
@@ -773,9 +783,11 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger'
     | '/dispatch/signin'
     | '/driver/signin'
+    | '/owner/signin'
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/$companySlug/'
+    | '/owner/'
     | '/$companySlug/_authenticated/dashboard'
     | '/$companySlug/_authenticated/drivers'
     | '/$companySlug/_authenticated/events'
@@ -832,11 +844,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CompanySlugRouteRoute: typeof CompanySlugRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  OwnerRoute: typeof OwnerRoute
   DispatchSigninRoute: typeof DispatchSigninRoute
   DriverSigninRoute: typeof DriverSigninRoute
+  OwnerSigninRoute: typeof OwnerSigninRoute
   RideRequestIdRoute: typeof RideRequestIdRoute
   TrackTripIdRoute: typeof TrackTripIdRoute
+  OwnerIndexRoute: typeof OwnerIndexRoute
   ApiPublicGetBillingRateRoute: typeof ApiPublicGetBillingRateRoute
   ApiPublicGetPortalCredentialRoute: typeof ApiPublicGetPortalCredentialRoute
   ApiPublicGetTripPdfRoute: typeof ApiPublicGetTripPdfRoute
@@ -844,13 +857,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/owner': {
-      id: '/owner'
-      path: '/owner'
-      fullPath: '/owner'
-      preLoaderRoute: typeof OwnerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -872,6 +878,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/owner/': {
+      id: '/owner/'
+      path: '/owner'
+      fullPath: '/owner/'
+      preLoaderRoute: typeof OwnerIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/$companySlug/': {
       id: '/$companySlug/'
       path: '/'
@@ -891,6 +904,13 @@ declare module '@tanstack/react-router' {
       path: '/ride/$requestId'
       fullPath: '/ride/$requestId'
       preLoaderRoute: typeof RideRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/owner/signin': {
+      id: '/owner/signin'
+      path: '/owner/signin'
+      fullPath: '/owner/signin'
+      preLoaderRoute: typeof OwnerSigninRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/driver/signin': {
@@ -1505,11 +1525,12 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CompanySlugRouteRoute: CompanySlugRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  OwnerRoute: OwnerRoute,
   DispatchSigninRoute: DispatchSigninRoute,
   DriverSigninRoute: DriverSigninRoute,
+  OwnerSigninRoute: OwnerSigninRoute,
   RideRequestIdRoute: RideRequestIdRoute,
   TrackTripIdRoute: TrackTripIdRoute,
+  OwnerIndexRoute: OwnerIndexRoute,
   ApiPublicGetBillingRateRoute: ApiPublicGetBillingRateRoute,
   ApiPublicGetPortalCredentialRoute: ApiPublicGetPortalCredentialRoute,
   ApiPublicGetTripPdfRoute: ApiPublicGetTripPdfRoute,
@@ -1517,13 +1538,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

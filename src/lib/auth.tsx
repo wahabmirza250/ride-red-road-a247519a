@@ -2,13 +2,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseBrowser";
 
-export type AppRole = "admin" | "driver" | "passenger" | "dispatch";
+export type AppRole = "admin" | "driver" | "passenger" | "dispatch" | "platform_owner";
 
 export type AuthState = {
   user: User | null;
   session: Session | null;
   roles: AppRole[];
   loading: boolean;
+  isOwner: boolean;
   isAdmin: boolean;
   isDriver: boolean;
   isPassenger: boolean;
@@ -84,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       roles,
       loading,
+      isOwner: roles.includes("platform_owner"),
       isAdmin: roles.includes("admin"),
       isDriver: roles.includes("driver"),
       isPassenger: roles.includes("passenger"),

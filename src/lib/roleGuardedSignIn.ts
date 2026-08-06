@@ -7,6 +7,7 @@ const LABEL: Record<AppRole, string> = {
   driver: "a driver",
   passenger: "a passenger",
   dispatch: "a dispatcher",
+  platform_owner: "a platform owner",
 };
 
 /**
@@ -46,22 +47,49 @@ export async function signInAsRole(
     );
   }
 
+  // The platform owner is above tenancy — a suspended company can never lock
+  // the owner out of the platform console.
+  if (roles.includes("platform_owner")) return;
+
   // A suspended company blocks every one of its accounts, whatever the role.
   // Resolved server-side from the bearer token so it can't be skipped by RLS
-  // visibility quirks or a tampered client.
-  try {
-    const mine = await getMyCompany({});
-    if (mine.slug && !mine.active) {
-      await supabase.auth.signOut();
-      throw new SuspendedError(
-        `${mine.name ?? "This provider"}'s account is suspended. Please contact RedArt Digital to restore access.`,
-      );
+  // visibility quirks or a tampered client. The bearer attachment can lag a
+  // freshly minted session by a tick, so retry before falling back to a
+  // direct (RLS-scoped) read — never let a race silently allow a login.
+  let status: { name: string | null; active: boolean } | null = null;
+
+  for (let attempt = 0; attempt < 3 && !status; attempt++) {
+    try {
+      const mine = await getMyCompany({});
+      if (mine.slug) status = { name: mine.name, active: mine.active };
+      else return; // no company linked; the tenant gate handles it
+    } catch {
+      await new Promise((r) => setTimeout(r, 400));
     }
-  } catch (e) {
-    if (e instanceof SuspendedError) throw e;
-    // A transient lookup failure must not lock anyone out; the tenant gate
-    // re-checks company status on every page load.
+  }
+
+  if (!status) {
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (prof?.company_id) {
+      const { data: co } = await supabase
+        .from("companies")
+        .select("name, status")
+        .eq("id", prof.company_id)
+        .maybeSingle();
+      if (co) status = { name: co.name, active: co.status === "active" };
+    }
+  }
+
+  if (status && !status.active) {
+    await supabase.auth.signOut();
+    throw new Error(
+      `${status.name ?? "This provider"}'s account is suspended. Please contact RedArt Digital to restore access.`,
+    );
   }
 }
 
-class SuspendedError extends Error {}
+
