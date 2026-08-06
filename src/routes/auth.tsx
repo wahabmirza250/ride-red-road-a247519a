@@ -15,6 +15,8 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const BLOCK_KEY = "signin_blocked_message";
+
 function AuthPage() {
   const navigate = useNavigate();
   const { user, loading, isAdmin, isOwner } = useAuth();
@@ -23,16 +25,26 @@ function AuthPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // A blocked sign-in (e.g. suspended provider) can tear the session down after
+  // a redirect has already started; the reason is stashed so it survives.
+  useEffect(() => {
+    const stored = window.sessionStorage.getItem(BLOCK_KEY);
+    if (stored) {
+      window.sessionStorage.removeItem(BLOCK_KEY);
+      setErrorMsg(stored);
+    }
+  }, []);
+
   // Platform owner takes absolute priority over every other role: that account
   // always lands on the owner console, never on a company dashboard.
   useEffect(() => {
-    if (loading || !user) return;
+    if (loading || !user || submitting) return;
     if (isOwner) {
       window.location.replace("/owner");
       return;
     }
     if (isAdmin) navigate({ to: "/dashboard", replace: true });
-  }, [loading, user, isAdmin, isOwner, navigate]);
+  }, [loading, user, isAdmin, isOwner, submitting, navigate]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -51,12 +63,15 @@ function AuthPage() {
       toast.success("Signed in");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
+      window.sessionStorage.setItem(BLOCK_KEY, msg);
       setErrorMsg(msg);
       toast.error(msg);
     } finally {
       setSubmitting(false);
     }
   }
+
+
 
   return (
     <div className="surface-blue flex min-h-screen items-center justify-center bg-gradient-to-b from-surface-muted to-background px-4 py-10">
