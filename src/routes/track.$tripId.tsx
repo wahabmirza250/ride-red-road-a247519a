@@ -188,7 +188,7 @@ function TrackPage() {
     try {
       await cancelFn({ data: { request_id: target } });
       toast.success("Ride cancelled");
-      void navigate({ to: "/passenger" });
+      window.location.assign("/passenger");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Cancel failed");
     } finally {
@@ -348,7 +348,7 @@ function TrackPage() {
       <div className="absolute inset-x-0 top-0 z-10 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="mx-auto flex max-w-2xl items-center gap-2">
           <Link
-            to="/passenger"
+            href="/passenger"
             className="flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-background/90 text-foreground shadow-lift backdrop-blur-xl transition hover:bg-background"
             aria-label="Back"
           >
@@ -485,7 +485,7 @@ function TrackPage() {
                 point in the ride lifecycle. */}
             {t.status === "completed" ? (
               <Link
-                to="/passenger"
+                href="/passenger"
                 className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-emerald-600 text-sm font-semibold text-white shadow-soft transition hover:brightness-110"
               >
                 <Clock className="h-4 w-4" />
@@ -493,7 +493,7 @@ function TrackPage() {
               </Link>
             ) : t.status === "cancelled" ? (
               <Link
-                to="/passenger"
+                href="/passenger"
                 className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
               >
                 Back to rides

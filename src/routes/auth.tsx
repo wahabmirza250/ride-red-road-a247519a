@@ -43,7 +43,7 @@ function AuthPage() {
       window.location.replace("/owner");
       return;
     }
-    if (isAdmin) navigate({ to: "/dashboard", replace: true });
+    if (isAdmin) window.location.replace("/dashboard");
   }, [loading, user, isAdmin, isOwner, submitting, navigate]);
 
   async function handleSignIn(e: React.FormEvent) {
@@ -128,7 +128,7 @@ function AuthPage() {
 
         <p className="mt-6 text-center text-[11px] text-muted-foreground">
           Passenger?{" "}
-          <Link to="/passenger/signup" className="font-medium text-foreground hover:underline">
+          <a href="/passenger/signup" className="font-medium text-foreground hover:underline">
             Create a passenger account
           </Link>
           {" · "}
