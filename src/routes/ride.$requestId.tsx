@@ -297,7 +297,7 @@ function RidePage() {
     setCancelling(true);
     try {
       await cancelFn({ data: { request_id: req.id } });
-      void navigate({ to: "/passenger" });
+      window.location.assign("/passenger");
     } catch (e) {
       const { toast } = await import("sonner");
       toast.error(e instanceof Error ? e.message : "Cancel failed");
@@ -318,9 +318,9 @@ function RidePage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background p-6 text-center">
         <p className="text-sm text-muted-foreground">This ride request could not be found.</p>
-        <Link to="/passenger" className="text-sm font-medium text-primary hover:underline">
+        <a href="/passenger" className="text-sm font-medium text-primary hover:underline">
           Back to rides
-        </Link>
+        </a>
       </div>
     );
   }
@@ -354,13 +354,13 @@ function RidePage() {
       {/* Top overlay: back + route pill */}
       <div className="absolute inset-x-0 top-0 z-[1000] p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="mx-auto flex max-w-2xl items-center gap-2">
-          <Link
-            to="/passenger"
+          <a
+            href="/passenger"
             className="flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-background/90 text-foreground shadow-lift backdrop-blur-xl transition hover:bg-background"
             aria-label="Back"
           >
             <ChevronLeft className="h-5 w-5" />
-          </Link>
+          </a>
           <div className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-border/60 bg-background/90 px-3.5 py-2.5 shadow-lift backdrop-blur-xl">
             <div className="flex flex-col items-center gap-1 pt-0.5">
               <CircleDot className="h-3.5 w-3.5 text-emerald-500" />

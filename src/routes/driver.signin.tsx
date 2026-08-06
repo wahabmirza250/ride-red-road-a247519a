@@ -25,7 +25,7 @@ function DriverSignIn() {
   // Only auto-navigate if the signed-in account is actually a driver.
   useEffect(() => {
     if (loading || !user) return;
-    if (isDriver) nav({ to: "/driver", replace: true });
+    if (isDriver) window.location.replace("/driver");
   }, [loading, user, isDriver, nav]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -112,9 +112,9 @@ function DriverSignIn() {
 
           <div className="mt-6 text-center text-xs text-muted-foreground">
             Passenger?{" "}
-            <Link to="/passenger" className="font-medium text-primary hover:underline">
+            <a href="/passenger" className="font-medium text-primary hover:underline">
               Open passenger app
-            </Link>
+            </a>
           </div>
         </div>
       </div>

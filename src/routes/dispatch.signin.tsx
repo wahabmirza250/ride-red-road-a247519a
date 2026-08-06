@@ -24,7 +24,7 @@ function DispatchSignIn() {
 
   useEffect(() => {
     if (loading || !user) return;
-    if (isDispatch) nav({ to: "/dispatch", replace: true });
+    if (isDispatch) window.location.replace("/dispatch");
   }, [loading, user, isDispatch, nav]);
 
   async function handleSubmit(e: React.FormEvent) {

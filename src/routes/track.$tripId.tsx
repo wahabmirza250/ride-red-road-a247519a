@@ -188,7 +188,7 @@ function TrackPage() {
     try {
       await cancelFn({ data: { request_id: target } });
       toast.success("Ride cancelled");
-      void navigate({ to: "/passenger" });
+      window.location.assign("/passenger");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Cancel failed");
     } finally {
@@ -347,13 +347,13 @@ function TrackPage() {
       {/* Top overlay: back + address pill */}
       <div className="absolute inset-x-0 top-0 z-10 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="mx-auto flex max-w-2xl items-center gap-2">
-          <Link
-            to="/passenger"
+          <a
+            href="/passenger"
             className="flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-background/90 text-foreground shadow-lift backdrop-blur-xl transition hover:bg-background"
             aria-label="Back"
           >
             <ChevronLeft className="h-5 w-5" />
-          </Link>
+          </a>
           <div className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-border/60 bg-background/90 px-3.5 py-2.5 shadow-lift backdrop-blur-xl">
             <div className="flex flex-col items-center gap-1 pt-0.5">
               <CircleDot className="h-3.5 w-3.5 text-emerald-500" />
@@ -484,20 +484,20 @@ function TrackPage() {
                 completes or is already cancelled. Passengers may cancel at any
                 point in the ride lifecycle. */}
             {t.status === "completed" ? (
-              <Link
-                to="/passenger"
+              <a
+                href="/passenger"
                 className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-emerald-600 text-sm font-semibold text-white shadow-soft transition hover:brightness-110"
               >
                 <Clock className="h-4 w-4" />
                 {meta.cta}
-              </Link>
+              </a>
             ) : t.status === "cancelled" ? (
-              <Link
-                to="/passenger"
+              <a
+                href="/passenger"
                 className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
               >
                 Back to rides
-              </Link>
+              </a>
             ) : (
               <button
                 onClick={handleCancel}
