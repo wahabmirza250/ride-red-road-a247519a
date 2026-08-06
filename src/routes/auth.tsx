@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrandWordmark } from "@/components/Brand";
 import { signInAsRole } from "@/lib/roleGuardedSignIn";
+import { supabase } from "@/lib/supabaseBrowser";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
