@@ -75,10 +75,15 @@ export const listStaffGasReceipts = createServerFn({ method: "POST" })
     const isAdmin = set.has("admin");
     if (!isAdmin && !set.has("dispatch")) throw new Error("Staff only");
 
+    // Service role bypasses RLS, so the caller's company is applied by hand.
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let q = supabaseAdmin
       .from("gas_receipts")
       .select("id, driver_id, amount, gallons, photo_path, notes, submitted_at, reimbursed_at")
+      .eq("company_id", companyId)
       .order("submitted_at", { ascending: false })
       .limit(200);
     if (data.driver_id) q = q.eq("driver_id", data.driver_id);
@@ -87,7 +92,11 @@ export const listStaffGasReceipts = createServerFn({ method: "POST" })
 
     const driverIds = [...new Set((rows ?? []).map((r) => r.driver_id))];
     const { data: drivers } = driverIds.length
-      ? await supabaseAdmin.from("drivers").select("id, user_id").in("id", driverIds)
+      ? await supabaseAdmin
+          .from("drivers")
+          .select("id, user_id")
+          .eq("company_id", companyId)
+          .in("id", driverIds)
       : { data: [] as { id: string; user_id: string }[] };
     const userIds = (drivers ?? []).map((d) => d.user_id).filter(Boolean);
     const { data: profiles } = userIds.length
