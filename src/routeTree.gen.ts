@@ -16,6 +16,7 @@ import { Route as OwnerIndexRouteImport } from './routes/owner/index'
 import { Route as CompanySlugIndexRouteImport } from './routes/$companySlug/index'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
 import { Route as RideRequestIdRouteImport } from './routes/ride.$requestId'
+import { Route as OwnerSigninRouteImport } from './routes/owner/signin'
 import { Route as DriverSigninRouteImport } from './routes/driver.signin'
 import { Route as DispatchSigninRouteImport } from './routes/dispatch.signin'
 import { Route as CompanySlugPassengerRouteImport } from './routes/$companySlug/passenger'
@@ -107,6 +108,11 @@ const TrackTripIdRoute = TrackTripIdRouteImport.update({
 const RideRequestIdRoute = RideRequestIdRouteImport.update({
   id: '/ride/$requestId',
   path: '/ride/$requestId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OwnerSigninRoute = OwnerSigninRouteImport.update({
+  id: '/owner/signin',
+  path: '/owner/signin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DriverSigninRoute = DriverSigninRouteImport.update({
@@ -452,6 +458,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/passenger': typeof CompanySlugPassengerRouteWithChildren
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
+  '/owner/signin': typeof OwnerSigninRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/$companySlug/': typeof CompanySlugIndexRoute
@@ -514,6 +521,7 @@ export interface FileRoutesByTo {
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
+  '/owner/signin': typeof OwnerSigninRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/owner': typeof OwnerIndexRoute
@@ -579,6 +587,7 @@ export interface FileRoutesById {
   '/$companySlug/passenger': typeof CompanySlugPassengerRouteWithChildren
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
+  '/owner/signin': typeof OwnerSigninRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/$companySlug/': typeof CompanySlugIndexRoute
@@ -646,6 +655,7 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger'
     | '/dispatch/signin'
     | '/driver/signin'
+    | '/owner/signin'
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/$companySlug/'
@@ -708,6 +718,7 @@ export interface FileRouteTypes {
     | '/$companySlug/$'
     | '/dispatch/signin'
     | '/driver/signin'
+    | '/owner/signin'
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/owner'
@@ -772,6 +783,7 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger'
     | '/dispatch/signin'
     | '/driver/signin'
+    | '/owner/signin'
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/$companySlug/'
@@ -834,6 +846,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DispatchSigninRoute: typeof DispatchSigninRoute
   DriverSigninRoute: typeof DriverSigninRoute
+  OwnerSigninRoute: typeof OwnerSigninRoute
   RideRequestIdRoute: typeof RideRequestIdRoute
   TrackTripIdRoute: typeof TrackTripIdRoute
   OwnerIndexRoute: typeof OwnerIndexRoute
@@ -891,6 +904,13 @@ declare module '@tanstack/react-router' {
       path: '/ride/$requestId'
       fullPath: '/ride/$requestId'
       preLoaderRoute: typeof RideRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/owner/signin': {
+      id: '/owner/signin'
+      path: '/owner/signin'
+      fullPath: '/owner/signin'
+      preLoaderRoute: typeof OwnerSigninRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/driver/signin': {
@@ -1507,6 +1527,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DispatchSigninRoute: DispatchSigninRoute,
   DriverSigninRoute: DriverSigninRoute,
+  OwnerSigninRoute: OwnerSigninRoute,
   RideRequestIdRoute: RideRequestIdRoute,
   TrackTripIdRoute: TrackTripIdRoute,
   OwnerIndexRoute: OwnerIndexRoute,
@@ -1517,13 +1538,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
