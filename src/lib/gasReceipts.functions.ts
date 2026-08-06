@@ -137,14 +137,19 @@ export const markGasReceiptReimbursed = createServerFn({ method: "POST" })
       .eq("role", "admin")
       .maybeSingle();
     if (!isAdmin) throw new Error("Admin only");
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
+    const { data: updated, error } = await supabaseAdmin
       .from("gas_receipts")
       .update({
         reimbursed_at: data.reimbursed ? new Date().toISOString() : null,
         reimbursed_by: data.reimbursed ? context.userId : null,
       })
-      .eq("id", data.receipt_id);
+      .eq("id", data.receipt_id)
+      .eq("company_id", companyId)
+      .select("id");
     if (error) throw new Error(error.message);
+    if (!updated?.length) throw new Error("Expense not found for your company");
     return { ok: true };
   });
