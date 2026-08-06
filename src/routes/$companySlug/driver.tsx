@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
-import { AppLink, useAppNavigate } from "@/lib/appLink";
+import { AppLink } from "@/lib/appLink";
 import { useEffect } from "react";
 import { Car, DollarSign, LogOut, Sun, Moon, Loader2, MessageSquare, User, History } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -23,7 +23,6 @@ const NAV = [
 
 function DriverLayout() {
   const { loading, user, isDriver, signOut } = useAuth();
-  const nav = useAppNavigate();
   const loc = useLocation();
   const { theme, toggle } = useTheme();
   const pathname = typeof window !== "undefined" ? window.location.pathname : loc.pathname;
@@ -32,8 +31,8 @@ function DriverLayout() {
   useEffect(() => {
     if (isPublicAuthRoute) return;
     if (loading) return;
-    if (!user) nav({ to: "/driver/signin", replace: true });
-  }, [isPublicAuthRoute, loading, user, nav]);
+    if (!user) window.location.replace("/driver/signin");
+  }, [isPublicAuthRoute, loading, user]);
 
   if (isPublicAuthRoute) return <Outlet />;
 
@@ -67,7 +66,7 @@ function DriverLayout() {
           <button
             onClick={async () => {
               await signOut();
-              nav({ to: "/driver/signin", replace: true });
+               window.location.replace("/driver/signin");
             }}
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
           >
