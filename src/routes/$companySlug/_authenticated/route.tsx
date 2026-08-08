@@ -81,6 +81,8 @@ const ADMIN_NAV = ADMIN_NAV_GROUPS.flat();
 
 
 function AuthenticatedLayout() {
+  const { companySlug } = Route.useParams();
+  const signInHref = `/${companySlug}/login`;
   const { loading, user, isAdmin, signOut } = useAuth();
   const navigate = useAppNavigate();
   const location = useLocation();
@@ -91,9 +93,9 @@ function AuthenticatedLayout() {
   useEffect(() => {
     if (loading) return;
     if (!user) {
-      navigate({ to: "/auth", replace: true });
+      window.location.replace(signInHref);
     }
-  }, [loading, user, navigate]);
+  }, [loading, user, signInHref]);
 
   // Admins get browser push for new ride requests and events.
   useEffect(() => {
@@ -109,7 +111,7 @@ function AuthenticatedLayout() {
   // Strict role isolation — only admins may see the dispatch app. Being
   // signed in as a driver or passenger must NEVER grant access here.
   if (!isAdmin) {
-    return <AccessDenied appName="dispatch / admin" signInHref="/auth" signInLabel="admin sign in" email={user.email} />;
+    return <AccessDenied appName="dispatch / admin" signInHref={signInHref} signInLabel="admin sign in" email={user.email} />;
   }
 
   const NAV = ADMIN_NAV;
@@ -185,7 +187,7 @@ function AuthenticatedLayout() {
                   <button
                     onClick={async () => {
                       await signOut();
-                      navigate({ to: "/auth", replace: true });
+                      window.location.replace(signInHref);
                     }}
                     aria-label="Sign out"
                     className="rail-item mt-2 flex h-12 w-12 cursor-pointer items-center justify-center rounded-[18px]"
@@ -224,7 +226,7 @@ function AuthenticatedLayout() {
             <button
               onClick={async () => {
                 await signOut();
-                navigate({ to: "/auth", replace: true });
+                window.location.replace(signInHref);
               }}
               className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
             >
