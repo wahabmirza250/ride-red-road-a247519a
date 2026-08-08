@@ -422,6 +422,7 @@ function EntryForm({ draft, onPatch }: { draft: Draft; onPatch: (d: Partial<Draf
           <div className="space-y-1">
             <Label className="text-xs">Passenger name</Label>
             <Input
+              aria-label="Passenger name"
               value={draft.newRider.full_name}
               onChange={(e) => onPatch({ newRider: { ...draft.newRider, full_name: e.target.value } })}
             />
@@ -429,6 +430,7 @@ function EntryForm({ draft, onPatch }: { draft: Draft; onPatch: (d: Partial<Draf
           <div className="space-y-1">
             <Label className="text-xs">Medicaid ID</Label>
             <Input
+              aria-label="Medicaid ID"
               value={draft.newRider.medicaid_id}
               onChange={(e) =>
                 onPatch({ newRider: { ...draft.newRider, medicaid_id: e.target.value } })
@@ -477,6 +479,7 @@ function EntryForm({ draft, onPatch }: { draft: Draft; onPatch: (d: Partial<Draf
         <div className="space-y-1">
           <Label className="text-xs">Trip date</Label>
           <Input
+            aria-label="Trip date"
             type="date"
             value={draft.trip_date}
             onChange={(e) => onPatch({ trip_date: e.target.value })}
@@ -485,6 +488,7 @@ function EntryForm({ draft, onPatch }: { draft: Draft; onPatch: (d: Partial<Draf
         <div className="space-y-1">
           <Label className="text-xs">Vehicle type</Label>
           <select
+            aria-label="Vehicle type"
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             value={draft.vehicle_type}
             onChange={(e) => onPatch({ vehicle_type: e.target.value as Draft["vehicle_type"] })}
@@ -499,6 +503,7 @@ function EntryForm({ draft, onPatch }: { draft: Draft; onPatch: (d: Partial<Draf
         <div className="space-y-1">
           <Label className="text-xs">Leg 1 pickup odometer</Label>
           <Input
+            aria-label="Leg 1 pickup odometer"
             inputMode="decimal"
             value={draft.l1p}
             onChange={(e) => onPatch({ l1p: e.target.value })}
@@ -507,6 +512,7 @@ function EntryForm({ draft, onPatch }: { draft: Draft; onPatch: (d: Partial<Draf
         <div className="space-y-1">
           <Label className="text-xs">Leg 1 dropoff odometer</Label>
           <Input
+            aria-label="Leg 1 dropoff odometer"
             inputMode="decimal"
             value={draft.l1d}
             onChange={(e) => onPatch({ l1d: e.target.value })}
@@ -515,6 +521,7 @@ function EntryForm({ draft, onPatch }: { draft: Draft; onPatch: (d: Partial<Draf
         <div className="space-y-1">
           <Label className="text-xs">Leg 2 pickup odometer (optional)</Label>
           <Input
+            aria-label="Leg 2 pickup odometer"
             inputMode="decimal"
             value={draft.l2p}
             onChange={(e) => onPatch({ l2p: e.target.value })}
@@ -523,6 +530,7 @@ function EntryForm({ draft, onPatch }: { draft: Draft; onPatch: (d: Partial<Draf
         <div className="space-y-1">
           <Label className="text-xs">Leg 2 dropoff odometer (optional)</Label>
           <Input
+            aria-label="Leg 2 dropoff odometer"
             inputMode="decimal"
             value={draft.l2d}
             onChange={(e) => onPatch({ l2d: e.target.value })}
