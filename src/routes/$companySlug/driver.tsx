@@ -22,17 +22,19 @@ const NAV = [
 ] as const;
 
 function DriverLayout() {
+  const { companySlug } = Route.useParams();
   const { loading, user, isDriver, signOut } = useAuth();
   const loc = useLocation();
   const { theme, toggle } = useTheme();
   const pathname = typeof window !== "undefined" ? window.location.pathname : loc.pathname;
-  const isPublicAuthRoute = pathname === "/driver/signin";
+  const signInHref = `/${companySlug}/driver/signin`;
+  const isPublicAuthRoute = pathname.replace(/\/$/, "").endsWith("/driver/signin");
 
   useEffect(() => {
     if (isPublicAuthRoute) return;
     if (loading) return;
-    if (!user) window.location.replace("/driver/signin");
-  }, [isPublicAuthRoute, loading, user]);
+    if (!user) window.location.replace(signInHref);
+  }, [isPublicAuthRoute, loading, user, signInHref]);
 
   if (isPublicAuthRoute) return <Outlet />;
 
@@ -47,8 +49,9 @@ function DriverLayout() {
   // driver app. Being signed in as an admin or passenger must NEVER grant
   // access here.
   if (!isDriver) {
-    return <AccessDenied appName="driver" signInHref="/driver/signin" signInLabel="driver sign in" email={user.email} />;
+    return <AccessDenied appName="driver" signInHref={signInHref} signInLabel="driver sign in" email={user.email} />;
   }
+
 
   return (
     <div className="fleet-shell surface-yellow min-h-screen pb-24">
@@ -66,7 +69,7 @@ function DriverLayout() {
           <button
             onClick={async () => {
               await signOut();
-               window.location.replace("/driver/signin");
+               window.location.replace(signInHref);
             }}
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
           >

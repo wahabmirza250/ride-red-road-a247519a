@@ -22,17 +22,19 @@ const NAV = [
 
 
 function DispatchLayout() {
+  const { companySlug } = Route.useParams();
   const { loading, user, isDispatch, signOut } = useAuth();
   const loc = useLocation();
   const { theme, toggle } = useTheme();
   const pathname = typeof window !== "undefined" ? window.location.pathname : loc.pathname;
-  const isPublicAuthRoute = pathname === "/dispatch/signin";
+  const signInHref = `/${companySlug}/dispatch/signin`;
+  const isPublicAuthRoute = pathname.replace(/\/$/, "").endsWith("/dispatch/signin");
 
   useEffect(() => {
     if (isPublicAuthRoute) return;
     if (loading) return;
-    if (!user) window.location.replace("/dispatch/signin");
-  }, [isPublicAuthRoute, loading, user]);
+    if (!user) window.location.replace(signInHref);
+  }, [isPublicAuthRoute, loading, user, signInHref]);
 
   if (isPublicAuthRoute) return <Outlet />;
 
@@ -50,12 +52,13 @@ function DispatchLayout() {
     return (
       <AccessDenied
         appName="dispatch"
-        signInHref="/dispatch/signin"
+        signInHref={signInHref}
         signInLabel="dispatch sign in"
         email={user.email}
       />
     );
   }
+
 
   return (
     <div className="fleet-shell surface-blue min-h-screen pb-24">
@@ -71,7 +74,7 @@ function DispatchLayout() {
           <button
             onClick={async () => {
               await signOut();
-               window.location.replace("/dispatch/signin");
+               window.location.replace(signInHref);
             }}
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
             title={`Sign out (${user.email})`}
