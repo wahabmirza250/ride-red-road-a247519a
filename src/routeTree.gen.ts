@@ -76,7 +76,7 @@ import { Route as CompanySlugDriverTripNewRouteImport } from './routes/$companyS
 import { Route as CompanySlugDispatchRoutesRouteIdRouteImport } from './routes/$companySlug/dispatch.routes.$routeId'
 import { Route as CompanySlugAuthenticatedPayrollDriverIdRouteImport } from './routes/$companySlug/_authenticated/payroll.$driverId'
 import { Route as CompanySlugAuthenticatedMedicaidTripsNewRouteImport } from './routes/$companySlug/_authenticated/medicaid-trips.new'
-import { Route as CompanySlugAuthenticatedTripsTripIdProofRouteImport } from './routes/$companySlug/_authenticated/trips.$tripId.proof'
+import { Route as CompanySlugAuthenticatedTripsTripIdProofRouteImport } from './routes/$companySlug/_authenticated/trips_.$tripId.proof'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -462,9 +462,9 @@ const CompanySlugAuthenticatedMedicaidTripsNewRoute =
   } as any)
 const CompanySlugAuthenticatedTripsTripIdProofRoute =
   CompanySlugAuthenticatedTripsTripIdProofRouteImport.update({
-    id: '/$tripId/proof',
-    path: '/$tripId/proof',
-    getParentRoute: () => CompanySlugAuthenticatedTripsRoute,
+    id: '/trips_/$tripId/proof',
+    path: '/trips/$tripId/proof',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -500,7 +500,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/rewards-settings': typeof CompanySlugAuthenticatedRewardsSettingsRoute
   '/$companySlug/schedules': typeof CompanySlugAuthenticatedSchedulesRoute
   '/$companySlug/team': typeof CompanySlugAuthenticatedTeamRoute
-  '/$companySlug/trips': typeof CompanySlugAuthenticatedTripsRouteWithChildren
+  '/$companySlug/trips': typeof CompanySlugAuthenticatedTripsRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
   '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesRouteWithChildren
   '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
@@ -565,7 +565,7 @@ export interface FileRoutesByTo {
   '/$companySlug/rewards-settings': typeof CompanySlugAuthenticatedRewardsSettingsRoute
   '/$companySlug/schedules': typeof CompanySlugAuthenticatedSchedulesRoute
   '/$companySlug/team': typeof CompanySlugAuthenticatedTeamRoute
-  '/$companySlug/trips': typeof CompanySlugAuthenticatedTripsRouteWithChildren
+  '/$companySlug/trips': typeof CompanySlugAuthenticatedTripsRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
   '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
   '/$companySlug/dispatch/signin': typeof CompanySlugDispatchSigninRoute
@@ -635,7 +635,7 @@ export interface FileRoutesById {
   '/$companySlug/_authenticated/rewards-settings': typeof CompanySlugAuthenticatedRewardsSettingsRoute
   '/$companySlug/_authenticated/schedules': typeof CompanySlugAuthenticatedSchedulesRoute
   '/$companySlug/_authenticated/team': typeof CompanySlugAuthenticatedTeamRoute
-  '/$companySlug/_authenticated/trips': typeof CompanySlugAuthenticatedTripsRouteWithChildren
+  '/$companySlug/_authenticated/trips': typeof CompanySlugAuthenticatedTripsRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
   '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesRouteWithChildren
   '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
@@ -669,7 +669,7 @@ export interface FileRoutesById {
   '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
   '/$companySlug/_authenticated/payroll/': typeof CompanySlugAuthenticatedPayrollIndexRoute
   '/$companySlug/dispatch/routes/': typeof CompanySlugDispatchRoutesIndexRoute
-  '/$companySlug/_authenticated/trips/$tripId/proof': typeof CompanySlugAuthenticatedTripsTripIdProofRoute
+  '/$companySlug/_authenticated/trips_/$tripId/proof': typeof CompanySlugAuthenticatedTripsTripIdProofRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -874,7 +874,7 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/book/vehicle'
     | '/$companySlug/_authenticated/payroll/'
     | '/$companySlug/dispatch/routes/'
-    | '/$companySlug/_authenticated/trips/$tripId/proof'
+    | '/$companySlug/_authenticated/trips_/$tripId/proof'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1363,12 +1363,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugAuthenticatedMedicaidTripsNewRouteImport
       parentRoute: typeof CompanySlugAuthenticatedMedicaidTripsRoute
     }
-    '/$companySlug/_authenticated/trips/$tripId/proof': {
-      id: '/$companySlug/_authenticated/trips/$tripId/proof'
-      path: '/$tripId/proof'
+    '/$companySlug/_authenticated/trips_/$tripId/proof': {
+      id: '/$companySlug/_authenticated/trips_/$tripId/proof'
+      path: '/trips/$tripId/proof'
       fullPath: '/$companySlug/trips/$tripId/proof'
       preLoaderRoute: typeof CompanySlugAuthenticatedTripsTripIdProofRouteImport
-      parentRoute: typeof CompanySlugAuthenticatedTripsRoute
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
     }
   }
 }
@@ -1386,21 +1386,6 @@ const CompanySlugAuthenticatedMedicaidTripsRouteChildren: CompanySlugAuthenticat
 const CompanySlugAuthenticatedMedicaidTripsRouteWithChildren =
   CompanySlugAuthenticatedMedicaidTripsRoute._addFileChildren(
     CompanySlugAuthenticatedMedicaidTripsRouteChildren,
-  )
-
-interface CompanySlugAuthenticatedTripsRouteChildren {
-  CompanySlugAuthenticatedTripsTripIdProofRoute: typeof CompanySlugAuthenticatedTripsTripIdProofRoute
-}
-
-const CompanySlugAuthenticatedTripsRouteChildren: CompanySlugAuthenticatedTripsRouteChildren =
-  {
-    CompanySlugAuthenticatedTripsTripIdProofRoute:
-      CompanySlugAuthenticatedTripsTripIdProofRoute,
-  }
-
-const CompanySlugAuthenticatedTripsRouteWithChildren =
-  CompanySlugAuthenticatedTripsRoute._addFileChildren(
-    CompanySlugAuthenticatedTripsRouteChildren,
   )
 
 interface CompanySlugAuthenticatedRouteRouteChildren {
@@ -1421,9 +1406,10 @@ interface CompanySlugAuthenticatedRouteRouteChildren {
   CompanySlugAuthenticatedRewardsSettingsRoute: typeof CompanySlugAuthenticatedRewardsSettingsRoute
   CompanySlugAuthenticatedSchedulesRoute: typeof CompanySlugAuthenticatedSchedulesRoute
   CompanySlugAuthenticatedTeamRoute: typeof CompanySlugAuthenticatedTeamRoute
-  CompanySlugAuthenticatedTripsRoute: typeof CompanySlugAuthenticatedTripsRouteWithChildren
+  CompanySlugAuthenticatedTripsRoute: typeof CompanySlugAuthenticatedTripsRoute
   CompanySlugAuthenticatedPayrollDriverIdRoute: typeof CompanySlugAuthenticatedPayrollDriverIdRoute
   CompanySlugAuthenticatedPayrollIndexRoute: typeof CompanySlugAuthenticatedPayrollIndexRoute
+  CompanySlugAuthenticatedTripsTripIdProofRoute: typeof CompanySlugAuthenticatedTripsTripIdProofRoute
 }
 
 const CompanySlugAuthenticatedRouteRouteChildren: CompanySlugAuthenticatedRouteRouteChildren =
@@ -1454,12 +1440,13 @@ const CompanySlugAuthenticatedRouteRouteChildren: CompanySlugAuthenticatedRouteR
     CompanySlugAuthenticatedSchedulesRoute:
       CompanySlugAuthenticatedSchedulesRoute,
     CompanySlugAuthenticatedTeamRoute: CompanySlugAuthenticatedTeamRoute,
-    CompanySlugAuthenticatedTripsRoute:
-      CompanySlugAuthenticatedTripsRouteWithChildren,
+    CompanySlugAuthenticatedTripsRoute: CompanySlugAuthenticatedTripsRoute,
     CompanySlugAuthenticatedPayrollDriverIdRoute:
       CompanySlugAuthenticatedPayrollDriverIdRoute,
     CompanySlugAuthenticatedPayrollIndexRoute:
       CompanySlugAuthenticatedPayrollIndexRoute,
+    CompanySlugAuthenticatedTripsTripIdProofRoute:
+      CompanySlugAuthenticatedTripsTripIdProofRoute,
   }
 
 const CompanySlugAuthenticatedRouteRouteWithChildren =
