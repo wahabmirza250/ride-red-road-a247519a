@@ -647,9 +647,15 @@ function AwaitingPortalTab({
                     <CheckCircle2 className="mr-1 h-4 w-4" /> Mark as Submitted
                   </Button>
                 )}
-                <Button size="sm" variant="outline" onClick={() => setCancelFor(r)}>
-                  <Ban className="mr-1 h-4 w-4" /> Cancel
-                </Button>
+                {queueById.get(r.id)?.cancellable === false ? (
+                  <span className="text-[11px] text-muted-foreground">
+                    Already submitted — cannot be cancelled
+                  </span>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => setCancelFor(r)}>
+                    <Ban className="mr-1 h-4 w-4" /> Cancel
+                  </Button>
+                )}
               </div>
             </div>
           </div>
