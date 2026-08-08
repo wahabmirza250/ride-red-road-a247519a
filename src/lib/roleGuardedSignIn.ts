@@ -6,6 +6,7 @@ const LABEL: Record<AppRole, string> = {
   driver: "a driver",
   passenger: "a passenger",
   dispatch: "a dispatcher",
+  billing: "a billing specialist",
   platform_owner: "a platform owner",
 };
 
