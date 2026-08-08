@@ -13,6 +13,7 @@ import { getMyPassengerProfile } from "@/lib/passengerPublic.functions";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseBrowser";
 import { getCompanySlug } from "@/lib/companyContext";
+import { guestRequestRide } from "@/lib/guestBooking.functions";
 
 import { cn } from "@/lib/utils";
 
@@ -55,6 +56,8 @@ function VehicleSelect() {
   const etas = useServerFn(getVehicleEtas);
   const fetchProfile = useServerFn(getMyPassengerProfile);
   const saveIdentity = useServerFn(updatePassengerIdentity);
+  const guestBook = useServerFn(guestRequestRide);
+  const { companySlug } = Route.useParams();
 
   const [selected, setSelected] = useState<VehicleKey>("ambulatory");
   const [etaMap, setEtaMap] = useState<Record<string, number>>({});
@@ -112,6 +115,9 @@ function VehicleSelect() {
     void fetchProfile({ data: { device_id: deviceId } })
       .then((row) => {
         if (!row) return;
+        // Guests are recognized on this device: reuse their saved contact info.
+        setPhone((prev) => prev || (row.phone ?? ""));
+        setFirstName((prev) => prev || (row.first_name && row.first_name !== "Guest" ? row.first_name : ""));
         const mid = (row.medicaid_id ?? "").trim();
         const hasRealMedicaid =
           !!mid && !mid.startsWith("SELF-") && !mid.startsWith("WALK-");
@@ -139,19 +145,18 @@ function VehicleSelect() {
       toast.error("Missing pickup/dropoff. Please go back and pick both.");
       return;
     }
-    if (!user) {
-      toast.error("Sign in to book a ride.");
-      void navigate({ to: "/passenger/signup" });
-      return;
-    }
     if (!identityReady) {
       toast.error("Enter your Medicaid ID, or full SSN + date of birth.");
+      return;
+    }
+    if (!user && !phone.trim()) {
+      toast.error("Enter a phone number so the driver can reach you.");
       return;
     }
     setSubmitting(true);
     try {
       // Save/refresh identity if not already on file (or if user just edited it).
-      if (!hasIdentity) {
+      if (user && !hasIdentity) {
         if (idMode === "medicaid") {
           await saveIdentity({ data: { medicaid_id: medicaidId.trim() } });
         } else {
@@ -174,7 +179,9 @@ function VehicleSelect() {
           // ignore malformed stops param
         }
       }
-      const res = await request({
+      const commonStops = parsedStops;
+      const res = user
+        ? await request({
         data: {
           pickup_address: s.pickup,
           pickup_lat: s.pLat,
@@ -186,9 +193,32 @@ function VehicleSelect() {
           contact_name: firstName || null,
           contact_phone: phone || null,
           ride_purpose: s.purpose || null,
-          stops: parsedStops,
+          stops: commonStops,
         },
-      });
+      })
+        : await guestBook({
+            data: {
+              device_id:
+                (typeof window !== "undefined"
+                  ? window.localStorage.getItem("passenger_device_id")
+                  : "") ?? "",
+              company_slug: getCompanySlug() ?? companySlug,
+              contact_name: firstName || null,
+              contact_phone: phone,
+              medicaid_id: idMode === "medicaid" ? medicaidId.trim() : null,
+              ssn: idMode === "ssn" ? ssn : null,
+              date_of_birth: idMode === "ssn" ? dob : null,
+              pickup_address: s.pickup,
+              pickup_lat: s.pLat,
+              pickup_lng: s.pLng,
+              dropoff_address: s.dropoff,
+              dropoff_lat: s.dLat,
+              dropoff_lng: s.dLng,
+              notes: taggedNote,
+              ride_purpose: s.purpose || null,
+              stops: commonStops,
+            },
+          });
       // Clear persisted booking draft — successfully submitted.
       if (typeof window !== "undefined") {
         window.localStorage.removeItem("passenger_booking_draft");
@@ -294,7 +324,7 @@ function VehicleSelect() {
       </div>
 
       {/* Identity — Medicaid ID OR (SSN + DOB). Hidden once on file. */}
-      {user && identityLoaded && !hasIdentity && (
+      {identityLoaded && !hasIdentity && (
         <div className="mx-auto max-w-2xl px-4 pb-4">
           <div className="rounded-2xl border border-border bg-surface p-4 shadow-soft">
             <div className="mb-2 flex items-center gap-2">
@@ -367,6 +397,39 @@ function VehicleSelect() {
         </div>
       )}
 
+      {/* Guest contact — no account required to book. */}
+      {!user && (
+        <div className="mx-auto max-w-2xl px-4 pb-4">
+          <div className="rounded-2xl border border-border bg-surface p-4 shadow-soft">
+            <h3 className="mb-1 text-sm font-semibold">Your contact info</h3>
+            <p className="mb-3 text-[11px] text-muted-foreground">
+              No account needed — we only use this so your driver can reach you.
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Name</Label>
+                <Input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="First and last name"
+                  autoComplete="name"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Phone number</Label>
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                  inputMode="tel"
+                  autoComplete="tel"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sticky confirm */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
         <div className="mx-auto max-w-2xl">
@@ -375,19 +438,20 @@ function VehicleSelect() {
             disabled={
               submitting ||
               missingCoords ||
-              (!!user && !identityLoaded) ||
-              (!!user && identityLoaded && !identityReady)
+              !identityLoaded ||
+              !identityReady ||
+              (!user && !phone.trim())
             }
             className="h-14 w-full rounded-full text-base font-semibold shadow-lift"
           >
             {submitting ? (
               <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Requesting…</>
-            ) : !user ? (
-              <>Sign in to book</>
             ) : !identityLoaded ? (
               <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Checking your coverage…</>
             ) : !identityReady ? (
               <>Enter Medicaid ID or SSN + DOB</>
+            ) : !user && !phone.trim() ? (
+              <>Enter your phone number</>
             ) : (
               <>Select {selectedLabel}</>
             )}

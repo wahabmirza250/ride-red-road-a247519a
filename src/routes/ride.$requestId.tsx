@@ -1,11 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/lib/supabaseBrowser";
 // TrackMap: use Google Maps embed iframe (same pattern as pickup screen) —
 // reliable across dev/prod and no API key required for the classic embed URL.
 
 import { dispatchRideRequest, expireRideOffer, cancelRideRequest } from "@/lib/dispatch.functions";
+import { getGuestRideView, getPublicDispatchPhone } from "@/lib/guestBooking.functions";
 import {
   Loader2,
   ChevronLeft,
@@ -113,6 +113,7 @@ function RidePage() {
   const redispatch = useServerFn(dispatchRideRequest);
   const expireOffer = useServerFn(expireRideOffer);
   const cancelFn = useServerFn(cancelRideRequest);
+  const rideView = useServerFn(getGuestRideView);
   const [cancelling, setCancelling] = useState(false);
 
   const [req, setReq] = useState<RideRequestRow | null>(null);
@@ -122,63 +123,48 @@ function RidePage() {
   const [now, setNow] = useState(Date.now());
   const [dispatchPhone, setDispatchPhone] = useState<string | null>(null);
 
-  // Fetch dispatch phone from app_settings (public readable).
+  // Dispatch phone via a public server fn — guests can't read app_settings.
+  const dispatchPhoneFn = useServerFn(getPublicDispatchPhone);
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      const { data } = await supabase
-        .from("app_settings")
-        .select("value")
-        .eq("key", "dispatch_phone_number")
-        .maybeSingle();
-      if (!cancelled && data?.value) setDispatchPhone(data.value);
-    })();
+    void dispatchPhoneFn()
+      .then((r) => {
+        if (!cancelled && r?.phone) setDispatchPhone(r.phone);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dispatchPhoneFn]);
 
-
-  // Load + subscribe + poll the ride_request row. Poll acts as a fallback in
-  // case realtime is delayed or filtered.
+  // Load + poll the ride via a PUBLIC server function. Guests (no account)
+  // have no RLS access to ride_requests, so possession of the request id —
+  // i.e. this tracking link — is the trust boundary, same as cancelling.
+  const [driver, setDriver] = useState<DriverRow | null>(null);
   useEffect(() => {
     let cancelled = false;
     const load = async (initial = false) => {
-      const { data, error } = await supabase
-        .from("ride_requests")
-        .select(
-          "id,status,driver_id,trip_id,pickup_address,pickup_lat,pickup_lng,dropoff_address,dropoff_lat,dropoff_lng,offer_expires_at,created_at,contact_phone",
-        )
-        .eq("id", requestId)
-        .maybeSingle();
-      if (cancelled) return;
-      if (error || !data) {
+      try {
+        const view = await rideView({ data: { request_id: requestId } });
+        if (cancelled) return;
+        if (!view) {
+          if (initial) setNotFound(true);
+        } else {
+          setReq(view.request as RideRequestRow);
+          setDriver((view.driver as DriverRow | null) ?? null);
+        }
+      } catch {
         if (initial) setNotFound(true);
-      } else {
-        setReq(data as RideRequestRow);
       }
       if (initial) setLoading(false);
     };
     void load(true);
     const poll = window.setInterval(() => void load(false), 3000);
-
-    const ch = supabase
-      .channel(`ride-req-${requestId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "ride_requests", filter: `id=eq.${requestId}` },
-        (payload) => {
-          setReq((prev) => ({ ...(prev ?? ({} as RideRequestRow)), ...(payload.new as RideRequestRow) }));
-        },
-      )
-      .subscribe();
-
     return () => {
       cancelled = true;
       window.clearInterval(poll);
-      supabase.removeChannel(ch);
     };
-  }, [requestId]);
+  }, [requestId, rideView]);
 
   // Once a trip is created, redirect to the polished track page.
   useEffect(() => {
@@ -192,36 +178,6 @@ function RidePage() {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
-
-  // Load driver info as soon as one is assigned (offer state), realtime updates.
-  // Uses the get_ride_request_view RPC because passengers don't have direct RLS
-  // access to public.drivers / public.profiles.
-  const [driver, setDriver] = useState<DriverRow | null>(null);
-  useEffect(() => {
-    const did = req?.driver_id;
-    if (!did) {
-      setDriver(null);
-      return;
-    }
-    let cancelled = false;
-    const load = async () => {
-      const { data } = await supabase.rpc("get_ride_request_view", {
-        _request_id: requestId,
-      });
-      if (cancelled || !data) return;
-      const drv = (data as { driver: DriverRow | null }).driver;
-      if (drv) setDriver(drv);
-    };
-    void load();
-
-    // Refresh driver location as the driver row updates. We can't subscribe with
-    // RLS-restricted filter, so poll every 5s while an offer/trip is live.
-    const poll = window.setInterval(load, 5000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(poll);
-    };
-  }, [req?.driver_id, requestId]);
 
   const created = req?.created_at ? new Date(req.created_at).getTime() : now;
   const waited = now - created;
