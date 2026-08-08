@@ -117,7 +117,11 @@ function VehicleSelect() {
         if (!row) return;
         // Guests are recognized on this device: reuse their saved contact info.
         setPhone((prev) => prev || (row.phone ?? ""));
-        setFirstName((prev) => prev || (row.first_name && row.first_name !== "Guest" ? row.first_name : ""));
+        const savedName = [row.first_name, row.last_name]
+          .filter((x) => x && x !== "Guest")
+          .join(" ")
+          .trim();
+        setFirstName((prev) => prev || savedName);
         const mid = (row.medicaid_id ?? "").trim();
         const hasRealMedicaid =
           !!mid && !mid.startsWith("SELF-") && !mid.startsWith("WALK-");
