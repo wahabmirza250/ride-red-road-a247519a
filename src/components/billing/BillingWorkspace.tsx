@@ -73,15 +73,18 @@ const TABS: {
   {
     key: "ready_to_submit",
     label: "Ready to Submit",
-    statuses: ["approved", "submitting", "needs_fix"],
-    countKeys: ["approved", "submitting", "needs_fix"],
+    statuses: ["approved", "needs_fix"],
+    countKeys: ["approved", "needs_fix"],
   },
   {
+    // Anything the robot is actively working on ("submitting") plus claims it
+    // already filled in and handed back for a human portal submit.
     key: "awaiting_portal",
     label: "Awaiting Portal Submission",
-    statuses: ["pending_submit"],
-    countKeys: ["pending_submit"],
+    statuses: ["submitting", "pending_submit"],
+    countKeys: ["submitting", "pending_submit"],
   },
+
   {
     key: "submitted",
     label: "Submitted",
@@ -622,13 +625,15 @@ function AwaitingPortalTab({
                   {r.medicaid_id} · Driver {r.driver_name} ·{" "}
                   {formatDateTime(r.pickup_at)}
                 </div>
-                <div className="mt-2 flex items-start gap-2 rounded-lg bg-info/10 p-2 text-xs text-info">
-                  <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    Claim is filled in the HCPF portal — log in, review, and click
-                    Submit there. Then paste the confirmation number below.
-                  </span>
-                </div>
+                {r.status === "pending_submit" && (
+                  <div className="mt-2 flex items-start gap-2 rounded-lg bg-info/10 p-2 text-xs text-info">
+                    <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      Claim is filled in the HCPF portal — log in, review, and click
+                      Submit there. Then paste the confirmation number below.
+                    </span>
+                  </div>
+                )}
                 <QueueBadge info={queueById.get(r.id)} />
               </button>
               <div className="flex shrink-0 flex-col items-end gap-2">
@@ -637,12 +642,20 @@ function AwaitingPortalTab({
                   passengerName={r.passenger_name}
                   onPreview={onPreviewPdf}
                 />
-                <Button size="sm" onClick={() => setConfirmFor(r)}>
-                  <CheckCircle2 className="mr-1 h-4 w-4" /> Mark as Submitted
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setCancelFor(r)}>
-                  <Ban className="mr-1 h-4 w-4" /> Cancel
-                </Button>
+                {r.status === "pending_submit" && (
+                  <Button size="sm" onClick={() => setConfirmFor(r)}>
+                    <CheckCircle2 className="mr-1 h-4 w-4" /> Mark as Submitted
+                  </Button>
+                )}
+                {queueById.get(r.id)?.cancellable === false ? (
+                  <span className="text-[11px] text-muted-foreground">
+                    Already submitted — cannot be cancelled
+                  </span>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => setCancelFor(r)}>
+                    <Ban className="mr-1 h-4 w-4" /> Cancel
+                  </Button>
+                )}
               </div>
             </div>
           </div>
