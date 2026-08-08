@@ -69,7 +69,7 @@ function DriverLayout() {
           <button
             onClick={async () => {
               await signOut();
-               window.location.replace("/driver/signin");
+               window.location.replace(signInHref);
             }}
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
           >
