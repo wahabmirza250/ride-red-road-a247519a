@@ -20,6 +20,7 @@ import { Route as OwnerSigninRouteImport } from './routes/owner/signin'
 import { Route as DriverSigninRouteImport } from './routes/driver.signin'
 import { Route as DispatchSigninRouteImport } from './routes/dispatch.signin'
 import { Route as CompanySlugPassengerRouteImport } from './routes/$companySlug/passenger'
+import { Route as CompanySlugLoginRouteImport } from './routes/$companySlug/login'
 import { Route as CompanySlugDriverRouteImport } from './routes/$companySlug/driver'
 import { Route as CompanySlugDispatchRouteImport } from './routes/$companySlug/dispatch'
 import { Route as CompanySlugSplatRouteImport } from './routes/$companySlug/$'
@@ -130,6 +131,11 @@ const DispatchSigninRoute = DispatchSigninRouteImport.update({
 const CompanySlugPassengerRoute = CompanySlugPassengerRouteImport.update({
   id: '/passenger',
   path: '/passenger',
+  getParentRoute: () => CompanySlugRouteRoute,
+} as any)
+const CompanySlugLoginRoute = CompanySlugLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => CompanySlugRouteRoute,
 } as any)
 const CompanySlugDriverRoute = CompanySlugDriverRouteImport.update({
@@ -468,6 +474,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/$companySlug/dispatch': typeof CompanySlugDispatchRouteWithChildren
   '/$companySlug/driver': typeof CompanySlugDriverRouteWithChildren
+  '/$companySlug/login': typeof CompanySlugLoginRoute
   '/$companySlug/passenger': typeof CompanySlugPassengerRouteWithChildren
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
@@ -534,6 +541,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/$companySlug': typeof CompanySlugIndexRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
+  '/$companySlug/login': typeof CompanySlugLoginRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
   '/owner/signin': typeof OwnerSigninRoute
@@ -601,6 +609,7 @@ export interface FileRoutesById {
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/$companySlug/dispatch': typeof CompanySlugDispatchRouteWithChildren
   '/$companySlug/driver': typeof CompanySlugDriverRouteWithChildren
+  '/$companySlug/login': typeof CompanySlugLoginRoute
   '/$companySlug/passenger': typeof CompanySlugPassengerRouteWithChildren
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
@@ -671,6 +680,7 @@ export interface FileRouteTypes {
     | '/$companySlug/$'
     | '/$companySlug/dispatch'
     | '/$companySlug/driver'
+    | '/$companySlug/login'
     | '/$companySlug/passenger'
     | '/dispatch/signin'
     | '/driver/signin'
@@ -737,6 +747,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/$companySlug'
     | '/$companySlug/$'
+    | '/$companySlug/login'
     | '/dispatch/signin'
     | '/driver/signin'
     | '/owner/signin'
@@ -803,6 +814,7 @@ export interface FileRouteTypes {
     | '/$companySlug/$'
     | '/$companySlug/dispatch'
     | '/$companySlug/driver'
+    | '/$companySlug/login'
     | '/$companySlug/passenger'
     | '/dispatch/signin'
     | '/driver/signin'
@@ -957,6 +969,13 @@ declare module '@tanstack/react-router' {
       path: '/passenger'
       fullPath: '/$companySlug/passenger'
       preLoaderRoute: typeof CompanySlugPassengerRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
+    }
+    '/$companySlug/login': {
+      id: '/$companySlug/login'
+      path: '/login'
+      fullPath: '/$companySlug/login'
+      preLoaderRoute: typeof CompanySlugLoginRouteImport
       parentRoute: typeof CompanySlugRouteRoute
     }
     '/$companySlug/driver': {
@@ -1547,6 +1566,7 @@ interface CompanySlugRouteRouteChildren {
   CompanySlugSplatRoute: typeof CompanySlugSplatRoute
   CompanySlugDispatchRoute: typeof CompanySlugDispatchRouteWithChildren
   CompanySlugDriverRoute: typeof CompanySlugDriverRouteWithChildren
+  CompanySlugLoginRoute: typeof CompanySlugLoginRoute
   CompanySlugPassengerRoute: typeof CompanySlugPassengerRouteWithChildren
   CompanySlugIndexRoute: typeof CompanySlugIndexRoute
 }
@@ -1557,6 +1577,7 @@ const CompanySlugRouteRouteChildren: CompanySlugRouteRouteChildren = {
   CompanySlugSplatRoute: CompanySlugSplatRoute,
   CompanySlugDispatchRoute: CompanySlugDispatchRouteWithChildren,
   CompanySlugDriverRoute: CompanySlugDriverRouteWithChildren,
+  CompanySlugLoginRoute: CompanySlugLoginRoute,
   CompanySlugPassengerRoute: CompanySlugPassengerRouteWithChildren,
   CompanySlugIndexRoute: CompanySlugIndexRoute,
 }
