@@ -23,11 +23,13 @@ import { Route as CompanySlugPassengerRouteImport } from './routes/$companySlug/
 import { Route as CompanySlugLoginRouteImport } from './routes/$companySlug/login'
 import { Route as CompanySlugDriverRouteImport } from './routes/$companySlug/driver'
 import { Route as CompanySlugDispatchRouteImport } from './routes/$companySlug/dispatch'
+import { Route as CompanySlugBillingRouteImport } from './routes/$companySlug/billing'
 import { Route as CompanySlugSplatRouteImport } from './routes/$companySlug/$'
 import { Route as CompanySlugAuthenticatedRouteRouteImport } from './routes/$companySlug/_authenticated/route'
 import { Route as CompanySlugPassengerIndexRouteImport } from './routes/$companySlug/passenger.index'
 import { Route as CompanySlugDriverIndexRouteImport } from './routes/$companySlug/driver.index'
 import { Route as CompanySlugDispatchIndexRouteImport } from './routes/$companySlug/dispatch.index'
+import { Route as CompanySlugBillingIndexRouteImport } from './routes/$companySlug/billing.index'
 import { Route as ApiPublicGetTripPdfRouteImport } from './routes/api/public/get-trip-pdf'
 import { Route as ApiPublicGetPortalCredentialRouteImport } from './routes/api/public/get-portal-credential'
 import { Route as ApiPublicGetBillingRateRouteImport } from './routes/api/public/get-billing-rate'
@@ -50,6 +52,8 @@ import { Route as CompanySlugDispatchSigninRouteImport } from './routes/$company
 import { Route as CompanySlugDispatchScheduleRouteImport } from './routes/$companySlug/dispatch.schedule'
 import { Route as CompanySlugDispatchRoutesRouteImport } from './routes/$companySlug/dispatch.routes'
 import { Route as CompanySlugDispatchHistoryRouteImport } from './routes/$companySlug/dispatch.history'
+import { Route as CompanySlugBillingSigninRouteImport } from './routes/$companySlug/billing.signin'
+import { Route as CompanySlugBillingChatRouteImport } from './routes/$companySlug/billing.chat'
 import { Route as CompanySlugAuthenticatedTripsRouteImport } from './routes/$companySlug/_authenticated/trips'
 import { Route as CompanySlugAuthenticatedTeamRouteImport } from './routes/$companySlug/_authenticated/team'
 import { Route as CompanySlugAuthenticatedSchedulesRouteImport } from './routes/$companySlug/_authenticated/schedules'
@@ -148,6 +152,11 @@ const CompanySlugDispatchRoute = CompanySlugDispatchRouteImport.update({
   path: '/dispatch',
   getParentRoute: () => CompanySlugRouteRoute,
 } as any)
+const CompanySlugBillingRoute = CompanySlugBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => CompanySlugRouteRoute,
+} as any)
 const CompanySlugSplatRoute = CompanySlugSplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -175,6 +184,11 @@ const CompanySlugDispatchIndexRoute =
     path: '/',
     getParentRoute: () => CompanySlugDispatchRoute,
   } as any)
+const CompanySlugBillingIndexRoute = CompanySlugBillingIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CompanySlugBillingRoute,
+} as any)
 const ApiPublicGetTripPdfRoute = ApiPublicGetTripPdfRouteImport.update({
   id: '/api/public/get-trip-pdf',
   path: '/api/public/get-trip-pdf',
@@ -304,6 +318,17 @@ const CompanySlugDispatchHistoryRoute =
     path: '/history',
     getParentRoute: () => CompanySlugDispatchRoute,
   } as any)
+const CompanySlugBillingSigninRoute =
+  CompanySlugBillingSigninRouteImport.update({
+    id: '/signin',
+    path: '/signin',
+    getParentRoute: () => CompanySlugBillingRoute,
+  } as any)
+const CompanySlugBillingChatRoute = CompanySlugBillingChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => CompanySlugBillingRoute,
+} as any)
 const CompanySlugAuthenticatedTripsRoute =
   CompanySlugAuthenticatedTripsRouteImport.update({
     id: '/trips',
@@ -472,6 +497,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
+  '/$companySlug/billing': typeof CompanySlugBillingRouteWithChildren
   '/$companySlug/dispatch': typeof CompanySlugDispatchRouteWithChildren
   '/$companySlug/driver': typeof CompanySlugDriverRouteWithChildren
   '/$companySlug/login': typeof CompanySlugLoginRoute
@@ -501,6 +527,8 @@ export interface FileRoutesByFullPath {
   '/$companySlug/schedules': typeof CompanySlugAuthenticatedSchedulesRoute
   '/$companySlug/team': typeof CompanySlugAuthenticatedTeamRoute
   '/$companySlug/trips': typeof CompanySlugAuthenticatedTripsRoute
+  '/$companySlug/billing/chat': typeof CompanySlugBillingChatRoute
+  '/$companySlug/billing/signin': typeof CompanySlugBillingSigninRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
   '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesRouteWithChildren
   '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
@@ -523,6 +551,7 @@ export interface FileRoutesByFullPath {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
+  '/$companySlug/billing/': typeof CompanySlugBillingIndexRoute
   '/$companySlug/dispatch/': typeof CompanySlugDispatchIndexRoute
   '/$companySlug/driver/': typeof CompanySlugDriverIndexRoute
   '/$companySlug/passenger/': typeof CompanySlugPassengerIndexRoute
@@ -566,6 +595,8 @@ export interface FileRoutesByTo {
   '/$companySlug/schedules': typeof CompanySlugAuthenticatedSchedulesRoute
   '/$companySlug/team': typeof CompanySlugAuthenticatedTeamRoute
   '/$companySlug/trips': typeof CompanySlugAuthenticatedTripsRoute
+  '/$companySlug/billing/chat': typeof CompanySlugBillingChatRoute
+  '/$companySlug/billing/signin': typeof CompanySlugBillingSigninRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
   '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
   '/$companySlug/dispatch/signin': typeof CompanySlugDispatchSigninRoute
@@ -587,6 +618,7 @@ export interface FileRoutesByTo {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
+  '/$companySlug/billing': typeof CompanySlugBillingIndexRoute
   '/$companySlug/dispatch': typeof CompanySlugDispatchIndexRoute
   '/$companySlug/driver': typeof CompanySlugDriverIndexRoute
   '/$companySlug/passenger': typeof CompanySlugPassengerIndexRoute
@@ -607,6 +639,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/$companySlug/_authenticated': typeof CompanySlugAuthenticatedRouteRouteWithChildren
   '/$companySlug/$': typeof CompanySlugSplatRoute
+  '/$companySlug/billing': typeof CompanySlugBillingRouteWithChildren
   '/$companySlug/dispatch': typeof CompanySlugDispatchRouteWithChildren
   '/$companySlug/driver': typeof CompanySlugDriverRouteWithChildren
   '/$companySlug/login': typeof CompanySlugLoginRoute
@@ -636,6 +669,8 @@ export interface FileRoutesById {
   '/$companySlug/_authenticated/schedules': typeof CompanySlugAuthenticatedSchedulesRoute
   '/$companySlug/_authenticated/team': typeof CompanySlugAuthenticatedTeamRoute
   '/$companySlug/_authenticated/trips': typeof CompanySlugAuthenticatedTripsRoute
+  '/$companySlug/billing/chat': typeof CompanySlugBillingChatRoute
+  '/$companySlug/billing/signin': typeof CompanySlugBillingSigninRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
   '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesRouteWithChildren
   '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
@@ -658,6 +693,7 @@ export interface FileRoutesById {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
+  '/$companySlug/billing/': typeof CompanySlugBillingIndexRoute
   '/$companySlug/dispatch/': typeof CompanySlugDispatchIndexRoute
   '/$companySlug/driver/': typeof CompanySlugDriverIndexRoute
   '/$companySlug/passenger/': typeof CompanySlugPassengerIndexRoute
@@ -678,6 +714,7 @@ export interface FileRouteTypes {
     | '/$companySlug'
     | '/auth'
     | '/$companySlug/$'
+    | '/$companySlug/billing'
     | '/$companySlug/dispatch'
     | '/$companySlug/driver'
     | '/$companySlug/login'
@@ -707,6 +744,8 @@ export interface FileRouteTypes {
     | '/$companySlug/schedules'
     | '/$companySlug/team'
     | '/$companySlug/trips'
+    | '/$companySlug/billing/chat'
+    | '/$companySlug/billing/signin'
     | '/$companySlug/dispatch/history'
     | '/$companySlug/dispatch/routes'
     | '/$companySlug/dispatch/schedule'
@@ -729,6 +768,7 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
+    | '/$companySlug/billing/'
     | '/$companySlug/dispatch/'
     | '/$companySlug/driver/'
     | '/$companySlug/passenger/'
@@ -772,6 +812,8 @@ export interface FileRouteTypes {
     | '/$companySlug/schedules'
     | '/$companySlug/team'
     | '/$companySlug/trips'
+    | '/$companySlug/billing/chat'
+    | '/$companySlug/billing/signin'
     | '/$companySlug/dispatch/history'
     | '/$companySlug/dispatch/schedule'
     | '/$companySlug/dispatch/signin'
@@ -793,6 +835,7 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
+    | '/$companySlug/billing'
     | '/$companySlug/dispatch'
     | '/$companySlug/driver'
     | '/$companySlug/passenger'
@@ -812,6 +855,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/$companySlug/_authenticated'
     | '/$companySlug/$'
+    | '/$companySlug/billing'
     | '/$companySlug/dispatch'
     | '/$companySlug/driver'
     | '/$companySlug/login'
@@ -841,6 +885,8 @@ export interface FileRouteTypes {
     | '/$companySlug/_authenticated/schedules'
     | '/$companySlug/_authenticated/team'
     | '/$companySlug/_authenticated/trips'
+    | '/$companySlug/billing/chat'
+    | '/$companySlug/billing/signin'
     | '/$companySlug/dispatch/history'
     | '/$companySlug/dispatch/routes'
     | '/$companySlug/dispatch/schedule'
@@ -863,6 +909,7 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
+    | '/$companySlug/billing/'
     | '/$companySlug/dispatch/'
     | '/$companySlug/driver/'
     | '/$companySlug/passenger/'
@@ -992,6 +1039,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugDispatchRouteImport
       parentRoute: typeof CompanySlugRouteRoute
     }
+    '/$companySlug/billing': {
+      id: '/$companySlug/billing'
+      path: '/billing'
+      fullPath: '/$companySlug/billing'
+      preLoaderRoute: typeof CompanySlugBillingRouteImport
+      parentRoute: typeof CompanySlugRouteRoute
+    }
     '/$companySlug/$': {
       id: '/$companySlug/$'
       path: '/$'
@@ -1026,6 +1080,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$companySlug/dispatch/'
       preLoaderRoute: typeof CompanySlugDispatchIndexRouteImport
       parentRoute: typeof CompanySlugDispatchRoute
+    }
+    '/$companySlug/billing/': {
+      id: '/$companySlug/billing/'
+      path: '/'
+      fullPath: '/$companySlug/billing/'
+      preLoaderRoute: typeof CompanySlugBillingIndexRouteImport
+      parentRoute: typeof CompanySlugBillingRoute
     }
     '/api/public/get-trip-pdf': {
       id: '/api/public/get-trip-pdf'
@@ -1180,6 +1241,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/$companySlug/dispatch/history'
       preLoaderRoute: typeof CompanySlugDispatchHistoryRouteImport
       parentRoute: typeof CompanySlugDispatchRoute
+    }
+    '/$companySlug/billing/signin': {
+      id: '/$companySlug/billing/signin'
+      path: '/signin'
+      fullPath: '/$companySlug/billing/signin'
+      preLoaderRoute: typeof CompanySlugBillingSigninRouteImport
+      parentRoute: typeof CompanySlugBillingRoute
+    }
+    '/$companySlug/billing/chat': {
+      id: '/$companySlug/billing/chat'
+      path: '/chat'
+      fullPath: '/$companySlug/billing/chat'
+      preLoaderRoute: typeof CompanySlugBillingChatRouteImport
+      parentRoute: typeof CompanySlugBillingRoute
     }
     '/$companySlug/_authenticated/trips': {
       id: '/$companySlug/_authenticated/trips'
@@ -1454,6 +1529,21 @@ const CompanySlugAuthenticatedRouteRouteWithChildren =
     CompanySlugAuthenticatedRouteRouteChildren,
   )
 
+interface CompanySlugBillingRouteChildren {
+  CompanySlugBillingChatRoute: typeof CompanySlugBillingChatRoute
+  CompanySlugBillingSigninRoute: typeof CompanySlugBillingSigninRoute
+  CompanySlugBillingIndexRoute: typeof CompanySlugBillingIndexRoute
+}
+
+const CompanySlugBillingRouteChildren: CompanySlugBillingRouteChildren = {
+  CompanySlugBillingChatRoute: CompanySlugBillingChatRoute,
+  CompanySlugBillingSigninRoute: CompanySlugBillingSigninRoute,
+  CompanySlugBillingIndexRoute: CompanySlugBillingIndexRoute,
+}
+
+const CompanySlugBillingRouteWithChildren =
+  CompanySlugBillingRoute._addFileChildren(CompanySlugBillingRouteChildren)
+
 interface CompanySlugDispatchRoutesRouteChildren {
   CompanySlugDispatchRoutesRouteIdRoute: typeof CompanySlugDispatchRoutesRouteIdRoute
   CompanySlugDispatchRoutesIndexRoute: typeof CompanySlugDispatchRoutesIndexRoute
@@ -1551,6 +1641,7 @@ const CompanySlugPassengerRouteWithChildren =
 interface CompanySlugRouteRouteChildren {
   CompanySlugAuthenticatedRouteRoute: typeof CompanySlugAuthenticatedRouteRouteWithChildren
   CompanySlugSplatRoute: typeof CompanySlugSplatRoute
+  CompanySlugBillingRoute: typeof CompanySlugBillingRouteWithChildren
   CompanySlugDispatchRoute: typeof CompanySlugDispatchRouteWithChildren
   CompanySlugDriverRoute: typeof CompanySlugDriverRouteWithChildren
   CompanySlugLoginRoute: typeof CompanySlugLoginRoute
@@ -1562,6 +1653,7 @@ const CompanySlugRouteRouteChildren: CompanySlugRouteRouteChildren = {
   CompanySlugAuthenticatedRouteRoute:
     CompanySlugAuthenticatedRouteRouteWithChildren,
   CompanySlugSplatRoute: CompanySlugSplatRoute,
+  CompanySlugBillingRoute: CompanySlugBillingRouteWithChildren,
   CompanySlugDispatchRoute: CompanySlugDispatchRouteWithChildren,
   CompanySlugDriverRoute: CompanySlugDriverRouteWithChildren,
   CompanySlugLoginRoute: CompanySlugLoginRoute,

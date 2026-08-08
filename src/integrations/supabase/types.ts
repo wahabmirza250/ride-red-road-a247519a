@@ -2555,11 +2555,13 @@ export type Database = {
         Args: { _passenger_id: string; _rider_id: string }
         Returns: undefined
       }
+      current_user_can_bill: { Args: never; Returns: boolean }
       current_user_company_id: { Args: never; Returns: string }
       current_user_has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      current_user_is_billing: { Args: never; Returns: boolean }
       current_user_is_dispatch: { Args: never; Returns: boolean }
       driver_can_see_passenger: {
         Args: { _passenger_id: string }
@@ -2622,7 +2624,13 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "driver" | "passenger" | "dispatch" | "platform_owner"
+      app_role:
+        | "admin"
+        | "driver"
+        | "passenger"
+        | "dispatch"
+        | "platform_owner"
+        | "billing"
       billing_status: "pending" | "submitted" | "paid" | "rejected"
       driver_pay_type: "per_hour" | "commission"
       driver_status: "available" | "busy" | "offline"
@@ -2784,7 +2792,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "driver", "passenger", "dispatch", "platform_owner"],
+      app_role: [
+        "admin",
+        "driver",
+        "passenger",
+        "dispatch",
+        "platform_owner",
+        "billing",
+      ],
       billing_status: ["pending", "submitted", "paid", "rejected"],
       driver_pay_type: ["per_hour", "commission"],
       driver_status: ["available", "busy", "offline"],

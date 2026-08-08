@@ -428,3 +428,94 @@ export const getPayroll = createServerFn({ method: "POST" })
       total: Number(total.toFixed(2)),
     };
   });
+
+
+type CreateBillingUserInput = CreateDispatcherInput;
+
+export const createBillingUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: CreateBillingUserInput) => {
+    if (!input.email?.trim()) throw new Error("Email required");
+    if (!input.password || input.password.length < 6)
+      throw new Error("Password must be at least 6 characters");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.supabase, context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+      email: data.email.trim().toLowerCase(),
+      password: data.password,
+      email_confirm: true,
+      user_metadata: {
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: data.phone ?? "",
+        role: "billing",
+        company_id: companyId,
+      },
+    });
+    if (error || !created.user) throw new Error(error?.message ?? "Failed to create user");
+    const userId = created.user.id;
+    await supabaseAdmin
+      .from("user_roles")
+      .upsert(
+        { user_id: userId, role: "billing", company_id: companyId },
+        { onConflict: "user_id,role" },
+      );
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).neq("role", "billing");
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: data.phone ?? "",
+        company_id: companyId,
+      })
+      .eq("id", userId);
+    return { ok: true, user_id: userId };
+  });
+
+export const listBillingUsers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureAdmin(context.supabase, context.userId);
+    const { data: roles } = await context.supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "billing");
+    const ids = (roles ?? []).map((r) => r.user_id);
+    if (!ids.length) return [];
+    const { data: profs } = await context.supabase
+      .from("profiles")
+      .select("id, first_name, last_name, email, phone")
+      .in("id", ids);
+    return profs ?? [];
+  });
+
+export const deleteBillingUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { user_id: string }) => {
+    if (!input?.user_id) throw new Error("user_id required");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
+    const { data: role } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user_id)
+      .eq("role", "billing")
+      .eq("company_id", companyId)
+      .maybeSingle();
+    if (!role) throw new Error("Not a billing account");
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
+    await supabaseAdmin.auth.admin.deleteUser(data.user_id);
+    return { ok: true };
+  });
+

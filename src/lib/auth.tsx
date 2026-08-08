@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseBrowser";
 
-export type AppRole = "admin" | "driver" | "passenger" | "dispatch" | "platform_owner";
+export type AppRole = "admin" | "driver" | "passenger" | "dispatch" | "billing" | "platform_owner";
 
 export type AuthState = {
   user: User | null;
@@ -14,6 +14,7 @@ export type AuthState = {
   isDriver: boolean;
   isPassenger: boolean;
   isDispatch: boolean;
+  isBilling: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -90,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isDriver: roles.includes("driver"),
       isPassenger: roles.includes("passenger"),
       isDispatch: roles.includes("dispatch"),
+      isBilling: roles.includes("billing"),
       refresh,
       signOut: async () => {
         await supabase.auth.signOut();

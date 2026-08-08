@@ -5,7 +5,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateStateFormPdf, type Leg } from "@/lib/medicaidPdf";
 import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
 
-/** Utility: verify admin, throw on failure */
+/** Utility: verify admin, throw on failure. Reserved for privileged settings
+ *  (portal credentials, default portal) that billing staff must never touch. */
 async function assertAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase.rpc("has_role", {
     _user_id: userId,
@@ -13,6 +14,15 @@ async function assertAdmin(supabase: any, userId: string) {
   });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Forbidden: admin only");
+}
+
+/** Billing workspace access — admins and dedicated billing staff. Company
+ *  isolation is still enforced by RLS on every table underneath. */
+async function assertBilling(supabase: any, userId: string) {
+  const { data, error } = await supabase.rpc("current_user_can_bill");
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Forbidden: billing staff only");
+  void userId;
 }
 
 const StatusEnum = z.enum([
@@ -49,7 +59,7 @@ export const listBillingRecords = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
 
     const statuses = data.statuses ?? (data.status ? [data.status] : []);
     if (!statuses.length) throw new Error("statuses required");
@@ -138,7 +148,7 @@ export const getBillingCounts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
     const { data, error } = await supabase
       .from("billing_records")
       .select("status")
@@ -158,7 +168,7 @@ export const getBillingRecord = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
 
     const { data: rec, error } = await supabase
       .from("billing_records")
@@ -210,7 +220,7 @@ export const regenerateBillingPdf = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
 
     const { data: rec, error } = await supabase
       .from("billing_records")
@@ -384,7 +394,7 @@ export const approveBillingRecord = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
 
     const { error: updErr } = await supabase
       .from("billing_records")
@@ -412,7 +422,7 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
 
     const { data: rec, error: recErr } = await supabase
       .from("billing_records")
@@ -468,7 +478,7 @@ export const markPortalSubmitted = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
     const nowIso = new Date().toISOString();
     const { error } = await supabase
       .from("billing_records")
@@ -609,7 +619,7 @@ export const confirmAndSubmitClaim = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
 
     const { data: rec, error } = await supabase
       .from("billing_records")
@@ -658,7 +668,7 @@ export const cancelClaimReview = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
     await logAudit(
       supabase,
       data.id,
@@ -680,7 +690,7 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
 
     const { data: rec, error } = await supabase
       .from("billing_records")
@@ -887,7 +897,7 @@ export const requestFix = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
 
     const { data: rec, error: recErr } = await supabase
       .from("billing_records")
@@ -968,7 +978,7 @@ export const markApproved = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
     const { error } = await supabase
       .from("billing_records")
       .update({ status: "approved" })
@@ -985,7 +995,7 @@ export const markRejected = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
     const { error } = await supabase
       .from("billing_records")
       .update({ status: "rejected", rejection_reason: data.reason })
@@ -1067,7 +1077,7 @@ export const getBillingSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
     const { requireCompanyId } = await import("@/lib/company.server");
     const companyId = await requireCompanyId(userId);
     const { data, error } = await supabase
@@ -1098,5 +1108,151 @@ export const setDefaultBillingPortal = createServerFn({ method: "POST" })
       _company_id: companyId,
     });
     if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/* ---------- SUBMISSION QUEUE + CANCEL ---------- */
+
+/**
+ * Queue visibility for the "Awaiting Portal Submission" / in-flight lists.
+ * The automation service runs one portal session at a time per account, so
+ * jobs behind the active one are genuinely waiting. We report position and
+ * elapsed time — never a promised finish time.
+ */
+export const listSubmissionQueue = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertBilling(supabase, userId);
+
+    const { data: rows, error } = await supabase
+      .from("billing_records")
+      .select(
+        `id, status, trip_id, submission_error, requires_human_step, updated_at,
+         medicaid_trips!inner(
+           id, pickup_at, robot_job_id, robot_pass, robot_last_status, robot_last_message,
+           robot_job_started_at, robot_confirmation_number, riders(full_name, medicaid_id)
+         )`,
+      )
+      .in("status", ["submitting", "pending_submit"])
+      .order("updated_at", { ascending: true });
+    if (error) throw new Error(error.message);
+
+    const running = (rows ?? []).filter((r: any) => r.status === "submitting");
+    return (rows ?? []).map((r: any) => {
+      const trip = r.medicaid_trips ?? {};
+      const startedAt: string | null = trip.robot_job_started_at ?? null;
+      const elapsedMin = startedAt
+        ? Math.max(0, Math.round((Date.now() - new Date(startedAt).getTime()) / 60000))
+        : null;
+      const position =
+        r.status === "submitting"
+          ? running.findIndex((x: any) => x.id === r.id) + 1
+          : null;
+
+      let queue_state: "queued" | "running" | "awaiting_review" | "submitted";
+      let queue_label: string;
+      if (trip.robot_confirmation_number) {
+        queue_state = "submitted";
+        queue_label = `Submitted — claim #${trip.robot_confirmation_number}`;
+      } else if (r.status === "pending_submit") {
+        queue_state = "awaiting_review";
+        queue_label = "Captured — waiting for your review";
+      } else if (position && position > 1) {
+        queue_state = "queued";
+        queue_label = `Queued — ${position - 1} job${position === 2 ? "" : "s"} ahead on the portal account`;
+      } else {
+        queue_state = "running";
+        queue_label = "Working at the portal now";
+      }
+
+      return {
+        id: r.id,
+        trip_id: r.trip_id,
+        status: r.status,
+        passenger_name: trip.riders?.full_name ?? null,
+        medicaid_id: trip.riders?.medicaid_id ?? null,
+        pickup_at: trip.pickup_at ?? null,
+        robot_pass: trip.robot_pass ?? null,
+        robot_last_status: trip.robot_last_status ?? null,
+        robot_last_message: trip.robot_last_message ?? null,
+        robot_confirmation_number: trip.robot_confirmation_number ?? null,
+        started_at: startedAt,
+        elapsed_minutes: elapsedMin,
+        queue_state,
+        queue_label,
+        cancellable: !trip.robot_confirmation_number,
+      };
+    });
+  });
+
+/**
+ * Cancel a submission BEFORE the real Medicaid submit has gone through and
+ * return the trip to the review stage. A claim that already carries a real
+ * portal confirmation number can never be cancelled from here.
+ */
+export const cancelSubmission = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertBilling(supabase, userId);
+
+    const { data: rec, error } = await supabase
+      .from("billing_records")
+      .select(
+        `id, status, trip_id, state_confirmation_number,
+         medicaid_trips!inner(id, robot_confirmation_number, submitted_confirmation, portal_confirmation, status)`,
+      )
+      .eq("id", data.id)
+      .single();
+    if (error) throw new Error(error.message);
+    const trip: any = rec.medicaid_trips;
+
+    const alreadySubmitted =
+      rec.status === "submitted" ||
+      !!rec.state_confirmation_number ||
+      !!trip?.robot_confirmation_number ||
+      !!trip?.submitted_confirmation ||
+      !!trip?.portal_confirmation;
+    if (alreadySubmitted) {
+      throw new Error(
+        "This claim has already been submitted to Medicaid" +
+          (trip?.robot_confirmation_number ? ` (claim #${trip.robot_confirmation_number})` : "") +
+          ". A real submitted claim cannot be cancelled here — void or adjust it in the state portal instead.",
+      );
+    }
+
+    const nowIso = new Date().toISOString();
+    await supabase
+      .from("medicaid_trips")
+      .update({
+        robot_job_id: null,
+        robot_pass: null,
+        robot_last_status: "cancelled",
+        robot_last_message: "Submission cancelled by billing staff before the real submit.",
+        robot_last_checked_at: nowIso,
+        robot_captured_claim: null,
+        robot_captured_at: null,
+      })
+      .eq("id", rec.trip_id);
+
+    const { error: updErr } = await supabase
+      .from("billing_records")
+      .update({
+        status: "approved",
+        requires_human_step: false,
+        submission_error: null,
+      })
+      .eq("id", data.id);
+    if (updErr) throw new Error(updErr.message);
+
+    await logAudit(
+      supabase,
+      data.id,
+      userId,
+      "submission_cancelled",
+      "Cancelled before the real portal submission — returned to Ready to Submit.",
+    );
     return { ok: true };
   });
