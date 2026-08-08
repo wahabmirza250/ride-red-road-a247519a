@@ -74,7 +74,7 @@ function DispatchLayout() {
           <button
             onClick={async () => {
               await signOut();
-               window.location.replace("/dispatch/signin");
+               window.location.replace(signInHref);
             }}
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
             title={`Sign out (${user.email})`}
