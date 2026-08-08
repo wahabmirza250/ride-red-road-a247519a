@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { useCurrentPosition } from "@/lib/useGeolocation";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { useServerFn } from "@tanstack/react-start";
+import { listGuestRides } from "@/lib/guestBooking.functions";
 
 export const Route = createFileRoute("/$companySlug/passenger/")({
   ssr: false,
@@ -43,6 +45,30 @@ function PassengerHome() {
     })();
     return () => { cancel = true; };
   }, [user]);
+
+  // Guests are remembered on this device: greet them by name and show the
+  // rides they booked without an account.
+  const guestRides = useServerFn(listGuestRides);
+  useEffect(() => {
+    if (user) return;
+    const deviceId = typeof window !== "undefined"
+      ? window.localStorage.getItem("passenger_device_id")
+      : null;
+    if (!deviceId) return;
+    let cancel = false;
+    void guestRides({ data: { device_id: deviceId } })
+      .then((r) => {
+        if (cancel) return;
+        if (r.first_name && r.first_name !== "Guest") setFirstName(r.first_name);
+        setRecent(
+          (r.rides ?? [])
+            .filter((x) => !!x.dropoff_address)
+            .map((x) => ({ id: x.id, dropoff_address: x.dropoff_address, created_at: x.created_at })),
+        );
+      })
+      .catch(() => {});
+    return () => { cancel = true; };
+  }, [user, guestRides]);
 
   const greeting = useMemo(() => {
     const name = firstName || (user?.email ? user.email.split("@")[0] : "");
