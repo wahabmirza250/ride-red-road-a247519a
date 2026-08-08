@@ -39,6 +39,7 @@ import { Route as CompanySlugPassengerNewsRouteImport } from './routes/$companyS
 import { Route as CompanySlugPassengerGamesRouteImport } from './routes/$companySlug/passenger.games'
 import { Route as CompanySlugPassengerEventsRouteImport } from './routes/$companySlug/passenger.events'
 import { Route as CompanySlugPassengerApplyRouteImport } from './routes/$companySlug/passenger.apply'
+import { Route as CompanySlugDriverSigninRouteImport } from './routes/$companySlug/driver.signin'
 import { Route as CompanySlugDriverProfileRouteImport } from './routes/$companySlug/driver.profile'
 import { Route as CompanySlugDriverMessagesRouteImport } from './routes/$companySlug/driver.messages'
 import { Route as CompanySlugDriverHistoryRouteImport } from './routes/$companySlug/driver.history'
@@ -237,6 +238,11 @@ const CompanySlugPassengerApplyRoute =
     path: '/apply',
     getParentRoute: () => CompanySlugPassengerRoute,
   } as any)
+const CompanySlugDriverSigninRoute = CompanySlugDriverSigninRouteImport.update({
+  id: '/signin',
+  path: '/signin',
+  getParentRoute: () => CompanySlugDriverRoute,
+} as any)
 const CompanySlugDriverProfileRoute =
   CompanySlugDriverProfileRouteImport.update({
     id: '/profile',
@@ -489,6 +495,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/driver/history': typeof CompanySlugDriverHistoryRoute
   '/$companySlug/driver/messages': typeof CompanySlugDriverMessagesRoute
   '/$companySlug/driver/profile': typeof CompanySlugDriverProfileRoute
+  '/$companySlug/driver/signin': typeof CompanySlugDriverSigninRoute
   '/$companySlug/passenger/apply': typeof CompanySlugPassengerApplyRoute
   '/$companySlug/passenger/events': typeof CompanySlugPassengerEventsRoute
   '/$companySlug/passenger/games': typeof CompanySlugPassengerGamesRoute
@@ -550,6 +557,7 @@ export interface FileRoutesByTo {
   '/$companySlug/driver/history': typeof CompanySlugDriverHistoryRoute
   '/$companySlug/driver/messages': typeof CompanySlugDriverMessagesRoute
   '/$companySlug/driver/profile': typeof CompanySlugDriverProfileRoute
+  '/$companySlug/driver/signin': typeof CompanySlugDriverSigninRoute
   '/$companySlug/passenger/apply': typeof CompanySlugPassengerApplyRoute
   '/$companySlug/passenger/events': typeof CompanySlugPassengerEventsRoute
   '/$companySlug/passenger/games': typeof CompanySlugPassengerGamesRoute
@@ -618,6 +626,7 @@ export interface FileRoutesById {
   '/$companySlug/driver/history': typeof CompanySlugDriverHistoryRoute
   '/$companySlug/driver/messages': typeof CompanySlugDriverMessagesRoute
   '/$companySlug/driver/profile': typeof CompanySlugDriverProfileRoute
+  '/$companySlug/driver/signin': typeof CompanySlugDriverSigninRoute
   '/$companySlug/passenger/apply': typeof CompanySlugPassengerApplyRoute
   '/$companySlug/passenger/events': typeof CompanySlugPassengerEventsRoute
   '/$companySlug/passenger/games': typeof CompanySlugPassengerGamesRoute
@@ -686,6 +695,7 @@ export interface FileRouteTypes {
     | '/$companySlug/driver/history'
     | '/$companySlug/driver/messages'
     | '/$companySlug/driver/profile'
+    | '/$companySlug/driver/signin'
     | '/$companySlug/passenger/apply'
     | '/$companySlug/passenger/events'
     | '/$companySlug/passenger/games'
@@ -747,6 +757,7 @@ export interface FileRouteTypes {
     | '/$companySlug/driver/history'
     | '/$companySlug/driver/messages'
     | '/$companySlug/driver/profile'
+    | '/$companySlug/driver/signin'
     | '/$companySlug/passenger/apply'
     | '/$companySlug/passenger/events'
     | '/$companySlug/passenger/games'
@@ -814,6 +825,7 @@ export interface FileRouteTypes {
     | '/$companySlug/driver/history'
     | '/$companySlug/driver/messages'
     | '/$companySlug/driver/profile'
+    | '/$companySlug/driver/signin'
     | '/$companySlug/passenger/apply'
     | '/$companySlug/passenger/events'
     | '/$companySlug/passenger/games'
@@ -1066,6 +1078,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$companySlug/passenger/apply'
       preLoaderRoute: typeof CompanySlugPassengerApplyRouteImport
       parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/driver/signin': {
+      id: '/$companySlug/driver/signin'
+      path: '/signin'
+      fullPath: '/$companySlug/driver/signin'
+      preLoaderRoute: typeof CompanySlugDriverSigninRouteImport
+      parentRoute: typeof CompanySlugDriverRoute
     }
     '/$companySlug/driver/profile': {
       id: '/$companySlug/driver/profile'
@@ -1449,6 +1468,7 @@ interface CompanySlugDriverRouteChildren {
   CompanySlugDriverHistoryRoute: typeof CompanySlugDriverHistoryRoute
   CompanySlugDriverMessagesRoute: typeof CompanySlugDriverMessagesRoute
   CompanySlugDriverProfileRoute: typeof CompanySlugDriverProfileRoute
+  CompanySlugDriverSigninRoute: typeof CompanySlugDriverSigninRoute
   CompanySlugDriverIndexRoute: typeof CompanySlugDriverIndexRoute
   CompanySlugDriverTripNewRoute: typeof CompanySlugDriverTripNewRoute
 }
@@ -1459,6 +1479,7 @@ const CompanySlugDriverRouteChildren: CompanySlugDriverRouteChildren = {
   CompanySlugDriverHistoryRoute: CompanySlugDriverHistoryRoute,
   CompanySlugDriverMessagesRoute: CompanySlugDriverMessagesRoute,
   CompanySlugDriverProfileRoute: CompanySlugDriverProfileRoute,
+  CompanySlugDriverSigninRoute: CompanySlugDriverSigninRoute,
   CompanySlugDriverIndexRoute: CompanySlugDriverIndexRoute,
   CompanySlugDriverTripNewRoute: CompanySlugDriverTripNewRoute,
 }
