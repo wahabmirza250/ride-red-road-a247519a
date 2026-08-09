@@ -43,7 +43,7 @@ function getOrCreateDeviceId(): string {
 function PassengerLayout() {
   const loc = useLocation();
   const track = useServerFn(trackVisitor);
-  const { user, isPassenger, isAdmin, isDriver, loading } = useAuth();
+  const { user, isPassenger, isDriver, loading } = useAuth();
   // Guests must arrive through a company-specific link. Resolved after mount
   // so SSR/hydration stay in sync.
   const [companySlug, setSlug] = useState<string | null | undefined>(undefined);
@@ -102,7 +102,10 @@ function PassengerLayout() {
   // Strict role isolation — a signed-in admin or driver must NEVER see the
   // passenger app just because their session persists in this browser.
   // Guests (no session) can still browse and book without signing in.
-  if (!loading && user && !isPassenger && (isAdmin || isDriver)) {
+  // Drivers stay blocked (their app is /driver). Admin/owner staff may view a
+  // tenant's public booking page — it is a guest flow with no passenger data,
+  // and the company shown comes strictly from the URL slug.
+  if (!loading && user && !isPassenger && isDriver) {
     return <AccessDenied appName="passenger" signInHref="/passenger/signup" signInLabel="passenger sign in" email={user.email} />;
   }
 
