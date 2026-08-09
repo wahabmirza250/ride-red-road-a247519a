@@ -373,6 +373,9 @@ function ChatEntry({
     [entry.draft, rates],
   );
   const riderName = entry.draft.rider?.full_name || entry.draft.newRider.full_name || "—";
+  const riderMedicaid =
+    entry.draft.rider?.medicaid_id || entry.draft.newRider.medicaid_id || "";
+
 
   const canReview =
     legs.length >= 1 &&
