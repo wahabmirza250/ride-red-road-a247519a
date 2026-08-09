@@ -13,7 +13,6 @@ import {
   ShieldAlert,
   Stethoscope,
   Trash2,
-  UserPlus,
   Users,
   Eye,
 } from "lucide-react";
