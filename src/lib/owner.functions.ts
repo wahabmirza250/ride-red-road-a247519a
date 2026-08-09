@@ -222,6 +222,33 @@ export const createCompany = createServerFn({ method: "POST" })
     return created;
   });
 
+/**
+ * Maps a Twilio number to a tenant. The inbound SMS webhook resolves the owning
+ * company from this value, so it must stay unique across companies.
+ */
+export const setCompanyTwilioPhone = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { company_id: string; twilio_phone: string | null }) => {
+    if (!input?.company_id) throw new Error("company_id required");
+    const raw = (input.twilio_phone ?? "").trim();
+    if (!raw) return { company_id: input.company_id, twilio_phone: null };
+    const digits = raw.replace(/\D/g, "");
+    const e164 =
+      raw.startsWith("+") ? `+${digits}` : digits.length === 10 ? `+1${digits}` : `+${digits}`;
+    if (!/^\+\d{8,15}$/.test(e164)) throw new Error("Enter a valid phone number");
+    return { company_id: input.company_id, twilio_phone: e164 };
+  })
+  .handler(async ({ data, context }) => {
+    const db = await gate((context as { userId: string }).userId);
+    const { error } = await db
+      .from("companies")
+      .update({ twilio_phone: data.twilio_phone })
+      .eq("id", data.company_id);
+    if (error) throw new Error(error.message);
+    return { ok: true, twilio_phone: data.twilio_phone };
+  });
+
+
 export const setCompanyStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { company_id: string; status: "active" | "suspended" }) => {
