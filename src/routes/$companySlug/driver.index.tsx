@@ -10,7 +10,6 @@ import {
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { useLocationBroadcast, requestCurrentPosition } from "@/lib/useGeolocation";
-import { openNavigation as openMapsNav } from "@/lib/mapsDeepLink";
 import { fmtMoney, haversineKm } from "@/lib/rideMath";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +35,7 @@ import { recordTripMedia } from "@/lib/tripMedia.functions";
 import { addTripStop, markStopArrived, markStopDeparted, updateTripAddress } from "@/lib/tripStops.functions";
 import { ActiveRouteCard } from "@/components/driver/ActiveRouteCard";
 import { ActiveTripMap } from "@/components/driver/ActiveTripMap";
+import { InAppNavigation } from "@/components/driver/InAppNavigation";
 import { EditAddressButton } from "@/components/driver/EditAddressButton";
 
 import {
@@ -132,6 +132,7 @@ function DriverHome() {
   const [showAddStop, setShowAddStop] = useState(false);
   const [showPickupForm, setShowPickupForm] = useState(false);
   const [showDropoffForm, setShowDropoffForm] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const [pickupOdoDone, setPickupOdoDone] = useState(false);
   const [dropoffOdoDone, setDropoffOdoDone] = useState(false);
   const [pickupOdoReading, setPickupOdoReading] = useState<number | null>(null);
@@ -505,15 +506,12 @@ function DriverHome() {
     toast.success(`Switched to ${pax.first_name} ${pax.last_name}`);
   }
 
+  /** Opens the full-screen in-app turn-by-turn navigator (never an external app). */
   function openNavigation() {
     if (!active) return;
-    const goingToDropoff = tripStatus === "in_progress";
-    openMapsNav({
-      lat: goingToDropoff ? active.dropoff_lat : active.pickup_lat,
-      lng: goingToDropoff ? active.dropoff_lng : active.pickup_lng,
-      address: goingToDropoff ? active.dropoff_address : active.pickup_address,
-    });
+    setNavOpen(true);
   }
+
 
   async function uploadOdometer(file: File | null, which: "start" | "end", reading?: number | null) {
     if (!active?.trip_id || !user) return;
@@ -793,69 +791,73 @@ function DriverHome() {
               (mirrors the pickup Fill-Form step) so the driver captures the
               photo + reading in the same flow as the signature. */}
 
-          {/* Step-by-step primary action. Only ONE main button per step. */}
+          {/* Linear Uber-style sequence: Navigate → Arrive → Start ride →
+              Complete form. Exactly ONE primary button per step, and every
+              step stays inside the app. */}
           <div className="space-y-2 pt-2">
             {tripStatus === "assigned" && (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button
-                  className="h-12 w-full rounded-full bg-primary text-base"
-                  onClick={() => setStatus("driver_en_route_to_pickup")}
-                >
-                  <Car className="mr-2 h-5 w-5" /> Start drive to pickup
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-12 w-full rounded-full text-base"
-                  onClick={() => setShowPickupForm(true)}
-                >
-                  <FileCheck className="mr-2 h-5 w-5" /> Fill form
-                </Button>
-              </div>
+              <Button
+                className="h-14 w-full rounded-full bg-primary text-base"
+                onClick={() => {
+                  void setStatus("driver_en_route_to_pickup");
+                  setNavOpen(true);
+                }}
+              >
+                <Navigation className="mr-2 h-5 w-5" /> Navigate to pickup
+              </Button>
             )}
             {tripStatus === "driver_en_route_to_pickup" && (
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-2">
                 <Button
-                  className="h-12 w-full rounded-full bg-primary text-base"
-                  onClick={() => setStatus("arrived_at_pickup")}
+                  className="h-14 w-full rounded-full bg-primary text-base"
+                  onClick={() => setNavOpen(true)}
                 >
-                  <Car className="mr-2 h-5 w-5" /> Arrive at Pickup
+                  <Navigation className="mr-2 h-5 w-5" /> Resume navigation
                 </Button>
                 <Button
                   variant="outline"
                   className="h-12 w-full rounded-full text-base"
-                  onClick={() => setShowPickupForm(true)}
+                  onClick={() => setStatus("arrived_at_pickup")}
                 >
-                  <FileCheck className="mr-2 h-5 w-5" /> Fill form
+                  <Car className="mr-2 h-5 w-5" /> Arrive at pickup
                 </Button>
               </div>
             )}
             {tripStatus === "arrived_at_pickup" && (
               <Button
-                className="h-12 w-full rounded-full bg-primary text-base"
-                onClick={() => setShowPickupForm(true)}
+                className="h-14 w-full rounded-full bg-emerald-500 text-base hover:bg-emerald-600"
+                onClick={() => {
+                  void setStatus("in_progress");
+                  setNavOpen(true);
+                }}
               >
-                <FileCheck className="mr-2 h-5 w-5" /> Fill form &amp; start trip
+                <CheckCircle2 className="mr-2 h-5 w-5" /> Start ride
               </Button>
             )}
             {tripStatus === "in_progress" && (
-              <Button
-                className="h-12 w-full rounded-full bg-emerald-500 text-base hover:bg-emerald-600"
-                onClick={() => setShowDropoffForm(true)}
-              >
-                <PenLine className="mr-2 h-5 w-5" /> Complete &amp; get signature
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  className="h-14 w-full rounded-full bg-primary text-base"
+                  onClick={() => setNavOpen(true)}
+                >
+                  <Navigation className="mr-2 h-5 w-5" /> Navigate to dropoff
+                </Button>
+                <Button
+                  className="h-12 w-full rounded-full bg-emerald-500 text-base hover:bg-emerald-600"
+                  onClick={() => setShowDropoffForm(true)}
+                >
+                  <PenLine className="mr-2 h-5 w-5" /> Complete trip
+                </Button>
+              </div>
             )}
 
             {/* Secondary actions — always small, out of the main flow. */}
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={openNavigation}>
-                  <Navigation className="mr-1 h-3.5 w-3.5" /> Turn-by-turn in Maps
-                </Button>
-                {tripStatus !== "in_progress" ? null : null}
                 <Button size="sm" variant="ghost" className="rounded-full text-xs" onClick={() => setShowAddStop(true)}>
                   <Plus className="mr-1 h-3.5 w-3.5" /> Add stop
                 </Button>
+
                 {active.trip_id && tripStatus === "in_progress" && (
                   <AppLink
                     to="/trips/$tripId/proof"
@@ -978,6 +980,47 @@ function DriverHome() {
         title="Drop-off odometer"
         submitLabel="Save & capture signature"
       />
+
+      {/* Full-screen in-app turn-by-turn navigation (no external handoff). */}
+      {active && (
+        <InAppNavigation
+          open={navOpen}
+          driver={
+            livePos ??
+            (driver?.current_lat != null && driver?.current_lng != null
+              ? { lat: driver.current_lat, lng: driver.current_lng }
+              : null)
+          }
+          destination={
+            tripStatus === "in_progress"
+              ? { lat: active.dropoff_lat, lng: active.dropoff_lng }
+              : { lat: active.pickup_lat, lng: active.pickup_lng }
+          }
+          destinationLabel={
+            tripStatus === "in_progress" ? active.dropoff_address : active.pickup_address
+          }
+          destinationKind={tripStatus === "in_progress" ? "dropoff" : "pickup"}
+          actionLabel={
+            tripStatus === "in_progress"
+              ? "Complete trip"
+              : tripStatus === "arrived_at_pickup"
+                ? "Start ride"
+                : "Arrive at pickup"
+          }
+          onAction={() => {
+            if (tripStatus === "in_progress") {
+              setNavOpen(false);
+              setShowDropoffForm(true);
+            } else if (tripStatus === "arrived_at_pickup") {
+              void setStatus("in_progress");
+            } else {
+              void setStatus("arrived_at_pickup");
+              setNavOpen(false);
+            }
+          }}
+          onClose={() => setNavOpen(false)}
+        />
+      )}
 
       {/* Passenger picker */}
       <PassengerPickerDialog open={showPicker} onOpenChange={setShowPicker} onPick={switchPassenger} />

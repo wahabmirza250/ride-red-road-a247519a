@@ -2,16 +2,27 @@ import { createServerFn } from "@tanstack/react-start";
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_maps";
 
+export type RouteStep = {
+  instruction: string;
+  maneuver: string | null;
+  distanceMeters: number;
+  end: { lat: number; lng: number };
+};
+
 export type ComputedRoute = {
   polyline: string;
   distanceText: string;
   durationText: string;
+  distanceMeters: number;
+  durationSeconds: number;
+  steps: RouteStep[];
 } | null;
 
 /**
  * Computes a driving route via the Google Routes API (through the Lovable
- * connector gateway). Used instead of the browser Directions service, which
- * the browser key is not authorized for.
+ * connector gateway). Returns the geometry, ETA and the ordered turn-by-turn
+ * steps so the driver app can render real in-app navigation guidance without
+ * handing off to an external maps app.
  */
 export const computeDriveRoute = createServerFn({ method: "POST" })
   .inputValidator((input: { from: { lat: number; lng: number }; to: { lat: number; lng: number } }) => input)
@@ -26,7 +37,14 @@ export const computeDriveRoute = createServerFn({ method: "POST" })
         Authorization: `Bearer ${lovableKey}`,
         "X-Connection-Api-Key": gmapsKey,
         "Content-Type": "application/json",
-        "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline",
+        "X-Goog-FieldMask": [
+          "routes.duration",
+          "routes.distanceMeters",
+          "routes.polyline.encodedPolyline",
+          "routes.legs.steps.navigationInstruction",
+          "routes.legs.steps.distanceMeters",
+          "routes.legs.steps.endLocation",
+        ].join(","),
       },
       body: JSON.stringify({
         origin: { location: { latLng: { latitude: data.from.lat, longitude: data.from.lng } } },
@@ -44,17 +62,44 @@ export const computeDriveRoute = createServerFn({ method: "POST" })
         distanceMeters?: number;
         duration?: string;
         polyline?: { encodedPolyline?: string };
+        legs?: Array<{
+          steps?: Array<{
+            distanceMeters?: number;
+            navigationInstruction?: { maneuver?: string; instructions?: string };
+            endLocation?: { latLng?: { latitude?: number; longitude?: number } };
+          }>;
+        }>;
       }>;
     };
     const r = json.routes?.[0];
     if (!r?.polyline?.encodedPolyline) return null;
 
-    const miles = (r.distanceMeters ?? 0) / 1609.34;
+    const meters = r.distanceMeters ?? 0;
+    const miles = meters / 1609.34;
     const seconds = Number(String(r.duration ?? "0s").replace("s", "")) || 0;
     const mins = Math.max(1, Math.round(seconds / 60));
+
+    const steps: RouteStep[] = [];
+    for (const leg of r.legs ?? []) {
+      for (const s of leg.steps ?? []) {
+        const lat = s.endLocation?.latLng?.latitude;
+        const lng = s.endLocation?.latLng?.longitude;
+        if (lat == null || lng == null) continue;
+        steps.push({
+          instruction: s.navigationInstruction?.instructions ?? "Continue",
+          maneuver: s.navigationInstruction?.maneuver ?? null,
+          distanceMeters: s.distanceMeters ?? 0,
+          end: { lat, lng },
+        });
+      }
+    }
+
     return {
       polyline: r.polyline.encodedPolyline,
       distanceText: miles < 0.2 ? `${Math.round(miles * 5280)} ft` : `${miles.toFixed(1)} mi`,
       durationText: mins >= 60 ? `${Math.floor(mins / 60)} hr ${mins % 60} min` : `${mins} min`,
+      distanceMeters: meters,
+      durationSeconds: seconds,
+      steps,
     };
   });
