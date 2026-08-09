@@ -380,7 +380,7 @@ function CompanyCard({
   );
 }
 
-function Mini({ label, value }: { label: string; value: number }) {
+function Mini({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-xl bg-muted/40 px-3 py-2">
       <p className="text-lg font-semibold tabular-nums">{value}</p>
