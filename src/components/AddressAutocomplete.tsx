@@ -75,15 +75,26 @@ export function AddressAutocomplete({
       try {
         setLoading(true);
         if (!sessionRef.current) sessionRef.current = newSessionToken();
-        const result = await runAutocomplete({
-          data: {
-            input: value.trim(),
-            sessionToken: sessionRef.current,
+        let result: Suggestion[];
+        try {
+          result = await runAutocomplete({
+            data: {
+              input: value.trim(),
+              sessionToken: sessionRef.current,
+              lat: biasLat,
+              lng: biasLng,
+              regionCode,
+            },
+          });
+        } catch {
+          // Server-side Places unavailable (connector not linked / referrer-
+          // restricted key) — fall back to browser Places.
+          result = await browserAutocomplete(value.trim(), {
             lat: biasLat,
             lng: biasLng,
             regionCode,
-          },
-        });
+          });
+        }
 
         if (myReq !== reqIdRef.current) return; // stale
         setSuggestions(result);
