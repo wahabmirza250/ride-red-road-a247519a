@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { DollarSign, TrendingUp, Loader2 } from "lucide-react";
-import { getCompanyEarnings, type EarningsBucket } from "@/lib/earnings.functions";
+import { getCompanyEarnings } from "@/lib/earnings.functions";
+import type { EarningsBucket } from "@/lib/earnings";
+
 import { cn } from "@/lib/utils";
 
 const money = (n: number) =>
