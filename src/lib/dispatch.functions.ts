@@ -256,7 +256,22 @@ export const cancelRideRequest = createServerFn({ method: "POST" })
         .eq("status", "busy");
     }
 
+    try {
+      const { notifyDispatchers } = await import("@/lib/notifyStaff.server");
+      await notifyDispatchers({
+        kind: "ride_cancelled",
+        title: "Ride cancelled",
+        body: `${req.contact_name ?? "Passenger"} — ${req.pickup_address} → ${req.dropoff_address}`,
+        url: "/dispatch",
+        companyId: req.company_id ?? null,
+        data: { ride_request_id: req.id, reason: data.reason ?? null },
+      });
+    } catch (e) {
+      console.warn("[dispatch] cancel alert failed", e);
+    }
+
     return { ok: true, already: false };
+
   });
 
 
