@@ -308,7 +308,8 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        // Handwriting reading needs the full Flash model, not the lite tier.
+        model: "google/gemini-2.5-flash",
         messages: [
           {
             role: "user",
@@ -316,8 +317,9 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
               {
                 type: "text",
                 text:
-                  'This is a NEMT paper trip report. Extract only what is clearly written. Return strict JSON: {"name":{"v":null,"c":0},"medicaid_id":{"v":null,"c":0},"trip_date":{"v":null,"c":0},"vehicle_type":{"v":null,"c":0},"l1p":{"v":null,"c":0},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0}}. name = passenger/member full name. medicaid_id = member/Medicaid ID. trip_date = ISO YYYY-MM-DD. vehicle_type = "ambulatory" or "wheelchair_van". l1p/l1d = leg 1 (outbound) beginning/ending odometer, l2p/l2d = leg 2 (return) beginning/ending odometer, digits only, no commas or units. "c" is confidence 0-1. Never guess: if a field is blank, smudged, cropped or ambiguous use v null and c 0. Output JSON only.',
+                  'This is a HANDWRITTEN NEMT paper trip report (Colorado HCPF style). Read the handwriting carefully, field by field. Return strict JSON: {"name":{"v":null,"c":0},"medicaid_id":{"v":null,"c":0},"trip_date":{"v":null,"c":0},"vehicle_type":{"v":null,"c":0},"l1p":{"v":null,"c":0},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0}}. name = member/passenger full name. medicaid_id = the Medicaid / Member / State ID, usually ONE letter followed by 6 digits (e.g. P458407, M964077); transcribe exactly, uppercase, no spaces or dashes; look near labels like "Medicaid ID", "Member ID", "State ID", "Client ID", "RID". trip_date = ISO YYYY-MM-DD. vehicle_type = "ambulatory" or "wheelchair_van". l1p/l1d = leg 1 (outbound) beginning/ending odometer; l2p/l2d = leg 2 (return) beginning/ending odometer; digits only, no commas or units. Handwriting hints: 0 vs O, 1 vs 7, 4 vs 9, 5 vs S — in the ID field, a leading character is a letter and the rest are digits. "c" is your confidence 0-1. Never guess: if a field is blank, smudged, cropped or ambiguous use v null and c 0. Output JSON only.',
               },
+
               filePart,
             ],
           },
