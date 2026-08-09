@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { DriverTripMap, type LatLng } from "@/components/nemt/DriverTripMap";
+import { EarningsPanel } from "@/components/admin/EarningsPanel";
+
 import { Avatar } from "@/components/Avatar";
 import {
   Search,
