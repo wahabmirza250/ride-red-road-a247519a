@@ -568,3 +568,372 @@ export const stopViewAsCompany = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+/* ------------------------------------------------------------------ *
+ * Staff management (platform owner only)
+ *
+ * Lets the owner create, remove and reset passwords for staff accounts of
+ * ANY company. Roles stay in `user_roles`; tenancy stays on `profiles`.
+ * ------------------------------------------------------------------ */
+
+export type StaffRole = "admin" | "dispatch" | "billing" | "driver";
+const STAFF_ROLES: StaffRole[] = ["admin", "dispatch", "billing", "driver"];
+
+export type CompanyStaff = {
+  id: string;
+  email: string | null;
+  name: string;
+  roles: StaffRole[];
+  is_active: boolean;
+  created_at: string;
+};
+
+export const listCompanyStaff = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { company_id: string }) => {
+    if (!input?.company_id) throw new Error("company_id required");
+    return { company_id: input.company_id };
+  })
+  .handler(async ({ data, context }) => {
+    const db = await gate((context as { userId: string }).userId);
+
+    const { data: roleRows } = await db
+      .from("user_roles")
+      .select("user_id, role")
+      .eq("company_id", data.company_id)
+      .in("role", STAFF_ROLES);
+
+    const ids = Array.from(new Set((roleRows ?? []).map((r) => r.user_id)));
+    if (!ids.length) return { staff: [] as CompanyStaff[] };
+
+    const { data: profs } = await db
+      .from("profiles")
+      .select("id, email, first_name, last_name, is_active, created_at")
+      .in("id", ids);
+
+    const staff: CompanyStaff[] = (profs ?? []).map((p) => ({
+      id: p.id,
+      email: p.email,
+      name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || (p.email ?? "Unnamed"),
+      roles: (roleRows ?? [])
+        .filter((r) => r.user_id === p.id)
+        .map((r) => r.role as StaffRole),
+      is_active: p.is_active,
+      created_at: p.created_at,
+    }));
+    staff.sort((a, b) => a.name.localeCompare(b.name));
+    return { staff };
+  });
+
+export const createCompanyStaff = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      company_id: string;
+      role: StaffRole;
+      email: string;
+      password: string;
+      first_name?: string;
+      last_name?: string;
+      phone?: string;
+    }) => {
+      const email = String(input?.email ?? "").trim().toLowerCase();
+      if (!input?.company_id) throw new Error("company_id required");
+      if (!STAFF_ROLES.includes(input?.role)) throw new Error("Invalid role");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid email");
+      if (String(input?.password ?? "").length < 8) throw new Error("Password must be at least 8 characters");
+      return {
+        company_id: input.company_id,
+        role: input.role,
+        email,
+        password: input.password,
+        first_name: (input.first_name ?? "").trim(),
+        last_name: (input.last_name ?? "").trim(),
+        phone: (input.phone ?? "").trim(),
+      };
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const db = await gate((context as { userId: string }).userId);
+
+    const { data: company } = await db
+      .from("companies")
+      .select("id")
+      .eq("id", data.company_id)
+      .maybeSingle();
+    if (!company) throw new Error("Company not found");
+
+    const { data: created, error } = await db.auth.admin.createUser({
+      email: data.email,
+      password: data.password,
+      email_confirm: true,
+      user_metadata: {
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: data.phone,
+        company_id: data.company_id,
+      },
+    });
+    if (error || !created.user) throw new Error(error?.message ?? "Could not create the account");
+
+    const uid = created.user.id;
+    await db.from("profiles").update({ company_id: data.company_id }).eq("id", uid);
+    await db
+      .from("user_roles")
+      .upsert({ user_id: uid, role: data.role, company_id: data.company_id }, { onConflict: "user_id,role" });
+    // Staff accounts hold exactly one role; the signup trigger's passenger
+    // role/record is not meaningful for them.
+    await db.from("user_roles").delete().eq("user_id", uid).neq("role", data.role);
+    await db.from("passengers").delete().eq("user_id", uid);
+
+    if (data.role === "driver") {
+      await db
+        .from("drivers")
+        .upsert({ user_id: uid, status: "offline", company_id: data.company_id }, { onConflict: "user_id" });
+    }
+
+    return { ok: true, user_id: uid, email: data.email, role: data.role };
+  });
+
+export const resetStaffPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { user_id: string; password: string }) => {
+    if (!input?.user_id) throw new Error("user_id required");
+    if (String(input?.password ?? "").length < 8) throw new Error("Password must be at least 8 characters");
+    return { user_id: input.user_id, password: input.password };
+  })
+  .handler(async ({ data, context }) => {
+    const db = await gate((context as { userId: string }).userId);
+    const { error } = await db.auth.admin.updateUserById(data.user_id, {
+      password: data.password,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Removes a staff account entirely (auth user + roles + profile records). */
+export const removeCompanyStaff = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { user_id: string }) => {
+    if (!input?.user_id) throw new Error("user_id required");
+    return { user_id: input.user_id };
+  })
+  .handler(async ({ data, context }) => {
+    const ownerId = (context as { userId: string }).userId;
+    if (data.user_id === ownerId) throw new Error("You cannot remove your own account");
+    const db = await gate(ownerId);
+
+    const { data: isOwner } = await db
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", data.user_id)
+      .eq("role", "platform_owner")
+      .maybeSingle();
+    if (isOwner) throw new Error("Platform owner accounts cannot be removed here");
+
+    await db.from("passengers").delete().eq("user_id", data.user_id);
+    await db.from("user_roles").delete().eq("user_id", data.user_id);
+    const { error } = await db.auth.admin.deleteUser(data.user_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/* ------------------------------------------------------------------ *
+ * Subscriptions — what each company pays the platform owner.
+ * ------------------------------------------------------------------ */
+
+export type CompanySubscription = {
+  company_id: string;
+  plan_name: string;
+  monthly_price: number;
+  status: string;
+  started_on: string;
+  renews_on: string | null;
+  notes: string | null;
+};
+
+export type SubscriptionPayment = {
+  id: string;
+  company_id: string;
+  amount: number;
+  paid_on: string;
+  period_start: string | null;
+  period_end: string | null;
+  method: string;
+  reference: string | null;
+  notes: string | null;
+};
+
+export const getSubscriptionOverview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = await gate((context as { userId: string }).userId);
+
+    const [companiesRes, subsRes, paysRes] = await Promise.all([
+      db.from("companies").select("id, name, url_slug, status").order("name"),
+      db.from("company_subscriptions").select("*"),
+      db.from("subscription_payments").select("*").order("paid_on", { ascending: false }),
+    ]);
+
+    const companies = companiesRes.data ?? [];
+    const subs = subsRes.data ?? [];
+    const pays = paysRes.data ?? [];
+
+    const now = new Date();
+    const monthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    const yearKey = String(now.getUTCFullYear());
+
+    const num = (v: unknown) => (typeof v === "number" ? v : Number(v ?? 0)) || 0;
+
+    const rows = companies.map((c) => {
+      const sub = subs.find((s) => s.company_id === c.id) ?? null;
+      const cPays = pays.filter((p) => p.company_id === c.id);
+      const collected = cPays.reduce((s, p) => s + num(p.amount), 0);
+      return {
+        company_id: c.id,
+        company_name: c.name,
+        url_slug: c.url_slug,
+        company_status: c.status,
+        plan_name: sub?.plan_name ?? null,
+        monthly_price: sub ? num(sub.monthly_price) : 0,
+        status: sub?.status ?? "none",
+        started_on: sub?.started_on ?? null,
+        renews_on: sub?.renews_on ?? null,
+        notes: sub?.notes ?? null,
+        collected: Math.round(collected * 100) / 100,
+        last_payment_on: cPays[0]?.paid_on ?? null,
+        payments: cPays.map((p) => ({
+          id: p.id,
+          company_id: p.company_id,
+          amount: num(p.amount),
+          paid_on: p.paid_on,
+          period_start: p.period_start,
+          period_end: p.period_end,
+          method: p.method,
+          reference: p.reference,
+          notes: p.notes,
+        })) as SubscriptionPayment[],
+      };
+    });
+
+    const activeMrr = rows
+      .filter((r) => r.status === "active" || r.status === "trial")
+      .reduce((s, r) => s + (r.status === "active" ? r.monthly_price : 0), 0);
+
+    return {
+      rows,
+      totals: {
+        mrr: Math.round(activeMrr * 100) / 100,
+        arr: Math.round(activeMrr * 12 * 100) / 100,
+        collected_all_time: Math.round(pays.reduce((s, p) => s + num(p.amount), 0) * 100) / 100,
+        collected_this_month:
+          Math.round(
+            pays
+              .filter((p) => String(p.paid_on ?? "").startsWith(monthKey))
+              .reduce((s, p) => s + num(p.amount), 0) * 100,
+          ) / 100,
+        collected_this_year:
+          Math.round(
+            pays
+              .filter((p) => String(p.paid_on ?? "").startsWith(yearKey))
+              .reduce((s, p) => s + num(p.amount), 0) * 100,
+          ) / 100,
+        paying_companies: rows.filter((r) => r.status === "active").length,
+      },
+    };
+  });
+
+export const upsertCompanySubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      company_id: string;
+      plan_name: string;
+      monthly_price: number | string;
+      status: string;
+      started_on?: string | null;
+      renews_on?: string | null;
+      notes?: string | null;
+    }) => {
+      if (!input?.company_id) throw new Error("company_id required");
+      const price = Number(input?.monthly_price ?? 0);
+      if (!Number.isFinite(price) || price < 0) throw new Error("Enter a valid monthly price");
+      const status = String(input?.status ?? "trial");
+      if (!["trial", "active", "past_due", "cancelled"].includes(status)) throw new Error("Invalid status");
+      return {
+        company_id: input.company_id,
+        plan_name: String(input.plan_name ?? "Standard").trim().slice(0, 60) || "Standard",
+        monthly_price: Math.round(price * 100) / 100,
+        status,
+        started_on: input.started_on || null,
+        renews_on: input.renews_on || null,
+        notes: (input.notes ?? "").trim() || null,
+      };
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const db = await gate((context as { userId: string }).userId);
+    const patch: Record<string, unknown> = {
+      company_id: data.company_id,
+      plan_name: data.plan_name,
+      monthly_price: data.monthly_price,
+      status: data.status,
+      renews_on: data.renews_on,
+      notes: data.notes,
+    };
+    if (data.started_on) patch.started_on = data.started_on;
+    const { error } = await db
+      .from("company_subscriptions")
+      .upsert(patch, { onConflict: "company_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const recordSubscriptionPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      company_id: string;
+      amount: number | string;
+      paid_on?: string | null;
+      period_start?: string | null;
+      period_end?: string | null;
+      method?: string | null;
+      reference?: string | null;
+      notes?: string | null;
+    }) => {
+      if (!input?.company_id) throw new Error("company_id required");
+      const amount = Number(input?.amount ?? 0);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error("Enter a payment amount");
+      return {
+        company_id: input.company_id,
+        amount: Math.round(amount * 100) / 100,
+        paid_on: input.paid_on || new Date().toISOString().slice(0, 10),
+        period_start: input.period_start || null,
+        period_end: input.period_end || null,
+        method: (input.method ?? "other").trim() || "other",
+        reference: (input.reference ?? "").trim() || null,
+        notes: (input.notes ?? "").trim() || null,
+      };
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const userId = (context as { userId: string }).userId;
+    const db = await gate(userId);
+    const { error } = await db.from("subscription_payments").insert({ ...data, recorded_by: userId });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteSubscriptionPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { payment_id: string }) => {
+    if (!input?.payment_id) throw new Error("payment_id required");
+    return { payment_id: input.payment_id };
+  })
+  .handler(async ({ data, context }) => {
+    const db = await gate((context as { userId: string }).userId);
+    const { error } = await db.from("subscription_payments").delete().eq("id", data.payment_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
