@@ -873,18 +873,19 @@ export const upsertCompanySubscription = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const db = await gate((context as { userId: string }).userId);
-    const patch: Record<string, unknown> = {
-      company_id: data.company_id,
-      plan_name: data.plan_name,
-      monthly_price: data.monthly_price,
-      status: data.status,
-      renews_on: data.renews_on,
-      notes: data.notes,
-    };
-    if (data.started_on) patch.started_on = data.started_on;
-    const { error } = await db
-      .from("company_subscriptions")
-      .upsert(patch, { onConflict: "company_id" });
+    const { error } = await db.from("company_subscriptions").upsert(
+      {
+        company_id: data.company_id,
+        plan_name: data.plan_name,
+        monthly_price: data.monthly_price,
+        status: data.status,
+        renews_on: data.renews_on,
+        notes: data.notes,
+        ...(data.started_on ? { started_on: data.started_on } : {}),
+      },
+      { onConflict: "company_id" },
+    );
+
     if (error) throw new Error(error.message);
     return { ok: true };
   });
