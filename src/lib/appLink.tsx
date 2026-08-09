@@ -12,7 +12,9 @@ import { getCompanySlug } from "@/lib/companyContext";
 export const APP_PREFIXES = new Set([
   "driver",
   "dispatch",
+  "billing",
   "passenger",
+
   "dashboard",
   "live-ops",
   "planner",
