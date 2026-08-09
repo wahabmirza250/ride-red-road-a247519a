@@ -247,13 +247,14 @@ async function attachPaperProof(args: {
   return finalPath;
 }
 
-/* --------------------------- odometer OCR --------------------------- */
+/* --------------------------- document OCR --------------------------- */
 
 /**
- * Cheap, narrow OCR pass over a paper trip report: read only the four
- * odometer fields. Same fallback contract as the driver odometer photo —
- * anything unreadable or low-confidence comes back null so the biller
- * types it manually instead of trusting a guess.
+ * One cheap vision pass over an uploaded paper trip report (image or PDF).
+ * Reads the passenger, trip date, vehicle type and the four odometer
+ * readings so the chat can calculate immediately. Same fallback contract as
+ * the driver odometer photo: anything unreadable or low-confidence comes
+ * back null so the biller fills it in instead of trusting a guess.
  */
 export const detectPaperBillOdometers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -262,8 +263,9 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
       .object({
         image_data_url: z
           .string()
-          .startsWith("data:image/")
-          .max(9_000_000, "Image is too large. Use a smaller photo."),
+          .startsWith("data:")
+          .max(12_000_000, "File is too large. Use a smaller photo or PDF."),
+        file_name: z.string().default("trip-report"),
       })
       .parse(d),
   )
@@ -272,12 +274,18 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
     const apiKey = process.env["LOVABLE_API_KEY"];
     if (!apiKey) throw new Error("Auto-read is not configured");
 
+    const isPdf = data.image_data_url.startsWith("data:application/pdf");
+    const filePart = isPdf
+      ? {
+          type: "file",
+          file: { filename: `${data.file_name}.pdf`, file_data: data.image_data_url },
+        }
+      : { type: "image_url", image_url: { url: data.image_data_url } };
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        // Cheapest vision-capable model: this is a 4-number read, not
-        // document understanding.
         model: "google/gemini-2.5-flash-lite",
         messages: [
           {
@@ -286,14 +294,14 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
               {
                 type: "text",
                 text:
-                  'This is a NEMT paper trip report. Read ONLY the odometer readings. Return strict JSON: {"l1p":{"v":"123456","c":0.9},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0}} where l1p/l1d are leg 1 (first trip) beginning/ending odometer and l2p/l2d are leg 2 (return trip) beginning/ending odometer. "v" is digits only (no commas, units or text) or null if you cannot read it clearly. "c" is your confidence 0-1. Never guess: if a field is blank, smudged, cropped, or ambiguous, use null with c 0. Output JSON only.',
+                  'This is a NEMT paper trip report. Extract only what is clearly written. Return strict JSON: {"name":{"v":null,"c":0},"medicaid_id":{"v":null,"c":0},"trip_date":{"v":null,"c":0},"vehicle_type":{"v":null,"c":0},"l1p":{"v":null,"c":0},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0}}. name = passenger/member full name. medicaid_id = member/Medicaid ID. trip_date = ISO YYYY-MM-DD. vehicle_type = "ambulatory" or "wheelchair_van". l1p/l1d = leg 1 (outbound) beginning/ending odometer, l2p/l2d = leg 2 (return) beginning/ending odometer, digits only, no commas or units. "c" is confidence 0-1. Never guess: if a field is blank, smudged, cropped or ambiguous use v null and c 0. Output JSON only.',
               },
-              { type: "image_url", image_url: { url: data.image_data_url } },
+              filePart,
             ],
           },
         ],
         temperature: 0,
-        max_tokens: 200,
+        max_tokens: 400,
       }),
     });
 
@@ -314,21 +322,40 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
     }
 
     const MIN_CONFIDENCE = 0.6;
-    const pick = (key: string): string | null => {
-      const node = parsed[key] as { v?: unknown; c?: unknown } | undefined;
-      if (!node || typeof node !== "object") return null;
-      const conf = typeof node.c === "number" ? node.c : 0;
-      const raw =
-        typeof node.v === "string" || typeof node.v === "number" ? String(node.v) : "";
+    const node = (key: string) => {
+      const n = parsed[key] as { v?: unknown; c?: unknown } | undefined;
+      if (!n || typeof n !== "object") return null;
+      const conf = typeof n.c === "number" ? n.c : 0;
+      if (conf < MIN_CONFIDENCE) return null;
+      const raw = typeof n.v === "string" || typeof n.v === "number" ? String(n.v).trim() : "";
+      return raw ? raw : null;
+    };
+    const odo = (key: string): string | null => {
+      const raw = node(key);
+      if (!raw) return null;
       const digits = raw.replace(/[^0-9]/g, "");
-      if (conf < MIN_CONFIDENCE || digits.length < 2 || digits.length > 8) return null;
+      if (digits.length < 2 || digits.length > 8) return null;
       return digits;
     };
 
+    const rawDate = node("trip_date");
+    const trip_date = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null;
+    const rawVehicle = (node("vehicle_type") ?? "").toLowerCase();
+    const vehicle_type = rawVehicle.includes("wheel")
+      ? "wheelchair_van"
+      : rawVehicle.includes("ambul")
+        ? "ambulatory"
+        : null;
+
     return {
-      l1p: pick("l1p"),
-      l1d: pick("l1d"),
-      l2p: pick("l2p"),
-      l2d: pick("l2d"),
+      name: node("name"),
+      medicaid_id: node("medicaid_id"),
+      trip_date,
+      vehicle_type,
+      l1p: odo("l1p"),
+      l1d: odo("l1d"),
+      l2p: odo("l2p"),
+      l2d: odo("l2d"),
     };
   });
+

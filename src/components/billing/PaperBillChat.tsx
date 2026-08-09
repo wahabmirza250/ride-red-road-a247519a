@@ -144,16 +144,20 @@ export function PaperBillChat() {
       return;
     }
     patch(key, { uploading: false, uploadPath: path });
-    if (!isPdf) void runOcr(key, file);
+    void runOcr(key, file);
   }
 
   /**
-   * Narrow OCR pass over the uploaded report. Mirrors the driver odometer
-   * photo behaviour: fields we can't read confidently stay blank for manual
-   * entry — we never surface a guess as if it were certain.
+   * Single cheap vision pass over the uploaded report (image or PDF). It
+   * pre-fills passenger, date, vehicle type and the odometers; when enough
+   * was read the chat jumps straight to the calculated claim so the biller
+   * only has to Confirm or Edit.
    */
   async function runOcr(key: string, file: File) {
-    if (file.size > 6 * 1024 * 1024) return;
+    if (file.size > 9 * 1024 * 1024) {
+      patch(key, { ocr: "failed" });
+      return;
+    }
     patch(key, { ocr: "running" });
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -162,10 +166,15 @@ export function PaperBillChat() {
         reader.onerror = () => reject(new Error("Could not read the file"));
         reader.readAsDataURL(file);
       });
-      const res = (await detectFn({ data: { image_data_url: dataUrl } })) as Record<
-        OdoField,
-        string | null
-      >;
+      const res = (await detectFn({
+        data: { image_data_url: dataUrl, file_name: file.name },
+      })) as {
+        name: string | null;
+        medicaid_id: string | null;
+        trip_date: string | null;
+        vehicle_type: "ambulatory" | "wheelchair_van" | null;
+      } & Record<OdoField, string | null>;
+
       const filled: OdoField[] = [];
       const nextDraft: Partial<Draft> = {};
       (["l1p", "l1d", "l2p", "l2d"] as OdoField[]).forEach((f) => {
@@ -174,20 +183,41 @@ export function PaperBillChat() {
           filled.push(f);
         }
       });
+      if (res?.trip_date) nextDraft.trip_date = res.trip_date;
+      if (res?.vehicle_type) nextDraft.vehicle_type = res.vehicle_type;
+      if (res?.name || res?.medicaid_id) {
+        nextDraft.newRider = {
+          full_name: res.name ?? "",
+          medicaid_id: res.medicaid_id ?? "",
+        };
+      }
+
+      const readyToReview =
+        !!nextDraft.l1p &&
+        !!nextDraft.l1d &&
+        !!(nextDraft.newRider?.full_name && nextDraft.newRider?.medicaid_id);
+
       setEntries((prev) =>
         prev.map((e) =>
           e.key === key
-            ? { ...e, ocr: "done", ocrFilled: filled, draft: { ...e.draft, ...nextDraft } }
+            ? {
+                ...e,
+                ocr: "done",
+                ocrFilled: filled,
+                stage: readyToReview ? "review" : "form",
+                draft: { ...e.draft, ...nextDraft },
+              }
             : e,
         ),
       );
       if (filled.length === 0) {
-        toast.message("Couldn't read the odometers — enter them manually.");
+        toast.message("Couldn't read the document — enter the details manually.");
       }
     } catch {
       patch(key, { ocr: "failed", ocrFilled: [] });
     }
   }
+
 
   async function confirm(entry: Entry) {
     const legs = legsFromDraft(entry.draft);
@@ -403,7 +433,14 @@ function ChatEntry({
       {entry.stage === "review" && (
         <Bubble side="bot">
           <div className="w-[min(78vw,520px)] space-y-2">
+            {entry.ocrFilled.length > 0 && (
+              <div className="rounded-lg border border-amber-400/60 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+                Read from the uploaded document. Check the numbers — Confirm if correct, Edit to
+                fix anything.
+              </div>
+            )}
             <div className="text-sm font-semibold">{riderName}</div>
+
             <div className="text-xs text-muted-foreground">
               {entry.draft.trip_date} ·{" "}
               {calc.trip_kind === "round_trip" ? "Round trip (2 units)" : "One way (1 unit)"} ·{" "}
