@@ -560,6 +560,11 @@ function DashboardPage() {
           </div>
         </div>
 
+        {/* Earnings */}
+        <EarningsPanel />
+
+
+
         {/* Stats */}
         <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-5">
           <StatCardX tint={ACCENT.blue} icon={<Clock className="h-[18px] w-[18px]" />} label="Trip time" value={tripTime} />
