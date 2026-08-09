@@ -322,7 +322,7 @@ function CompanyCard({
             <Eye className="mr-1 h-3.5 w-3.5" />
             View as company
           </Button>
-          <NewAdminDialog companyId={c.id} companyName={c.name} />
+          <StaffManagerDialog companyId={c.id} companyName={c.name} onChanged={onChanged} />
           <Button variant="outline" size="sm" className="rounded-full" onClick={onHealthCheck} disabled={checking}>
             {checking ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Stethoscope className="mr-1 h-3.5 w-3.5" />}
             Health check
