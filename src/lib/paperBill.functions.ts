@@ -90,24 +90,46 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
     const { requireCompanyId } = await import("@/lib/company.server");
     const companyId = await requireCompanyId(userId);
 
-    // 1. Resolve the rider
+    // 1. Resolve the rider — match an existing passenger on Medicaid ID first
+    //    so re-billing a known member never trips the unique index.
     let riderId = data.rider_id ?? null;
     if (!riderId) {
       if (!data.new_rider) throw new Error("Pick an existing passenger or add a new one");
-      const { data: rider, error: riderErr } = await supabase
+      const medicaidId = data.new_rider.medicaid_id.trim();
+      const { data: existing } = await supabase
         .from("riders")
-        .insert({
-          full_name: data.new_rider.full_name.trim(),
-          medicaid_id: data.new_rider.medicaid_id.trim(),
-          dob: data.new_rider.dob || null,
-          phone: data.new_rider.phone || null,
-          company_id: companyId,
-        })
         .select("id")
-        .single();
-      if (riderErr) throw new Error(riderErr.message);
-      riderId = rider.id;
+        .eq("medicaid_id", medicaidId)
+        .maybeSingle();
+      if (existing?.id) {
+        riderId = existing.id;
+      } else {
+        const { data: rider, error: riderErr } = await supabase
+          .from("riders")
+          .insert({
+            full_name: data.new_rider.full_name.trim(),
+            medicaid_id: medicaidId,
+            dob: data.new_rider.dob || null,
+            phone: data.new_rider.phone || null,
+            company_id: companyId,
+          })
+          .select("id")
+          .single();
+        if (riderErr) {
+          // Race or cross-company duplicate: fall back to the existing row.
+          const { data: dupe } = await supabase
+            .from("riders")
+            .select("id")
+            .eq("medicaid_id", medicaidId)
+            .maybeSingle();
+          if (!dupe?.id) throw new Error(riderErr.message);
+          riderId = dupe.id;
+        } else {
+          riderId = rider.id;
+        }
+      }
     }
+
 
     // 2. Odometers → miles → trip kind (purely from what was entered)
     const legs = data.legs.filter(
