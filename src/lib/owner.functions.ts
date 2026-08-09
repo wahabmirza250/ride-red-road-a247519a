@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { parseAmount } from "@/lib/earnings";
+import { passwordError } from "@/lib/passwordError";
 
 
 /**
@@ -674,7 +675,7 @@ export const createCompanyStaff = createServerFn({ method: "POST" })
         company_id: data.company_id,
       },
     });
-    if (error || !created.user) throw new Error(error?.message ?? "Could not create the account");
+    if (error || !created.user) throw new Error(passwordError(error?.message) ?? "Could not create the account");
 
     const uid = created.user.id;
     await db.from("profiles").update({ company_id: data.company_id }).eq("id", uid);
@@ -707,7 +708,7 @@ export const resetStaffPassword = createServerFn({ method: "POST" })
     const { error } = await db.auth.admin.updateUserById(data.user_id, {
       password: data.password,
     });
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(passwordError(error.message) ?? "Could not reset the password");
     return { ok: true };
   });
 

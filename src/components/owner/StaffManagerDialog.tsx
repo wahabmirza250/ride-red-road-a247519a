@@ -29,6 +29,7 @@ import {
   type CompanyStaff,
   type StaffRole,
 } from "@/lib/owner.functions";
+import { generateStrongPassword } from "@/lib/passwordError";
 
 const ROLE_LABEL: Record<StaffRole, string> = {
   admin: "Admin",
@@ -250,15 +251,29 @@ export function StaffManagerDialog({
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="st-pass">Temporary password</Label>
-                <Input
-                  id="st-pass"
-                  type="text"
-                  value={password}
-                  minLength={8}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="st-pass"
+                    type="text"
+                    value={password}
+                    minLength={12}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => setPassword(generateStrongPassword())}
+                  >
+                    Generate
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Must be unique and not found in known breach lists — 12+ characters recommended.
+                </p>
               </div>
+
             </div>
             <Button type="submit" className="rounded-full" disabled={busy}>
               {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />} Create {ROLE_LABEL[role].toLowerCase()}
@@ -285,15 +300,29 @@ export function StaffManagerDialog({
           <form onSubmit={onResetSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="st-newpass">New password</Label>
-              <Input
-                id="st-newpass"
-                type="text"
-                value={newPassword}
-                minLength={8}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="st-newpass"
+                  type="text"
+                  value={newPassword}
+                  minLength={12}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => setNewPassword(generateStrongPassword())}
+                >
+                  Generate
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Common passwords (e.g. “Demo2026!”) are rejected as breached — use Generate for a safe one.
+              </p>
             </div>
+
             <DialogFooter>
               <Button type="submit" className="rounded-full" disabled={busy}>
                 {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />} Update password
