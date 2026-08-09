@@ -433,7 +433,14 @@ function ChatEntry({
       {entry.stage === "review" && (
         <Bubble side="bot">
           <div className="w-[min(78vw,520px)] space-y-2">
+            {entry.ocrFilled.length > 0 && (
+              <div className="rounded-lg border border-amber-400/60 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+                Read from the uploaded document. Check the numbers — Confirm if correct, Edit to
+                fix anything.
+              </div>
+            )}
             <div className="text-sm font-semibold">{riderName}</div>
+
             <div className="text-xs text-muted-foreground">
               {entry.draft.trip_date} ·{" "}
               {calc.trip_kind === "round_trip" ? "Round trip (2 units)" : "One way (1 unit)"} ·{" "}
