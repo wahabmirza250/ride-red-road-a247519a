@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -28,6 +28,20 @@ function CompanyLayout() {
   const { companySlug } = Route.useParams();
   const isBareLegacy = APP_PREFIXES.has(companySlug);
   const { user, loading } = useAuth();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Guest-facing routes (passenger booking, sign-in pages) are resolved STRICTLY
+  // from the URL slug. They must never inherit company context from a staff /
+  // owner session, otherwise /london/passenger bounces to /walla/passenger.
+  const isPublicRoute = (() => {
+    const rest = pathname.split("/").slice(2).join("/");
+    return (
+      rest === "" ||
+      rest.startsWith("passenger") ||
+      rest === "login" ||
+      rest.endsWith("signin") ||
+      rest.endsWith("signup")
+    );
+  })();
   const myCompany = useServerFn(getMyCompany);
   const resolve = useServerFn(resolveCompanySlug);
   const [state, setState] = useState<State>("loading");
@@ -39,7 +53,7 @@ function CompanyLayout() {
 
     (async () => {
       try {
-        if (user) {
+        if (user && !isPublicRoute) {
           const mine = await myCompany({});
           if (cancelled) return;
           if (!mine.slug) return setState("nocompany");
@@ -69,7 +83,7 @@ function CompanyLayout() {
     return () => {
       cancelled = true;
     };
-  }, [companySlug, isBareLegacy, loading, user, myCompany, resolve]);
+  }, [companySlug, isBareLegacy, loading, user, isPublicRoute, myCompany, resolve]);
 
   if (isBareLegacy) return <Outlet />;
 
