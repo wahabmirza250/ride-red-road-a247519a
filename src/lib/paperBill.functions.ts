@@ -371,9 +371,24 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
         ? "ambulatory"
         : null;
 
+    const medicaidId = (node("medicaid_id") ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "") || null;
+
+    // Link a known passenger straight away so billing reuses the existing
+    // record instead of trying to create a duplicate member.
+    let rider: { id: string; full_name: string; medicaid_id: string } | null = null;
+    if (medicaidId) {
+      const { data: match } = await context.supabase
+        .from("riders")
+        .select("id, full_name, medicaid_id")
+        .eq("medicaid_id", medicaidId)
+        .maybeSingle();
+      if (match) rider = match as typeof rider;
+    }
+
     return {
       name: node("name"),
-      medicaid_id: node("medicaid_id"),
+      medicaid_id: medicaidId,
+      rider,
       trip_date,
       vehicle_type,
       l1p: odo("l1p"),
@@ -382,4 +397,5 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
       l2d: odo("l2d"),
     };
   });
+
 
