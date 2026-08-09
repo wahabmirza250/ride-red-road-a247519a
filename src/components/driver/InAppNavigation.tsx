@@ -67,6 +67,7 @@ export function InAppNavigation({
   const [stepIndex, setStepIndex] = useState(0);
   const [muted, setMuted] = useState(false);
   const [follow, setFollow] = useState(true);
+  const [routeFailed, setRouteFailed] = useState(false);
   const { theme } = useTheme();
 
   // Create the map when the overlay opens.
@@ -120,8 +121,13 @@ export function InAppNavigation({
     if (key === routeKeyRef.current) return;
     routeKeyRef.current = key;
     let cancelled = false;
+    setRouteFailed(false);
     void fetchRoute(driver).then((r) => {
-      if (cancelled || !r) return;
+      if (cancelled) return;
+      if (!r) {
+        setRouteFailed(true);
+        return;
+      }
       setRoute(r);
       const g = window.google;
       const map = mapRef.current;
@@ -242,7 +248,11 @@ export function InAppNavigation({
                 </>
               ) : (
                 <div className="text-sm text-slate-300">
-                  {driver ? "Calculating turn-by-turn directions…" : "Waiting for your GPS location…"}
+                  {!driver
+                    ? "Waiting for your GPS location…"
+                    : routeFailed
+                      ? "Turn-by-turn directions unavailable right now — follow the route line on the map."
+                      : "Calculating turn-by-turn directions…"}
                 </div>
               )}
             </div>
