@@ -127,16 +127,11 @@ export const getPlaceDetails = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }): Promise<PlaceDetails | null> => {
-    const { lovableKey, gmapsKey } = creds();
     const params = new URLSearchParams();
     if (data.sessionToken) params.set("sessionToken", data.sessionToken);
     const qs = params.toString() ? `?${params.toString()}` : "";
-    const res = await fetch(`${GATEWAY_URL}/places/v1/places/${encodeURIComponent(data.placeId)}${qs}`, {
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": gmapsKey,
-        "X-Goog-FieldMask": "id,formattedAddress,location",
-      },
+    const res = await placesRequest(`/v1/places/${encodeURIComponent(data.placeId)}${qs}`, {
+      headers: { "X-Goog-FieldMask": "id,formattedAddress,location" },
     });
     if (!res.ok) {
       const body = await res.text();
