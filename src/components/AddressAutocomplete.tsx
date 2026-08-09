@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useServerFn } from "@tanstack/react-start";
 import { autocompletePlaces, getPlaceDetails } from "@/lib/places.functions";
+import { browserAutocomplete, browserPlaceDetails } from "@/lib/placesBrowser";
 
 export type ResolvedPlace = {
   address: string;
