@@ -300,15 +300,29 @@ export function StaffManagerDialog({
           <form onSubmit={onResetSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="st-newpass">New password</Label>
-              <Input
-                id="st-newpass"
-                type="text"
-                value={newPassword}
-                minLength={8}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="st-newpass"
+                  type="text"
+                  value={newPassword}
+                  minLength={12}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => setNewPassword(generateStrongPassword())}
+                >
+                  Generate
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Common passwords (e.g. “Demo2026!”) are rejected as breached — use Generate for a safe one.
+              </p>
             </div>
+
             <DialogFooter>
               <Button type="submit" className="rounded-full" disabled={busy}>
                 {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />} Update password
