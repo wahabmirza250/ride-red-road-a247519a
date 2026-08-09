@@ -386,6 +386,45 @@ function CompanyCard({
   );
 }
 
+/** Maps the company's Twilio number so inbound booking texts route to it. */
+function TwilioNumberField({ companyId, current }: { companyId: string; current: string | null }) {
+  const save = useServerFn(setCompanyTwilioPhone);
+  const [value, setValue] = useState(current ?? "");
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div className="mt-4 flex flex-wrap items-end gap-2">
+      <div className="min-w-[220px] flex-1">
+        <Label className="text-[11px] text-muted-foreground">SMS booking number (Twilio)</Label>
+        <Input
+          value={value}
+          placeholder="+1 555 123 4567"
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </div>
+      <Button
+        variant="outline"
+        disabled={busy || value === (current ?? "")}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            const res = await save({ data: { company_id: companyId, twilio_phone: value || null } });
+            setValue(res.twilio_phone ?? "");
+            toast.success("SMS number saved");
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Could not save number");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+      </Button>
+    </div>
+  );
+}
+
+
 function Mini({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-xl bg-muted/40 px-3 py-2">
