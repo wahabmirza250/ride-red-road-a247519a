@@ -9,6 +9,18 @@ import { toast } from "sonner";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { useCurrentPosition } from "@/lib/useGeolocation";
 import { geocodeAddress, reverseGeocode } from "@/lib/geocode.functions";
+import { browserGeocode } from "@/lib/placesBrowser";
+
+/** Geocode server-side, falling back to the browser Geocoder if unavailable. */
+async function lookupAddress(address: string) {
+  try {
+    const g = await geocodeAddress({ data: { address } });
+    if (g) return g;
+  } catch {
+    // fall through to browser geocoder
+  }
+  return browserGeocode(address);
+}
 
 export type BookingStop = { address: string; lat: number | null; lng: number | null };
 
