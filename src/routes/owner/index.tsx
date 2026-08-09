@@ -15,6 +15,7 @@ import {
   Trash2,
   UserPlus,
   Users,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,6 +43,7 @@ import {
   runPortalHealthCheck,
   setCompanyStatus,
   setCompanyTwilioPhone,
+  startViewAsCompany,
 
   type OwnerCompany,
 } from "@/lib/owner.functions";
@@ -220,6 +222,7 @@ function CompanyCard({
   const toggleStatus = useServerFn(setCompanyStatus);
   const healthCheck = useServerFn(runPortalHealthCheck);
   const removeCompany = useServerFn(deleteCompany);
+  const viewAs = useServerFn(startViewAsCompany);
   const [health, setHealth] = useState<{ ok: boolean; active: boolean; detail: string; at?: string } | null>(
     null,
   );
@@ -271,6 +274,17 @@ function CompanyCard({
     }
   }
 
+  async function onViewAs() {
+    setBusy(true);
+    try {
+      const r = await viewAs({ data: { company_id: c.id } });
+      window.location.assign(`/${r.slug}/dashboard`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not open that company");
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="rounded-3xl border border-border bg-surface p-5 shadow-soft">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -304,6 +318,10 @@ function CompanyCard({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Button size="sm" className="rounded-full" onClick={onViewAs} disabled={busy || suspended}>
+            <Eye className="mr-1 h-3.5 w-3.5" />
+            View as company
+          </Button>
           <NewAdminDialog companyId={c.id} companyName={c.name} />
           <Button variant="outline" size="sm" className="rounded-full" onClick={onHealthCheck} disabled={checking}>
             {checking ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Stethoscope className="mr-1 h-3.5 w-3.5" />}

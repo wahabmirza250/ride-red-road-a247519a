@@ -2599,6 +2599,7 @@ export type Database = {
         Returns: boolean
       }
       is_platform_owner: { Args: never; Returns: boolean }
+      owner_unscoped: { Args: never; Returns: boolean }
       requests_on_route: {
         Args: { _ids: string[] }
         Returns: {
