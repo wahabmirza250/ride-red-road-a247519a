@@ -261,7 +261,22 @@ export const adminCancelTrip = createServerFn({ method: "POST" })
       data: { reason: data.reason ?? null },
     });
 
+    try {
+      const { notifyDispatchers } = await import("@/lib/notifyStaff.server");
+      await notifyDispatchers({
+        kind: "ride_cancelled",
+        title: "Ride cancelled by staff",
+        body: `${req.pickup_address} → ${req.dropoff_address}`,
+        url: "/dispatch",
+        companyId: callerCompany,
+        data: { ride_request_id: req.id, reason: data.reason ?? null },
+      });
+    } catch (e) {
+      console.warn("[adminCancelTrip] alert failed", e);
+    }
+
     return { ok: true };
+
   });
 
 /**
