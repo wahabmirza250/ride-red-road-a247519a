@@ -222,7 +222,8 @@ export const cancelRideRequest = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: req } = await supabaseAdmin
       .from("ride_requests")
-      .select("id, status, driver_id, trip_id")
+      .select("id, status, driver_id, trip_id, company_id, contact_name, pickup_address, dropoff_address")
+
       .eq("id", data.request_id)
       .maybeSingle();
     if (!req) throw new Error("Ride request not found");
