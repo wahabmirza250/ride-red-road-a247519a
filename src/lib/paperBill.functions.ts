@@ -382,7 +382,7 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
         .select("id, full_name, medicaid_id")
         .eq("medicaid_id", medicaidId)
         .maybeSingle();
-      if (match) rider = match as typeof rider;
+      if (match) rider = match as { id: string; full_name: string; medicaid_id: string };
     }
 
     return {
