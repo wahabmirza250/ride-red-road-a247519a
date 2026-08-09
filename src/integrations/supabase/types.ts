@@ -361,6 +361,53 @@ export type Database = {
         }
         Relationships: []
       }
+      company_subscriptions: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          monthly_price: number
+          notes: string | null
+          plan_name: string
+          renews_on: string | null
+          started_on: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          monthly_price?: number
+          notes?: string | null
+          plan_name?: string
+          renews_on?: string | null
+          started_on?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          monthly_price?: number
+          notes?: string | null
+          plan_name?: string
+          renews_on?: string | null
+          started_on?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_subscriptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contest_entries: {
         Row: {
           created_at: string
@@ -2204,6 +2251,59 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      subscription_payments: {
+        Row: {
+          amount: number
+          company_id: string
+          created_at: string
+          id: string
+          method: string
+          notes: string | null
+          paid_on: string
+          period_end: string | null
+          period_start: string | null
+          recorded_by: string | null
+          reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          company_id: string
+          created_at?: string
+          id?: string
+          method?: string
+          notes?: string | null
+          paid_on?: string
+          period_end?: string | null
+          period_start?: string | null
+          recorded_by?: string | null
+          reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          created_at?: string
+          id?: string
+          method?: string
+          notes?: string | null
+          paid_on?: string
+          period_end?: string | null
+          period_start?: string | null
+          recorded_by?: string | null
+          reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       trip_billing_records: {
         Row: {
