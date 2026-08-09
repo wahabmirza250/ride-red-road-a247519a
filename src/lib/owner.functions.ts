@@ -88,6 +88,20 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
     const isClaim = (m: (typeof med)[number]) =>
       Boolean(m.robot_confirmation_number || m.submitted_confirmation || m.status === "submitted");
 
+    /** Per-tenant billed total; the owner list keeps every company separate. */
+    const companyEarnings = (rows: typeof med) =>
+      Math.round(
+        rows
+          .filter(isClaim)
+          .reduce((sum, m) => {
+            const captured = (m.robot_captured_claim ?? null) as
+              | { total_charged_amount?: unknown }
+              | null;
+            return sum + parseAmount(captured?.total_charged_amount);
+          }, 0) * 100,
+      ) / 100;
+
+
     const rows: OwnerCompany[] = await Promise.all(
       companies.map(async (c) => {
         const cTrips = trips.filter((t) => t.company_id === c.id);
