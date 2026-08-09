@@ -708,7 +708,7 @@ export const resetStaffPassword = createServerFn({ method: "POST" })
     const { error } = await db.auth.admin.updateUserById(data.user_id, {
       password: data.password,
     });
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(passwordError(error.message) ?? "Could not reset the password");
     return { ok: true };
   });
 
