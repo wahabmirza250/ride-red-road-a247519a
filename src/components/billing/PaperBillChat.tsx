@@ -171,6 +171,7 @@ export function PaperBillChat() {
       })) as {
         name: string | null;
         medicaid_id: string | null;
+        rider: Rider | null;
         trip_date: string | null;
         vehicle_type: "ambulatory" | "wheelchair_van" | null;
       } & Record<OdoField, string | null>;
@@ -185,7 +186,10 @@ export function PaperBillChat() {
       });
       if (res?.trip_date) nextDraft.trip_date = res.trip_date;
       if (res?.vehicle_type) nextDraft.vehicle_type = res.vehicle_type;
-      if (res?.name || res?.medicaid_id) {
+      if (res?.rider) {
+        // Known member — bill against the existing passenger record.
+        nextDraft.rider = res.rider;
+      } else if (res?.name || res?.medicaid_id) {
         nextDraft.newRider = {
           full_name: res.name ?? "",
           medicaid_id: res.medicaid_id ?? "",
@@ -195,7 +199,9 @@ export function PaperBillChat() {
       const readyToReview =
         !!nextDraft.l1p &&
         !!nextDraft.l1d &&
-        !!(nextDraft.newRider?.full_name && nextDraft.newRider?.medicaid_id);
+        (!!nextDraft.rider ||
+          !!(nextDraft.newRider?.full_name && nextDraft.newRider?.medicaid_id));
+
 
       setEntries((prev) =>
         prev.map((e) =>
@@ -367,6 +373,9 @@ function ChatEntry({
     [entry.draft, rates],
   );
   const riderName = entry.draft.rider?.full_name || entry.draft.newRider.full_name || "—";
+  const riderMedicaid =
+    entry.draft.rider?.medicaid_id || entry.draft.newRider.medicaid_id || "";
+
 
   const canReview =
     legs.length >= 1 &&
@@ -440,6 +449,18 @@ function ChatEntry({
               </div>
             )}
             <div className="text-sm font-semibold">{riderName}</div>
+            {riderMedicaid ? (
+              <div className="font-mono text-xs text-muted-foreground">
+                Medicaid ID: {riderMedicaid}
+                {entry.draft.rider ? " · existing passenger" : " · new passenger"}
+              </div>
+            ) : (
+              <div className="text-xs text-destructive">
+                Medicaid ID not read — click Edit and enter it before confirming.
+              </div>
+            )}
+
+
 
             <div className="text-xs text-muted-foreground">
               {entry.draft.trip_date} ·{" "}

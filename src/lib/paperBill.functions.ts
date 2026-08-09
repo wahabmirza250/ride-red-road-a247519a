@@ -90,24 +90,46 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
     const { requireCompanyId } = await import("@/lib/company.server");
     const companyId = await requireCompanyId(userId);
 
-    // 1. Resolve the rider
+    // 1. Resolve the rider — match an existing passenger on Medicaid ID first
+    //    so re-billing a known member never trips the unique index.
     let riderId = data.rider_id ?? null;
     if (!riderId) {
       if (!data.new_rider) throw new Error("Pick an existing passenger or add a new one");
-      const { data: rider, error: riderErr } = await supabase
+      const medicaidId = data.new_rider.medicaid_id.trim();
+      const { data: existing } = await supabase
         .from("riders")
-        .insert({
-          full_name: data.new_rider.full_name.trim(),
-          medicaid_id: data.new_rider.medicaid_id.trim(),
-          dob: data.new_rider.dob || null,
-          phone: data.new_rider.phone || null,
-          company_id: companyId,
-        })
         .select("id")
-        .single();
-      if (riderErr) throw new Error(riderErr.message);
-      riderId = rider.id;
+        .eq("medicaid_id", medicaidId)
+        .maybeSingle();
+      if (existing?.id) {
+        riderId = existing.id;
+      } else {
+        const { data: rider, error: riderErr } = await supabase
+          .from("riders")
+          .insert({
+            full_name: data.new_rider.full_name.trim(),
+            medicaid_id: medicaidId,
+            dob: data.new_rider.dob || null,
+            phone: data.new_rider.phone || null,
+            company_id: companyId,
+          })
+          .select("id")
+          .single();
+        if (riderErr) {
+          // Race or cross-company duplicate: fall back to the existing row.
+          const { data: dupe } = await supabase
+            .from("riders")
+            .select("id")
+            .eq("medicaid_id", medicaidId)
+            .maybeSingle();
+          if (!dupe?.id) throw new Error(riderErr.message);
+          riderId = dupe.id;
+        } else {
+          riderId = rider.id;
+        }
+      }
     }
+
 
     // 2. Odometers → miles → trip kind (purely from what was entered)
     const legs = data.legs.filter(
@@ -286,7 +308,8 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        // Handwriting reading needs the full Flash model, not the lite tier.
+        model: "google/gemini-2.5-flash",
         messages: [
           {
             role: "user",
@@ -294,8 +317,9 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
               {
                 type: "text",
                 text:
-                  'This is a NEMT paper trip report. Extract only what is clearly written. Return strict JSON: {"name":{"v":null,"c":0},"medicaid_id":{"v":null,"c":0},"trip_date":{"v":null,"c":0},"vehicle_type":{"v":null,"c":0},"l1p":{"v":null,"c":0},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0}}. name = passenger/member full name. medicaid_id = member/Medicaid ID. trip_date = ISO YYYY-MM-DD. vehicle_type = "ambulatory" or "wheelchair_van". l1p/l1d = leg 1 (outbound) beginning/ending odometer, l2p/l2d = leg 2 (return) beginning/ending odometer, digits only, no commas or units. "c" is confidence 0-1. Never guess: if a field is blank, smudged, cropped or ambiguous use v null and c 0. Output JSON only.',
+                  'This is a HANDWRITTEN NEMT paper trip report (Colorado HCPF style). Read the handwriting carefully, field by field. Return strict JSON: {"name":{"v":null,"c":0},"medicaid_id":{"v":null,"c":0},"trip_date":{"v":null,"c":0},"vehicle_type":{"v":null,"c":0},"l1p":{"v":null,"c":0},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0}}. name = member/passenger full name. medicaid_id = the Medicaid / Member / State ID, usually ONE letter followed by 6 digits (e.g. P458407, M964077); transcribe exactly, uppercase, no spaces or dashes; look near labels like "Medicaid ID", "Member ID", "State ID", "Client ID", "RID". trip_date = ISO YYYY-MM-DD. vehicle_type = "ambulatory" or "wheelchair_van". l1p/l1d = leg 1 (outbound) beginning/ending odometer; l2p/l2d = leg 2 (return) beginning/ending odometer; digits only, no commas or units. Handwriting hints: 0 vs O, 1 vs 7, 4 vs 9, 5 vs S — in the ID field, a leading character is a letter and the rest are digits. "c" is your confidence 0-1. Never guess: if a field is blank, smudged, cropped or ambiguous use v null and c 0. Output JSON only.',
               },
+
               filePart,
             ],
           },
@@ -347,9 +371,24 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
         ? "ambulatory"
         : null;
 
+    const medicaidId = (node("medicaid_id") ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "") || null;
+
+    // Link a known passenger straight away so billing reuses the existing
+    // record instead of trying to create a duplicate member.
+    let rider: { id: string; full_name: string; medicaid_id: string } | null = null;
+    if (medicaidId) {
+      const { data: match } = await context.supabase
+        .from("riders")
+        .select("id, full_name, medicaid_id")
+        .eq("medicaid_id", medicaidId)
+        .maybeSingle();
+      if (match) rider = match as { id: string; full_name: string; medicaid_id: string };
+    }
+
     return {
       name: node("name"),
-      medicaid_id: node("medicaid_id"),
+      medicaid_id: medicaidId,
+      rider,
       trip_date,
       vehicle_type,
       l1p: odo("l1p"),
@@ -358,4 +397,5 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
       l2d: odo("l2d"),
     };
   });
+
 
