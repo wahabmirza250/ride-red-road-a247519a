@@ -116,9 +116,14 @@ export function AddressAutocomplete({
 
   async function selectSuggestion(s: Suggestion) {
     try {
-      const details = await runPlaceDetails({
-        data: { placeId: s.placeId, sessionToken: sessionRef.current ?? undefined },
-      });
+      let details: { placeId: string; address: string; lat: number; lng: number } | null;
+      try {
+        details = await runPlaceDetails({
+          data: { placeId: s.placeId, sessionToken: sessionRef.current ?? undefined },
+        });
+      } catch {
+        details = await browserPlaceDetails(s.placeId);
+      }
       const full = details?.address ?? `${s.primary}${s.secondary ? `, ${s.secondary}` : ""}`;
       skipNextFetchRef.current = true;
       onChange(full);
