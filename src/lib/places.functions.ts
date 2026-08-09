@@ -16,11 +16,34 @@ export type PlaceDetails = {
   lng: number;
 };
 
-function creds() {
+/**
+ * Returns the auth headers for Places calls. Prefers the Lovable connector
+ * gateway; falls back to a direct Google API key (GOOGLE_API_KEY) so the
+ * app keeps working when the connector isn't linked in this workspace.
+ */
+function placesRequest(path: string, init: RequestInit & { headers?: Record<string, string> }) {
   const lovableKey = process.env.LOVABLE_API_KEY;
   const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
-  if (!lovableKey || !gmapsKey) throw new Error("Google Maps connector is not configured");
-  return { lovableKey, gmapsKey };
+  const directKey = process.env.GOOGLE_API_KEY;
+  const headers = { ...(init.headers ?? {}) };
+
+  if (lovableKey && gmapsKey) {
+    return fetch(`${GATEWAY_URL}${path}`, {
+      ...init,
+      headers: {
+        ...headers,
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": gmapsKey,
+      },
+    });
+  }
+  if (directKey) {
+    return fetch(`https://places.googleapis.com${path}`, {
+      ...init,
+      headers: { ...headers, "X-Goog-Api-Key": directKey },
+    });
+  }
+  throw new Error("Google Maps is not configured");
 }
 
 /**
