@@ -40,6 +40,9 @@ export type OwnerCompany = {
   admins: number;
   trips: number;
   claims: number;
+  /** Billed total from this company's submitted claims. Never blended across tenants. */
+  earnings: number;
+
   last_activity: string | null;
   has_portal_credentials: boolean;
   portal_last_verified: string | null;
