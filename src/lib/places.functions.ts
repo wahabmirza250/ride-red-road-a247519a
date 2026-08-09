@@ -16,11 +16,34 @@ export type PlaceDetails = {
   lng: number;
 };
 
-function creds() {
+/**
+ * Returns the auth headers for Places calls. Prefers the Lovable connector
+ * gateway; falls back to a direct Google API key (GOOGLE_API_KEY) so the
+ * app keeps working when the connector isn't linked in this workspace.
+ */
+function placesRequest(path: string, init: RequestInit & { headers?: Record<string, string> }) {
   const lovableKey = process.env.LOVABLE_API_KEY;
   const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
-  if (!lovableKey || !gmapsKey) throw new Error("Google Maps connector is not configured");
-  return { lovableKey, gmapsKey };
+  const directKey = process.env.GOOGLE_API_KEY;
+  const headers = { ...(init.headers ?? {}) };
+
+  if (lovableKey && gmapsKey) {
+    return fetch(`${GATEWAY_URL}/places${path}`, {
+      ...init,
+      headers: {
+        ...headers,
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": gmapsKey,
+      },
+    });
+  }
+  if (directKey) {
+    return fetch(`https://places.googleapis.com${path}`, {
+      ...init,
+      headers: { ...headers, "X-Goog-Api-Key": directKey },
+    });
+  }
+  throw new Error("Google Maps is not configured");
 }
 
 /**
@@ -43,7 +66,6 @@ export const autocompletePlaces = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }): Promise<PlaceSuggestion[]> => {
-    const { lovableKey, gmapsKey } = creds();
     const body: Record<string, unknown> = {
       input: data.input,
       sessionToken: data.sessionToken,
@@ -59,13 +81,9 @@ export const autocompletePlaces = createServerFn({ method: "POST" })
         },
       };
     }
-    const res = await fetch(`${GATEWAY_URL}/places/v1/places:autocomplete`, {
+    const res = await placesRequest("/v1/places:autocomplete", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": gmapsKey,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!res.ok) {
@@ -109,16 +127,11 @@ export const getPlaceDetails = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }): Promise<PlaceDetails | null> => {
-    const { lovableKey, gmapsKey } = creds();
     const params = new URLSearchParams();
     if (data.sessionToken) params.set("sessionToken", data.sessionToken);
     const qs = params.toString() ? `?${params.toString()}` : "";
-    const res = await fetch(`${GATEWAY_URL}/places/v1/places/${encodeURIComponent(data.placeId)}${qs}`, {
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": gmapsKey,
-        "X-Goog-FieldMask": "id,formattedAddress,location",
-      },
+    const res = await placesRequest(`/v1/places/${encodeURIComponent(data.placeId)}${qs}`, {
+      headers: { "X-Goog-FieldMask": "id,formattedAddress,location" },
     });
     if (!res.ok) {
       const body = await res.text();

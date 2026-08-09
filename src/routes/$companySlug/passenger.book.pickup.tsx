@@ -9,6 +9,18 @@ import { toast } from "sonner";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { useCurrentPosition } from "@/lib/useGeolocation";
 import { geocodeAddress, reverseGeocode } from "@/lib/geocode.functions";
+import { browserGeocode } from "@/lib/placesBrowser";
+
+/** Geocode server-side, falling back to the browser Geocoder if unavailable. */
+async function lookupAddress(address: string) {
+  try {
+    const g = await geocodeAddress({ data: { address } });
+    if (g) return g;
+  } catch {
+    // fall through to browser geocoder
+  }
+  return browserGeocode(address);
+}
 
 export type BookingStop = { address: string; lat: number | null; lng: number | null };
 
@@ -199,7 +211,7 @@ function ConfirmPickup() {
       let dAddr = dropoff;
 
       if (!pc) {
-        const g = await geocodeAddress({ data: { address: pickup } });
+        const g = await lookupAddress(pickup);
         if (!g) {
           toast.error("We couldn't find that pickup address. Try a more specific one.");
           setResolving(false);
@@ -211,7 +223,7 @@ function ConfirmPickup() {
         setPickupCoords(pc);
       }
       if (!dc) {
-        const g = await geocodeAddress({ data: { address: dropoff } });
+        const g = await lookupAddress(dropoff);
         if (!g) {
           toast.error("We couldn't find that destination. Try a more specific one.");
           setResolving(false);
@@ -232,7 +244,7 @@ function ConfirmPickup() {
           resolvedStops.push({ address: addr, lat: s.lat, lng: s.lng });
           continue;
         }
-        const g = await geocodeAddress({ data: { address: addr } });
+        const g = await lookupAddress(addr);
         if (!g) {
           toast.error(`We couldn't find the stop "${addr}". Try a more specific address.`);
           setResolving(false);

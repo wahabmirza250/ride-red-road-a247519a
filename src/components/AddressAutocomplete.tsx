@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useServerFn } from "@tanstack/react-start";
 import { autocompletePlaces, getPlaceDetails } from "@/lib/places.functions";
+import { browserAutocomplete, browserPlaceDetails } from "@/lib/placesBrowser";
 
 export type ResolvedPlace = {
   address: string;
@@ -74,15 +75,26 @@ export function AddressAutocomplete({
       try {
         setLoading(true);
         if (!sessionRef.current) sessionRef.current = newSessionToken();
-        const result = await runAutocomplete({
-          data: {
-            input: value.trim(),
-            sessionToken: sessionRef.current,
+        let result: Suggestion[];
+        try {
+          result = await runAutocomplete({
+            data: {
+              input: value.trim(),
+              sessionToken: sessionRef.current,
+              lat: biasLat,
+              lng: biasLng,
+              regionCode,
+            },
+          });
+        } catch {
+          // Server-side Places unavailable (connector not linked / referrer-
+          // restricted key) — fall back to browser Places.
+          result = await browserAutocomplete(value.trim(), {
             lat: biasLat,
             lng: biasLng,
             regionCode,
-          },
-        });
+          });
+        }
 
         if (myReq !== reqIdRef.current) return; // stale
         setSuggestions(result);
@@ -104,9 +116,14 @@ export function AddressAutocomplete({
 
   async function selectSuggestion(s: Suggestion) {
     try {
-      const details = await runPlaceDetails({
-        data: { placeId: s.placeId, sessionToken: sessionRef.current ?? undefined },
-      });
+      let details: { placeId: string; address: string; lat: number; lng: number } | null;
+      try {
+        details = await runPlaceDetails({
+          data: { placeId: s.placeId, sessionToken: sessionRef.current ?? undefined },
+        });
+      } catch {
+        details = await browserPlaceDetails(s.placeId);
+      }
       const full = details?.address ?? `${s.primary}${s.secondary ? `, ${s.secondary}` : ""}`;
       skipNextFetchRef.current = true;
       onChange(full);
