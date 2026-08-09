@@ -82,7 +82,7 @@ export function SubscriptionsPanel() {
   });
 
   const reload = useCallback(async () => {
-    const res = await load({ data: {} });
+    const res = await load();
     setData(res);
   }, [load]);
 
