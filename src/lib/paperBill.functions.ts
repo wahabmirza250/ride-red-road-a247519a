@@ -365,11 +365,10 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
     const rawDate = node("trip_date");
     const trip_date = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null;
     const rawVehicle = (node("vehicle_type") ?? "").toLowerCase();
-    const vehicle_type = rawVehicle.includes("wheel")
-      ? "wheelchair_van"
-      : rawVehicle.includes("ambul")
-        ? "ambulatory"
-        : null;
+    // Wheelchair van is only used when the form explicitly says so.
+    // Anything else (blank, unreadable, unmarked) is ambulatory — 99% of trips.
+    const vehicle_type = rawVehicle.includes("wheel") ? "wheelchair_van" : "ambulatory";
+
 
     const medicaidId = (node("medicaid_id") ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "") || null;
 
