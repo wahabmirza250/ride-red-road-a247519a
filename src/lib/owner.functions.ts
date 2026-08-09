@@ -476,3 +476,95 @@ export const deleteCompany = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/* ------------------------------------------------------------------ *
+ * "View as company" — platform-owner only.
+ *
+ * Tenancy is derived from `profiles.company_id` (see current_user_company_id()).
+ * Viewing as a company temporarily repoints the OWNER'S OWN profile at that
+ * company, so every RLS-scoped read returns that tenant's real data with no
+ * policy weakened anywhere. The owner's home company is stashed in auth user
+ * metadata (server-side, never client-supplied) so exiting always restores it.
+ * A company admin calling these gets "Forbidden" from `gate()`.
+ * ------------------------------------------------------------------ */
+
+const VIEW_AS_HOME = "owner_home_company_id";
+
+export const getViewAsState = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const userId = (context as { userId: string }).userId;
+    const { isPlatformOwner } = await import("@/lib/company.server");
+    if (!(await isPlatformOwner(userId))) return { viewing: false as const };
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: u } = await supabaseAdmin.auth.admin.getUserById(userId);
+    const home = (u.user?.user_metadata as Record<string, unknown> | undefined)?.[VIEW_AS_HOME];
+    if (!home || typeof home !== "string") return { viewing: false as const };
+
+    const { data: prof } = await supabaseAdmin
+      .from("profiles")
+      .select("company_id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!prof?.company_id) return { viewing: false as const };
+
+    const { data: company } = await supabaseAdmin
+      .from("companies")
+      .select("name, url_slug")
+      .eq("id", prof.company_id)
+      .maybeSingle();
+    if (!company) return { viewing: false as const };
+
+    return { viewing: true as const, name: company.name, slug: company.url_slug };
+  });
+
+export const startViewAsCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { company_id: string }) => {
+    if (!input?.company_id) throw new Error("company_id required");
+    return { company_id: input.company_id };
+  })
+  .handler(async ({ data, context }) => {
+    const userId = (context as { userId: string }).userId;
+    const db = await gate(userId);
+
+    const { data: company } = await db
+      .from("companies")
+      .select("id, name, url_slug")
+      .eq("id", data.company_id)
+      .maybeSingle();
+    if (!company) throw new Error("Company not found");
+
+    const { data: u } = await db.auth.admin.getUserById(userId);
+    const meta = (u.user?.user_metadata ?? {}) as Record<string, unknown>;
+    if (!meta[VIEW_AS_HOME]) {
+      const { data: prof } = await db.from("profiles").select("company_id").eq("id", userId).maybeSingle();
+      await db.auth.admin.updateUserById(userId, {
+        user_metadata: { ...meta, [VIEW_AS_HOME]: prof?.company_id ?? null },
+      });
+    }
+
+    const { error } = await db.from("profiles").update({ company_id: company.id }).eq("id", userId);
+    if (error) throw new Error(error.message);
+
+    return { ok: true, slug: company.url_slug, name: company.name };
+  });
+
+export const stopViewAsCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const userId = (context as { userId: string }).userId;
+    const db = await gate(userId);
+
+    const { data: u } = await db.auth.admin.getUserById(userId);
+    const meta = (u.user?.user_metadata ?? {}) as Record<string, unknown>;
+    const home = typeof meta[VIEW_AS_HOME] === "string" ? (meta[VIEW_AS_HOME] as string) : null;
+
+    await db.from("profiles").update({ company_id: home }).eq("id", userId);
+    const next = { ...meta };
+    delete next[VIEW_AS_HOME];
+    await db.auth.admin.updateUserById(userId, { user_metadata: { ...next, [VIEW_AS_HOME]: null } });
+
+    return { ok: true };
+  });

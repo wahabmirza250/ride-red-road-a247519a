@@ -34,6 +34,7 @@ import { ensurePushSubscribed } from "@/lib/push";
 import { BrandMark } from "@/components/Brand";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { AccessDenied } from "@/components/AccessDenied";
+import { ViewAsBanner } from "@/components/owner/ViewAsBanner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
@@ -122,7 +123,9 @@ function AuthenticatedLayout() {
   );
 
   return (
-    <div className="surface-blue fleet-shell flex min-h-screen">
+    <div className="surface-blue fleet-shell flex min-h-screen flex-col">
+      <ViewAsBanner />
+      <div className="flex flex-1">
       {/* Sidebar — premium floating rail */}
       <aside className="hidden shrink-0 flex-col items-center p-4 lg:flex">
         <div className="rail sticky top-4 flex h-[calc(100vh-2rem)] w-[104px] flex-col items-center px-4 py-6">
@@ -289,7 +292,8 @@ function AuthenticatedLayout() {
         <div className="mx-auto max-w-[1600px] px-4 pb-24 pt-6 sm:px-6 lg:px-6 lg:pb-8 lg:pt-2">
           <Outlet />
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
