@@ -30,6 +30,7 @@ import { Route as CompanySlugPassengerIndexRouteImport } from './routes/$company
 import { Route as CompanySlugDriverIndexRouteImport } from './routes/$companySlug/driver.index'
 import { Route as CompanySlugDispatchIndexRouteImport } from './routes/$companySlug/dispatch.index'
 import { Route as CompanySlugBillingIndexRouteImport } from './routes/$companySlug/billing.index'
+import { Route as ApiPublicSmsInboundRouteImport } from './routes/api/public/sms-inbound'
 import { Route as ApiPublicGetTripPdfRouteImport } from './routes/api/public/get-trip-pdf'
 import { Route as ApiPublicGetPortalCredentialRouteImport } from './routes/api/public/get-portal-credential'
 import { Route as ApiPublicGetBillingRateRouteImport } from './routes/api/public/get-billing-rate'
@@ -188,6 +189,11 @@ const CompanySlugBillingIndexRoute = CompanySlugBillingIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => CompanySlugBillingRoute,
+} as any)
+const ApiPublicSmsInboundRoute = ApiPublicSmsInboundRouteImport.update({
+  id: '/api/public/sms-inbound',
+  path: '/api/public/sms-inbound',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicGetTripPdfRoute = ApiPublicGetTripPdfRouteImport.update({
   id: '/api/public/get-trip-pdf',
@@ -551,6 +557,7 @@ export interface FileRoutesByFullPath {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
+  '/api/public/sms-inbound': typeof ApiPublicSmsInboundRoute
   '/$companySlug/billing/': typeof CompanySlugBillingIndexRoute
   '/$companySlug/dispatch/': typeof CompanySlugDispatchIndexRoute
   '/$companySlug/driver/': typeof CompanySlugDriverIndexRoute
@@ -618,6 +625,7 @@ export interface FileRoutesByTo {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
+  '/api/public/sms-inbound': typeof ApiPublicSmsInboundRoute
   '/$companySlug/billing': typeof CompanySlugBillingIndexRoute
   '/$companySlug/dispatch': typeof CompanySlugDispatchIndexRoute
   '/$companySlug/driver': typeof CompanySlugDriverIndexRoute
@@ -693,6 +701,7 @@ export interface FileRoutesById {
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
+  '/api/public/sms-inbound': typeof ApiPublicSmsInboundRoute
   '/$companySlug/billing/': typeof CompanySlugBillingIndexRoute
   '/$companySlug/dispatch/': typeof CompanySlugDispatchIndexRoute
   '/$companySlug/driver/': typeof CompanySlugDriverIndexRoute
@@ -768,6 +777,7 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
+    | '/api/public/sms-inbound'
     | '/$companySlug/billing/'
     | '/$companySlug/dispatch/'
     | '/$companySlug/driver/'
@@ -835,6 +845,7 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
+    | '/api/public/sms-inbound'
     | '/$companySlug/billing'
     | '/$companySlug/dispatch'
     | '/$companySlug/driver'
@@ -909,6 +920,7 @@ export interface FileRouteTypes {
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
+    | '/api/public/sms-inbound'
     | '/$companySlug/billing/'
     | '/$companySlug/dispatch/'
     | '/$companySlug/driver/'
@@ -937,6 +949,7 @@ export interface RootRouteChildren {
   ApiPublicGetBillingRateRoute: typeof ApiPublicGetBillingRateRoute
   ApiPublicGetPortalCredentialRoute: typeof ApiPublicGetPortalCredentialRoute
   ApiPublicGetTripPdfRoute: typeof ApiPublicGetTripPdfRoute
+  ApiPublicSmsInboundRoute: typeof ApiPublicSmsInboundRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1087,6 +1100,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$companySlug/billing/'
       preLoaderRoute: typeof CompanySlugBillingIndexRouteImport
       parentRoute: typeof CompanySlugBillingRoute
+    }
+    '/api/public/sms-inbound': {
+      id: '/api/public/sms-inbound'
+      path: '/api/public/sms-inbound'
+      fullPath: '/api/public/sms-inbound'
+      preLoaderRoute: typeof ApiPublicSmsInboundRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/get-trip-pdf': {
       id: '/api/public/get-trip-pdf'
@@ -1677,6 +1697,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicGetBillingRateRoute: ApiPublicGetBillingRateRoute,
   ApiPublicGetPortalCredentialRoute: ApiPublicGetPortalCredentialRoute,
   ApiPublicGetTripPdfRoute: ApiPublicGetTripPdfRoute,
+  ApiPublicSmsInboundRoute: ApiPublicSmsInboundRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

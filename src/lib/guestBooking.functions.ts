@@ -157,9 +157,21 @@ export const guestRequestRide = createServerFn({ method: "POST" })
       .single();
     if (error || !inserted) throw new Error(error?.message ?? "Failed to create ride request");
 
+    const { notifyDispatchers } = await import("@/lib/notifyStaff.server");
+    await notifyDispatchers({
+      kind: "ride_request",
+      title: "New ride request",
+      body: `${name || `${first} ${last}`.trim()} — ${data.pickup_address} → ${data.dropoff_address}`,
+      url: "/dispatch",
+      companyId: company.id,
+      data: { ride_request_id: inserted.id, phone },
+      smsSuffix: `Call back: ${phone}`,
+    });
+
     const { dispatchRideRequest } = await import("@/lib/dispatch.functions");
     const dispatch = await dispatchRideRequest({ data: { request_id: inserted.id } });
     return { request_id: inserted.id, ...dispatch };
+
   });
 
 /**

@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { DriverTripMap, type LatLng } from "@/components/nemt/DriverTripMap";
+import { EarningsPanel } from "@/components/admin/EarningsPanel";
+
 import { Avatar } from "@/components/Avatar";
 import {
   Search,
@@ -559,6 +561,11 @@ function DashboardPage() {
             </AppLink>
           </div>
         </div>
+
+        {/* Earnings */}
+        <EarningsPanel />
+
+
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-5">

@@ -41,6 +41,8 @@ import {
   isPlatformOwnerFn,
   runPortalHealthCheck,
   setCompanyStatus,
+  setCompanyTwilioPhone,
+
   type OwnerCompany,
 } from "@/lib/owner.functions";
 
@@ -323,14 +325,23 @@ function CompanyCard({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-6">
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-7">
         <Mini label="Drivers" value={c.drivers} />
         <Mini label="Passengers" value={c.passengers} />
         <Mini label="Dispatchers" value={c.dispatchers} />
         <Mini label="Admins" value={c.admins} />
         <Mini label="Trips" value={c.trips} />
         <Mini label="Claims" value={c.claims} />
+        <Mini
+          label="Earnings"
+          value={c.earnings.toLocaleString("en-US", {
+            style: "currency",
+            currency: "USD",
+            maximumFractionDigits: 0,
+          })}
+        />
       </div>
+
 
       <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
@@ -352,6 +363,10 @@ function CompanyCard({
         </span>
       </div>
 
+      <TwilioNumberField companyId={c.id} current={c.twilio_phone} />
+
+
+
       {health && (
         <div
           className={`mt-4 rounded-2xl border p-3 text-xs ${
@@ -371,7 +386,46 @@ function CompanyCard({
   );
 }
 
-function Mini({ label, value }: { label: string; value: number }) {
+/** Maps the company's Twilio number so inbound booking texts route to it. */
+function TwilioNumberField({ companyId, current }: { companyId: string; current: string | null }) {
+  const save = useServerFn(setCompanyTwilioPhone);
+  const [value, setValue] = useState(current ?? "");
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div className="mt-4 flex flex-wrap items-end gap-2">
+      <div className="min-w-[220px] flex-1">
+        <Label className="text-[11px] text-muted-foreground">SMS booking number (Twilio)</Label>
+        <Input
+          value={value}
+          placeholder="+1 555 123 4567"
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </div>
+      <Button
+        variant="outline"
+        disabled={busy || value === (current ?? "")}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            const res = await save({ data: { company_id: companyId, twilio_phone: value || null } });
+            setValue(res.twilio_phone ?? "");
+            toast.success("SMS number saved");
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Could not save number");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+      </Button>
+    </div>
+  );
+}
+
+
+function Mini({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-xl bg-muted/40 px-3 py-2">
       <p className="text-lg font-semibold tabular-nums">{value}</p>

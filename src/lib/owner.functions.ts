@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { parseAmount } from "@/lib/earnings";
+
 
 /**
  * Platform-owner (super-admin) server functions.
@@ -40,10 +42,14 @@ export type OwnerCompany = {
   admins: number;
   trips: number;
   claims: number;
+  /** Billed total from this company's submitted claims. Never blended across tenants. */
+  earnings: number;
+
   last_activity: string | null;
   has_portal_credentials: boolean;
   portal_last_verified: string | null;
   has_billing_rates: boolean;
+  twilio_phone: string | null;
 };
 
 export const isPlatformOwnerFn = createServerFn({ method: "POST" })
@@ -59,12 +65,15 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
     const db = await gate((context as { userId: string }).userId);
 
     const [companiesRes, rolesRes, tripsRes, medRes, credRes, ratesRes] = await Promise.all([
-      db.from("companies").select("id, name, url_slug, status, logo_url, created_at").order("created_at"),
+      db.from("companies").select("id, name, url_slug, status, logo_url, created_at, twilio_phone").order("created_at"),
       db.from("user_roles").select("user_id, role, company_id"),
       db.from("trips").select("company_id, updated_at, created_at"),
       db
         .from("medicaid_trips")
-        .select("company_id, updated_at, robot_confirmation_number, submitted_confirmation, status"),
+        .select(
+          "company_id, updated_at, submitted_at, portal_submitted_at, robot_captured_claim, robot_confirmation_number, submitted_confirmation, status",
+        ),
+
       db.from("state_portal_credentials").select("company_id, last_used_at, updated_at"),
       db.from("billing_rate_settings").select("company_id"),
     ]);
@@ -81,6 +90,20 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
 
     const isClaim = (m: (typeof med)[number]) =>
       Boolean(m.robot_confirmation_number || m.submitted_confirmation || m.status === "submitted");
+
+    /** Per-tenant billed total; the owner list keeps every company separate. */
+    const companyEarnings = (rows: typeof med) =>
+      Math.round(
+        rows
+          .filter(isClaim)
+          .reduce((sum, m) => {
+            const captured = (m.robot_captured_claim ?? null) as
+              | { total_charged_amount?: unknown }
+              | null;
+            return sum + parseAmount(captured?.total_charged_amount);
+          }, 0) * 100,
+      ) / 100;
+
 
     const rows: OwnerCompany[] = await Promise.all(
       companies.map(async (c) => {
@@ -119,6 +142,8 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
           admins: countRole(c.id, "admin"),
           trips: cTrips.length,
           claims: cMed.filter(isClaim).length,
+          earnings: companyEarnings(cMed),
+
           last_activity: stamps.length ? stamps[stamps.length - 1]! : null,
           has_portal_credentials: cCred.length > 0,
           portal_last_verified:
@@ -128,6 +153,7 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
               .sort()
               .slice(-1)[0] ?? null,
           has_billing_rates: rates.some((r) => r.company_id === c.id),
+          twilio_phone: (c as { twilio_phone?: string | null }).twilio_phone ?? null,
         };
       }),
     );
@@ -197,6 +223,33 @@ export const createCompany = createServerFn({ method: "POST" })
 
     return created;
   });
+
+/**
+ * Maps a Twilio number to a tenant. The inbound SMS webhook resolves the owning
+ * company from this value, so it must stay unique across companies.
+ */
+export const setCompanyTwilioPhone = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { company_id: string; twilio_phone: string | null }) => {
+    if (!input?.company_id) throw new Error("company_id required");
+    const raw = (input.twilio_phone ?? "").trim();
+    if (!raw) return { company_id: input.company_id, twilio_phone: null };
+    const digits = raw.replace(/\D/g, "");
+    const e164 =
+      raw.startsWith("+") ? `+${digits}` : digits.length === 10 ? `+1${digits}` : `+${digits}`;
+    if (!/^\+\d{8,15}$/.test(e164)) throw new Error("Enter a valid phone number");
+    return { company_id: input.company_id, twilio_phone: e164 };
+  })
+  .handler(async ({ data, context }) => {
+    const db = await gate((context as { userId: string }).userId);
+    const { error } = await db
+      .from("companies")
+      .update({ twilio_phone: data.twilio_phone })
+      .eq("id", data.company_id);
+    if (error) throw new Error(error.message);
+    return { ok: true, twilio_phone: data.twilio_phone };
+  });
+
 
 export const setCompanyStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

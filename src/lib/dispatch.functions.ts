@@ -95,8 +95,22 @@ export const dispatchRideRequest = createServerFn({ method: "POST" })
         .from("ride_requests")
         .update({ driver_id: null, offer_expires_at: null })
         .eq("id", req.id);
+      try {
+        const { notifyDispatchers } = await import("@/lib/notifyStaff.server");
+        await notifyDispatchers({
+          kind: "needs_manual_assignment",
+          title: "No driver available — needs manual assignment",
+          body: `${req.pickup_address} → ${req.dropoff_address}`,
+          url: "/dispatch",
+          companyId: (req as { company_id?: string | null }).company_id ?? null,
+          data: { ride_request_id: req.id },
+        });
+      } catch (e) {
+        console.warn("[dispatch] no-driver alert failed", e);
+      }
       return { assigned: null, reason: "no_drivers_available" };
     }
+
 
     const target = eligible[0];
     const expires = new Date(Date.now() + OFFER_TTL_MS).toISOString();
@@ -208,7 +222,8 @@ export const cancelRideRequest = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: req } = await supabaseAdmin
       .from("ride_requests")
-      .select("id, status, driver_id, trip_id")
+      .select("id, status, driver_id, trip_id, company_id, contact_name, pickup_address, dropoff_address")
+
       .eq("id", data.request_id)
       .maybeSingle();
     if (!req) throw new Error("Ride request not found");
@@ -241,7 +256,22 @@ export const cancelRideRequest = createServerFn({ method: "POST" })
         .eq("status", "busy");
     }
 
+    try {
+      const { notifyDispatchers } = await import("@/lib/notifyStaff.server");
+      await notifyDispatchers({
+        kind: "ride_cancelled",
+        title: "Ride cancelled",
+        body: `${req.contact_name ?? "Passenger"} — ${req.pickup_address} → ${req.dropoff_address}`,
+        url: "/dispatch",
+        companyId: req.company_id ?? null,
+        data: { ride_request_id: req.id, reason: data.reason ?? null },
+      });
+    } catch (e) {
+      console.warn("[dispatch] cancel alert failed", e);
+    }
+
     return { ok: true, already: false };
+
   });
 
 

@@ -335,6 +335,7 @@ export type Database = {
           logo_url: string | null
           name: string
           status: string
+          twilio_phone: string | null
           updated_at: string
           url_slug: string
         }
@@ -344,6 +345,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           status?: string
+          twilio_phone?: string | null
           updated_at?: string
           url_slug: string
         }
@@ -353,6 +355,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           status?: string
+          twilio_phone?: string | null
           updated_at?: string
           url_slug?: string
         }
@@ -1576,6 +1579,7 @@ export type Database = {
           is_active: boolean
           last_name: string | null
           phone: string | null
+          sms_alerts_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -1588,6 +1592,7 @@ export type Database = {
           is_active?: boolean
           last_name?: string | null
           phone?: string | null
+          sms_alerts_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -1600,6 +1605,7 @@ export type Database = {
           is_active?: boolean
           last_name?: string | null
           phone?: string | null
+          sms_alerts_enabled?: boolean
           updated_at?: string
         }
         Relationships: [
