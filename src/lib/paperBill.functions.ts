@@ -246,3 +246,89 @@ async function attachPaperProof(args: {
   }
   return finalPath;
 }
+
+/* --------------------------- odometer OCR --------------------------- */
+
+/**
+ * Cheap, narrow OCR pass over a paper trip report: read only the four
+ * odometer fields. Same fallback contract as the driver odometer photo —
+ * anything unreadable or low-confidence comes back null so the biller
+ * types it manually instead of trusting a guess.
+ */
+export const detectPaperBillOdometers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        image_data_url: z
+          .string()
+          .startsWith("data:image/")
+          .max(9_000_000, "Image is too large. Use a smaller photo."),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertBilling(context.supabase);
+    const apiKey = process.env["LOVABLE_API_KEY"];
+    if (!apiKey) throw new Error("Auto-read is not configured");
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        // Cheapest vision-capable model: this is a 4-number read, not
+        // document understanding.
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text:
+                  'This is a NEMT paper trip report. Read ONLY the odometer readings. Return strict JSON: {"l1p":{"v":"123456","c":0.9},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0}} where l1p/l1d are leg 1 (first trip) beginning/ending odometer and l2p/l2d are leg 2 (return trip) beginning/ending odometer. "v" is digits only (no commas, units or text) or null if you cannot read it clearly. "c" is your confidence 0-1. Never guess: if a field is blank, smudged, cropped, or ambiguous, use null with c 0. Output JSON only.',
+              },
+              { type: "image_url", image_url: { url: data.image_data_url } },
+            ],
+          },
+        ],
+        temperature: 0,
+        max_tokens: 200,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(
+        `Auto-read failed (${response.status})${body ? `: ${body.slice(0, 160)}` : ""}`,
+      );
+    }
+
+    const payload = await response.json();
+    const content = String(payload?.choices?.[0]?.message?.content ?? "");
+    let parsed: Record<string, unknown> = {};
+    try {
+      parsed = JSON.parse(content.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
+    } catch {
+      parsed = {};
+    }
+
+    const MIN_CONFIDENCE = 0.6;
+    const pick = (key: string): string | null => {
+      const node = parsed[key] as { v?: unknown; c?: unknown } | undefined;
+      if (!node || typeof node !== "object") return null;
+      const conf = typeof node.c === "number" ? node.c : 0;
+      const raw =
+        typeof node.v === "string" || typeof node.v === "number" ? String(node.v) : "";
+      const digits = raw.replace(/[^0-9]/g, "");
+      if (conf < MIN_CONFIDENCE || digits.length < 2 || digits.length > 8) return null;
+      return digits;
+    };
+
+    return {
+      l1p: pick("l1p"),
+      l1d: pick("l1d"),
+      l2p: pick("l2p"),
+      l2d: pick("l2d"),
+    };
+  });
