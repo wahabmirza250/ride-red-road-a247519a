@@ -34,6 +34,9 @@ import {
 import { BrandWordmark } from "@/components/Brand";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { AccessDenied } from "@/components/AccessDenied";
+import { StaffManagerDialog } from "@/components/owner/StaffManagerDialog";
+import { SubscriptionsPanel } from "@/components/owner/SubscriptionsPanel";
+
 import {
   createCompany,
   createCompanyAdmin,
