@@ -16,15 +16,21 @@ export type GeocodeResult = {
 async function callGoogleGeocode(qs: string): Promise<GeocodeResult | null> {
   const lovableKey = process.env.LOVABLE_API_KEY;
   const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
-  if (!lovableKey || !gmapsKey) {
-    throw new Error("Google Maps connector is not configured");
+  const directKey = process.env.GOOGLE_API_KEY;
+
+  let res: Response;
+  if (lovableKey && gmapsKey) {
+    res = await fetch(`${GATEWAY_URL}/maps/api/geocode/json?${qs}`, {
+      headers: {
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": gmapsKey,
+      },
+    });
+  } else if (directKey) {
+    res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${qs}&key=${directKey}`);
+  } else {
+    throw new Error("Google Maps is not configured");
   }
-  const res = await fetch(`${GATEWAY_URL}/maps/api/geocode/json?${qs}`, {
-    headers: {
-      Authorization: `Bearer ${lovableKey}`,
-      "X-Connection-Api-Key": gmapsKey,
-    },
-  });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Geocoding failed [${res.status}]: ${body}`);
