@@ -125,6 +125,8 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
           admins: countRole(c.id, "admin"),
           trips: cTrips.length,
           claims: cMed.filter(isClaim).length,
+          earnings: companyEarnings(cMed),
+
           last_activity: stamps.length ? stamps[stamps.length - 1]! : null,
           has_portal_credentials: cCred.length > 0,
           portal_last_verified:
