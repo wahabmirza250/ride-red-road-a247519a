@@ -674,7 +674,7 @@ export const createCompanyStaff = createServerFn({ method: "POST" })
         company_id: data.company_id,
       },
     });
-    if (error || !created.user) throw new Error(error?.message ?? "Could not create the account");
+    if (error || !created.user) throw new Error(passwordError(error?.message) ?? "Could not create the account");
 
     const uid = created.user.id;
     await db.from("profiles").update({ company_id: data.company_id }).eq("id", uid);
