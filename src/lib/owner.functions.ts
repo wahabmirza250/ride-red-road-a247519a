@@ -49,6 +49,7 @@ export type OwnerCompany = {
   has_portal_credentials: boolean;
   portal_last_verified: string | null;
   has_billing_rates: boolean;
+  twilio_phone: string | null;
 };
 
 export const isPlatformOwnerFn = createServerFn({ method: "POST" })
@@ -64,7 +65,7 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
     const db = await gate((context as { userId: string }).userId);
 
     const [companiesRes, rolesRes, tripsRes, medRes, credRes, ratesRes] = await Promise.all([
-      db.from("companies").select("id, name, url_slug, status, logo_url, created_at").order("created_at"),
+      db.from("companies").select("id, name, url_slug, status, logo_url, created_at, twilio_phone").order("created_at"),
       db.from("user_roles").select("user_id, role, company_id"),
       db.from("trips").select("company_id, updated_at, created_at"),
       db
@@ -152,6 +153,7 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
               .sort()
               .slice(-1)[0] ?? null,
           has_billing_rates: rates.some((r) => r.company_id === c.id),
+          twilio_phone: (c as { twilio_phone?: string | null }).twilio_phone ?? null,
         };
       }),
     );
