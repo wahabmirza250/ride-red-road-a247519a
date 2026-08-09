@@ -39,28 +39,17 @@ export const submitRideRequest = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
 
-    // Fan out to admins: DB feed + browser push.
-    const title = "New ride request";
-    const body = `${data.contact_name} — ${data.pickup_address} → ${data.dropoff_address}`;
-    await supabaseAdmin.from("admin_notifications").insert({
+    // Fan out to staff: DB feed + browser push + SMS.
+    const { notifyDispatchers } = await import("@/lib/notifyStaff.server");
+    await notifyDispatchers({
       kind: "ride_request",
-      title,
-      body,
+      title: "New ride request",
+      body: `${data.contact_name} — ${data.pickup_address} → ${data.dropoff_address}`,
       url: "/trips",
       data: { ride_request_id: inserted?.id, phone: data.contact_phone },
+      smsSuffix: `Call back: ${data.contact_phone}`,
     });
-    try {
-      const { sendPushToAdmins } = await import("@/lib/pushSend.server");
-      await sendPushToAdmins({
-        title,
-        body,
-        url: "/trips",
-        tag: `ride-${inserted?.id}`,
-        requireInteraction: true,
-      });
-    } catch (e) {
-      console.warn("[ride_request] admin push failed", e);
-    }
+
 
     return { ok: true };
   });
