@@ -211,7 +211,7 @@ function ConfirmPickup() {
       let dAddr = dropoff;
 
       if (!pc) {
-        const g = await geocodeAddress({ data: { address: pickup } });
+        const g = await lookupAddress(pickup);
         if (!g) {
           toast.error("We couldn't find that pickup address. Try a more specific one.");
           setResolving(false);
@@ -223,7 +223,7 @@ function ConfirmPickup() {
         setPickupCoords(pc);
       }
       if (!dc) {
-        const g = await geocodeAddress({ data: { address: dropoff } });
+        const g = await lookupAddress(dropoff);
         if (!g) {
           toast.error("We couldn't find that destination. Try a more specific one.");
           setResolving(false);
@@ -244,7 +244,7 @@ function ConfirmPickup() {
           resolvedStops.push({ address: addr, lat: s.lat, lng: s.lng });
           continue;
         }
-        const g = await geocodeAddress({ data: { address: addr } });
+        const g = await lookupAddress(addr);
         if (!g) {
           toast.error(`We couldn't find the stop "${addr}". Try a more specific address.`);
           setResolving(false);
