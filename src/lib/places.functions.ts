@@ -28,7 +28,7 @@ function placesRequest(path: string, init: RequestInit & { headers?: Record<stri
   const headers = { ...(init.headers ?? {}) };
 
   if (lovableKey && gmapsKey) {
-    return fetch(`${GATEWAY_URL}${path}`, {
+    return fetch(`${GATEWAY_URL}/places${path}`, {
       ...init,
       headers: {
         ...headers,
