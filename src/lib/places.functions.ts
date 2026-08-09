@@ -66,7 +66,6 @@ export const autocompletePlaces = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }): Promise<PlaceSuggestion[]> => {
-    const { lovableKey, gmapsKey } = creds();
     const body: Record<string, unknown> = {
       input: data.input,
       sessionToken: data.sessionToken,
@@ -82,13 +81,9 @@ export const autocompletePlaces = createServerFn({ method: "POST" })
         },
       };
     }
-    const res = await fetch(`${GATEWAY_URL}/places/v1/places:autocomplete`, {
+    const res = await placesRequest("/v1/places:autocomplete", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": gmapsKey,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!res.ok) {
