@@ -250,15 +250,29 @@ export function StaffManagerDialog({
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="st-pass">Temporary password</Label>
-                <Input
-                  id="st-pass"
-                  type="text"
-                  value={password}
-                  minLength={8}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="st-pass"
+                    type="text"
+                    value={password}
+                    minLength={12}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => setPassword(generateStrongPassword())}
+                  >
+                    Generate
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Must be unique and not found in known breach lists — 12+ characters recommended.
+                </p>
               </div>
+
             </div>
             <Button type="submit" className="rounded-full" disabled={busy}>
               {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />} Create {ROLE_LABEL[role].toLowerCase()}
