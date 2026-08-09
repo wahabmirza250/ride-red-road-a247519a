@@ -1,0 +1,1 @@
+UPDATE public.companies SET twilio_phone = '+17193949656' WHERE id = '11111111-2222-4333-8444-555555555555';
