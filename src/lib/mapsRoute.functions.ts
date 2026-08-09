@@ -29,13 +29,22 @@ export const computeDriveRoute = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<ComputedRoute> => {
     const lovableKey = process.env.LOVABLE_API_KEY;
     const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
-    if (!lovableKey || !gmapsKey) return null;
+    const directKey = process.env.GOOGLE_API_KEY;
+    const useGateway = Boolean(lovableKey && gmapsKey);
+    // Falls back to a direct Routes API call when the Maps connector isn't
+    // linked in this workspace. If that key is referrer-restricted the call
+    // fails and the driver app uses its browser-side directions fallback.
+    if (!useGateway && !directKey) return null;
 
-    const res = await fetch(`${GATEWAY_URL}/routes/directions/v2:computeRoutes`, {
+    const url = useGateway
+      ? `${GATEWAY_URL}/routes/directions/v2:computeRoutes`
+      : `https://routes.googleapis.com/directions/v2:computeRoutes`;
+    const res = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": gmapsKey,
+        ...(useGateway
+          ? { Authorization: `Bearer ${lovableKey}`, "X-Connection-Api-Key": gmapsKey as string }
+          : { "X-Goog-Api-Key": directKey as string }),
         "Content-Type": "application/json",
         "X-Goog-FieldMask": [
           "routes.duration",
