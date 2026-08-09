@@ -29,6 +29,7 @@ import {
   type CompanyStaff,
   type StaffRole,
 } from "@/lib/owner.functions";
+import { generateStrongPassword } from "@/lib/passwordError";
 
 const ROLE_LABEL: Record<StaffRole, string> = {
   admin: "Admin",
