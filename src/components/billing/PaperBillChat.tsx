@@ -449,6 +449,18 @@ function ChatEntry({
               </div>
             )}
             <div className="text-sm font-semibold">{riderName}</div>
+            {riderMedicaid ? (
+              <div className="font-mono text-xs text-muted-foreground">
+                Medicaid ID: {riderMedicaid}
+                {entry.draft.rider ? " · existing passenger" : " · new passenger"}
+              </div>
+            ) : (
+              <div className="text-xs text-destructive">
+                Medicaid ID not read — click Edit and enter it before confirming.
+              </div>
+            )}
+
+
 
             <div className="text-xs text-muted-foreground">
               {entry.draft.trip_date} ·{" "}
