@@ -13,7 +13,6 @@ import {
   ShieldAlert,
   Stethoscope,
   Trash2,
-  UserPlus,
   Users,
   Eye,
 } from "lucide-react";
@@ -34,9 +33,11 @@ import {
 import { BrandWordmark } from "@/components/Brand";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { AccessDenied } from "@/components/AccessDenied";
+import { StaffManagerDialog } from "@/components/owner/StaffManagerDialog";
+import { SubscriptionsPanel } from "@/components/owner/SubscriptionsPanel";
+
 import {
   createCompany,
-  createCompanyAdmin,
   deleteCompany,
   getOwnerOverview,
   isPlatformOwnerFn,
@@ -178,11 +179,17 @@ function OwnerConsole() {
             </section>
 
             <section className="space-y-4">
+              <h2 className="font-display text-lg font-semibold">Subscriptions &amp; platform earnings</h2>
+              <SubscriptionsPanel />
+            </section>
+
+            <section className="space-y-4">
               <h2 className="font-display text-lg font-semibold">Companies</h2>
               {data.companies.map((c) => (
                 <CompanyCard key={c.id} company={c} onChanged={reload} busy={busy} setBusy={setBusy} />
               ))}
             </section>
+
           </>
         )}
       </main>
@@ -322,7 +329,7 @@ function CompanyCard({
             <Eye className="mr-1 h-3.5 w-3.5" />
             View as company
           </Button>
-          <NewAdminDialog companyId={c.id} companyName={c.name} />
+          <StaffManagerDialog companyId={c.id} companyName={c.name} onChanged={onChanged} />
           <Button variant="outline" size="sm" className="rounded-full" onClick={onHealthCheck} disabled={checking}>
             {checking ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Stethoscope className="mr-1 h-3.5 w-3.5" />}
             Health check
@@ -545,80 +552,3 @@ function NewCompanyDialog({ onDone }: { onDone: () => Promise<void> }) {
   );
 }
 
-function NewAdminDialog({ companyId, companyName }: { companyId: string; companyName: string }) {
-  const create = useServerFn(createCompanyAdmin);
-  const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await create({
-        data: { company_id: companyId, email, password, first_name: firstName, last_name: lastName },
-      });
-      toast.success(`Admin created for ${companyName}`);
-      setOpen(false);
-      setEmail("");
-      setPassword("");
-      setFirstName("");
-      setLastName("");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not create admin");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <Button variant="outline" size="sm" className="rounded-full" onClick={() => setOpen(true)}>
-        <UserPlus className="mr-1 h-3.5 w-3.5" /> Add admin
-      </Button>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>New admin for {companyName}</DialogTitle>
-          <DialogDescription>
-            This account can manage only {companyName}'s drivers, trips and billing.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="ad-first">First name</Label>
-              <Input id="ad-first" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ad-last">Last name</Label>
-              <Input id="ad-last" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ad-email">Email</Label>
-            <Input id="ad-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ad-pass">Temporary password</Label>
-            <Input
-              id="ad-pass"
-              type="text"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              minLength={8}
-              required
-            />
-          </div>
-          <DialogFooter>
-            <Button type="submit" className="rounded-full" disabled={saving}>
-              {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />} Create admin
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
