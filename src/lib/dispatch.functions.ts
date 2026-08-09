@@ -95,8 +95,22 @@ export const dispatchRideRequest = createServerFn({ method: "POST" })
         .from("ride_requests")
         .update({ driver_id: null, offer_expires_at: null })
         .eq("id", req.id);
+      try {
+        const { notifyDispatchers } = await import("@/lib/notifyStaff.server");
+        await notifyDispatchers({
+          kind: "needs_manual_assignment",
+          title: "No driver available — needs manual assignment",
+          body: `${req.pickup_address} → ${req.dropoff_address}`,
+          url: "/dispatch",
+          companyId: (req as { company_id?: string | null }).company_id ?? null,
+          data: { ride_request_id: req.id },
+        });
+      } catch (e) {
+        console.warn("[dispatch] no-driver alert failed", e);
+      }
       return { assigned: null, reason: "no_drivers_available" };
     }
+
 
     const target = eligible[0];
     const expires = new Date(Date.now() + OFFER_TTL_MS).toISOString();
