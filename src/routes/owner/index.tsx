@@ -323,14 +323,23 @@ function CompanyCard({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-6">
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-7">
         <Mini label="Drivers" value={c.drivers} />
         <Mini label="Passengers" value={c.passengers} />
         <Mini label="Dispatchers" value={c.dispatchers} />
         <Mini label="Admins" value={c.admins} />
         <Mini label="Trips" value={c.trips} />
         <Mini label="Claims" value={c.claims} />
+        <Mini
+          label="Earnings"
+          value={c.earnings.toLocaleString("en-US", {
+            style: "currency",
+            currency: "USD",
+            maximumFractionDigits: 0,
+          })}
+        />
       </div>
+
 
       <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
