@@ -181,11 +181,17 @@ function OwnerConsole() {
             </section>
 
             <section className="space-y-4">
+              <h2 className="font-display text-lg font-semibold">Subscriptions &amp; platform earnings</h2>
+              <SubscriptionsPanel />
+            </section>
+
+            <section className="space-y-4">
               <h2 className="font-display text-lg font-semibold">Companies</h2>
               {data.companies.map((c) => (
                 <CompanyCard key={c.id} company={c} onChanged={reload} busy={busy} setBusy={setBusy} />
               ))}
             </section>
+
           </>
         )}
       </main>
