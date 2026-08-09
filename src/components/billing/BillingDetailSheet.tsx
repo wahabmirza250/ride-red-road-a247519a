@@ -639,20 +639,13 @@ function PdfViewer({
       {error ? (
         <div className="mt-1 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
           Couldn&apos;t load the PDF ({error}). This is usually a browser
-          ad-blocker or privacy extension blocking Supabase storage — try
+          ad-blocker or privacy extension blocking storage — try
           &quot;Open in new tab&quot; or disable the blocker for this site.
         </div>
-      ) : !blobUrl ? (
-        <div className="mt-1 flex h-[520px] w-full items-center justify-center rounded-lg border bg-white">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
       ) : (
-        <iframe
-          src={blobUrl}
-          title="State trip log"
-          className="mt-1 h-[520px] w-full rounded-lg border bg-white"
-        />
+        <PdfInlineViewer url={url} />
       )}
+
       <div className="mt-2 flex gap-2">
         <Button variant="outline" size="sm" onClick={openInNewTab}>
           Open in new tab
