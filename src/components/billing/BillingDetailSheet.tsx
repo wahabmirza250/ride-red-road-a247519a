@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Loader2, FileDown, Check, X, AlertCircle, RefreshCw, Bot } from "lucide-react";
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { ClaimReviewPanel } from "@/components/billing/ClaimReviewPanel";
+import { PdfInlineViewer } from "@/components/PdfInlineViewer";
+
 import { formatDateTime } from "@/lib/format";
 import {
   approveBillingRecord,
