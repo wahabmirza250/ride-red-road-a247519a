@@ -361,6 +361,10 @@ function CompanyCard({
         </span>
       </div>
 
+      <TwilioNumberField companyId={c.id} current={c.twilio_phone} />
+
+
+
       {health && (
         <div
           className={`mt-4 rounded-2xl border p-3 text-xs ${
