@@ -23,9 +23,12 @@ import {
   createPaperBillTrip,
   getBillingRatesForCalc,
   searchBillingRiders,
+  detectPaperBillOdometers,
 } from "@/lib/paperBill.functions";
 
 type Rider = { id: string; full_name: string; medicaid_id: string; dob?: string | null };
+
+type OdoField = "l1p" | "l1d" | "l2p" | "l2d";
 
 type Draft = {
   rider: Rider | null;
@@ -46,6 +49,8 @@ type Entry = {
   uploadPath: string | null;
   mime: string;
   uploading: boolean;
+  ocr: "idle" | "running" | "done" | "failed";
+  ocrFilled: OdoField[];
   stage: "form" | "review" | "done";
   draft: Draft;
   result?: { trip_id: string; total: number; trip_kind: string; miles: number };
@@ -75,13 +80,15 @@ function legsFromDraft(d: Draft) {
 }
 
 /**
- * Chat-style paper trip report entry. Pure app logic — no OCR, no AI: the
+ * Chat-style paper trip report entry. Uploaded photos get a cheap OCR pass
+ * that pre-fills odometer fields (clearly marked for verification); the
  * biller keys the odometer numbers and the app does the same math the
  * automation uses at the portal.
  */
 export function PaperBillChat() {
   const ratesFn = useServerFn(getBillingRatesForCalc);
   const createFn = useServerFn(createPaperBillTrip);
+  const detectFn = useServerFn(detectPaperBillOdometers);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -117,6 +124,8 @@ export function PaperBillChat() {
       uploadPath: null,
       mime: file.type || (isPdf ? "application/pdf" : "image/jpeg"),
       uploading: true,
+      ocr: "idle",
+      ocrFilled: [],
       stage: "form",
       draft: emptyDraft(),
     };
@@ -135,6 +144,49 @@ export function PaperBillChat() {
       return;
     }
     patch(key, { uploading: false, uploadPath: path });
+    if (!isPdf) void runOcr(key, file);
+  }
+
+  /**
+   * Narrow OCR pass over the uploaded report. Mirrors the driver odometer
+   * photo behaviour: fields we can't read confidently stay blank for manual
+   * entry — we never surface a guess as if it were certain.
+   */
+  async function runOcr(key: string, file: File) {
+    if (file.size > 6 * 1024 * 1024) return;
+    patch(key, { ocr: "running" });
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Could not read the file"));
+        reader.readAsDataURL(file);
+      });
+      const res = (await detectFn({ data: { image_data_url: dataUrl } })) as Record<
+        OdoField,
+        string | null
+      >;
+      const filled: OdoField[] = [];
+      const nextDraft: Partial<Draft> = {};
+      (["l1p", "l1d", "l2p", "l2d"] as OdoField[]).forEach((f) => {
+        if (res?.[f]) {
+          nextDraft[f] = res[f] as string;
+          filled.push(f);
+        }
+      });
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.key === key
+            ? { ...e, ocr: "done", ocrFilled: filled, draft: { ...e.draft, ...nextDraft } }
+            : e,
+        ),
+      );
+      if (filled.length === 0) {
+        toast.message("Couldn't read the odometers — enter them manually.");
+      }
+    } catch {
+      patch(key, { ocr: "failed", ocrFilled: [] });
+    }
   }
 
   async function confirm(entry: Entry) {
@@ -194,7 +246,17 @@ export function PaperBillChat() {
               entry={entry}
               rates={rates.data ?? []}
               saving={saving === entry.key}
-              onPatchDraft={(d) => patchDraft(entry.key, d)}
+              onPatchDraft={(d) => {
+                patchDraft(entry.key, d);
+                const touched = Object.keys(d) as OdoField[];
+                setEntries((prev) =>
+                  prev.map((e) =>
+                    e.key === entry.key
+                      ? { ...e, ocrFilled: e.ocrFilled.filter((f) => !touched.includes(f)) }
+                      : e,
+                  ),
+                );
+              }}
               onStage={(stage) => patch(entry.key, { stage })}
               onConfirm={() => confirm(entry)}
             />
@@ -307,7 +369,25 @@ function ChatEntry({
             <p className="text-sm">
               Got it. Who was the passenger, and what were the odometer readings?
             </p>
-            <EntryForm draft={entry.draft} onPatch={onPatchDraft} />
+            {entry.ocr === "running" && (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Auto-reading the odometer
+                fields…
+              </div>
+            )}
+            {entry.ocr === "done" && entry.ocrFilled.length > 0 && (
+              <div className="rounded-lg border border-amber-400/60 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+                Auto-read {entry.ocrFilled.length} of 4 odometer fields — please verify the
+                highlighted numbers against the paper before calculating.
+              </div>
+            )}
+            {((entry.ocr === "done" && entry.ocrFilled.length === 0) ||
+              entry.ocr === "failed") && (
+              <div className="rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">
+                Couldn't auto-read the odometers — enter them manually below.
+              </div>
+            )}
+            <EntryForm draft={entry.draft} onPatch={onPatchDraft} ocrFilled={entry.ocrFilled} />
             <Button
               size="sm"
               className="rounded-full"
@@ -394,7 +474,18 @@ function ChatEntry({
   );
 }
 
-function EntryForm({ draft, onPatch }: { draft: Draft; onPatch: (d: Partial<Draft>) => void }) {
+const AUTO_READ_CLASS =
+  "border-amber-400 bg-amber-50 dark:bg-amber-500/10 focus-visible:border-amber-500";
+
+function EntryForm({
+  draft,
+  onPatch,
+  ocrFilled = [],
+}: {
+  draft: Draft;
+  onPatch: (d: Partial<Draft>) => void;
+  ocrFilled?: OdoField[];
+}) {
   const searchFn = useServerFn(searchBillingRiders);
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
@@ -501,37 +592,69 @@ function EntryForm({ draft, onPatch }: { draft: Draft; onPatch: (d: Partial<Draf
 
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="space-y-1">
-          <Label className="text-xs">Leg 1 pickup odometer</Label>
+          <Label className="text-xs">
+            Leg 1 pickup odometer
+            {ocrFilled.includes("l1p") && (
+              <span className="ml-1 font-medium text-amber-600 dark:text-amber-400">
+                auto-read — please verify
+              </span>
+            )}
+          </Label>
           <Input
             aria-label="Leg 1 pickup odometer"
             inputMode="decimal"
+            className={ocrFilled.includes("l1p") ? AUTO_READ_CLASS : undefined}
             value={draft.l1p}
             onChange={(e) => onPatch({ l1p: e.target.value })}
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Leg 1 dropoff odometer</Label>
+          <Label className="text-xs">
+            Leg 1 dropoff odometer
+            {ocrFilled.includes("l1d") && (
+              <span className="ml-1 font-medium text-amber-600 dark:text-amber-400">
+                auto-read — please verify
+              </span>
+            )}
+          </Label>
           <Input
             aria-label="Leg 1 dropoff odometer"
             inputMode="decimal"
+            className={ocrFilled.includes("l1d") ? AUTO_READ_CLASS : undefined}
             value={draft.l1d}
             onChange={(e) => onPatch({ l1d: e.target.value })}
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Leg 2 pickup odometer (optional)</Label>
+          <Label className="text-xs">
+            Leg 2 pickup odometer (optional)
+            {ocrFilled.includes("l2p") && (
+              <span className="ml-1 font-medium text-amber-600 dark:text-amber-400">
+                auto-read — please verify
+              </span>
+            )}
+          </Label>
           <Input
             aria-label="Leg 2 pickup odometer"
             inputMode="decimal"
+            className={ocrFilled.includes("l2p") ? AUTO_READ_CLASS : undefined}
             value={draft.l2p}
             onChange={(e) => onPatch({ l2p: e.target.value })}
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Leg 2 dropoff odometer (optional)</Label>
+          <Label className="text-xs">
+            Leg 2 dropoff odometer (optional)
+            {ocrFilled.includes("l2d") && (
+              <span className="ml-1 font-medium text-amber-600 dark:text-amber-400">
+                auto-read — please verify
+              </span>
+            )}
+          </Label>
           <Input
             aria-label="Leg 2 dropoff odometer"
             inputMode="decimal"
+            className={ocrFilled.includes("l2d") ? AUTO_READ_CLASS : undefined}
             value={draft.l2d}
             onChange={(e) => onPatch({ l2d: e.target.value })}
           />
