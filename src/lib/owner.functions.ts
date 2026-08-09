@@ -67,7 +67,10 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
       db.from("trips").select("company_id, updated_at, created_at"),
       db
         .from("medicaid_trips")
-        .select("company_id, updated_at, robot_confirmation_number, submitted_confirmation, status"),
+        .select(
+          "company_id, updated_at, submitted_at, portal_submitted_at, robot_captured_claim, robot_confirmation_number, submitted_confirmation, status",
+        ),
+
       db.from("state_portal_credentials").select("company_id, last_used_at, updated_at"),
       db.from("billing_rate_settings").select("company_id"),
     ]);
