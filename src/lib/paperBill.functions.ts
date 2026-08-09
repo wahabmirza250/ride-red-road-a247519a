@@ -317,7 +317,7 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
               {
                 type: "text",
                 text:
-                  'This is a HANDWRITTEN NEMT paper trip report (Colorado HCPF style). Read the handwriting carefully, field by field. Return strict JSON: {"name":{"v":null,"c":0},"medicaid_id":{"v":null,"c":0},"trip_date":{"v":null,"c":0},"vehicle_type":{"v":null,"c":0},"l1p":{"v":null,"c":0},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0}}. name = member/passenger full name. medicaid_id = the Medicaid / Member / State ID, usually ONE letter followed by 6 digits (e.g. P458407, M964077); transcribe exactly, uppercase, no spaces or dashes; look near labels like "Medicaid ID", "Member ID", "State ID", "Client ID", "RID". trip_date = ISO YYYY-MM-DD. vehicle_type = "ambulatory" or "wheelchair_van". l1p/l1d = leg 1 (outbound) beginning/ending odometer; l2p/l2d = leg 2 (return) beginning/ending odometer; digits only, no commas or units. Handwriting hints: 0 vs O, 1 vs 7, 4 vs 9, 5 vs S — in the ID field, a leading character is a letter and the rest are digits. "c" is your confidence 0-1. Never guess: if a field is blank, smudged, cropped or ambiguous use v null and c 0. Output JSON only.',
+                  'This is a HANDWRITTEN NEMT paper trip report (Colorado HCPF style). Read the handwriting carefully, field by field. Return strict JSON: {"name":{"v":null,"c":0},"medicaid_id":{"v":null,"c":0},"trip_date":{"v":null,"c":0},"vehicle_type":{"v":null,"c":0},"l1p":{"v":null,"c":0},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0}}. name = member/passenger full name. medicaid_id = the Medicaid / Member / State ID, usually ONE letter followed by 6 digits (e.g. P458407, M964077); transcribe exactly, uppercase, no spaces or dashes; look near labels like "Medicaid ID", "Member ID", "State ID", "Client ID", "RID". trip_date = ISO YYYY-MM-DD. vehicle_type = "wheelchair_van" ONLY if the form explicitly says wheelchair van / WAV / marks a wheelchair box; if there is no such mention, or it is blank or unclear, return "ambulatory" (nearly all trips are ambulatory). l1p/l1d = leg 1 (outbound) beginning/ending odometer; l2p/l2d = leg 2 (return) beginning/ending odometer; digits only, no commas or units. Handwriting hints: 0 vs O, 1 vs 7, 4 vs 9, 5 vs S — in the ID field, a leading character is a letter and the rest are digits. "c" is your confidence 0-1. Never guess: if a field is blank, smudged, cropped or ambiguous use v null and c 0. Output JSON only.',
               },
 
               filePart,
@@ -365,11 +365,10 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
     const rawDate = node("trip_date");
     const trip_date = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null;
     const rawVehicle = (node("vehicle_type") ?? "").toLowerCase();
-    const vehicle_type = rawVehicle.includes("wheel")
-      ? "wheelchair_van"
-      : rawVehicle.includes("ambul")
-        ? "ambulatory"
-        : null;
+    // Wheelchair van is only used when the form explicitly says so.
+    // Anything else (blank, unreadable, unmarked) is ambulatory — 99% of trips.
+    const vehicle_type = rawVehicle.includes("wheel") ? "wheelchair_van" : "ambulatory";
+
 
     const medicaidId = (node("medicaid_id") ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "") || null;
 
