@@ -76,7 +76,7 @@ export const SLIDES: Slide[] = [
       {
         title: "Matched — track in real time",
         text: "Driver photo, vehicle, live GPS position on the map, and in-app chat with the driver and with support.",
-        shot: "passenger-track",
+        shot: "passenger-home",
       },
       {
         title: "Profile, rewards & safety",
