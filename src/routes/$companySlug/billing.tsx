@@ -7,6 +7,7 @@ import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { AccessDenied } from "@/components/AccessDenied";
+import { CompanyLogo } from "@/components/CompanyLogo";
 
 export const Route = createFileRoute("/$companySlug/billing")({
   ssr: false,
@@ -56,6 +57,7 @@ function BillingLayout() {
             <ReceiptText className="h-4 w-4" />
           </span>
           <span className="text-sm font-semibold">RedArt Billing</span>
+          <CompanyLogo />
         </div>
         <nav className="hidden items-center gap-1 lg:flex">
           {NAV.map((item) => {

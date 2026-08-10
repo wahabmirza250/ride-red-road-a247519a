@@ -7,6 +7,7 @@ import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { AccessDenied } from "@/components/AccessDenied";
 import { BrandMark } from "@/components/Brand";
+import { CompanyLogo } from "@/components/CompanyLogo";
 
 export const Route = createFileRoute("/$companySlug/dispatch")({
   ssr: false,
@@ -66,6 +67,7 @@ function DispatchLayout() {
         <div className="flex items-center gap-2">
           <BrandMark className="h-8 w-8" />
           <span className="font-display text-sm font-semibold tracking-tight">RedArt Dispatch</span>
+          <CompanyLogo />
         </div>
         <div className="flex items-center gap-1">
           <button onClick={toggle} className="rounded-lg p-2 text-muted-foreground hover:bg-accent">
