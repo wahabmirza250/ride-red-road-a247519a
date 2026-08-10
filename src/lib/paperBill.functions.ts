@@ -172,7 +172,9 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
         miles: calc.miles,
         trip_kind: calc.trip_kind,
         vehicle_type: data.vehicle_type,
-        status: "pending_review",
+        // Paper bills are already human-reviewed in the chat flow, so they go
+        // straight to the submission queue instead of Pending review.
+        status: "approved",
       })
       .select("id")
       .single();
