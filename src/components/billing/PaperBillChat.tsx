@@ -373,6 +373,7 @@ function ChatEntry({
   onPatchDraft,
   onStage,
   onConfirm,
+  onCancel,
 }: {
   entry: Entry;
   rates: RateRow[];
@@ -380,6 +381,7 @@ function ChatEntry({
   onPatchDraft: (d: Partial<Draft>) => void;
   onStage: (s: Entry["stage"]) => void;
   onConfirm: () => void;
+  onCancel: () => void;
 }) {
   const legs = legsFromDraft(entry.draft);
   const calc = useMemo(
