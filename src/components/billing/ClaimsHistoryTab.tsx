@@ -77,7 +77,7 @@ export function ClaimsHistoryTab() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-border bg-surface/60">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[620px] text-sm">
             <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Claim ID</th>

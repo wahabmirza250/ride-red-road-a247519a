@@ -229,7 +229,7 @@ export function BillingWorkspace() {
       {isAdmin && <BillingRatesCard />}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-        <TabsList className="flex-wrap">
+        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap sm:flex-wrap">
           {TABS.map((t) => {
             const c = countFor(t.key);
             return (
@@ -366,8 +366,8 @@ function PendingReviewTab({
   if (!rows.length)
     return <EmptyState message="No trips awaiting review." />;
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-soft">
+      <table className="w-full min-w-[680px] text-sm">
         <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="px-4 py-3 text-left">Passenger</th>
@@ -519,8 +519,8 @@ function ReadyToSubmitTab({
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-soft">
+        <table className="w-full min-w-[680px] text-sm">
           <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="w-10 px-4 py-3"></th>
@@ -656,7 +656,7 @@ function AwaitingPortalTab({
                 )}
                 <QueueBadge info={queueById.get(r.id)} />
               </button>
-              <div className="flex shrink-0 flex-col items-end gap-2">
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-col sm:items-end">
                 <PdfCell
                   pdfUrl={r.pdf_url}
                   passengerName={r.passenger_name}
@@ -900,8 +900,8 @@ function SubmittedTab({
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-soft">
+          <table className="w-full min-w-[680px] text-sm">
             <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 text-left">Passenger</th>
