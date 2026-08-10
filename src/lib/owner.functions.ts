@@ -191,7 +191,16 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
 export const createCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (input: { name: string; url_slug: string; logo_base64?: string | null; logo_ext?: string | null }) => {
+    (input: {
+      name: string;
+      url_slug: string;
+      logo_base64?: string | null;
+      logo_ext?: string | null;
+      max_drivers?: number | null;
+      max_dispatchers?: number | null;
+      max_billers?: number | null;
+      max_admins?: number | null;
+    }) => {
       const name = String(input?.name ?? "").trim();
       const slug = String(input?.url_slug ?? "").trim().toLowerCase();
       if (name.length < 2 || name.length > 80) throw new Error("Company name is required");
@@ -203,6 +212,7 @@ export const createCompany = createServerFn({ method: "POST" })
         url_slug: slug,
         logo_base64: input.logo_base64 ?? null,
         logo_ext: (input.logo_ext ?? "png").replace(/[^a-z0-9]/gi, "").slice(0, 5) || "png",
+        ...normalizeLimits(input),
       };
     },
   )
@@ -221,7 +231,15 @@ export const createCompany = createServerFn({ method: "POST" })
 
     const { data: created, error } = await db
       .from("companies")
-      .insert({ name: data.name, url_slug: data.url_slug, status: "active" })
+      .insert({
+        name: data.name,
+        url_slug: data.url_slug,
+        status: "active",
+        max_drivers: data.max_drivers,
+        max_dispatchers: data.max_dispatchers,
+        max_billers: data.max_billers,
+        max_admins: data.max_admins,
+      })
       .select("id, name, url_slug, status")
       .single();
     if (error || !created) throw new Error(error?.message ?? "Could not create company");
@@ -239,6 +257,82 @@ export const createCompany = createServerFn({ method: "POST" })
     }
 
     return created;
+  });
+
+/** Seat caps: blank/0/negative means unlimited. */
+function normalizeLimits(input: {
+  max_drivers?: number | null;
+  max_dispatchers?: number | null;
+  max_billers?: number | null;
+  max_admins?: number | null;
+}) {
+  const one = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  };
+  return {
+    max_drivers: one(input?.max_drivers),
+    max_dispatchers: one(input?.max_dispatchers),
+    max_billers: one(input?.max_billers),
+    max_admins: one(input?.max_admins),
+  };
+}
+
+/** Owner-only: update a company's subscription seat caps. */
+export const setCompanyLimits = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      company_id: string;
+      max_drivers?: number | null;
+      max_dispatchers?: number | null;
+      max_billers?: number | null;
+      max_admins?: number | null;
+    }) => {
+      if (!input?.company_id) throw new Error("company_id required");
+      return { company_id: input.company_id, ...normalizeLimits(input) };
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const db = await gate((context as { userId: string }).userId);
+    const { company_id, ...limits } = data;
+    const { error } = await db.from("companies").update(limits).eq("id", company_id);
+    if (error) throw new Error(error.message);
+    return { ok: true, ...limits };
+  });
+
+/** Owner-only: replace or remove a company's logo (shown across their apps). */
+export const setCompanyLogo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { company_id: string; logo_base64?: string | null; logo_ext?: string | null }) => {
+    if (!input?.company_id) throw new Error("company_id required");
+    return {
+      company_id: input.company_id,
+      logo_base64: input.logo_base64 ?? null,
+      logo_ext: (input.logo_ext ?? "png").replace(/[^a-z0-9]/gi, "").slice(0, 5) || "png",
+    };
+  })
+  .handler(async ({ data, context }) => {
+    const db = await gate((context as { userId: string }).userId);
+
+    if (!data.logo_base64) {
+      await db.from("companies").update({ logo_url: null }).eq("id", data.company_id);
+      return { ok: true, logo_signed_url: null as string | null };
+    }
+
+    const bytes = Buffer.from(data.logo_base64, "base64");
+    if (bytes.length > 3_000_000) throw new Error("Logo must be under 3 MB");
+    const path = `${data.company_id}/logo-${Date.now()}.${data.logo_ext}`;
+    const { error: upErr } = await db.storage.from("company-logos").upload(path, bytes, {
+      upsert: true,
+      contentType: `image/${data.logo_ext === "svg" ? "svg+xml" : data.logo_ext}`,
+    });
+    if (upErr) throw new Error(upErr.message);
+    const { error } = await db.from("companies").update({ logo_url: path }).eq("id", data.company_id);
+    if (error) throw new Error(error.message);
+
+    const { data: signed } = await db.storage.from("company-logos").createSignedUrl(path, 60 * 60);
+    return { ok: true, logo_signed_url: signed?.signedUrl ?? null };
   });
 
 /**
