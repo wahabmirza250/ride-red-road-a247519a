@@ -256,6 +256,17 @@ export function PaperBillChat() {
     }
   }
 
+  /** Discard a paper bill at any point before it is confirmed. */
+  async function cancelEntry(entry: Entry) {
+    setEntries((prev) => prev.filter((e) => e.key !== entry.key));
+    if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+    if (entry.uploadPath) {
+      await supabase.storage.from("state-pdfs").remove([entry.uploadPath]);
+    }
+    toast.message("Paper bill discarded");
+  }
+
+
   return (
     <div className="space-y-4">
       <PageHeader
