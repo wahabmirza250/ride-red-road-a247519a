@@ -5,8 +5,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateStateFormPdf, type Leg } from "@/lib/medicaidPdf";
 import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
 
-/** Utility: verify admin, throw on failure. Reserved for privileged settings
- *  (portal credentials, default portal) that billing staff must never touch. */
+/** Utility: verify admin, throw on failure. Reserved for platform-level
+ *  settings; billing settings are managed by billing staff themselves. */
 async function assertAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase.rpc("has_role", {
     _user_id: userId,
@@ -1014,7 +1014,7 @@ export const listPortalCredentials = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
     const { data, error } = await supabase
       .from("state_portal_credentials")
       .select(
@@ -1041,8 +1041,8 @@ export const upsertPortalCredential = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
-    // Credentials are always bound to the admin's own company.
+    await assertBilling(supabase, userId);
+    // Credentials are always bound to the caller's own company.
     const { requireCompanyId } = await import("@/lib/company.server");
     const companyId = await requireCompanyId(userId);
     const { data: id, error } = await supabase.rpc("upsert_portal_credential", {
@@ -1062,7 +1062,7 @@ export const deletePortalCredential = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
     const { error } = await supabase
       .from("state_portal_credentials")
       .delete()
@@ -1100,7 +1100,7 @@ export const setDefaultBillingPortal = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    await assertBilling(supabase, userId);
     const { requireCompanyId } = await import("@/lib/company.server");
     const companyId = await requireCompanyId(userId);
     const { error } = await supabase.rpc("set_default_billing_portal", {
