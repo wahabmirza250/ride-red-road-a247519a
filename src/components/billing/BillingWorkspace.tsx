@@ -233,7 +233,7 @@ export function BillingWorkspace() {
           {TABS.map((t) => {
             const c = countFor(t.key);
             return (
-              <TabsTrigger key={t.key} value={t.key}>
+              <TabsTrigger key={t.key} value={t.key} className="shrink-0 whitespace-nowrap">
                 {t.label}
                 {c !== null && (
                   <span className="ml-2 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-semibold text-foreground/80">
