@@ -781,7 +781,7 @@ export const createCompanyStaff = createServerFn({ method: "POST" })
       billing: "max_billers",
       admin: "max_admins",
     }[data.role] as "max_drivers" | "max_dispatchers" | "max_billers" | "max_admins";
-    const cap = (company as Record<string, number | null>)[capField];
+    const cap = (company as unknown as Record<string, number | null>)[capField];
     if (cap != null) {
       const { data: existingRoles } = await db
         .from("user_roles")
