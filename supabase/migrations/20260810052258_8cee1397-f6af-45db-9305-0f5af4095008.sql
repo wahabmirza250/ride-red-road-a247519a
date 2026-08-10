@@ -1,0 +1,1 @@
+update public.drivers set current_lat=38.8339, current_lng=-104.8214, last_location_at=now(), status='available' where company_id='63bb7b72-3a44-4487-8899-87d9c337a8ec';
