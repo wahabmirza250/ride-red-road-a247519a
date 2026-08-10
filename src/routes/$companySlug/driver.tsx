@@ -7,6 +7,7 @@ import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { AccessDenied } from "@/components/AccessDenied";
+import { CompanyLogo } from "@/components/CompanyLogo";
 
 export const Route = createFileRoute("/$companySlug/driver")({
   ssr: false,
@@ -61,6 +62,7 @@ function DriverLayout() {
             R
           </span>
           <span className="text-sm font-semibold">Driver</span>
+          <CompanyLogo />
         </div>
         <div className="flex items-center gap-1">
           <button onClick={toggle} className="rounded-lg p-2 text-muted-foreground hover:bg-accent">
