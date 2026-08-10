@@ -704,7 +704,16 @@ function CancelSubmissionDialog({ row, onClose }: { row: any | null; onClose: ()
   }, [row?.id]);
 
   const cancel = useMutation({
-    mutationFn: () => cancelFn({ data: { id: row!.id } }),
+    mutationFn: async () => {
+      try {
+        return await cancelFn({ data: { id: row!.id } });
+      } catch (e) {
+        // The server function sometimes fails at the edge; billing staff have
+        // RLS access to do the exact same update straight from the browser.
+        if (looksLikeEdgeFailure(e)) return await cancelSubmissionClient(row!.id);
+        throw e;
+      }
+    },
     onSuccess: () => {
       toast.success("Submission cancelled — the trip is back in Ready to Submit");
       qc.invalidateQueries({ queryKey: ["billing_list"] });
@@ -712,8 +721,9 @@ function CancelSubmissionDialog({ row, onClose }: { row: any | null; onClose: ()
       qc.invalidateQueries({ queryKey: ["submission_queue"] });
       onClose();
     },
-    onError: (e: any) => setError(e?.message ?? "Could not cancel"),
+    onError: (e: unknown) => setError(friendlyErrorMessage(e, "Could not cancel this submission")),
   });
+
 
   return (
     <Dialog open={!!row} onOpenChange={(o) => !o && onClose()}>
