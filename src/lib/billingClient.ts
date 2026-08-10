@@ -86,3 +86,58 @@ export async function getBillingCountsClient() {
   }
   return counts;
 }
+
+/**
+ * Browser-side fallback for cancelling a submission when the server function
+ * fails at the edge. Mirrors the server checks: a claim that already carries a
+ * real portal confirmation number can never be cancelled here.
+ */
+export async function cancelSubmissionClient(id: string) {
+  const { data: rec, error } = await supabase
+    .from("billing_records")
+    .select(
+      `id, status, trip_id, state_confirmation_number,
+       medicaid_trips!inner(id, robot_confirmation_number, submitted_confirmation, portal_confirmation)`,
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!rec) throw new Error("This billing record could not be found.");
+
+  const trip: any = (rec as any).medicaid_trips;
+  const alreadySubmitted =
+    (rec as any).status === "submitted" ||
+    !!(rec as any).state_confirmation_number ||
+    !!trip?.robot_confirmation_number ||
+    !!trip?.submitted_confirmation ||
+    !!trip?.portal_confirmation;
+  if (alreadySubmitted) {
+    throw new Error(
+      "This claim has already been submitted to Medicaid" +
+        (trip?.robot_confirmation_number ? ` (claim #${trip.robot_confirmation_number})` : "") +
+        ". Void or adjust it in the state portal instead.",
+    );
+  }
+
+  const nowIso = new Date().toISOString();
+  await supabase
+    .from("medicaid_trips")
+    .update({
+      robot_job_id: null,
+      robot_pass: null,
+      robot_last_status: "cancelled",
+      robot_last_message: "Submission cancelled by billing staff before the real submit.",
+      robot_last_checked_at: nowIso,
+      robot_captured_claim: null,
+      robot_captured_at: null,
+    })
+    .eq("id", (rec as any).trip_id);
+
+  const { error: updErr } = await supabase
+    .from("billing_records")
+    .update({ status: "approved", requires_human_step: false, submission_error: null })
+    .eq("id", id);
+  if (updErr) throw new Error(updErr.message);
+
+  return { ok: true };
+}
