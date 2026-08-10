@@ -532,6 +532,15 @@ function ChatEntry({
               >
                 <Pencil className="mr-1 h-4 w-4" /> Edit
               </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="rounded-full text-muted-foreground"
+                disabled={saving}
+                onClick={onCancel}
+              >
+                <X className="mr-1 h-4 w-4" /> Cancel
+              </Button>
             </div>
           </div>
         </Bubble>
@@ -548,9 +557,17 @@ function ChatEntry({
               {entry.result.miles} miles · {formatMoney(entry.result.total)}
             </div>
             <div className="text-xs text-muted-foreground">
-              Paper report attached as the proof of service. It's now in{" "}
-              <strong>Pending Review</strong>. Upload the next bill whenever you're ready.
+              The paper report is attached as the proof of service. This bill is now in{" "}
+              <strong>Workflow → Pending review</strong>, where you approve it and send it to the
+              portal like any other trip.
             </div>
+            <AppLink
+              to="/billing"
+              className="inline-block pt-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Open Workflow → Pending review
+            </AppLink>
+          </div>
           </div>
         </Bubble>
       )}
