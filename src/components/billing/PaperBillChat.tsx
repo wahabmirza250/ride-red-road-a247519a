@@ -443,14 +443,24 @@ function ChatEntry({
               </div>
             )}
             <EntryForm draft={entry.draft} onPatch={onPatchDraft} ocrFilled={entry.ocrFilled} />
-            <Button
-              size="sm"
-              className="rounded-full"
-              disabled={!canReview || entry.uploading || !entry.uploadPath}
-              onClick={() => onStage("review")}
-            >
-              Calculate
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="rounded-full"
+                disabled={!canReview || entry.uploading || !entry.uploadPath}
+                onClick={() => onStage("review")}
+              >
+                Calculate
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="rounded-full text-muted-foreground"
+                onClick={onCancel}
+              >
+                <X className="mr-1 h-4 w-4" /> Cancel
+              </Button>
+            </div>
           </div>
         </Bubble>
       )}
