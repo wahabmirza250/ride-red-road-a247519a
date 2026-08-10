@@ -557,15 +557,14 @@ function ChatEntry({
               {entry.result.miles} miles · {formatMoney(entry.result.total)}
             </div>
             <div className="text-xs text-muted-foreground">
-              The paper report is attached as the proof of service. This bill is now in{" "}
-              <strong>Workflow → Pending review</strong>, where you approve it and send it to the
-              portal like any other trip.
+              The paper report is attached as the proof of service. This bill skipped review and is
+              now in <strong>Workflow → Ready to submit</strong>, queued for portal submission.
             </div>
             <AppLink
               to="/billing"
               className="inline-block pt-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
             >
-              Open Workflow → Pending review
+              Open Workflow → Ready to submit
             </AppLink>
           </div>
         </Bubble>
