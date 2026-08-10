@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ShowcaseRouteImport } from './routes/showcase'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CompanySlugRouteRouteImport } from './routes/$companySlug/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -84,6 +85,11 @@ import { Route as CompanySlugAuthenticatedPayrollDriverIdRouteImport } from './r
 import { Route as CompanySlugAuthenticatedMedicaidTripsNewRouteImport } from './routes/$companySlug/_authenticated/medicaid-trips.new'
 import { Route as CompanySlugAuthenticatedTripsTripIdProofRouteImport } from './routes/$companySlug/_authenticated/trips_.$tripId.proof'
 
+const ShowcaseRoute = ShowcaseRouteImport.update({
+  id: '/showcase',
+  path: '/showcase',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -509,6 +515,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/showcase': typeof ShowcaseRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/$companySlug/billing': typeof CompanySlugBillingRouteWithChildren
   '/$companySlug/dispatch': typeof CompanySlugDispatchRouteWithChildren
@@ -583,6 +590,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/showcase': typeof ShowcaseRoute
   '/$companySlug': typeof CompanySlugIndexRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/$companySlug/login': typeof CompanySlugLoginRoute
@@ -654,6 +662,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/showcase': typeof ShowcaseRoute
   '/$companySlug/_authenticated': typeof CompanySlugAuthenticatedRouteRouteWithChildren
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/$companySlug/billing': typeof CompanySlugBillingRouteWithChildren
@@ -732,6 +741,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$companySlug'
     | '/auth'
+    | '/showcase'
     | '/$companySlug/$'
     | '/$companySlug/billing'
     | '/$companySlug/dispatch'
@@ -806,6 +816,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/showcase'
     | '/$companySlug'
     | '/$companySlug/$'
     | '/$companySlug/login'
@@ -876,6 +887,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$companySlug'
     | '/auth'
+    | '/showcase'
     | '/$companySlug/_authenticated'
     | '/$companySlug/$'
     | '/$companySlug/billing'
@@ -953,6 +965,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CompanySlugRouteRoute: typeof CompanySlugRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ShowcaseRoute: typeof ShowcaseRoute
   DispatchSigninRoute: typeof DispatchSigninRoute
   DriverSigninRoute: typeof DriverSigninRoute
   OwnerSigninRoute: typeof OwnerSigninRoute
@@ -967,6 +980,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/showcase': {
+      id: '/showcase'
+      path: '/showcase'
+      fullPath: '/showcase'
+      preLoaderRoute: typeof ShowcaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -1710,6 +1730,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CompanySlugRouteRoute: CompanySlugRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ShowcaseRoute: ShowcaseRoute,
   DispatchSigninRoute: DispatchSigninRoute,
   DriverSigninRoute: DriverSigninRoute,
   OwnerSigninRoute: OwnerSigninRoute,
@@ -1724,13 +1745,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
