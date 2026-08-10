@@ -47,7 +47,27 @@ import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
 import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
 
-import { getBillingCountsClient, listBillingRecordsClient } from "@/lib/billingClient";
+import {
+  cancelSubmissionClient,
+  getBillingCountsClient,
+  listBillingRecordsClient,
+} from "@/lib/billingClient";
+import { friendlyErrorMessage } from "@/lib/errorMessage";
+
+/** A server-function call that died at the edge rejects with the HTML error shell. */
+function looksLikeEdgeFailure(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e ?? "");
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("<!doctype") ||
+    lower.includes("<html") ||
+    lower.includes("this page didn't load") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("500")
+  );
+}
+
 
 type TabKey = "pending_review" | "ready_to_submit" | "awaiting_portal" | "submitted" | "claims_history";
 
@@ -704,7 +724,16 @@ function CancelSubmissionDialog({ row, onClose }: { row: any | null; onClose: ()
   }, [row?.id]);
 
   const cancel = useMutation({
-    mutationFn: () => cancelFn({ data: { id: row!.id } }),
+    mutationFn: async () => {
+      try {
+        return await cancelFn({ data: { id: row!.id } });
+      } catch (e) {
+        // The server function sometimes fails at the edge; billing staff have
+        // RLS access to do the exact same update straight from the browser.
+        if (looksLikeEdgeFailure(e)) return await cancelSubmissionClient(row!.id);
+        throw e;
+      }
+    },
     onSuccess: () => {
       toast.success("Submission cancelled — the trip is back in Ready to Submit");
       qc.invalidateQueries({ queryKey: ["billing_list"] });
@@ -712,8 +741,9 @@ function CancelSubmissionDialog({ row, onClose }: { row: any | null; onClose: ()
       qc.invalidateQueries({ queryKey: ["submission_queue"] });
       onClose();
     },
-    onError: (e: any) => setError(e?.message ?? "Could not cancel"),
+    onError: (e: unknown) => setError(friendlyErrorMessage(e, "Could not cancel this submission")),
   });
+
 
   return (
     <Dialog open={!!row} onOpenChange={(o) => !o && onClose()}>
