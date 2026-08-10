@@ -47,7 +47,27 @@ import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
 import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
 
-import { getBillingCountsClient, listBillingRecordsClient } from "@/lib/billingClient";
+import {
+  cancelSubmissionClient,
+  getBillingCountsClient,
+  listBillingRecordsClient,
+} from "@/lib/billingClient";
+import { friendlyErrorMessage } from "@/lib/errorMessage";
+
+/** A server-function call that died at the edge rejects with the HTML error shell. */
+function looksLikeEdgeFailure(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e ?? "");
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("<!doctype") ||
+    lower.includes("<html") ||
+    lower.includes("this page didn't load") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("500")
+  );
+}
+
 
 type TabKey = "pending_review" | "ready_to_submit" | "awaiting_portal" | "submitted" | "claims_history";
 
