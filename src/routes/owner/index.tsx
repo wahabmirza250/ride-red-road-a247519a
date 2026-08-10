@@ -44,6 +44,8 @@ import {
   runPortalHealthCheck,
   setCompanyStatus,
   setCompanyTwilioPhone,
+  setCompanyLimits,
+  setCompanyLogo,
   startViewAsCompany,
 
   type OwnerCompany,
@@ -321,6 +323,7 @@ function CompanyCard({
             <p className="text-xs text-muted-foreground">
               redartdigital.com/{c.url_slug} · last activity {fmtDate(c.last_activity)}
             </p>
+            <LogoControl company={c} onChanged={onChanged} />
           </div>
         </div>
 
@@ -355,6 +358,7 @@ function CompanyCard({
         <Mini label="Passengers" value={c.passengers} />
         <Mini label="Dispatchers" value={c.dispatchers} />
         <Mini label="Admins" value={c.admins} />
+        <Mini label="Billers" value={c.billers} />
         <Mini label="Trips" value={c.trips} />
         <Mini label="Claims" value={c.claims} />
         <Mini
@@ -388,6 +392,8 @@ function CompanyCard({
         </span>
       </div>
 
+      <SeatLimitsField company={c} onChanged={onChanged} />
+
       <TwilioNumberField companyId={c.id} current={c.twilio_phone} />
 
 
@@ -407,6 +413,154 @@ function CompanyCard({
           {health.detail && <p className="mt-1 opacity-90">{health.detail}</p>}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Owner-side logo management — the tenant logo shows in their app headers. */
+function LogoControl({
+  company: c,
+  onChanged,
+}: {
+  company: OwnerCompany;
+  onChanged: () => Promise<void>;
+}) {
+  const save = useServerFn(setCompanyLogo);
+  const [busy, setBusy] = useState(false);
+
+  async function upload(file: File) {
+    setBusy(true);
+    try {
+      const buf = await file.arrayBuffer();
+      let bin = "";
+      new Uint8Array(buf).forEach((b) => (bin += String.fromCharCode(b)));
+      await save({
+        data: {
+          company_id: c.id,
+          logo_base64: window.btoa(bin),
+          logo_ext: (file.name.split(".").pop() ?? "png").toLowerCase(),
+        },
+      });
+      toast.success("Logo updated");
+      await onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update the logo");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-1 flex items-center gap-2 text-xs">
+      <label className="cursor-pointer rounded-full border border-border px-2.5 py-1 hover:bg-accent">
+        {busy ? "Uploading…" : c.logo_signed_url ? "Replace logo" : "Add logo"}
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          disabled={busy}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (f) void upload(f);
+          }}
+        />
+      </label>
+      {c.logo_signed_url && (
+        <button
+          className="text-muted-foreground hover:text-destructive"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await save({ data: { company_id: c.id, logo_base64: null } });
+              toast.success("Logo removed");
+              await onChanged();
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Could not remove the logo");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Remove
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Subscription seat caps. Blank = unlimited; creation is blocked at the cap. */
+function SeatLimitsField({
+  company: c,
+  onChanged,
+}: {
+  company: OwnerCompany;
+  onChanged: () => Promise<void>;
+}) {
+  const save = useServerFn(setCompanyLimits);
+  const [busy, setBusy] = useState(false);
+  const [v, setV] = useState({
+    max_drivers: c.max_drivers?.toString() ?? "",
+    max_dispatchers: c.max_dispatchers?.toString() ?? "",
+    max_billers: c.max_billers?.toString() ?? "",
+    max_admins: c.max_admins?.toString() ?? "",
+  });
+
+  const fields = [
+    { key: "max_drivers" as const, label: "Drivers", used: c.drivers },
+    { key: "max_dispatchers" as const, label: "Dispatch", used: c.dispatchers },
+    { key: "max_billers" as const, label: "Billing", used: c.billers },
+    { key: "max_admins" as const, label: "Admins", used: c.admins },
+  ];
+
+  return (
+    <div className="mt-4 rounded-2xl border border-border/70 bg-muted/20 p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Subscription seat limits (blank = unlimited)
+      </p>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        {fields.map((f) => (
+          <div key={f.key} className="w-[120px]">
+            <Label className="text-[11px] text-muted-foreground">
+              {f.label} · {f.used} used
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              value={v[f.key]}
+              placeholder="∞"
+              onChange={(e) => setV((p) => ({ ...p, [f.key]: e.target.value }))}
+            />
+          </div>
+        ))}
+        <Button
+          variant="outline"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await save({
+                data: {
+                  company_id: c.id,
+                  max_drivers: v.max_drivers === "" ? null : Number(v.max_drivers),
+                  max_dispatchers: v.max_dispatchers === "" ? null : Number(v.max_dispatchers),
+                  max_billers: v.max_billers === "" ? null : Number(v.max_billers),
+                  max_admins: v.max_admins === "" ? null : Number(v.max_admins),
+                },
+              });
+              toast.success("Seat limits saved");
+              await onChanged();
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Could not save limits");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save limits"}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -475,6 +629,7 @@ function NewCompanyDialog({ onDone }: { onDone: () => Promise<void> }) {
   const [slug, setSlug] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [limits, setLimits] = useState({ drivers: "", dispatch: "", billing: "", admins: "" });
   const autoSlug = useMemo(() => slugify(name), [name]);
   const effectiveSlug = slug || autoSlug;
 
@@ -491,7 +646,19 @@ function NewCompanyDialog({ onDone }: { onDone: () => Promise<void> }) {
         logo_base64 = window.btoa(bin);
         logo_ext = (file.name.split(".").pop() ?? "png").toLowerCase();
       }
-      await create({ data: { name, url_slug: effectiveSlug, logo_base64, logo_ext } });
+      const num = (x: string) => (x === "" ? null : Number(x));
+      await create({
+        data: {
+          name,
+          url_slug: effectiveSlug,
+          logo_base64,
+          logo_ext,
+          max_drivers: num(limits.drivers),
+          max_dispatchers: num(limits.dispatch),
+          max_billers: num(limits.billing),
+          max_admins: num(limits.admins),
+        },
+      });
       toast.success(`${name} created at /${effectiveSlug}`);
       setOpen(false);
       setName("");
@@ -540,6 +707,28 @@ function NewCompanyDialog({ onDone }: { onDone: () => Promise<void> }) {
               accept="image/*"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Seat limits by subscription (blank = unlimited)</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                ["drivers", "Drivers"],
+                ["dispatch", "Dispatch"],
+                ["billing", "Billing"],
+                ["admins", "Admins"],
+              ] as const).map(([key, label]) => (
+                <div key={key}>
+                  <Label className="text-[11px] text-muted-foreground">{label}</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="∞"
+                    value={limits[key]}
+                    onChange={(e) => setLimits((p) => ({ ...p, [key]: e.target.value }))}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
           <DialogFooter>
             <Button type="submit" className="rounded-full" disabled={saving || !name || !effectiveSlug}>

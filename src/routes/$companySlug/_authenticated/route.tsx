@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/admin/NotificationBell";
 import { ensurePushSubscribed } from "@/lib/push";
 import { BrandMark } from "@/components/Brand";
+import { CompanyLogo } from "@/components/CompanyLogo";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { AccessDenied } from "@/components/AccessDenied";
 import { ViewAsBanner } from "@/components/owner/ViewAsBanner";
@@ -216,6 +217,7 @@ function AuthenticatedLayout() {
           <div className="flex items-center gap-2">
             <BrandMark className="h-8 w-8" />
             <span className="font-display text-sm font-semibold tracking-tight">RedArt Dispatch</span>
+            <CompanyLogo className="h-6" />
           </div>
           <div className="flex items-center gap-1">
             {isAdmin && <NotificationBell />}

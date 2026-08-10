@@ -333,6 +333,10 @@ export type Database = {
           created_at: string
           id: string
           logo_url: string | null
+          max_admins: number | null
+          max_billers: number | null
+          max_dispatchers: number | null
+          max_drivers: number | null
           name: string
           status: string
           twilio_phone: string | null
@@ -343,6 +347,10 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
+          max_admins?: number | null
+          max_billers?: number | null
+          max_dispatchers?: number | null
+          max_drivers?: number | null
           name: string
           status?: string
           twilio_phone?: string | null
@@ -353,6 +361,10 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
+          max_admins?: number | null
+          max_billers?: number | null
+          max_dispatchers?: number | null
+          max_drivers?: number | null
           name?: string
           status?: string
           twilio_phone?: string | null
