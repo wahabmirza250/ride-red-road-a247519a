@@ -108,8 +108,8 @@ export function Deck({
     >
       {/* ambient backdrop */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 h-[42rem] w-[42rem] rounded-full bg-surface-accent/12 blur-3xl animate-aurora-a" />
-        <div className="absolute -bottom-56 -right-32 h-[38rem] w-[38rem] rounded-full bg-primary/10 blur-3xl animate-aurora-b" />
+        <div className="absolute -left-40 -top-40 h-[42rem] w-[42rem] rounded-full bg-surface-accent/12 blur-3xl animate-aurora-slow" />
+        <div className="absolute -bottom-56 -right-32 h-[38rem] w-[38rem] rounded-full bg-primary/10 blur-3xl animate-aurora-med" />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,color-mix(in_oklab,var(--foreground)_5%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_oklab,var(--foreground)_5%,transparent)_1px,transparent_1px)] bg-[size:64px_64px] opacity-40" />
       </div>
 
