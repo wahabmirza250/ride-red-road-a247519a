@@ -72,7 +72,12 @@ export const getOwnerOverview = createServerFn({ method: "POST" })
     const db = await gate((context as { userId: string }).userId);
 
     const [companiesRes, rolesRes, tripsRes, medRes, credRes, ratesRes] = await Promise.all([
-      db.from("companies").select("id, name, url_slug, status, logo_url, created_at, twilio_phone").order("created_at"),
+      db
+        .from("companies")
+        .select(
+          "id, name, url_slug, status, logo_url, created_at, twilio_phone, max_drivers, max_dispatchers, max_billers, max_admins",
+        )
+        .order("created_at"),
       db.from("user_roles").select("user_id, role, company_id"),
       db.from("trips").select("company_id, updated_at, created_at"),
       db
