@@ -11,8 +11,10 @@ import {
   FileText,
   Search,
   Plus,
+  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
+import { AppLink } from "@/lib/appLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -254,6 +256,17 @@ export function PaperBillChat() {
     }
   }
 
+  /** Discard a paper bill at any point before it is confirmed. */
+  async function cancelEntry(entry: Entry) {
+    setEntries((prev) => prev.filter((e) => e.key !== entry.key));
+    if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+    if (entry.uploadPath) {
+      await supabase.storage.from("state-pdfs").remove([entry.uploadPath]);
+    }
+    toast.message("Paper bill discarded");
+  }
+
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -295,6 +308,7 @@ export function PaperBillChat() {
               }}
               onStage={(stage) => patch(entry.key, { stage })}
               onConfirm={() => confirm(entry)}
+              onCancel={() => void cancelEntry(entry)}
             />
           ))}
           <div ref={bottomRef} />
@@ -359,6 +373,7 @@ function ChatEntry({
   onPatchDraft,
   onStage,
   onConfirm,
+  onCancel,
 }: {
   entry: Entry;
   rates: RateRow[];
@@ -366,6 +381,7 @@ function ChatEntry({
   onPatchDraft: (d: Partial<Draft>) => void;
   onStage: (s: Entry["stage"]) => void;
   onConfirm: () => void;
+  onCancel: () => void;
 }) {
   const legs = legsFromDraft(entry.draft);
   const calc = useMemo(
@@ -427,14 +443,24 @@ function ChatEntry({
               </div>
             )}
             <EntryForm draft={entry.draft} onPatch={onPatchDraft} ocrFilled={entry.ocrFilled} />
-            <Button
-              size="sm"
-              className="rounded-full"
-              disabled={!canReview || entry.uploading || !entry.uploadPath}
-              onClick={() => onStage("review")}
-            >
-              Calculate
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="rounded-full"
+                disabled={!canReview || entry.uploading || !entry.uploadPath}
+                onClick={() => onStage("review")}
+              >
+                Calculate
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="rounded-full text-muted-foreground"
+                onClick={onCancel}
+              >
+                <X className="mr-1 h-4 w-4" /> Cancel
+              </Button>
+            </div>
           </div>
         </Bubble>
       )}
@@ -506,6 +532,15 @@ function ChatEntry({
               >
                 <Pencil className="mr-1 h-4 w-4" /> Edit
               </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="rounded-full text-muted-foreground"
+                disabled={saving}
+                onClick={onCancel}
+              >
+                <X className="mr-1 h-4 w-4" /> Cancel
+              </Button>
             </div>
           </div>
         </Bubble>
@@ -522,9 +557,16 @@ function ChatEntry({
               {entry.result.miles} miles · {formatMoney(entry.result.total)}
             </div>
             <div className="text-xs text-muted-foreground">
-              Paper report attached as the proof of service. It's now in{" "}
-              <strong>Pending Review</strong>. Upload the next bill whenever you're ready.
+              The paper report is attached as the proof of service. This bill is now in{" "}
+              <strong>Workflow → Pending review</strong>, where you approve it and send it to the
+              portal like any other trip.
             </div>
+            <AppLink
+              to="/billing"
+              className="inline-block pt-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Open Workflow → Pending review
+            </AppLink>
           </div>
         </Bubble>
       )}
