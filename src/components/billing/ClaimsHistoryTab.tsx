@@ -17,6 +17,7 @@ export function ClaimsHistoryTab() {
   const query = useQuery({
     queryKey: ["claims_history"],
     queryFn: () => listFn() as Promise<ClaimHistoryRow[]>,
+    retry: false,
   });
 
   const rows = useMemo(() => {
@@ -34,6 +35,15 @@ export function ClaimsHistoryTab() {
       return desc ? bv - av : av - bv;
     });
   }, [query.data, q, desc]);
+
+  if (query.isError) {
+    return (
+      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive">
+        Could not load claims history:{" "}
+        {query.error instanceof Error ? query.error.message : "unknown error"}
+      </div>
+    );
+  }
 
   if (query.isLoading) {
     return (
