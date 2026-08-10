@@ -769,10 +769,32 @@ export const createCompanyStaff = createServerFn({ method: "POST" })
 
     const { data: company } = await db
       .from("companies")
-      .select("id")
+      .select("id, max_drivers, max_dispatchers, max_billers, max_admins")
       .eq("id", data.company_id)
       .maybeSingle();
     if (!company) throw new Error("Company not found");
+
+    // Subscription seat caps — enforced server-side, never trusted from the UI.
+    const capField = {
+      driver: "max_drivers",
+      dispatch: "max_dispatchers",
+      billing: "max_billers",
+      admin: "max_admins",
+    }[data.role] as "max_drivers" | "max_dispatchers" | "max_billers" | "max_admins";
+    const cap = (company as Record<string, number | null>)[capField];
+    if (cap != null) {
+      const { data: existingRoles } = await db
+        .from("user_roles")
+        .select("user_id")
+        .eq("company_id", data.company_id)
+        .eq("role", data.role);
+      const used = new Set((existingRoles ?? []).map((r) => r.user_id)).size;
+      if (used >= cap) {
+        throw new Error(
+          `Seat limit reached: this company's plan allows ${cap} ${data.role} account${cap === 1 ? "" : "s"} (${used} in use). Raise the limit first.`,
+        );
+      }
+    }
 
     const { data: created, error } = await db.auth.admin.createUser({
       email: data.email,
