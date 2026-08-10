@@ -308,6 +308,7 @@ export function PaperBillChat() {
               }}
               onStage={(stage) => patch(entry.key, { stage })}
               onConfirm={() => confirm(entry)}
+              onCancel={() => void cancelEntry(entry)}
             />
           ))}
           <div ref={bottomRef} />
