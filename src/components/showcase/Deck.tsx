@@ -132,7 +132,7 @@ export function Deck({
       </header>
 
       {/* stage */}
-      <main className="relative z-10 flex flex-1 items-center px-4 pb-24 sm:px-8">
+      <main className="relative z-10 flex flex-1 items-center px-4 pb-32 sm:px-8 sm:pb-24">
         <div key={`${slide.id}-${step}`} className="mx-auto w-full max-w-6xl animate-rise-in">
           {slide.kind === "title" || slide.kind === "closing" ? (
             <TitleSlide name={slide.name} tagline={slide.tagline} closing={slide.kind === "closing"} />
