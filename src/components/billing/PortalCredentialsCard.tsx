@@ -51,12 +51,40 @@ export function PortalCredentialsCard() {
 
   const creds = useQuery({
     queryKey: ["portal_credentials"],
-    queryFn: () => list(),
+    retry: 1,
+    queryFn: async () => {
+      try {
+        return await list();
+      } catch {
+        // Edge deployments can reject server-function calls; RLS-scoped read works fine.
+        const { data, error } = await supabase
+          .from("state_portal_credentials")
+          .select(
+            "id, portal_id, portal_name, state, login_email, password_last4, last_used_at, updated_at, company_id",
+          )
+          .order("portal_name");
+        if (error) throw new Error(error.message);
+        return data ?? [];
+      }
+    },
   });
   const settings = useQuery({
     queryKey: ["billing_settings"],
-    queryFn: () => settingsFn(),
+    retry: 1,
+    queryFn: async () => {
+      try {
+        return await settingsFn();
+      } catch {
+        const { data } = await supabase
+          .from("billing_settings")
+          .select("*")
+          .limit(1)
+          .maybeSingle();
+        return data ?? null;
+      }
+    },
   });
+
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -170,11 +198,19 @@ export function PortalCredentialsCard() {
         </div>
       </div>
 
-      {creds.isLoading ? (
+      {creds.isPending ? (
         <div className="flex justify-center py-6">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
+      ) : creds.isError ? (
+        <div className="flex flex-col items-center gap-2 py-6 text-sm text-muted-foreground">
+          <span>{friendlyErrorMessage(creds.error, "Could not load saved logins")}</span>
+          <Button size="sm" variant="outline" onClick={() => creds.refetch()}>
+            Retry
+          </Button>
+        </div>
       ) : (
+
         <div className="space-y-2">
           {(creds.data ?? []).map((c: any) => {
             const def = getPortal(c.portal_id);
