@@ -568,7 +568,6 @@ function ChatEntry({
               Open Workflow → Pending review
             </AppLink>
           </div>
-          </div>
         </Bubble>
       )}
     </div>
