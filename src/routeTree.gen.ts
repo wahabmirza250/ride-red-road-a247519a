@@ -54,6 +54,7 @@ import { Route as CompanySlugDispatchScheduleRouteImport } from './routes/$compa
 import { Route as CompanySlugDispatchRoutesRouteImport } from './routes/$companySlug/dispatch.routes'
 import { Route as CompanySlugDispatchHistoryRouteImport } from './routes/$companySlug/dispatch.history'
 import { Route as CompanySlugBillingSigninRouteImport } from './routes/$companySlug/billing.signin'
+import { Route as CompanySlugBillingSettingsRouteImport } from './routes/$companySlug/billing.settings'
 import { Route as CompanySlugBillingChatRouteImport } from './routes/$companySlug/billing.chat'
 import { Route as CompanySlugAuthenticatedTripsRouteImport } from './routes/$companySlug/_authenticated/trips'
 import { Route as CompanySlugAuthenticatedTeamRouteImport } from './routes/$companySlug/_authenticated/team'
@@ -330,6 +331,12 @@ const CompanySlugBillingSigninRoute =
     path: '/signin',
     getParentRoute: () => CompanySlugBillingRoute,
   } as any)
+const CompanySlugBillingSettingsRoute =
+  CompanySlugBillingSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => CompanySlugBillingRoute,
+  } as any)
 const CompanySlugBillingChatRoute = CompanySlugBillingChatRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -534,6 +541,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/team': typeof CompanySlugAuthenticatedTeamRoute
   '/$companySlug/trips': typeof CompanySlugAuthenticatedTripsRoute
   '/$companySlug/billing/chat': typeof CompanySlugBillingChatRoute
+  '/$companySlug/billing/settings': typeof CompanySlugBillingSettingsRoute
   '/$companySlug/billing/signin': typeof CompanySlugBillingSigninRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
   '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesRouteWithChildren
@@ -603,6 +611,7 @@ export interface FileRoutesByTo {
   '/$companySlug/team': typeof CompanySlugAuthenticatedTeamRoute
   '/$companySlug/trips': typeof CompanySlugAuthenticatedTripsRoute
   '/$companySlug/billing/chat': typeof CompanySlugBillingChatRoute
+  '/$companySlug/billing/settings': typeof CompanySlugBillingSettingsRoute
   '/$companySlug/billing/signin': typeof CompanySlugBillingSigninRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
   '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
@@ -678,6 +687,7 @@ export interface FileRoutesById {
   '/$companySlug/_authenticated/team': typeof CompanySlugAuthenticatedTeamRoute
   '/$companySlug/_authenticated/trips': typeof CompanySlugAuthenticatedTripsRoute
   '/$companySlug/billing/chat': typeof CompanySlugBillingChatRoute
+  '/$companySlug/billing/settings': typeof CompanySlugBillingSettingsRoute
   '/$companySlug/billing/signin': typeof CompanySlugBillingSigninRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
   '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesRouteWithChildren
@@ -754,6 +764,7 @@ export interface FileRouteTypes {
     | '/$companySlug/team'
     | '/$companySlug/trips'
     | '/$companySlug/billing/chat'
+    | '/$companySlug/billing/settings'
     | '/$companySlug/billing/signin'
     | '/$companySlug/dispatch/history'
     | '/$companySlug/dispatch/routes'
@@ -823,6 +834,7 @@ export interface FileRouteTypes {
     | '/$companySlug/team'
     | '/$companySlug/trips'
     | '/$companySlug/billing/chat'
+    | '/$companySlug/billing/settings'
     | '/$companySlug/billing/signin'
     | '/$companySlug/dispatch/history'
     | '/$companySlug/dispatch/schedule'
@@ -897,6 +909,7 @@ export interface FileRouteTypes {
     | '/$companySlug/_authenticated/team'
     | '/$companySlug/_authenticated/trips'
     | '/$companySlug/billing/chat'
+    | '/$companySlug/billing/settings'
     | '/$companySlug/billing/signin'
     | '/$companySlug/dispatch/history'
     | '/$companySlug/dispatch/routes'
@@ -1269,6 +1282,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugBillingSigninRouteImport
       parentRoute: typeof CompanySlugBillingRoute
     }
+    '/$companySlug/billing/settings': {
+      id: '/$companySlug/billing/settings'
+      path: '/settings'
+      fullPath: '/$companySlug/billing/settings'
+      preLoaderRoute: typeof CompanySlugBillingSettingsRouteImport
+      parentRoute: typeof CompanySlugBillingRoute
+    }
     '/$companySlug/billing/chat': {
       id: '/$companySlug/billing/chat'
       path: '/chat'
@@ -1551,12 +1571,14 @@ const CompanySlugAuthenticatedRouteRouteWithChildren =
 
 interface CompanySlugBillingRouteChildren {
   CompanySlugBillingChatRoute: typeof CompanySlugBillingChatRoute
+  CompanySlugBillingSettingsRoute: typeof CompanySlugBillingSettingsRoute
   CompanySlugBillingSigninRoute: typeof CompanySlugBillingSigninRoute
   CompanySlugBillingIndexRoute: typeof CompanySlugBillingIndexRoute
 }
 
 const CompanySlugBillingRouteChildren: CompanySlugBillingRouteChildren = {
   CompanySlugBillingChatRoute: CompanySlugBillingChatRoute,
+  CompanySlugBillingSettingsRoute: CompanySlugBillingSettingsRoute,
   CompanySlugBillingSigninRoute: CompanySlugBillingSigninRoute,
   CompanySlugBillingIndexRoute: CompanySlugBillingIndexRoute,
 }
@@ -1702,13 +1724,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
