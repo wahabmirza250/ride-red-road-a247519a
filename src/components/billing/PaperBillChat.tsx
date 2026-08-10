@@ -356,8 +356,8 @@ function Bubble({
       <div
         className={
           side === "user"
-            ? "max-w-[80%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-primary-foreground"
-            : "max-w-[80%] rounded-2xl rounded-bl-sm border border-border bg-surface-muted px-3 py-2 text-foreground"
+            ? "max-w-[88%] sm:max-w-[80%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-primary-foreground"
+            : "max-w-[88%] sm:max-w-[80%] rounded-2xl rounded-bl-sm border border-border bg-surface-muted px-3 py-2 text-foreground"
         }
       >
         {children}
@@ -420,7 +420,7 @@ function ChatEntry({
 
       {entry.stage === "form" && (
         <Bubble side="bot">
-          <div className="w-[min(78vw,520px)] space-y-3">
+          <div className="w-full space-y-3 sm:w-[min(78vw,520px)]">
             <p className="text-sm">
               Got it. Who was the passenger, and what were the odometer readings?
             </p>
@@ -467,7 +467,7 @@ function ChatEntry({
 
       {entry.stage === "review" && (
         <Bubble side="bot">
-          <div className="w-[min(78vw,520px)] space-y-2">
+          <div className="w-full space-y-2 sm:w-[min(78vw,520px)]">
             {entry.ocrFilled.length > 0 && (
               <div className="rounded-lg border border-amber-400/60 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
                 Read from the uploaded document. Check the numbers — Confirm if correct, Edit to

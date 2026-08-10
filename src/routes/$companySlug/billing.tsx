@@ -51,12 +51,12 @@ function BillingLayout() {
 
   return (
     <div className="surface-red fleet-shell min-h-screen pb-24 lg:pb-0">
-      <header className="glass sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border px-4">
-        <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+      <header className="glass sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border px-3 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <ReceiptText className="h-4 w-4" />
           </span>
-          <span className="text-sm font-semibold">RedArt Billing</span>
+          <span className="truncate text-sm font-semibold">RedArt Billing</span>
           <CompanyLogo />
         </div>
         <nav className="hidden items-center gap-1 lg:flex">
@@ -80,7 +80,7 @@ function BillingLayout() {
             );
           })}
         </nav>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <button onClick={toggle} className="rounded-lg p-2 text-muted-foreground hover:bg-accent">
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
@@ -96,7 +96,7 @@ function BillingLayout() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1400px] px-4 py-6">
+      <main className="mx-auto w-full max-w-[1400px] overflow-x-hidden px-3 py-5 sm:px-4 sm:py-6">
         <Outlet />
       </main>
 

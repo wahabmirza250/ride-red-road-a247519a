@@ -132,8 +132,8 @@ export function PortalCredentialsCard() {
 
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-5">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="rounded-2xl border border-border bg-surface p-4 sm:p-5">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base font-semibold">Billing portal</h2>
           <p className="text-xs text-muted-foreground">
@@ -173,13 +173,13 @@ export function PortalCredentialsCard() {
           <Star className="h-4 w-4 text-amber-500" /> Default portal for this
           account
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:ml-auto">
           <Select
             value={settings.data?.default_portal_id ?? ""}
             onValueChange={(v) => setDefault.mutate(v)}
             disabled={setDefault.isPending || settings.isLoading}
           >
-            <SelectTrigger className="w-64">
+            <SelectTrigger className="w-full sm:w-64">
               <SelectValue placeholder="Select a portal…" />
             </SelectTrigger>
             <SelectContent>
