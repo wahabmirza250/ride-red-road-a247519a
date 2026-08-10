@@ -41,6 +41,12 @@ export type OwnerCompany = {
   passengers: number;
   dispatchers: number;
   admins: number;
+  billers: number;
+  /** Subscription seat caps. `null` means unlimited. */
+  max_drivers: number | null;
+  max_dispatchers: number | null;
+  max_billers: number | null;
+  max_admins: number | null;
   trips: number;
   claims: number;
   /** Billed total from this company's submitted claims. Never blended across tenants. */
