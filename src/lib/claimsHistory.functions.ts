@@ -21,12 +21,12 @@ export const listClaimsHistory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<ClaimHistoryRow[]> => {
     const { supabase, userId } = context;
-    const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", {
-      _user_id: userId,
-      _role: "admin",
-    });
-    if (roleErr) throw new Error(roleErr.message);
-    if (!isAdmin) throw new Error("Forbidden: admin only");
+    // Billing staff own this audit trail day-to-day; admins can see it too.
+    const [{ data: isAdmin }, { data: isBilling }] = await Promise.all([
+      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+      supabase.rpc("has_role", { _user_id: userId, _role: "billing" }),
+    ]);
+    if (!isAdmin && !isBilling) throw new Error("Forbidden: billing or admin only");
 
     const { data, error } = await supabase
       .from("medicaid_trips")
