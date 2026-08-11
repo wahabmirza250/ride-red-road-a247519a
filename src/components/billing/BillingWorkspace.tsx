@@ -16,6 +16,7 @@ import {
   Bot,
   Clock,
   Ban,
+  Trash2,
 } from "lucide-react";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatusPill } from "@/components/nemt/StatusPill";
