@@ -182,6 +182,7 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
         trip_kind: calc.trip_kind,
         vehicle_type: data.vehicle_type,
         paper_driver_name: data.driver_name?.trim() || null,
+        identity_verified: data.identity_verified,
 
         // Paper bills are already human-reviewed in the chat flow, so they go
         // straight to the submission queue instead of Pending review.
