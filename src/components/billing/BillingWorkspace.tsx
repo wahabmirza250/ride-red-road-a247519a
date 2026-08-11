@@ -807,9 +807,18 @@ function AwaitingPortalTab({
                   onPreview={onPreviewPdf}
                 />
                 {r.status === "pending_submit" && (
-                  <Button size="sm" onClick={() => setConfirmFor(r)}>
-                    <CheckCircle2 className="mr-1 h-4 w-4" /> Mark as Submitted
-                  </Button>
+                  <>
+                    <Button size="sm" onClick={() => onOpen(r.id)}>
+                      <CheckCircle2 className="mr-1 h-4 w-4" /> Review &amp; Confirm
+                    </Button>
+                    <button
+                      type="button"
+                      className="text-[11px] text-muted-foreground underline underline-offset-2"
+                      onClick={() => setConfirmFor(r)}
+                    >
+                      Submitted manually? Enter claim number
+                    </button>
+                  </>
                 )}
                 {queueById.get(r.id)?.cancellable === false ? (
                   <span className="text-[11px] text-muted-foreground">
