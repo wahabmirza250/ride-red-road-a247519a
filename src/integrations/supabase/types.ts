@@ -1263,6 +1263,7 @@ export type Database = {
           miles: number
           odometer_end: number
           odometer_start: number
+          paper_driver_name: string | null
           pickup_address: string
           pickup_at: string
           pickup_lat: number | null
@@ -1321,6 +1322,7 @@ export type Database = {
           miles: number
           odometer_end: number
           odometer_start: number
+          paper_driver_name?: string | null
           pickup_address: string
           pickup_at: string
           pickup_lat?: number | null
@@ -1379,6 +1381,7 @@ export type Database = {
           miles?: number
           odometer_end?: number
           odometer_start?: number
+          paper_driver_name?: string | null
           pickup_address?: string
           pickup_at?: string
           pickup_lat?: number | null
