@@ -15,7 +15,7 @@ export async function listBillingRecordsClient(statuses: string[]) {
        submitted_at, state_confirmation_number, submission_error,
        requires_human_step, updated_at,
        medicaid_trips!inner(
-         id, pickup_at, pickup_address, dropoff_address, driver_id, state_pdf_path,
+         id, pickup_at, pickup_address, dropoff_address, driver_id, paper_driver_name, state_pdf_path,
          robot_job_id, robot_last_status, robot_last_message, robot_job_started_at,
          riders(full_name, medicaid_id)
        )`,
@@ -63,7 +63,11 @@ export async function listBillingRecordsClient(statuses: string[]) {
       updated_at: r.updated_at,
       passenger_name: r.medicaid_trips?.riders?.full_name ?? null,
       medicaid_id: r.medicaid_trips?.riders?.medicaid_id ?? null,
-      driver_name: prof ? `${prof.first_name ?? ""} ${prof.last_name ?? ""}`.trim() : "—",
+      // Paper bills carry the driver written on the form; that always wins over
+      // the staff account that keyed the bill in.
+      driver_name:
+        (r.medicaid_trips?.paper_driver_name?.trim() || null) ??
+        (prof ? `${prof.first_name ?? ""} ${prof.last_name ?? ""}`.trim() : "—"),
       pickup_at: r.medicaid_trips?.pickup_at,
       pickup_address: r.medicaid_trips?.pickup_address,
       dropoff_address: r.medicaid_trips?.dropoff_address,
