@@ -35,6 +35,7 @@ import {
 import { formatDateTime } from "@/lib/format";
 import {
   cancelSubmission,
+  deleteBillingRecords,
   listSubmissionQueue,
   getBillingCounts,
   getBillingSettings,
@@ -50,6 +51,7 @@ import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
 
 import {
   cancelSubmissionClient,
+  deleteBillingRecordsClient,
   getBillingCountsClient,
   listBillingRecordsClient,
 } from "@/lib/billingClient";
