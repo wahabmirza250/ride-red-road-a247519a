@@ -428,6 +428,9 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
       name: node("name"),
       driver_name: node("driver_name"),
       medicaid_id: medicaidId,
+      /** True when the ID needs a careful human double-check before use. */
+      medicaid_id_uncertain,
+      medicaid_id_confidence: idConfidence,
 
       rider,
       trip_date,
