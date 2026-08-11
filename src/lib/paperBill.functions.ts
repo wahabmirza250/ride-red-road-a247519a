@@ -342,7 +342,7 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
               {
                 type: "text",
                 text:
-                  'This is a HANDWRITTEN NEMT paper trip report (Colorado HCPF style). Read the handwriting carefully, field by field. Return strict JSON: {"name":{"v":null,"c":0},"medicaid_id":{"v":null,"c":0},"driver_name":{"v":null,"c":0},"trip_date":{"v":null,"c":0},"vehicle_type":{"v":null,"c":0},"l1p":{"v":null,"c":0},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0}}. name = member/passenger full name. medicaid_id = the Medicaid / Member / State ID, usually ONE letter followed by 6 digits (e.g. P458407, M964077); transcribe exactly, uppercase, no spaces or dashes; look near labels like "Medicaid ID", "Member ID", "State ID", "Client ID", "RID". driver_name = the DRIVER / transport provider staff name written on the form (look near labels like "Driver", "Driver Name", "Driver Signature", "Transport Provider", "Attendant"); it is NOT the member/passenger name — if the only name on the form is the member, return null. trip_date = ISO YYYY-MM-DD. vehicle_type = "wheelchair_van" ONLY if the form explicitly says wheelchair van / WAV / marks a wheelchair box; if there is no such mention, or it is blank or unclear, return "ambulatory" (nearly all trips are ambulatory). l1p/l1d = leg 1 (outbound) beginning/ending odometer; l2p/l2d = leg 2 (return) beginning/ending odometer; digits only, no commas or units. Handwriting hints: 0 vs O, 1 vs 7, 4 vs 9, 5 vs S — in the ID field, a leading character is a letter and the rest are digits. "c" is your confidence 0-1. Never guess: if a field is blank, smudged, cropped or ambiguous use v null and c 0. Output JSON only.',
+                  'This is a HANDWRITTEN NEMT paper trip report (Colorado HCPF style). Read the handwriting carefully, field by field. Return strict JSON: {"name":{"v":null,"c":0},"medicaid_id":{"v":null,"c":0},"driver_name":{"v":null,"c":0},"trip_date":{"v":null,"c":0},"vehicle_type":{"v":null,"c":0},"l1p":{"v":null,"c":0},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0}}. name = member/passenger full name. medicaid_id = the Medicaid / Member / State ID, usually ONE letter followed by 6 digits (e.g. P458407, M964077); transcribe exactly, uppercase, no spaces or dashes; look near labels like "Medicaid ID", "Member ID", "State ID", "Client ID", "RID". driver_name = the DRIVER / transport provider staff name written on the form (look near labels like "Driver", "Driver Name", "Driver Signature", "Transport Provider", "Attendant"); it is NOT the member/passenger name — if the only name on the form is the member, return null. trip_date = ISO YYYY-MM-DD. vehicle_type = "wheelchair_van" ONLY if the form explicitly says wheelchair van / WAV / marks a wheelchair box; if there is no such mention, or it is blank or unclear, return "ambulatory" (nearly all trips are ambulatory). l1p/l1d = leg 1 (outbound) beginning/ending odometer; l2p/l2d = leg 2 (return) beginning/ending odometer; digits only, no commas or units. Handwriting hints — commonly confused characters: 0 vs O, 1 vs 7, 4 vs 9, 5 vs S, Y vs 4 (a handwritten Y is very often misread as a 4, and vice versa), Z vs 2, B vs 8, G vs 6, I vs 1. STRUCTURE OF THE MEDICAID ID: it is ALWAYS exactly ONE letter followed by EXACTLY 6 digits (7 characters total). Apply this rule when reading it: the FIRST character must be a letter (so if it looks like a 4 there, seriously consider Y; if it looks like a 0 consider O; if 1 consider I; if 5 consider S; if 2 consider Z; if 8 consider B; if 6 consider G), and the remaining 6 characters must be digits (so a letter-looking mark after position 1 is a digit). IMPORTANT: report your confidence for the ID honestly and SEPARATELY from digit count — if you can count the 6 digits clearly but you are at all unsure which letter the leading character is, you MUST return a LOW confidence (c below 0.6) rather than guessing a letter. Never silently pick between Y and 4. "c" is your confidence 0-1. Never guess: if a field is blank, smudged, cropped or ambiguous use v null and c 0. Output JSON only.',
               },
 
               filePart,
@@ -395,7 +395,22 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
     const vehicle_type = rawVehicle.includes("wheel") ? "wheelchair_van" : "ambulatory";
 
 
-    const medicaidId = (node("medicaid_id") ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "") || null;
+    // Medicaid IDs are structurally ONE letter + 6 digits. Read the ID with a
+    // higher confidence bar than other fields (a wrong ID = a claim billed for
+    // the wrong person) and flag anything that does not fit the structure so
+    // the biller is forced to eyeball it.
+    const idNode = parsed["medicaid_id"] as { v?: unknown; c?: unknown } | undefined;
+    const idConfidence =
+      idNode && typeof idNode === "object" && typeof idNode.c === "number" ? idNode.c : 0;
+    const idRaw =
+      idNode && typeof idNode === "object" && (typeof idNode.v === "string" || typeof idNode.v === "number")
+        ? String(idNode.v).toUpperCase().replace(/[^A-Z0-9]/g, "")
+        : "";
+    const ID_MIN_CONFIDENCE = 0.75;
+    const idWellFormed = /^[A-Z][0-9]{6}$/.test(idRaw);
+    const medicaidId = idRaw || null;
+    const medicaid_id_uncertain =
+      !!medicaidId && (idConfidence < ID_MIN_CONFIDENCE || !idWellFormed);
 
     // Link a known passenger straight away so billing reuses the existing
     // record instead of trying to create a duplicate member.
@@ -413,6 +428,9 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
       name: node("name"),
       driver_name: node("driver_name"),
       medicaid_id: medicaidId,
+      /** True when the ID needs a careful human double-check before use. */
+      medicaid_id_uncertain,
+      medicaid_id_confidence: idConfidence,
 
       rider,
       trip_date,

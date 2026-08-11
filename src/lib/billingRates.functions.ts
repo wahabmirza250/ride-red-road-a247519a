@@ -58,20 +58,18 @@ export const upsertBillingRateSetting = createServerFn({ method: "POST" })
     },
   )
   .handler(async ({ data, context }) => {
-    const row = {
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const { saveRateRow } = await import("@/lib/billingRates.server");
+    const companyId = await requireCompanyId(context.userId);
+    const saved = await saveRateRow(context.supabase, {
+      company_id: companyId,
       provider_id: context.userId,
       vehicle_type: data.vehicle_type,
+      unit_type: data.unit_type,
       procedure_code: data.procedure_code.trim(),
       charge_amount: Number(data.charge_amount),
-      unit_type: data.unit_type,
       place_of_service: data.place_of_service?.trim() || null,
-    };
-    const { data: saved, error } = await (context.supabase as any)
-      .from("billing_rate_settings")
-      .upsert(row, { onConflict: "provider_id,vehicle_type,unit_type" })
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
+    });
     return saved as BillingRateSetting;
   });
 
@@ -112,32 +110,17 @@ export const upsertBillingRatePair = createServerFn({ method: "POST" })
     },
   )
   .handler(async ({ data, context }) => {
-    const dx = data.default_diagnosis_code.trim();
-    const rows = [
-      {
-        provider_id: context.userId,
-        vehicle_type: data.vehicle_type,
-        unit_type: "trip" as UnitType,
-        procedure_code: data.trip.procedure_code.trim(),
-        charge_amount: Number(data.trip.charge_amount),
-        place_of_service: data.trip.place_of_service.trim(),
-        default_diagnosis_code: dx,
-      },
-      {
-        provider_id: context.userId,
-        vehicle_type: data.vehicle_type,
-        unit_type: "mile" as UnitType,
-        procedure_code: data.mile.procedure_code.trim(),
-        charge_amount: Number(data.mile.charge_amount),
-        place_of_service: data.mile.place_of_service.trim(),
-        default_diagnosis_code: dx,
-      },
-    ];
-    const { data: saved, error } = await (context.supabase as any)
-      .from("billing_rate_settings")
-      .upsert(rows, { onConflict: "provider_id,vehicle_type,unit_type" })
-      .select("*");
-    if (error) throw new Error(error.message);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const { saveRatePair } = await import("@/lib/billingRates.server");
+    const companyId = await requireCompanyId(context.userId);
+    const saved = await saveRatePair(context.supabase, {
+      company_id: companyId,
+      provider_id: context.userId,
+      vehicle_type: data.vehicle_type,
+      default_diagnosis_code: data.default_diagnosis_code,
+      trip: data.trip,
+      mile: data.mile,
+    });
     return saved as BillingRateSetting[];
   });
 

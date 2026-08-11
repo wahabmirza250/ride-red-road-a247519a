@@ -12,6 +12,7 @@ import {
   Search,
   Plus,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { AppLink } from "@/lib/appLink";
@@ -54,6 +55,8 @@ type Entry = {
   uploading: boolean;
   ocr: "idle" | "running" | "done" | "failed";
   ocrFilled: OdoField[];
+  /** OCR read the Medicaid ID but is not confident it got the characters right. */
+  idUncertain?: boolean;
   stage: "form" | "review" | "done";
   draft: Draft;
   result?: { trip_id: string; total: number; trip_kind: string; miles: number };
@@ -177,6 +180,7 @@ export function PaperBillChat() {
         name: string | null;
         driver_name: string | null;
         medicaid_id: string | null;
+        medicaid_id_uncertain?: boolean;
         rider: Rider | null;
         trip_date: string | null;
         vehicle_type: "ambulatory" | "wheelchair_van" | null;
@@ -218,6 +222,7 @@ export function PaperBillChat() {
                 ...e,
                 ocr: "done",
                 ocrFilled: filled,
+                idUncertain: !!res?.medicaid_id_uncertain,
                 stage: readyToReview ? "review" : "form",
                 draft: { ...e.draft, ...nextDraft },
               }
@@ -450,7 +455,12 @@ function ChatEntry({
                 Couldn't auto-read the odometers — enter them manually below.
               </div>
             )}
-            <EntryForm draft={entry.draft} onPatch={onPatchDraft} ocrFilled={entry.ocrFilled} />
+            <EntryForm
+              draft={entry.draft}
+              onPatch={onPatchDraft}
+              ocrFilled={entry.ocrFilled}
+              idUncertain={!!entry.idUncertain}
+            />
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -582,6 +592,30 @@ function ChatEntry({
   );
 }
 
+/**
+ * A misread Medicaid ID bills the WRONG PERSON, so this warning is deliberately
+ * loud — far more prominent than the small amber odometer badge.
+ */
+function MedicaidIdAlert() {
+  return (
+    <div className="flex gap-2 rounded-xl border-2 border-destructive bg-destructive/10 p-3">
+      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+      <div className="space-y-1 text-xs">
+        <p className="text-sm font-bold text-destructive">
+          Double-check this Medicaid ID against the paper
+        </p>
+        <p className="text-destructive/90">
+          The ID was auto-read but the characters are uncertain. Handwritten{" "}
+          <span className="font-mono font-bold">Y</span> and{" "}
+          <span className="font-mono font-bold">4</span> (also 0/O, 1/7, 5/S, 2/Z) look almost
+          identical. An ID must be <strong>one letter followed by 6 digits</strong>. Billing the
+          wrong ID means billing the wrong person.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 const AUTO_READ_CLASS =
   "border-amber-400 bg-amber-50 dark:bg-amber-500/10 focus-visible:border-amber-500";
 
@@ -589,10 +623,12 @@ function EntryForm({
   draft,
   onPatch,
   ocrFilled = [],
+  idUncertain = false,
 }: {
   draft: Draft;
   onPatch: (d: Partial<Draft>) => void;
   ocrFilled?: OdoField[];
+  idUncertain?: boolean;
 }) {
   const searchFn = useServerFn(searchBillingRiders);
   const [q, setQ] = useState("");
@@ -626,10 +662,21 @@ function EntryForm({
               onChange={(e) => onPatch({ newRider: { ...draft.newRider, full_name: e.target.value } })}
             />
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Medicaid ID</Label>
+          <div className="space-y-1 sm:col-span-2">
+            {idUncertain && <MedicaidIdAlert />}
+            <Label className="text-xs">
+              Medicaid ID
+              {idUncertain && (
+                <span className="ml-1 font-semibold text-destructive">— verify carefully</span>
+              )}
+            </Label>
             <Input
               aria-label="Medicaid ID"
+              className={
+                idUncertain
+                  ? "border-2 border-destructive bg-destructive/5 font-mono tracking-wider focus-visible:border-destructive"
+                  : "font-mono tracking-wider"
+              }
               value={draft.newRider.medicaid_id}
               onChange={(e) =>
                 onPatch({ newRider: { ...draft.newRider, medicaid_id: e.target.value } })
