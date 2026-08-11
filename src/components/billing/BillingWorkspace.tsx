@@ -302,6 +302,91 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+/** Delete selected / delete all controls shared by the review + submit tabs. */
+function DeleteControls({
+  selectedIds,
+  allIds,
+  onDone,
+}: {
+  selectedIds: string[];
+  allIds: string[];
+  onDone: () => void;
+}) {
+  const qc = useQueryClient();
+  const deleteFn = useServerFn(deleteBillingRecords);
+  const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function run() {
+    if (!confirmIds?.length) return;
+    setBusy(true);
+    try {
+      let res: any;
+      try {
+        res = await deleteFn({ data: { ids: confirmIds } });
+      } catch (e) {
+        if (!looksLikeEdgeFailure(e)) throw e;
+        res = await deleteBillingRecordsClient(confirmIds);
+      }
+      toast.success(`Deleted ${res.deleted} bill${res.deleted === 1 ? "" : "s"}`);
+      if (res.skipped) toast.message(`${res.skipped} already submitted and were kept.`);
+      setConfirmIds(null);
+      onDone();
+      qc.invalidateQueries({ queryKey: ["billing_list"] });
+      qc.invalidateQueries({ queryKey: ["billing_counts"] });
+    } catch (e) {
+      toast.error(friendlyErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={!selectedIds.length}
+        onClick={() => setConfirmIds(selectedIds)}
+      >
+        <Trash2 className="mr-1 h-4 w-4" /> Delete selected
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="text-destructive"
+        disabled={!allIds.length}
+        onClick={() => setConfirmIds(allIds)}
+      >
+        Clear all
+      </Button>
+
+      <Dialog open={!!confirmIds} onOpenChange={(o) => !o && setConfirmIds(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {confirmIds?.length ?? 0} bill(s)?</DialogTitle>
+            <DialogDescription>
+              These bills will be removed from the billing workflow and their trips marked
+              rejected. Claims already submitted to Medicaid can't be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmIds(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void run()} disabled={busy}>
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+
+
 function PdfCell({
   pdfUrl,
   passengerName,
