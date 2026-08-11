@@ -1061,3 +1061,53 @@ export const cancelSubmission = createServerFn({ method: "POST" })
     );
     return { ok: true };
   });
+
+/* ---------- DELETE (remove bills from the workflow) ---------- */
+
+/**
+ * Permanently removes billing records from the workflow. Only bills that have
+ * NOT been submitted can be deleted; the underlying trip is marked rejected so
+ * it doesn't silently reappear.
+ */
+export const deleteBillingRecords = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ ids: z.array(z.string().uuid()).min(1).max(200) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertBilling(supabase, userId);
+
+    const { data: recs, error } = await supabase
+      .from("billing_records")
+      .select("id, status, trip_id, state_confirmation_number")
+      .in("id", data.ids);
+    if (error) throw new Error(error.message);
+
+    const deletable = (recs ?? []).filter(
+      (r: any) =>
+        !r.state_confirmation_number &&
+        ["pending_review", "approved", "needs_fix"].includes(r.status),
+    );
+    if (!deletable.length) {
+      throw new Error(
+        "Nothing could be deleted — submitted or in-flight claims cannot be removed here.",
+      );
+    }
+
+    const ids = deletable.map((r: any) => r.id);
+    const tripIds = deletable.map((r: any) => r.trip_id).filter(Boolean);
+
+    await supabase.from("billing_audit_log").delete().in("billing_record_id", ids);
+    const { error: delErr } = await supabase.from("billing_records").delete().in("id", ids);
+    if (delErr) throw new Error(delErr.message);
+
+    if (tripIds.length) {
+      await supabase
+        .from("medicaid_trips")
+        .update({ status: "rejected", review_notes: "Deleted from the billing workflow." })
+        .in("id", tripIds);
+    }
+
+    return { ok: true, deleted: ids.length, skipped: (recs ?? []).length - ids.length };
+  });
