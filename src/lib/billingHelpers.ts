@@ -162,7 +162,13 @@ export async function startRobotSubmission(
     vehicle_type: (trip.vehicle_type as string | null) ?? "ambulatory",
     medicaid_member_id: medicaidMemberId,
     trip_date: formatTripDateMDY(trip.pickup_at),
-    signature_captured: Boolean(trip.signature_path),
+    // Paper-originated bills have no digital signature row: the physical
+    // signature lives on the uploaded paper report stored as state_pdf_path.
+    signature_captured: Boolean(trip.signature_path || trip.state_pdf_path),
+    // "Did the Driver verify the member's identity?" at the portal. Explicit
+    // aliases so the robot reads whichever key it implements.
+    identity_verified: trip.identity_verified !== false,
+    member_identity_verified: trip.identity_verified !== false,
     pickup_odometer: Number(trip.odometer_start ?? 0),
     dropoff_odometer: Number(trip.odometer_end ?? 0),
     is_round_trip: trip.trip_kind === "round_trip",
