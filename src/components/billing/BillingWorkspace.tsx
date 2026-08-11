@@ -16,6 +16,7 @@ import {
   Bot,
   Clock,
   Ban,
+  Trash2,
 } from "lucide-react";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatusPill } from "@/components/nemt/StatusPill";
@@ -34,6 +35,7 @@ import {
 import { formatDateTime } from "@/lib/format";
 import {
   cancelSubmission,
+  deleteBillingRecords,
   listSubmissionQueue,
   getBillingCounts,
   getBillingSettings,
@@ -49,6 +51,7 @@ import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
 
 import {
   cancelSubmissionClient,
+  deleteBillingRecordsClient,
   getBillingCountsClient,
   listBillingRecordsClient,
 } from "@/lib/billingClient";
@@ -299,6 +302,91 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+/** Delete selected / delete all controls shared by the review + submit tabs. */
+function DeleteControls({
+  selectedIds,
+  allIds,
+  onDone,
+}: {
+  selectedIds: string[];
+  allIds: string[];
+  onDone: () => void;
+}) {
+  const qc = useQueryClient();
+  const deleteFn = useServerFn(deleteBillingRecords);
+  const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function run() {
+    if (!confirmIds?.length) return;
+    setBusy(true);
+    try {
+      let res: any;
+      try {
+        res = await deleteFn({ data: { ids: confirmIds } });
+      } catch (e) {
+        if (!looksLikeEdgeFailure(e)) throw e;
+        res = await deleteBillingRecordsClient(confirmIds);
+      }
+      toast.success(`Deleted ${res.deleted} bill${res.deleted === 1 ? "" : "s"}`);
+      if (res.skipped) toast.message(`${res.skipped} already submitted and were kept.`);
+      setConfirmIds(null);
+      onDone();
+      qc.invalidateQueries({ queryKey: ["billing_list"] });
+      qc.invalidateQueries({ queryKey: ["billing_counts"] });
+    } catch (e) {
+      toast.error(friendlyErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={!selectedIds.length}
+        onClick={() => setConfirmIds(selectedIds)}
+      >
+        <Trash2 className="mr-1 h-4 w-4" /> Delete selected
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="text-destructive"
+        disabled={!allIds.length}
+        onClick={() => setConfirmIds(allIds)}
+      >
+        Clear all
+      </Button>
+
+      <Dialog open={!!confirmIds} onOpenChange={(o) => !o && setConfirmIds(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {confirmIds?.length ?? 0} bill(s)?</DialogTitle>
+            <DialogDescription>
+              These bills will be removed from the billing workflow and their trips marked
+              rejected. Claims already submitted to Medicaid can't be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmIds(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void run()} disabled={busy}>
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+
+
 function PdfCell({
   pdfUrl,
   passengerName,
@@ -363,49 +451,96 @@ function PendingReviewTab({
   onOpen: (id: string) => void;
   onPreviewPdf: (p: { url: string; filename: string }) => void;
 }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const allIds = useMemo(() => rows.map((r) => r.id as string), [rows]);
+
+  useEffect(() => {
+    setSelected((prev) => new Set([...prev].filter((id) => allIds.includes(id))));
+  }, [allIds]);
+
+  const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id));
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   if (!rows.length)
     return <EmptyState message="No trips awaiting review." />;
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-soft">
-      <table className="w-full min-w-[680px] text-sm">
-        <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="px-4 py-3 text-left">Passenger</th>
-            <th className="px-4 py-3 text-left">Driver</th>
-            <th className="px-4 py-3 text-left">Trip date</th>
-            <th className="px-4 py-3 text-left">Status</th>
-            <th className="px-4 py-3 text-left">PDF</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {rows.map((r) => (
-            <tr
-              key={r.id}
-              className="cursor-pointer hover:bg-accent/60"
-              onClick={() => onOpen(r.id)}
-            >
-              <td className="px-4 py-3">
-                <div className="font-medium">{r.passenger_name ?? "—"}</div>
-                <div className="text-xs text-muted-foreground">{r.medicaid_id}</div>
-              </td>
-              <td className="px-4 py-3">{r.driver_name}</td>
-              <td className="px-4 py-3 text-muted-foreground">
-                {formatDateTime(r.pickup_at)}
-              </td>
-              <td className="px-4 py-3">
-                <StatusPill status={r.status} />
-              </td>
-              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                <PdfCell
-                  pdfUrl={r.pdf_url}
-                  passengerName={r.passenger_name}
-                  onPreview={onPreviewPdf}
-                />
-              </td>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-3">
+        <div className="flex items-center gap-3 text-sm">
+          <Checkbox
+            checked={allSelected}
+            onCheckedChange={() => setSelected(allSelected ? new Set() : new Set(allIds))}
+            aria-label="Select all"
+          />
+          <span className="text-muted-foreground">
+            {selected.size} of {allIds.length} selected
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <DeleteControls
+            selectedIds={[...selected]}
+            allIds={allIds}
+            onDone={() => setSelected(new Set())}
+          />
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-soft">
+        <table className="w-full min-w-[680px] text-sm">
+          <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="w-10 px-4 py-3"></th>
+              <th className="px-4 py-3 text-left">Passenger</th>
+              <th className="px-4 py-3 text-left">Driver</th>
+              <th className="px-4 py-3 text-left">Trip date</th>
+              <th className="px-4 py-3 text-left">Status</th>
+              <th className="px-4 py-3 text-left">PDF</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((r) => (
+              <tr
+                key={r.id}
+                className="cursor-pointer hover:bg-accent/60"
+                onClick={() => onOpen(r.id)}
+              >
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selected.has(r.id)}
+                    onCheckedChange={() => toggleOne(r.id)}
+                    aria-label="Select trip"
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <div className="font-medium">{r.passenger_name ?? "—"}</div>
+                  <div className="text-xs text-muted-foreground">{r.medicaid_id}</div>
+                </td>
+                <td className="px-4 py-3">{r.driver_name}</td>
+                <td className="px-4 py-3 text-muted-foreground">
+                  {formatDateTime(r.pickup_at)}
+                </td>
+                <td className="px-4 py-3">
+                  <StatusPill status={r.status} />
+                </td>
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  <PdfCell
+                    pdfUrl={r.pdf_url}
+                    passengerName={r.passenger_name}
+                    onPreview={onPreviewPdf}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -506,18 +641,26 @@ function ReadyToSubmitTab({
             {selected.size} of {selectableIds.length} selected
           </span>
         </div>
-        <Button
-          onClick={submitSelected}
-          disabled={!selected.size || submittingIds.size > 0}
-        >
-          {submittingIds.size > 0 ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="mr-2 h-4 w-4" />
-          )}
-          Submit Claims
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <DeleteControls
+            selectedIds={[...selected]}
+            allIds={selectableIds}
+            onDone={() => setSelected(new Set())}
+          />
+          <Button
+            onClick={submitSelected}
+            disabled={!selected.size || submittingIds.size > 0}
+          >
+            {submittingIds.size > 0 ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="mr-2 h-4 w-4" />
+            )}
+            Submit Claims
+          </Button>
+        </div>
       </div>
+
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-soft">
         <table className="w-full min-w-[680px] text-sm">

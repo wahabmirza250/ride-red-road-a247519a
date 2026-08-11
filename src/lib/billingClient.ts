@@ -141,3 +141,37 @@ export async function cancelSubmissionClient(id: string) {
 
   return { ok: true };
 }
+
+/** Browser-side fallback for deleting billing records (same safety rules). */
+export async function deleteBillingRecordsClient(ids: string[]) {
+  const { data: recs, error } = await supabase
+    .from("billing_records")
+    .select("id, status, trip_id, state_confirmation_number")
+    .in("id", ids);
+  if (error) throw new Error(error.message);
+
+  const deletable = (recs ?? []).filter(
+    (r: any) =>
+      !r.state_confirmation_number &&
+      ["pending_review", "approved", "needs_fix"].includes(r.status),
+  );
+  if (!deletable.length) {
+    throw new Error(
+      "Nothing could be deleted — submitted or in-flight claims cannot be removed here.",
+    );
+  }
+  const delIds = deletable.map((r: any) => r.id);
+  const tripIds = deletable.map((r: any) => r.trip_id).filter(Boolean);
+
+  await supabase.from("billing_audit_log").delete().in("billing_record_id", delIds);
+  const { error: delErr } = await supabase.from("billing_records").delete().in("id", delIds);
+  if (delErr) throw new Error(delErr.message);
+
+  if (tripIds.length) {
+    await supabase
+      .from("medicaid_trips")
+      .update({ status: "rejected", review_notes: "Deleted from the billing workflow." })
+      .in("id", tripIds);
+  }
+  return { ok: true, deleted: delIds.length, skipped: (recs ?? []).length - delIds.length };
+}
