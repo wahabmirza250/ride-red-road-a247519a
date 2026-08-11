@@ -168,7 +168,9 @@ export async function startRobotSubmission(
     is_round_trip: trip.trip_kind === "round_trip",
     // Two-pass contract with the automation service. Aliases are sent so the
     // robot can read whichever flag name it implements.
-    mode,
+    // The robot expects "confirm_submit" for a real fill → submit → confirm run.
+    mode: doesSubmit ? "confirm_submit" : mode,
+    i_understand_this_is_real: doesSubmit,
     capture_only: mode === "capture",
     return_captured_data: true,
     close_session: true,
