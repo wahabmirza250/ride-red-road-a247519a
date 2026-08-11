@@ -59,6 +59,7 @@ export const upsertBillingRateSetting = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { requireCompanyId } = await import("@/lib/company.server");
+    const { saveRateRow } = await import("@/lib/billingRates.server");
     const companyId = await requireCompanyId(context.userId);
     const saved = await saveRateRow(context.supabase, {
       company_id: companyId,
