@@ -161,15 +161,24 @@ export async function getRobotApiKey(supabaseAdmin: {
   return (data as { api_key?: string } | null)?.api_key ?? "";
 }
 
-/** Provider whose portal credentials the robot should log in with. */
+/**
+ * Provider whose portal credentials the robot should log in with.
+ * Scoped to the caller's own company so a rate row belonging to another
+ * tenant can never be picked up.
+ */
 export async function resolveProviderUserId(
   supabaseAdmin: { from: (t: string) => any },
   fallback: string,
 ): Promise<string> {
-  const { data } = await supabaseAdmin
-    .from("billing_rate_settings")
-    .select("provider_id")
-    .limit(1)
+  const { data: prof } = await supabaseAdmin
+    .from("profiles")
+    .select("company_id")
+    .eq("id", fallback)
     .maybeSingle();
+  const companyId = (prof as { company_id?: string } | null)?.company_id ?? null;
+
+  let query = supabaseAdmin.from("billing_rate_settings").select("provider_id");
+  if (companyId) query = query.eq("company_id", companyId);
+  const { data } = await query.limit(1).maybeSingle();
   return (data as { provider_id?: string } | null)?.provider_id ?? fallback;
 }
