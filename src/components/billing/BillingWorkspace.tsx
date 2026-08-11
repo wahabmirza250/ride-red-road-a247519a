@@ -1,3 +1,4 @@
+import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -604,7 +605,7 @@ function ReadyToSubmitTab({
     // the automation service with parallel logins.
     for (const id of ids) {
       try {
-        await startFn({ data: { id } });
+        await startFn({ data: { id, mode: "full" } });
         ok += 1;
       } catch (e: any) {
         failed += 1;
@@ -754,15 +755,30 @@ function AwaitingPortalTab({
   onOpen: (id: string) => void;
   onPreviewPdf: (p: { url: string; filename: string }) => void;
 }) {
+  const qc = useQueryClient();
   const [confirmFor, setConfirmFor] = useState<any | null>(null);
   const [cancelFor, setCancelFor] = useState<any | null>(null);
   const queueFn = useServerFn(listSubmissionQueue);
+  const startFn = useServerFn(startRobotForRecord);
   const queue = useQuery({
     queryKey: ["submission_queue"],
     queryFn: () => queueFn() as Promise<any[]>,
     refetchInterval: 15000,
   });
   const queueById = new Map((queue.data ?? []).map((q: any) => [q.id, q]));
+
+  /** One-shot: capture + submit + confirm in a single robot job. */
+  const oneShot = useMutation({
+    mutationFn: (id: string) => startFn({ data: { id, mode: "full" } }),
+    onSuccess: () => {
+      toast.success("Working at the portal now — the claim number will be saved automatically.");
+      qc.invalidateQueries({ queryKey: ["billing_list"] });
+      qc.invalidateQueries({ queryKey: ["billing_counts"] });
+      qc.invalidateQueries({ queryKey: ["submission_queue"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not start the submission"),
+  });
+
 
   if (!rows.length)
     return (
@@ -792,9 +808,8 @@ function AwaitingPortalTab({
                   <div className="mt-2 flex items-start gap-2 rounded-lg bg-info/10 p-2 text-xs text-info">
                     <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>
-                      Claim data captured from the portal — review it below, then
-                      Confirm &amp; Submit. The robot clicks Submit and Confirm on the
-                      portal and saves the real claim number automatically.
+                      Waiting to be sent. Submitting runs one job that fills, submits
+                      and confirms on the portal, then saves the real claim number.
                     </span>
                   </div>
                 )}
@@ -808,8 +823,17 @@ function AwaitingPortalTab({
                 />
                 {r.status === "pending_submit" && (
                   <>
-                    <Button size="sm" onClick={() => onOpen(r.id)}>
-                      <CheckCircle2 className="mr-1 h-4 w-4" /> Review &amp; Confirm
+                    <Button
+                      size="sm"
+                      disabled={oneShot.isPending || REAL_SUBMISSIONS_PAUSED}
+                      onClick={() => oneShot.mutate(r.id)}
+                    >
+                      {oneShot.isPending && oneShot.variables === r.id ? (
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="mr-1 h-4 w-4" />
+                      )}
+                      {REAL_SUBMISSIONS_PAUSED ? "Submission paused" : "Submit to portal"}
                     </Button>
                     <button
                       type="button"
@@ -820,6 +844,7 @@ function AwaitingPortalTab({
                     </button>
                   </>
                 )}
+
                 {queueById.get(r.id)?.cancellable === false ? (
                   <span className="text-[11px] text-muted-foreground">
                     Already submitted — cannot be cancelled

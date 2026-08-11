@@ -363,9 +363,14 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .single();
     if (recErr) throw new Error(recErr.message);
-    if (!["approved", "needs_fix", "submitting"].includes(rec.status as string)) {
+    const allowed = ["approved", "needs_fix", "submitting"];
+    // A previously captured claim (legacy two-pass) can be finished with a
+    // single one-shot job instead of the separate confirm step.
+    if (data.mode === "full") allowed.push("pending_submit");
+    if (!allowed.includes(rec.status as string)) {
       throw new Error(`Trip is in "${rec.status}" and cannot be submitted from here`);
     }
+
     const trip: any = rec.medicaid_trips;
     if (!trip) throw new Error("Trip not found");
 

@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Loader2, FileDown, Check, X, AlertCircle, RefreshCw, Bot } from "lucide-react";
 import { StatusPill } from "@/components/nemt/StatusPill";
-import { ClaimReviewPanel } from "@/components/billing/ClaimReviewPanel";
+import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 import { PdfInlineViewer } from "@/components/PdfInlineViewer";
 
 import { formatDateTime } from "@/lib/format";
@@ -135,13 +135,15 @@ export function BillingDetailSheet({
   });
 
   const startRobot = useMutation({
-    mutationFn: () => startRobotFn({ data: { id: id! } }),
+    // One-shot: fill, read back, Submit + Confirm on the portal in a single job.
+    mutationFn: () => startRobotFn({ data: { id: id!, mode: "full" } }),
     onSuccess: () => {
-      toast.success("Robot started");
+      toast.success("Working at the portal now — the claim number will be saved automatically.");
       invalidate();
     },
     onError: (e: any) => toast.error(e.message),
   });
+
 
   const markSubmitted = useMutation({
     mutationFn: () =>
@@ -403,12 +405,26 @@ export function BillingDetailSheet({
 
               {rec.status === "pending_submit" && (
                 <div className="space-y-3">
-                  <ClaimReviewPanel
-                    recordId={rec.id}
-                    captured={trip?.robot_captured_claim}
-                    capturedAt={trip?.robot_captured_at ?? null}
-                    vehicleType={(trip as any)?.vehicle_type ?? null}
-                  />
+                  <div className="rounded-xl border border-border bg-surface/60 p-3 text-xs text-muted-foreground">
+                    This claim is waiting to be sent. Submitting runs the whole job in
+                    one shot — the robot fills, submits and confirms on the HCPF portal
+                    and saves the real claim number automatically.
+                  </div>
+                  <Button
+                    className="w-full"
+                    disabled={startRobot.isPending || REAL_SUBMISSIONS_PAUSED}
+                    onClick={() => startRobot.mutate()}
+                  >
+                    {startRobot.isPending ? (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Bot className="mr-1 h-4 w-4" />
+                    )}
+                    {REAL_SUBMISSIONS_PAUSED
+                      ? "Submission paused"
+                      : "Submit to portal (automatic)"}
+                  </Button>
+
                   <details className="rounded-xl border border-dashed border-border/70 p-3 opacity-80">
                     <summary className="cursor-pointer text-xs text-muted-foreground">
                       Fallback: this claim was submitted manually
