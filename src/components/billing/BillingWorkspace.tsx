@@ -604,7 +604,7 @@ function ReadyToSubmitTab({
     // the automation service with parallel logins.
     for (const id of ids) {
       try {
-        await startFn({ data: { id } });
+        await startFn({ data: { id, mode: "full" } });
         ok += 1;
       } catch (e: any) {
         failed += 1;
