@@ -189,7 +189,7 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
     // land in `pending_review`; paper bills skip straight to `approved`, so we
     // must create it here or the bill never shows up in the billing workflow
     // (and therefore never reaches the portal robot).
-    const { error: brErr } = await supabase
+    const { data: billingRecord, error: brErr } = await supabase
       .from("billing_records")
       .upsert(
         {
@@ -199,7 +199,9 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
           status: "approved",
         },
         { onConflict: "trip_id" },
-      );
+      )
+      .select("id")
+      .single();
     if (brErr) throw new Error(brErr.message);
 
 
@@ -233,6 +235,7 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
 
     return {
       trip_id: trip.id,
+      billing_record_id: billingRecord?.id ?? null,
       rider_id: riderId,
       trip_kind: calc.trip_kind,
       miles: calc.miles,
