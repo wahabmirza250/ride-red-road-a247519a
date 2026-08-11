@@ -133,8 +133,12 @@ export async function startRobotSubmission(
     billingRecordId: string;
     trip: any;
     providerUserId: string;
-    /** "capture" = PASS 1 (fill + read back, never submit). "submit" = PASS 2. */
-    mode?: "capture" | "submit";
+    /**
+     * "capture" = PASS 1 (fill + read back, never submit).
+     * "submit"  = PASS 2 (confirm a previously captured claim).
+     * "full"    = one-shot: fill, read back AND click Submit + Confirm.
+     */
+    mode?: "capture" | "submit" | "full";
   },
 ) {
   const { billingRecordId, trip, providerUserId } = args;
@@ -148,6 +152,8 @@ export async function startRobotSubmission(
   // Unique job id per submission attempt. Server-side timestamp keeps it
   // monotonic even if two attempts race.
   const jobId = `trip-${trip.id}-${mode}-${Date.now()}`;
+  /** Anything that is not a pure capture really submits at the portal. */
+  const doesSubmit = mode !== "capture";
 
   const payload = {
     id: jobId,
@@ -166,8 +172,8 @@ export async function startRobotSubmission(
     capture_only: mode === "capture",
     return_captured_data: true,
     close_session: true,
-    confirm_submit: mode === "submit",
-    click_submit: mode === "submit",
+    confirm_submit: doesSubmit,
+    click_submit: doesSubmit,
   };
 
   const res = await fetch(`${ROBOT_BASE_URL}/submit-claim`, {
@@ -199,7 +205,7 @@ export async function startRobotSubmission(
       robot_last_status: "started",
       robot_last_message: null,
       robot_last_checked_at: nowIso,
-      robot_pass: mode,
+      robot_pass: doesSubmit ? "submit" : "capture",
       ...(mode === "capture"
         ? { robot_captured_claim: null, robot_captured_at: null }
         : {}),

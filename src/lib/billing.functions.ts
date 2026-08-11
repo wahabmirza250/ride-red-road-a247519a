@@ -333,7 +333,19 @@ export const approveBillingRecord = createServerFn({ method: "POST" })
  */
 export const startRobotForRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        /**
+         * "capture" keeps the legacy two-pass behaviour. "full" runs the whole
+         * job in one shot (fill + submit + confirm) with no human checkpoint
+         * in between — used by the paper-bill flow.
+         */
+        mode: z.enum(["capture", "full"]).default("capture"),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertBilling(supabase, userId);
@@ -362,8 +374,14 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
         billingRecordId: data.id,
         trip,
         providerUserId: userId,
+        mode: data.mode,
       });
-      await logAudit(supabase, data.id, userId, "robot_started");
+      await logAudit(
+        supabase,
+        data.id,
+        userId,
+        data.mode === "full" ? "robot_started_full_submit" : "robot_started",
+      );
       return { ok: true };
     } catch (e: any) {
       const msg = e?.message ?? "Failed to start automation";
