@@ -35,6 +35,7 @@ type OdoField = "l1p" | "l1d" | "l2p" | "l2d";
 type Draft = {
   rider: Rider | null;
   newRider: { full_name: string; medicaid_id: string };
+  driver_name: string;
   trip_date: string;
   vehicle_type: "ambulatory" | "wheelchair_van";
   l1p: string;
@@ -61,6 +62,7 @@ type Entry = {
 const emptyDraft = (): Draft => ({
   rider: null,
   newRider: { full_name: "", medicaid_id: "" },
+  driver_name: "",
   trip_date: new Date().toISOString().slice(0, 10),
   vehicle_type: "ambulatory",
   l1p: "",
@@ -68,6 +70,7 @@ const emptyDraft = (): Draft => ({
   l2p: "",
   l2d: "",
 });
+
 
 function legsFromDraft(d: Draft) {
   const legs: { pickup_odometer: number; dropoff_odometer: number }[] = [];
