@@ -342,7 +342,7 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
          * job in one shot (fill + submit + confirm) with no human checkpoint
          * in between — used by the paper-bill flow.
          */
-        mode: z.enum(["capture", "full"]).default("capture"),
+        mode: z.enum(["capture", "full"]).default("full"),
       })
       .parse(d),
   )
