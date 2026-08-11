@@ -42,8 +42,6 @@ type Item = {
   medicaid_id: string;
   trip_date: string;
   vehicle_type: "ambulatory" | "wheelchair_van";
-  /** "Did the Driver verify the member's identity?" as marked on the paper. */
-  identity_verified: "yes" | "no" | "";
   l1p: string;
   l1d: string;
   l2p: string;
@@ -69,7 +67,6 @@ function isValid(i: Item) {
   if (legs.some((l) => l.dropoff_odometer <= l.pickup_odometer)) return false;
   if (!i.trip_date) return false;
   if (!i.rider && !(i.passenger_name.trim() && i.medicaid_id.trim())) return false;
-  if (i.identity_verified === "") return false;
   return true;
 }
 
@@ -113,7 +110,6 @@ export function BatchPaperBills() {
         medicaid_id: "",
         trip_date: new Date().toISOString().slice(0, 10),
         vehicle_type: "ambulatory",
-        identity_verified: "",
         l1p: "",
         l1d: "",
         l2p: "",
@@ -216,7 +212,8 @@ export function BatchPaperBills() {
             driver_name: item.driver_name.trim() || null,
             trip_date: item.trip_date,
             vehicle_type: item.vehicle_type,
-            identity_verified: item.identity_verified === "yes",
+            // Paper bills always carry a signed paper report → always Yes.
+            identity_verified: true,
             legs: legsOf(item),
             upload_path: item.uploadPath,
             upload_mime: item.mime,
@@ -441,28 +438,6 @@ function BatchRow({
               value={item.medicaid_id}
               onChange={(e) => onPatch({ medicaid_id: e.target.value.toUpperCase() })}
             />
-          </div>
-          <div className="space-y-1 sm:col-span-2">
-            <Label className="text-xs">
-              Did the driver verify the member's identity?{" "}
-              <span className="text-destructive">*</span>
-            </Label>
-            <select
-              aria-label={`Identity verified for ${item.fileName}`}
-              className={
-                item.identity_verified === ""
-                  ? "h-10 w-full rounded-md border-2 border-destructive bg-destructive/5 px-3 text-sm"
-                  : "h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              }
-              value={item.identity_verified}
-              onChange={(e) =>
-                onPatch({ identity_verified: e.target.value as Item["identity_verified"] })
-              }
-            >
-              <option value="">Select from the paper form…</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
           </div>
           <div className="space-y-1 sm:col-span-2">
             <Label className="text-xs">Vehicle type</Label>
