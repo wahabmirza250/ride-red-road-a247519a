@@ -58,20 +58,17 @@ export const upsertBillingRateSetting = createServerFn({ method: "POST" })
     },
   )
   .handler(async ({ data, context }) => {
-    const row = {
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
+    const saved = await saveRateRow(context.supabase, {
+      company_id: companyId,
       provider_id: context.userId,
       vehicle_type: data.vehicle_type,
+      unit_type: data.unit_type,
       procedure_code: data.procedure_code.trim(),
       charge_amount: Number(data.charge_amount),
-      unit_type: data.unit_type,
       place_of_service: data.place_of_service?.trim() || null,
-    };
-    const { data: saved, error } = await (context.supabase as any)
-      .from("billing_rate_settings")
-      .upsert(row, { onConflict: "provider_id,vehicle_type,unit_type" })
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
+    });
     return saved as BillingRateSetting;
   });
 
