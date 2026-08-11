@@ -35,7 +35,6 @@ import { Route as ApiPublicSmsInboundRouteImport } from './routes/api/public/sms
 import { Route as ApiPublicGetTripPdfRouteImport } from './routes/api/public/get-trip-pdf'
 import { Route as ApiPublicGetPortalCredentialRouteImport } from './routes/api/public/get-portal-credential'
 import { Route as ApiPublicGetBillingRateRouteImport } from './routes/api/public/get-billing-rate'
-import { Route as ApiPublicDiagBillingRouteImport } from './routes/api/public/diag-billing'
 import { Route as CompanySlugPassengerTrackRouteImport } from './routes/$companySlug/passenger.track'
 import { Route as CompanySlugPassengerSignupRouteImport } from './routes/$companySlug/passenger.signup'
 import { Route as CompanySlugPassengerSafetyRouteImport } from './routes/$companySlug/passenger.safety'
@@ -217,11 +216,6 @@ const ApiPublicGetPortalCredentialRoute =
 const ApiPublicGetBillingRateRoute = ApiPublicGetBillingRateRouteImport.update({
   id: '/api/public/get-billing-rate',
   path: '/api/public/get-billing-rate',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicDiagBillingRoute = ApiPublicDiagBillingRouteImport.update({
-  id: '/api/public/diag-billing',
-  path: '/api/public/diag-billing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompanySlugPassengerTrackRoute =
@@ -575,7 +569,6 @@ export interface FileRoutesByFullPath {
   '/$companySlug/passenger/safety': typeof CompanySlugPassengerSafetyRoute
   '/$companySlug/passenger/signup': typeof CompanySlugPassengerSignupRoute
   '/$companySlug/passenger/track': typeof CompanySlugPassengerTrackRoute
-  '/api/public/diag-billing': typeof ApiPublicDiagBillingRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
@@ -646,7 +639,6 @@ export interface FileRoutesByTo {
   '/$companySlug/passenger/safety': typeof CompanySlugPassengerSafetyRoute
   '/$companySlug/passenger/signup': typeof CompanySlugPassengerSignupRoute
   '/$companySlug/passenger/track': typeof CompanySlugPassengerTrackRoute
-  '/api/public/diag-billing': typeof ApiPublicDiagBillingRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
@@ -725,7 +717,6 @@ export interface FileRoutesById {
   '/$companySlug/passenger/safety': typeof CompanySlugPassengerSafetyRoute
   '/$companySlug/passenger/signup': typeof CompanySlugPassengerSignupRoute
   '/$companySlug/passenger/track': typeof CompanySlugPassengerTrackRoute
-  '/api/public/diag-billing': typeof ApiPublicDiagBillingRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
@@ -804,7 +795,6 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/safety'
     | '/$companySlug/passenger/signup'
     | '/$companySlug/passenger/track'
-    | '/api/public/diag-billing'
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
@@ -875,7 +865,6 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/safety'
     | '/$companySlug/passenger/signup'
     | '/$companySlug/passenger/track'
-    | '/api/public/diag-billing'
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
@@ -953,7 +942,6 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/safety'
     | '/$companySlug/passenger/signup'
     | '/$companySlug/passenger/track'
-    | '/api/public/diag-billing'
     | '/api/public/get-billing-rate'
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
@@ -984,7 +972,6 @@ export interface RootRouteChildren {
   RideRequestIdRoute: typeof RideRequestIdRoute
   TrackTripIdRoute: typeof TrackTripIdRoute
   OwnerIndexRoute: typeof OwnerIndexRoute
-  ApiPublicDiagBillingRoute: typeof ApiPublicDiagBillingRoute
   ApiPublicGetBillingRateRoute: typeof ApiPublicGetBillingRateRoute
   ApiPublicGetPortalCredentialRoute: typeof ApiPublicGetPortalCredentialRoute
   ApiPublicGetTripPdfRoute: typeof ApiPublicGetTripPdfRoute
@@ -1173,13 +1160,6 @@ declare module '@tanstack/react-router' {
       path: '/api/public/get-billing-rate'
       fullPath: '/api/public/get-billing-rate'
       preLoaderRoute: typeof ApiPublicGetBillingRateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/diag-billing': {
-      id: '/api/public/diag-billing'
-      path: '/api/public/diag-billing'
-      fullPath: '/api/public/diag-billing'
-      preLoaderRoute: typeof ApiPublicDiagBillingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/$companySlug/passenger/track': {
@@ -1757,7 +1737,6 @@ const rootRouteChildren: RootRouteChildren = {
   RideRequestIdRoute: RideRequestIdRoute,
   TrackTripIdRoute: TrackTripIdRoute,
   OwnerIndexRoute: OwnerIndexRoute,
-  ApiPublicDiagBillingRoute: ApiPublicDiagBillingRoute,
   ApiPublicGetBillingRateRoute: ApiPublicGetBillingRateRoute,
   ApiPublicGetPortalCredentialRoute: ApiPublicGetPortalCredentialRoute,
   ApiPublicGetTripPdfRoute: ApiPublicGetTripPdfRoute,
