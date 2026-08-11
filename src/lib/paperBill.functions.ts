@@ -68,6 +68,12 @@ const PaperBillInput = z.object({
   driver_name: z.string().trim().max(120).nullable().optional(),
   trip_date: z.string().min(8),
   vehicle_type: z.enum(["ambulatory", "wheelchair_van"]).default("ambulatory"),
+  /**
+   * "Did the Driver verify the member's identity?" exactly as marked on the
+   * paper trip report. Required — the DB column defaults to true, so leaving
+   * it unset would silently claim Yes at the portal.
+   */
+  identity_verified: z.boolean(),
 
   legs: z.array(LegInput).min(1).max(2),
   pickup_address: z.string().optional(),
