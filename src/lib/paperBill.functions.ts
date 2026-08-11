@@ -180,6 +180,24 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
       .single();
     if (tripErr) throw new Error(tripErr.message);
 
+    // 3b. Billing record. The DB trigger only auto-creates one for trips that
+    // land in `pending_review`; paper bills skip straight to `approved`, so we
+    // must create it here or the bill never shows up in the billing workflow
+    // (and therefore never reaches the portal robot).
+    const { error: brErr } = await supabase
+      .from("billing_records")
+      .upsert(
+        {
+          trip_id: trip.id,
+          trip_form_id: trip.id,
+          company_id: companyId,
+          status: "approved",
+        },
+        { onConflict: "trip_id" },
+      );
+    if (brErr) throw new Error(brErr.message);
+
+
     // 4. Legs
     const legRows = legs.map((l, i) => ({
       medicaid_trip_id: trip.id,
