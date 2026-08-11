@@ -54,6 +54,8 @@ type Entry = {
   uploading: boolean;
   ocr: "idle" | "running" | "done" | "failed";
   ocrFilled: OdoField[];
+  /** OCR read the Medicaid ID but is not confident it got the characters right. */
+  idUncertain?: boolean;
   stage: "form" | "review" | "done";
   draft: Draft;
   result?: { trip_id: string; total: number; trip_kind: string; miles: number };
@@ -177,6 +179,7 @@ export function PaperBillChat() {
         name: string | null;
         driver_name: string | null;
         medicaid_id: string | null;
+        medicaid_id_uncertain?: boolean;
         rider: Rider | null;
         trip_date: string | null;
         vehicle_type: "ambulatory" | "wheelchair_van" | null;
