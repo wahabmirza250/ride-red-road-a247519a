@@ -40,8 +40,6 @@ type Draft = {
   driver_name: string;
   trip_date: string;
   vehicle_type: "ambulatory" | "wheelchair_van";
-  /** "Did the Driver verify the member's identity?" as marked on the paper. */
-  identity_verified: "yes" | "no" | "";
   l1p: string;
   l1d: string;
   l2p: string;
@@ -83,7 +81,6 @@ const emptyDraft = (): Draft => ({
   driver_name: "",
   trip_date: new Date().toISOString().slice(0, 10),
   vehicle_type: "ambulatory",
-  identity_verified: "",
   l1p: "",
   l1d: "",
   l2p: "",
@@ -271,7 +268,9 @@ export function PaperBillChat() {
           trip_date: entry.draft.trip_date,
 
           vehicle_type: entry.draft.vehicle_type,
-          identity_verified: entry.draft.identity_verified === "yes",
+          // Business rule: paper bills are never billed without a signed paper
+          // report, so identity verification is always Yes.
+          identity_verified: true,
           legs,
           upload_path: entry.uploadPath!,
           upload_mime: entry.mime,
@@ -427,7 +426,6 @@ function ChatEntry({
   const canReview =
     legs.length >= 1 &&
     !!entry.draft.trip_date &&
-    entry.draft.identity_verified !== "" &&
     (!!entry.draft.rider ||
       (entry.draft.newRider.full_name.trim() && entry.draft.newRider.medicaid_id.trim()));
 
@@ -524,10 +522,6 @@ function ChatEntry({
             )}
             <div className="text-xs text-muted-foreground">
               Driver: {entry.draft.driver_name.trim() || "— not read"}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Identity verified by driver:{" "}
-              <strong>{entry.draft.identity_verified === "yes" ? "Yes" : "No"}</strong>
             </div>
 
             <div className="text-xs text-muted-foreground">
@@ -788,33 +782,6 @@ function EntryForm({
             <option value="ambulatory">Ambulatory</option>
             <option value="wheelchair_van">Wheelchair van</option>
           </select>
-        </div>
-        <div className="space-y-1 sm:col-span-2">
-          <Label className="text-xs">
-            Did the driver verify the member's identity?{" "}
-            <span className="text-destructive">*</span>
-          </Label>
-          <select
-            aria-label="Identity verified"
-            className={
-              draft.identity_verified === ""
-                ? "h-10 w-full rounded-md border-2 border-destructive bg-destructive/5 px-3 text-sm"
-                : "h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            }
-            value={draft.identity_verified}
-            onChange={(e) =>
-              onPatch({ identity_verified: e.target.value as Draft["identity_verified"] })
-            }
-          >
-            <option value="">Select from the paper form…</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
-          {draft.identity_verified === "" && (
-            <p className="text-[11px] text-destructive">
-              Required — copy exactly what is marked on the paper trip report.
-            </p>
-          )}
         </div>
         <div className="space-y-1 sm:col-span-2">
           <Label className="text-xs">
