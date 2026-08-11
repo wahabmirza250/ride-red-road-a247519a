@@ -175,6 +175,7 @@ export function PaperBillChat() {
         data: { image_data_url: dataUrl, file_name: file.name },
       })) as {
         name: string | null;
+        driver_name: string | null;
         medicaid_id: string | null;
         rider: Rider | null;
         trip_date: string | null;
@@ -190,7 +191,9 @@ export function PaperBillChat() {
         }
       });
       if (res?.trip_date) nextDraft.trip_date = res.trip_date;
+      if (res?.driver_name) nextDraft.driver_name = res.driver_name;
       if (res?.vehicle_type) nextDraft.vehicle_type = res.vehicle_type;
+
       if (res?.rider) {
         // Known member — bill against the existing passenger record.
         nextDraft.rider = res.rider;
