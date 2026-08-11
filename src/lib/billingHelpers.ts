@@ -172,7 +172,7 @@ export async function startRobotSubmission(
     mode: doesSubmit ? "confirm_submit" : mode,
     i_understand_this_is_real: doesSubmit,
     capture_only: mode === "capture",
-    return_captured_data: true,
+    return_captured_data: mode === "capture",
     close_session: true,
     confirm_submit: doesSubmit,
     click_submit: doesSubmit,
