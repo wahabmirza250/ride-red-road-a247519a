@@ -965,10 +965,11 @@ function MarkSubmittedDialog({
     <Dialog open={!!row} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Mark as Submitted</DialogTitle>
+          <DialogTitle>Fallback: manual claim number</DialogTitle>
           <DialogDescription>
-            Enter the confirmation/receipt number the HCPF portal returned after
-            you clicked Submit and Confirm.
+            Only use this if the claim had to be submitted by hand in the HCPF portal
+            (for example after an automation error). The normal path is Review &amp;
+            Confirm, which submits and records the claim number automatically.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
