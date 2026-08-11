@@ -13,6 +13,7 @@ import {
   Plus,
   X,
   AlertTriangle,
+  Lock,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { AppLink } from "@/lib/appLink";
@@ -28,6 +29,8 @@ import {
   searchBillingRiders,
   detectPaperBillOdometers,
 } from "@/lib/paperBill.functions";
+import { checkRobotJobStatus, startRobotForRecord } from "@/lib/billing.functions";
+import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 
 type Rider = { id: string; full_name: string; medicaid_id: string; dob?: string | null };
 
@@ -59,7 +62,19 @@ type Entry = {
   idUncertain?: boolean;
   stage: "form" | "review" | "done";
   draft: Draft;
-  result?: { trip_id: string; total: number; trip_kind: string; miles: number };
+  result?: {
+    trip_id: string;
+    billing_record_id: string | null;
+    total: number;
+    trip_kind: string;
+    miles: number;
+  };
+  /** One-shot portal job kicked off by the single Confirm checkpoint. */
+  robot?: {
+    phase: "paused" | "running" | "submitted" | "failed";
+    message: string;
+    claim?: string | null;
+  };
 };
 
 const emptyDraft = (): Draft => ({
@@ -96,6 +111,8 @@ function legsFromDraft(d: Draft) {
 export function PaperBillChat() {
   const ratesFn = useServerFn(getBillingRatesForCalc);
   const createFn = useServerFn(createPaperBillTrip);
+  const startRobotFn = useServerFn(startRobotForRecord);
+  const robotStatusFn = useServerFn(checkRobotJobStatus);
   const detectFn = useServerFn(detectPaperBillOdometers);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -262,11 +279,78 @@ export function PaperBillChat() {
       })) as any;
       patch(entry.key, { stage: "done", result: res });
       toast.success("Trip created and paper report attached");
+      void runPortalJob(entry.key, res.billing_record_id);
     } catch (e: any) {
       toast.error(e?.message ?? "Could not create the trip");
     } finally {
       setSaving(null);
     }
+  }
+
+  /**
+   * The confirmed calculation is the ONLY human checkpoint. From here the
+   * robot fills, submits and confirms the claim at the portal in one job and
+   * we poll until it returns the real claim number (or a clear error).
+   */
+  async function runPortalJob(key: string, recordId: string | null) {
+    if (!recordId) {
+      patch(key, {
+        robot: {
+          phase: "failed",
+          message:
+            "The bill was created but no billing record was returned, so the portal job could not start. Submit it from Workflow → Ready to submit.",
+        },
+      });
+      return;
+    }
+    if (REAL_SUBMISSIONS_PAUSED) {
+      patch(key, {
+        robot: {
+          phase: "paused",
+          message:
+            "Real portal submissions are paused. Nothing was sent to the HCPF portal — the bill is waiting in Workflow → Ready to submit.",
+        },
+      });
+      return;
+    }
+
+    patch(key, { robot: { phase: "running", message: "Working at the portal now…" } });
+    try {
+      await startRobotFn({ data: { id: recordId, mode: "full" } });
+    } catch (e: any) {
+      patch(key, {
+        robot: { phase: "failed", message: e?.message ?? "Could not start the portal job" },
+      });
+      return;
+    }
+
+    const deadline = Date.now() + 10 * 60 * 1000;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 6000));
+      try {
+        const st = (await robotStatusFn({ data: { id: recordId } })) as any;
+        if (st?.pending) continue;
+        const claim = st?.confirmation_number ?? null;
+        const ok = st?.status === "submitted" || !!claim;
+        patch(key, {
+          robot: {
+            phase: ok ? "submitted" : "failed",
+            message: st?.message ?? (ok ? "Submitted at the portal." : "Automation failed"),
+            claim,
+          },
+        });
+        return;
+      } catch {
+        /* transient poll error — keep waiting */
+      }
+    }
+    patch(key, {
+      robot: {
+        phase: "failed",
+        message:
+          "The portal job is taking longer than expected. Check Workflow → Awaiting portal submission for the outcome.",
+      },
+    });
   }
 
   /** Discard a paper bill at any point before it is confirmed. */
@@ -576,9 +660,32 @@ function ChatEntry({
               {entry.result.miles} miles · {formatMoney(entry.result.total)}
             </div>
             <div className="text-xs text-muted-foreground">
-              The paper report is attached as the proof of service. This bill skipped review and is
-              now in <strong>Workflow → Ready to submit</strong>, queued for portal submission.
+              The paper report is attached as the proof of service.
             </div>
+
+            {entry.robot?.phase === "running" && (
+              <div className="flex items-center gap-1.5 pt-1 text-xs font-medium text-primary">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Working at the portal now — filling,
+                submitting and confirming the claim. This can take a few minutes.
+              </div>
+            )}
+            {entry.robot?.phase === "submitted" && (
+              <div className="pt-1 text-xs font-medium text-success">
+                {entry.robot.claim
+                  ? `Submitted at the portal — claim #${entry.robot.claim}`
+                  : entry.robot.message}
+              </div>
+            )}
+            {entry.robot?.phase === "failed" && (
+              <div className="pt-1 text-xs font-medium text-destructive">{entry.robot.message}</div>
+            )}
+            {entry.robot?.phase === "paused" && (
+              <div className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+                <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{entry.robot.message}</span>
+              </div>
+            )}
+
             <AppLink
               to="/billing"
               className="inline-block pt-1 text-xs font-medium text-primary underline-offset-4 hover:underline"

@@ -22,11 +22,11 @@ import { friendlyErrorMessage } from "@/lib/errorMessage";
 import { formatDateTime } from "@/lib/format";
 
 /**
- * TEMPORARY SAFETY GATE — real portal submissions (PASS 2 / confirm_submit)
- * are paused while billing is being settled. Flip this to `false` to re-enable
- * the "Confirm & Submit" button. No submission code was removed.
+ * TEMPORARY SAFETY GATE — shared with the paper-bill one-shot flow so both
+ * paths are blocked by the same switch (src/lib/submissionPause.ts).
  */
-const REAL_SUBMISSIONS_PAUSED = true;
+import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
+
 /** Phrase an admin must type to unlock the button when the pause is lifted. */
 const UNLOCK_PHRASE = "SUBMIT";
 
