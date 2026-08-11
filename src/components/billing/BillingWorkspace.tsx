@@ -792,9 +792,8 @@ function AwaitingPortalTab({
                   <div className="mt-2 flex items-start gap-2 rounded-lg bg-info/10 p-2 text-xs text-info">
                     <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>
-                      Claim data captured from the portal — review it below, then
-                      Confirm &amp; Submit. The robot clicks Submit and Confirm on the
-                      portal and saves the real claim number automatically.
+                      Waiting to be sent. Submitting runs one job that fills, submits
+                      and confirms on the portal, then saves the real claim number.
                     </span>
                   </div>
                 )}
@@ -808,8 +807,17 @@ function AwaitingPortalTab({
                 />
                 {r.status === "pending_submit" && (
                   <>
-                    <Button size="sm" onClick={() => onOpen(r.id)}>
-                      <CheckCircle2 className="mr-1 h-4 w-4" /> Review &amp; Confirm
+                    <Button
+                      size="sm"
+                      disabled={oneShot.isPending || REAL_SUBMISSIONS_PAUSED}
+                      onClick={() => oneShot.mutate(r.id)}
+                    >
+                      {oneShot.isPending && oneShot.variables === r.id ? (
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="mr-1 h-4 w-4" />
+                      )}
+                      {REAL_SUBMISSIONS_PAUSED ? "Submission paused" : "Submit to portal"}
                     </Button>
                     <button
                       type="button"
@@ -820,6 +828,7 @@ function AwaitingPortalTab({
                     </button>
                   </>
                 )}
+
                 {queueById.get(r.id)?.cancellable === false ? (
                   <span className="text-[11px] text-muted-foreground">
                     Already submitted — cannot be cancelled
