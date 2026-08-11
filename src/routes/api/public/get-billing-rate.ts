@@ -63,13 +63,33 @@ export const Route = createFileRoute("/api/public/get-billing-rate")({
           return json({ error: "unit_type must be 'trip' or 'mile'" }, 400);
         }
 
-        const { data, error } = await supabaseAdmin
+        // Rates are owned by the COMPANY, not by whichever staff member last
+        // saved them, so resolve the company first and look up by that. The
+        // provider_id match is kept only as a legacy fallback.
+        const explicitCompany = url.searchParams.get("company_id");
+        let companyId: string | null =
+          explicitCompany && isUuid(explicitCompany) ? explicitCompany : null;
+        if (!companyId) {
+          const { data: prof } = await supabaseAdmin
+            .from("profiles" as any)
+            .select("company_id")
+            .eq("id", provider_id)
+            .maybeSingle();
+          companyId = (prof as any)?.company_id ?? null;
+        }
+
+        const cols =
+          "procedure_code, charge_amount, unit_type, place_of_service, default_diagnosis_code";
+        let query = supabaseAdmin
           .from("billing_rate_settings" as any)
-          .select("procedure_code, charge_amount, unit_type, place_of_service, default_diagnosis_code")
-          .eq("provider_id", provider_id)
+          .select(cols)
           .eq("vehicle_type", vehicle_type)
-          .eq("unit_type", unit_type)
-          .maybeSingle();
+          .eq("unit_type", unit_type);
+        query = companyId
+          ? query.eq("company_id", companyId)
+          : query.eq("provider_id", provider_id);
+
+        const { data, error } = await query.maybeSingle();
 
         if (error) {
           console.error("get-billing-rate lookup error", { message: error.message, code: (error as any).code, details: (error as any).details, hint: (error as any).hint });
