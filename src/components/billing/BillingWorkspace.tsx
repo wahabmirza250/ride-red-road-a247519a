@@ -792,8 +792,9 @@ function AwaitingPortalTab({
                   <div className="mt-2 flex items-start gap-2 rounded-lg bg-info/10 p-2 text-xs text-info">
                     <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>
-                      Claim is filled in the HCPF portal — log in, review, and click
-                      Submit there. Then paste the confirmation number below.
+                      Claim data captured from the portal — review it below, then
+                      Confirm &amp; Submit. The robot clicks Submit and Confirm on the
+                      portal and saves the real claim number automatically.
                     </span>
                   </div>
                 )}
