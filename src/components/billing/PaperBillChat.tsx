@@ -696,7 +696,24 @@ function EntryForm({
             <option value="wheelchair_van">Wheelchair van</option>
           </select>
         </div>
+        <div className="space-y-1 sm:col-span-2">
+          <Label className="text-xs">
+            Driver name
+            {draft.driver_name.trim() && (
+              <span className="ml-1 font-medium text-amber-600 dark:text-amber-400">
+                auto-read — please verify
+              </span>
+            )}
+          </Label>
+          <Input
+            aria-label="Driver name"
+            placeholder="Driver as written on the paper report"
+            value={draft.driver_name}
+            onChange={(e) => onPatch({ driver_name: e.target.value })}
+          />
+        </div>
       </div>
+
 
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="space-y-1">
