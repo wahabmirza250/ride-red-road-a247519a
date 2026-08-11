@@ -221,6 +221,7 @@ export function PaperBillChat() {
                 ...e,
                 ocr: "done",
                 ocrFilled: filled,
+                idUncertain: !!res?.medicaid_id_uncertain,
                 stage: readyToReview ? "review" : "form",
                 draft: { ...e.draft, ...nextDraft },
               }
