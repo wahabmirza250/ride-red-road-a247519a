@@ -29,8 +29,6 @@ import {
   searchBillingRiders,
   detectPaperBillOdometers,
 } from "@/lib/paperBill.functions";
-import { checkRobotJobStatus, startRobotForRecord } from "@/lib/billing.functions";
-import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 
 type Rider = { id: string; full_name: string; medicaid_id: string; dob?: string | null };
 
@@ -111,8 +109,6 @@ function legsFromDraft(d: Draft) {
 export function PaperBillChat() {
   const ratesFn = useServerFn(getBillingRatesForCalc);
   const createFn = useServerFn(createPaperBillTrip);
-  const startRobotFn = useServerFn(startRobotForRecord);
-  const robotStatusFn = useServerFn(checkRobotJobStatus);
   const detectFn = useServerFn(detectPaperBillOdometers);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
