@@ -112,9 +112,6 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
           .insert({
             full_name: data.new_rider.full_name.trim(),
             medicaid_id: medicaidId,
-      /** True when the ID needs a careful human double-check before use. */
-      medicaid_id_uncertain,
-      medicaid_id_confidence: idConfidence,
             dob: data.new_rider.dob || null,
             phone: data.new_rider.phone || null,
             company_id: companyId,
