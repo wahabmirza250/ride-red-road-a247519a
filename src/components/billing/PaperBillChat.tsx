@@ -59,7 +59,19 @@ type Entry = {
   idUncertain?: boolean;
   stage: "form" | "review" | "done";
   draft: Draft;
-  result?: { trip_id: string; total: number; trip_kind: string; miles: number };
+  result?: {
+    trip_id: string;
+    billing_record_id: string | null;
+    total: number;
+    trip_kind: string;
+    miles: number;
+  };
+  /** One-shot portal job kicked off by the single Confirm checkpoint. */
+  robot?: {
+    phase: "paused" | "running" | "submitted" | "failed";
+    message: string;
+    claim?: string | null;
+  };
 };
 
 const emptyDraft = (): Draft => ({
@@ -96,6 +108,8 @@ function legsFromDraft(d: Draft) {
 export function PaperBillChat() {
   const ratesFn = useServerFn(getBillingRatesForCalc);
   const createFn = useServerFn(createPaperBillTrip);
+  const startRobotFn = useServerFn(startRobotForRecord);
+  const robotStatusFn = useServerFn(checkRobotJobStatus);
   const detectFn = useServerFn(detectPaperBillOdometers);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -262,11 +276,79 @@ export function PaperBillChat() {
       })) as any;
       patch(entry.key, { stage: "done", result: res });
       toast.success("Trip created and paper report attached");
+      void runPortalJob(entry.key, res.billing_record_id);
     } catch (e: any) {
       toast.error(e?.message ?? "Could not create the trip");
     } finally {
       setSaving(null);
     }
+  }
+
+  /**
+   * The confirmed calculation is the ONLY human checkpoint. From here the
+   * robot fills, submits and confirms the claim at the portal in one job and
+   * we poll until it returns the real claim number (or a clear error).
+   */
+  async function runPortalJob(key: string, recordId: string | null) {
+    if (!recordId) {
+      patch(key, {
+        robot: {
+          phase: "failed",
+          message:
+            "The bill was created but no billing record was returned, so the portal job could not start. Submit it from Workflow → Ready to submit.",
+        },
+      });
+      return;
+    }
+    if (REAL_SUBMISSIONS_PAUSED) {
+      patch(key, {
+        phase_placeholder: undefined,
+        robot: {
+          phase: "paused",
+          message:
+            "Real portal submissions are paused. Nothing was sent to the HCPF portal — the bill is waiting in Workflow → Ready to submit.",
+        },
+      } as Partial<Entry>);
+      return;
+    }
+
+    patch(key, { robot: { phase: "running", message: "Working at the portal now…" } });
+    try {
+      await startRobotFn({ data: { id: recordId, mode: "full" } });
+    } catch (e: any) {
+      patch(key, {
+        robot: { phase: "failed", message: e?.message ?? "Could not start the portal job" },
+      });
+      return;
+    }
+
+    const deadline = Date.now() + 10 * 60 * 1000;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 6000));
+      try {
+        const st = (await robotStatusFn({ data: { id: recordId } })) as any;
+        if (st?.pending) continue;
+        const claim = st?.confirmation_number ?? null;
+        const ok = st?.status === "submitted" || !!claim;
+        patch(key, {
+          robot: {
+            phase: ok ? "submitted" : "failed",
+            message: st?.message ?? (ok ? "Submitted at the portal." : "Automation failed"),
+            claim,
+          },
+        });
+        return;
+      } catch {
+        /* transient poll error — keep waiting */
+      }
+    }
+    patch(key, {
+      robot: {
+        phase: "failed",
+        message:
+          "The portal job is taking longer than expected. Check Workflow → Awaiting portal submission for the outcome.",
+      },
+    });
   }
 
   /** Discard a paper bill at any point before it is confirmed. */
