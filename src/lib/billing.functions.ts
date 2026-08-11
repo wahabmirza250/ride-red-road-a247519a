@@ -44,7 +44,7 @@ export const listBillingRecords = createServerFn({ method: "POST" })
          submitted_at, state_confirmation_number, submission_error,
          requires_human_step, updated_at,
          medicaid_trips!inner(
-           id, pickup_at, pickup_address, dropoff_address, driver_id, state_pdf_path,
+           id, pickup_at, pickup_address, dropoff_address, driver_id, paper_driver_name, state_pdf_path,
            robot_job_id, robot_last_status, robot_last_message, robot_job_started_at,
            riders(full_name, medicaid_id)
          )`,
@@ -103,9 +103,13 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       updated_at: r.updated_at,
       passenger_name: r.medicaid_trips?.riders?.full_name ?? null,
       medicaid_id: r.medicaid_trips?.riders?.medicaid_id ?? null,
-      driver_name: profiles[r.medicaid_trips?.driver_id]
-        ? `${profiles[r.medicaid_trips.driver_id].first_name ?? ""} ${profiles[r.medicaid_trips.driver_id].last_name ?? ""}`.trim()
-        : "—",
+      // Paper bills carry the driver written on the form; that wins over the
+      // staff account that keyed the bill in.
+      driver_name:
+        (r.medicaid_trips?.paper_driver_name?.trim() || null) ??
+        (profiles[r.medicaid_trips?.driver_id]
+          ? `${profiles[r.medicaid_trips.driver_id].first_name ?? ""} ${profiles[r.medicaid_trips.driver_id].last_name ?? ""}`.trim()
+          : "—"),
       pickup_at: r.medicaid_trips?.pickup_at,
       pickup_address: r.medicaid_trips?.pickup_address,
       dropoff_address: r.medicaid_trips?.dropoff_address,
@@ -154,8 +158,8 @@ export const getBillingRecord = createServerFn({ method: "POST" })
 
     const trip = rec.medicaid_trips as any;
 
-    let driver_name = "—";
-    if (trip?.driver_id) {
+    let driver_name = trip?.paper_driver_name?.trim() || "—";
+    if (driver_name === "—" && trip?.driver_id) {
       const { data: p } = await supabase
         .from("profiles")
         .select("first_name, last_name")
