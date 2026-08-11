@@ -246,7 +246,9 @@ export function PaperBillChat() {
                 full_name: entry.draft.newRider.full_name.trim(),
                 medicaid_id: entry.draft.newRider.medicaid_id.trim(),
               },
+          driver_name: entry.draft.driver_name.trim() || null,
           trip_date: entry.draft.trip_date,
+
           vehicle_type: entry.draft.vehicle_type,
           legs,
           upload_path: entry.uploadPath!,
