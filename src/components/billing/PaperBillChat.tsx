@@ -12,6 +12,7 @@ import {
   Search,
   Plus,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { AppLink } from "@/lib/appLink";
