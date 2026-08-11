@@ -13,6 +13,7 @@ import {
   Plus,
   X,
   AlertTriangle,
+  Lock,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { AppLink } from "@/lib/appLink";
