@@ -641,18 +641,26 @@ function ReadyToSubmitTab({
             {selected.size} of {selectableIds.length} selected
           </span>
         </div>
-        <Button
-          onClick={submitSelected}
-          disabled={!selected.size || submittingIds.size > 0}
-        >
-          {submittingIds.size > 0 ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="mr-2 h-4 w-4" />
-          )}
-          Submit Claims
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <DeleteControls
+            selectedIds={[...selected]}
+            allIds={selectableIds}
+            onDone={() => setSelected(new Set())}
+          />
+          <Button
+            onClick={submitSelected}
+            disabled={!selected.size || submittingIds.size > 0}
+          >
+            {submittingIds.size > 0 ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="mr-2 h-4 w-4" />
+            )}
+            Submit Claims
+          </Button>
+        </div>
       </div>
+
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-soft">
         <table className="w-full min-w-[680px] text-sm">
