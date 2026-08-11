@@ -659,6 +659,36 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
       return { pending: false, status: resultStatus || jobStatus, message: failMsg };
     }
 
+    // Terminal: one-shot full job really submitted and confirmed at the portal.
+    if (jobStatus === "done" && resultStatus === "SUBMITTED") {
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: resultStatus,
+          robot_last_message: result.message ?? null,
+          robot_last_checked_at: nowIso,
+        })
+        .eq("id", trip.id);
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "submitted",
+          state_confirmation_number: result.claim_id ?? null,
+          submitted_at: nowIso,
+          submission_error: null,
+          requires_human_step: false,
+        })
+        .eq("id", rec.id);
+      await logAudit(
+        supabase,
+        rec.id,
+        userId,
+        "robot_submitted",
+        result.claim_id ? `Claim ID: ${result.claim_id}` : (result.message ?? null),
+      );
+      return { pending: false, status: resultStatus, message: result.message ?? null };
+    }
+
     // Terminal: PASS 1 finished — the claim was filled and read back, session closed.
     const isFailureStatus =
       typeof resultStatus === "string" &&
