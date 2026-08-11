@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AppLink } from "@/lib/appLink";
-import { LogOut, Moon, Sun, MessageSquare, ListChecks, ReceiptText, Settings } from "lucide-react";
+import { LogOut, Moon, Sun, MessageSquare, ListChecks, ReceiptText, Settings, Layers } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,8 @@ export const Route = createFileRoute("/$companySlug/billing")({
 const NAV = [
   { to: "/billing", label: "Workflow", icon: ListChecks, exact: true },
   { to: "/billing/chat", label: "Paper bills", icon: MessageSquare, exact: false },
+  { to: "/billing/batch", label: "Batch", icon: Layers, exact: false },
+
   { to: "/billing/settings", label: "Settings", icon: Settings, exact: false },
 ] as const;
 

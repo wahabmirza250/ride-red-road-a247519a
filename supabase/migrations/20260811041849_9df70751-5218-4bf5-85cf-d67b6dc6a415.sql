@@ -1,0 +1,1 @@
+ALTER TABLE public.medicaid_trips ADD COLUMN IF NOT EXISTS paper_driver_name text;

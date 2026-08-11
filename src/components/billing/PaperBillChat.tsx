@@ -35,6 +35,7 @@ type OdoField = "l1p" | "l1d" | "l2p" | "l2d";
 type Draft = {
   rider: Rider | null;
   newRider: { full_name: string; medicaid_id: string };
+  driver_name: string;
   trip_date: string;
   vehicle_type: "ambulatory" | "wheelchair_van";
   l1p: string;
@@ -61,6 +62,7 @@ type Entry = {
 const emptyDraft = (): Draft => ({
   rider: null,
   newRider: { full_name: "", medicaid_id: "" },
+  driver_name: "",
   trip_date: new Date().toISOString().slice(0, 10),
   vehicle_type: "ambulatory",
   l1p: "",
@@ -68,6 +70,7 @@ const emptyDraft = (): Draft => ({
   l2p: "",
   l2d: "",
 });
+
 
 function legsFromDraft(d: Draft) {
   const legs: { pickup_odometer: number; dropoff_odometer: number }[] = [];
@@ -172,6 +175,7 @@ export function PaperBillChat() {
         data: { image_data_url: dataUrl, file_name: file.name },
       })) as {
         name: string | null;
+        driver_name: string | null;
         medicaid_id: string | null;
         rider: Rider | null;
         trip_date: string | null;
@@ -187,7 +191,9 @@ export function PaperBillChat() {
         }
       });
       if (res?.trip_date) nextDraft.trip_date = res.trip_date;
+      if (res?.driver_name) nextDraft.driver_name = res.driver_name;
       if (res?.vehicle_type) nextDraft.vehicle_type = res.vehicle_type;
+
       if (res?.rider) {
         // Known member — bill against the existing passenger record.
         nextDraft.rider = res.rider;
@@ -240,7 +246,9 @@ export function PaperBillChat() {
                 full_name: entry.draft.newRider.full_name.trim(),
                 medicaid_id: entry.draft.newRider.medicaid_id.trim(),
               },
+          driver_name: entry.draft.driver_name.trim() || null,
           trip_date: entry.draft.trip_date,
+
           vehicle_type: entry.draft.vehicle_type,
           legs,
           upload_path: entry.uploadPath!,
@@ -485,8 +493,9 @@ function ChatEntry({
                 Medicaid ID not read — click Edit and enter it before confirming.
               </div>
             )}
-
-
+            <div className="text-xs text-muted-foreground">
+              Driver: {entry.draft.driver_name.trim() || "— not read"}
+            </div>
 
             <div className="text-xs text-muted-foreground">
               {entry.draft.trip_date} ·{" "}
@@ -687,7 +696,24 @@ function EntryForm({
             <option value="wheelchair_van">Wheelchair van</option>
           </select>
         </div>
+        <div className="space-y-1 sm:col-span-2">
+          <Label className="text-xs">
+            Driver name
+            {draft.driver_name.trim() && (
+              <span className="ml-1 font-medium text-amber-600 dark:text-amber-400">
+                auto-read — please verify
+              </span>
+            )}
+          </Label>
+          <Input
+            aria-label="Driver name"
+            placeholder="Driver as written on the paper report"
+            value={draft.driver_name}
+            onChange={(e) => onPatch({ driver_name: e.target.value })}
+          />
+        </div>
       </div>
+
 
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="space-y-1">
