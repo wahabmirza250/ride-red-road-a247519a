@@ -112,6 +112,9 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
           .insert({
             full_name: data.new_rider.full_name.trim(),
             medicaid_id: medicaidId,
+      /** True when the ID needs a careful human double-check before use. */
+      medicaid_id_uncertain,
+      medicaid_id_confidence: idConfidence,
             dob: data.new_rider.dob || null,
             phone: data.new_rider.phone || null,
             company_id: companyId,
@@ -395,7 +398,22 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
     const vehicle_type = rawVehicle.includes("wheel") ? "wheelchair_van" : "ambulatory";
 
 
-    const medicaidId = (node("medicaid_id") ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "") || null;
+    // Medicaid IDs are structurally ONE letter + 6 digits. Read the ID with a
+    // higher confidence bar than other fields (a wrong ID = a claim billed for
+    // the wrong person) and flag anything that does not fit the structure so
+    // the biller is forced to eyeball it.
+    const idNode = parsed["medicaid_id"] as { v?: unknown; c?: unknown } | undefined;
+    const idConfidence =
+      idNode && typeof idNode === "object" && typeof idNode.c === "number" ? idNode.c : 0;
+    const idRaw =
+      idNode && typeof idNode === "object" && (typeof idNode.v === "string" || typeof idNode.v === "number")
+        ? String(idNode.v).toUpperCase().replace(/[^A-Z0-9]/g, "")
+        : "";
+    const ID_MIN_CONFIDENCE = 0.75;
+    const idWellFormed = /^[A-Z][0-9]{6}$/.test(idRaw);
+    const medicaidId = idRaw || null;
+    const medicaid_id_uncertain =
+      !!medicaidId && (idConfidence < ID_MIN_CONFIDENCE || !idWellFormed);
 
     // Link a known passenger straight away so billing reuses the existing
     // record instead of trying to create a duplicate member.
