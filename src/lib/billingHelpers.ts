@@ -233,6 +233,7 @@ export async function startRobotSubmission(
 export const TRIP_SELECT_FOR_ROBOT = `id, status, trip_id,
    medicaid_trips!inner(
      id, pickup_at, odometer_start, odometer_end, signature_path,
+     state_pdf_path, identity_verified,
      vehicle_type, trip_kind, rider_id, robot_captured_claim,
      riders(medicaid_id)
    )`;
