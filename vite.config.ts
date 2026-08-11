@@ -12,4 +12,16 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    resolve: {
+      alias: [
+        // tslib's "node" export condition is an ESM shim that re-exports the CJS
+        // build via a default import. In the Worker bundle that interop yields
+        // `undefined`, crashing every module that pulls in pdf-lib with
+        // "Cannot destructure property '__extends'". Force the pure-ESM build.
+        { find: /^tslib$/, replacement: "tslib/tslib.es6.mjs" },
+      ],
+    },
+  },
 });
+
