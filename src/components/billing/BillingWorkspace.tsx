@@ -754,15 +754,30 @@ function AwaitingPortalTab({
   onOpen: (id: string) => void;
   onPreviewPdf: (p: { url: string; filename: string }) => void;
 }) {
+  const qc = useQueryClient();
   const [confirmFor, setConfirmFor] = useState<any | null>(null);
   const [cancelFor, setCancelFor] = useState<any | null>(null);
   const queueFn = useServerFn(listSubmissionQueue);
+  const startFn = useServerFn(startRobotForRecord);
   const queue = useQuery({
     queryKey: ["submission_queue"],
     queryFn: () => queueFn() as Promise<any[]>,
     refetchInterval: 15000,
   });
   const queueById = new Map((queue.data ?? []).map((q: any) => [q.id, q]));
+
+  /** One-shot: capture + submit + confirm in a single robot job. */
+  const oneShot = useMutation({
+    mutationFn: (id: string) => startFn({ data: { id, mode: "full" } }),
+    onSuccess: () => {
+      toast.success("Working at the portal now — the claim number will be saved automatically.");
+      qc.invalidateQueries({ queryKey: ["billing_list"] });
+      qc.invalidateQueries({ queryKey: ["billing_counts"] });
+      qc.invalidateQueries({ queryKey: ["submission_queue"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not start the submission"),
+  });
+
 
   if (!rows.length)
     return (
