@@ -9,7 +9,7 @@ import {
   getRequestOrigin,
   normalizeTripLegs,
   ROBOT_BASE_URL,
-  formatTripDateMDY,
+  
   startRobotSubmission,
   TRIP_SELECT_FOR_ROBOT,
 } from "@/lib/billingHelpers";
