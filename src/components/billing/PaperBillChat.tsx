@@ -493,8 +493,9 @@ function ChatEntry({
                 Medicaid ID not read — click Edit and enter it before confirming.
               </div>
             )}
-
-
+            <div className="text-xs text-muted-foreground">
+              Driver: {entry.draft.driver_name.trim() || "— not read"}
+            </div>
 
             <div className="text-xs text-muted-foreground">
               {entry.draft.trip_date} ·{" "}
