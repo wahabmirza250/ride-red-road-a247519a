@@ -409,11 +409,16 @@ export function BillingDetailSheet({
                     capturedAt={trip?.robot_captured_at ?? null}
                     vehicleType={(trip as any)?.vehicle_type ?? null}
                   />
-                  <details className="rounded-xl border border-border/70 p-3">
+                  <details className="rounded-xl border border-dashed border-border/70 p-3 opacity-80">
                     <summary className="cursor-pointer text-xs text-muted-foreground">
-                      Enter a confirmation number manually instead
+                      Fallback: this claim was submitted manually
                     </summary>
                     <div className="mt-2">
+                      <p className="mb-2 text-[11px] text-muted-foreground">
+                        Only for edge cases where the claim had to be sent by hand in
+                        the portal. Normally, use Confirm &amp; Submit above — the robot
+                        submits and records the claim number for you.
+                      </p>
                       <Label>Confirmation / Receipt number from HCPF portal</Label>
                       <Input
                         value={confirmationNumber}
@@ -421,6 +426,7 @@ export function BillingDetailSheet({
                         placeholder="Paste the portal's receipt number"
                       />
                       <Button
+                        variant="secondary"
                         className="mt-2 w-full"
                         disabled={!confirmationNumber.trim() || markSubmitted.isPending}
                         onClick={() => markSubmitted.mutate()}
@@ -428,7 +434,7 @@ export function BillingDetailSheet({
                         {markSubmitted.isPending && (
                           <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                         )}
-                        <Check className="mr-1 h-4 w-4" /> Mark as Submitted
+                        <Check className="mr-1 h-4 w-4" /> Record manual submission
                       </Button>
                     </div>
                   </details>

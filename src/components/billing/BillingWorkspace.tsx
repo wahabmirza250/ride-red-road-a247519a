@@ -792,8 +792,9 @@ function AwaitingPortalTab({
                   <div className="mt-2 flex items-start gap-2 rounded-lg bg-info/10 p-2 text-xs text-info">
                     <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>
-                      Claim is filled in the HCPF portal — log in, review, and click
-                      Submit there. Then paste the confirmation number below.
+                      Claim data captured from the portal — review it below, then
+                      Confirm &amp; Submit. The robot clicks Submit and Confirm on the
+                      portal and saves the real claim number automatically.
                     </span>
                   </div>
                 )}
@@ -806,9 +807,18 @@ function AwaitingPortalTab({
                   onPreview={onPreviewPdf}
                 />
                 {r.status === "pending_submit" && (
-                  <Button size="sm" onClick={() => setConfirmFor(r)}>
-                    <CheckCircle2 className="mr-1 h-4 w-4" /> Mark as Submitted
-                  </Button>
+                  <>
+                    <Button size="sm" onClick={() => onOpen(r.id)}>
+                      <CheckCircle2 className="mr-1 h-4 w-4" /> Review &amp; Confirm
+                    </Button>
+                    <button
+                      type="button"
+                      className="text-[11px] text-muted-foreground underline underline-offset-2"
+                      onClick={() => setConfirmFor(r)}
+                    >
+                      Submitted manually? Enter claim number
+                    </button>
+                  </>
                 )}
                 {queueById.get(r.id)?.cancellable === false ? (
                   <span className="text-[11px] text-muted-foreground">
@@ -955,10 +965,11 @@ function MarkSubmittedDialog({
     <Dialog open={!!row} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Mark as Submitted</DialogTitle>
+          <DialogTitle>Fallback: manual claim number</DialogTitle>
           <DialogDescription>
-            Enter the confirmation/receipt number the HCPF portal returned after
-            you clicked Submit and Confirm.
+            Only use this if the claim had to be submitted by hand in the HCPF portal
+            (for example after an automation error). The normal path is Review &amp;
+            Confirm, which submits and records the claim number automatically.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
