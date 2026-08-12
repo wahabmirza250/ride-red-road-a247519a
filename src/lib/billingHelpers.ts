@@ -9,6 +9,19 @@
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import type { Leg } from "@/lib/medicaidPdf";
+import { legMiles } from "@/lib/claimCalc";
+
+/**
+ * Billed miles are ALWAYS computed in code from odometer readings —
+ * (dropoff − pickup) per leg, summed across legs. No miles value is ever read
+ * from a paper form, OCR output or any other free-text source.
+ */
+export function computeBilledMiles(
+  legs: { pickup_odometer: number; dropoff_odometer: number }[],
+): number {
+  return Math.round(legs.reduce((sum, l) => sum + legMiles(l), 0) * 10) / 10;
+}
+
 
 /** Utility: verify admin, throw on failure. Reserved for platform-level
  *  settings; billing settings are managed by billing staff themselves. */
