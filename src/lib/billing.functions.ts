@@ -358,7 +358,7 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
       .select(
         `id, status, trip_id,
          medicaid_trips!inner(
-           id, pickup_at, odometer_start, odometer_end, signature_path,
+           id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
            state_pdf_path, identity_verified, robot_last_status,
            robot_confirmation_number, submitted_confirmation,
            vehicle_type, trip_kind, rider_id,
