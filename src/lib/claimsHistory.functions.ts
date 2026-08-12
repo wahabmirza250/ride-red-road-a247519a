@@ -85,3 +85,58 @@ export const listClaimsHistory = createServerFn({ method: "POST" })
       };
     });
   });
+
+/**
+ * Reset every submitted claim back to the billing workflow so it can be re-submitted.
+ * This clears the visible Claims History entries and the associated confirmation data.
+ */
+export const clearClaimsHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertBillingOrAdmin(supabase, userId);
+
+    const now = new Date().toISOString();
+
+    const { data: trips, error: findErr } = await supabase
+      .from("medicaid_trips")
+      .select("id")
+      .eq("status", "submitted");
+    if (findErr) throw new Error(findErr.message);
+
+    const ids = (trips ?? []).map((t: any) => t.id as string);
+    if (!ids.length) return { cleared: 0 };
+
+    const { error: tripErr } = await supabase
+      .from("medicaid_trips")
+      .update({
+        status: "approved",
+        submitted_at: null,
+        submitted_by: null,
+        submitted_confirmation: null,
+        portal_submitted_at: null,
+        portal_confirmation: null,
+        robot_confirmation_number: null,
+        robot_captured_claim: null,
+        robot_captured_at: null,
+        review_notes: "Cleared from claims history by billing staff.",
+        updated_at: now,
+      })
+      .in("id", ids);
+    if (tripErr) throw new Error(tripErr.message);
+
+    const { error: recErr } = await supabase
+      .from("billing_records")
+      .update({
+        status: "approved",
+        submitted_at: null,
+        state_confirmation_number: null,
+        submission_error: null,
+        updated_at: now,
+      })
+      .in("trip_id", ids);
+    if (recErr) throw new Error(recErr.message);
+
+    return { cleared: ids.length };
+  });
+
