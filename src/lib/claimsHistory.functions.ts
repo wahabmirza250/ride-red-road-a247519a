@@ -31,14 +31,10 @@ export const listClaimsHistory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<ClaimHistoryRow[]> => {
     const { supabase, userId } = context;
-    // Billing staff own this audit trail day-to-day; admins can see it too.
-    const [{ data: isAdmin }, { data: isBilling }] = await Promise.all([
-      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
-      supabase.rpc("has_role", { _user_id: userId, _role: "billing" }),
-    ]);
-    if (!isAdmin && !isBilling) throw new Error("Forbidden: billing or admin only");
+    await assertBillingOrAdmin(supabase, userId);
 
     const { data, error } = await supabase
+
       .from("medicaid_trips")
       .select(
         "id, status, pickup_at, submitted_at, portal_submitted_at, submitted_confirmation, portal_confirmation, robot_confirmation_number, robot_captured_claim, dispatch_trip_id, riders(full_name, medicaid_id)",
