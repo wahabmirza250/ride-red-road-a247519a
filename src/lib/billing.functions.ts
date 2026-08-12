@@ -359,7 +359,8 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
         `id, status, trip_id,
          medicaid_trips!inner(
            id, pickup_at, odometer_start, odometer_end, signature_path,
-           state_pdf_path, identity_verified,
+           state_pdf_path, identity_verified, robot_last_status,
+           robot_confirmation_number, submitted_confirmation,
            vehicle_type, trip_kind, rider_id,
            riders(medicaid_id)
          )`,
@@ -367,7 +368,26 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .single();
     if (recErr) throw new Error(recErr.message);
+
+    const tripRow: any = rec.medicaid_trips;
+    // Double-submission guard: a claim that already exists at the portal —
+    // confirmed or unverified-after-timeout — can never be re-run from here.
+    if (tripRow?.robot_last_status === UNVERIFIED_SUBMIT_STATUS) {
+      throw new Error(
+        "Blocked: this claim was already sent to the portal and its outcome is unverified. " +
+          "Check the portal and record the claim number instead of resubmitting.",
+      );
+    }
+    if (tripRow?.robot_confirmation_number || tripRow?.submitted_confirmation) {
+      throw new Error(
+        `Blocked: this trip already has portal confirmation #${
+          tripRow.robot_confirmation_number ?? tripRow.submitted_confirmation
+        }. Resubmitting would create a duplicate claim.`,
+      );
+    }
+
     const allowed = ["approved", "needs_fix", "submitting"];
+
     // A previously captured claim (legacy two-pass) can be finished with a
     // single one-shot job instead of the separate confirm step.
     if (data.mode === "full") allowed.push("pending_submit");
