@@ -77,7 +77,6 @@ function NewMedicaidTripPage() {
     const e = parseFloat(odoEnd);
     return isFinite(s) && isFinite(e) && e >= s ? +(e - s).toFixed(1) : 0;
   }, [odoStart, odoEnd]);
-  const [milesOverride, setMilesOverride] = useState("");
 
   // Signature
   const sigRef = useRef<SignatureCanvas | null>(null);
@@ -122,7 +121,8 @@ function NewMedicaidTripPage() {
     if (!rider) return toast.error("Pick a rider");
     if (!pickupAddress || !dropoffAddress) return toast.error("Addresses required");
     if (!odoStart || !odoEnd) return toast.error("Odometer required");
-    const finalMiles = parseFloat(milesOverride || String(miles));
+    // Miles are ALWAYS ending odometer − starting odometer; never entered by hand.
+    const finalMiles = miles;
     if (!finalMiles || finalMiles <= 0) return toast.error("Miles must be > 0");
     if (!signed || sigRef.current?.isEmpty()) return toast.error("Rider signature required");
     if (!signerName.trim()) return toast.error("Signer name required");
