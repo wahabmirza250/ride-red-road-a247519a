@@ -155,6 +155,23 @@ export async function startRobotSubmission(
   /** Anything that is not a pure capture really submits at the portal. */
   const doesSubmit = mode !== "capture";
 
+  // Never trust a caller's relation projection for proof/signature fields.
+  // The Ready-to-Submit path previously omitted state_pdf_path from its select,
+  // which made paper bills look unsigned even though the canonical trip row had
+  // the uploaded signed report. Re-read these safety-critical values directly.
+  const { data: proofRow, error: proofError } = await supabase
+    .from("medicaid_trips")
+    .select("signature_path, state_pdf_path, identity_verified")
+    .eq("id", trip.id)
+    .single();
+  if (proofError) {
+    throw new Error(`Could not verify the trip signature before submission: ${proofError.message}`);
+  }
+  const signatureCaptured = Boolean(proofRow?.signature_path || proofRow?.state_pdf_path);
+  if (doesSubmit && !signatureCaptured) {
+    throw new Error("Submission blocked: this trip has no signed report on file");
+  }
+
   const payload = {
     id: jobId,
     medicaid_trip_id: trip.id,
@@ -164,18 +181,18 @@ export async function startRobotSubmission(
     trip_date: formatTripDateMDY(trip.pickup_at),
     // Paper-originated bills have no digital signature row: the physical
     // signature lives on the uploaded paper report stored as state_pdf_path.
-    signature_captured: Boolean(trip.signature_path || trip.state_pdf_path),
+    signature_captured: signatureCaptured,
     // Portal Step 1: "Does the provider have a signature on file?" — a field
     // SEPARATE from the driver/member identity question. Business rule: we
     // never bill without a signed trip report, so this is always Yes.
     // Aliases cover whichever key the automation service implements.
-    provider_signature_on_file: true,
-    signature_on_file: true,
-    provider_has_signature_on_file: true,
+    provider_signature_on_file: signatureCaptured,
+    signature_on_file: signatureCaptured,
+    provider_has_signature_on_file: signatureCaptured,
     // "Did the Driver verify the member's identity?" at the portal. Explicit
     // aliases so the robot reads whichever key it implements.
-    identity_verified: trip.identity_verified !== false,
-    member_identity_verified: trip.identity_verified !== false,
+    identity_verified: proofRow?.identity_verified !== false,
+    member_identity_verified: proofRow?.identity_verified !== false,
 
     pickup_odometer: Number(trip.odometer_start ?? 0),
     dropoff_odometer: Number(trip.odometer_end ?? 0),
@@ -191,6 +208,30 @@ export async function startRobotSubmission(
     confirm_submit: doesSubmit,
     click_submit: doesSubmit,
   };
+
+  // Persist the safety-critical outbound values before contacting the robot.
+  // This intentionally excludes member/provider identifiers and gives future
+  // incident reviews the exact flags sent for a specific job attempt.
+  const { error: payloadAuditError } = await supabase.from("billing_audit_log").insert({
+    billing_record_id: billingRecordId,
+    action: "robot_payload_prepared",
+    actor_id: providerUserId,
+    actor_type: "admin",
+    notes: JSON.stringify({
+      job_id: jobId,
+      mode: payload.mode,
+      signature_captured: payload.signature_captured,
+      identity_verified: payload.identity_verified,
+      has_signature_path: Boolean(proofRow?.signature_path),
+      has_state_pdf_path: Boolean(proofRow?.state_pdf_path),
+      capture_only: payload.capture_only,
+      confirm_submit: payload.confirm_submit,
+      click_submit: payload.click_submit,
+    }),
+  });
+  if (payloadAuditError) {
+    throw new Error(`Could not record the robot payload audit: ${payloadAuditError.message}`);
+  }
 
   const res = await fetch(`${ROBOT_BASE_URL}/submit-claim`, {
     method: "POST",
