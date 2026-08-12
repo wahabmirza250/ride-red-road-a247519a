@@ -9,6 +9,19 @@
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import type { Leg } from "@/lib/medicaidPdf";
+import { legMiles } from "@/lib/claimCalc";
+
+/**
+ * Billed miles are ALWAYS computed in code from odometer readings —
+ * (dropoff − pickup) per leg, summed across legs. No miles value is ever read
+ * from a paper form, OCR output or any other free-text source.
+ */
+export function computeBilledMiles(
+  legs: { pickup_odometer: number; dropoff_odometer: number }[],
+): number {
+  return Math.round(legs.reduce((sum, l) => sum + legMiles(l), 0) * 10) / 10;
+}
+
 
 /** Utility: verify admin, throw on failure. Reserved for platform-level
  *  settings; billing settings are managed by billing staff themselves. */
@@ -252,6 +265,30 @@ export async function startRobotSubmission(
   const vehicleType = (trip.vehicle_type as string | null) ?? "ambulatory";
   const rates = await requireCompanyRates(supabase, trip, vehicleType);
 
+  // BILLED MILES ARE ALWAYS CALCULATED, NEVER READ.
+  // Re-read the canonical odometer legs and compute (dropoff − pickup) per leg,
+  // summed. For a round trip this bills leg 1 + leg 2 only — never the raw
+  // start→end span, which would wrongly include the gap between legs.
+  const { data: legRows, error: legErr } = await supabase
+    .from("medicaid_trip_legs")
+    .select("leg_index, pickup_odometer, dropoff_odometer")
+    .eq("medicaid_trip_id", trip.id)
+    .order("leg_index");
+  if (legErr) {
+    throw new Error(`Could not read the odometer legs for this trip: ${legErr.message}`);
+  }
+  const odometerLegs = (legRows?.length ? legRows : [
+    { pickup_odometer: trip.odometer_start, dropoff_odometer: trip.odometer_end },
+  ]).map((l: any) => ({
+    pickup_odometer: Number(l.pickup_odometer ?? 0),
+    dropoff_odometer: Number(l.dropoff_odometer ?? 0),
+  }));
+  const billedMiles = computeBilledMiles(odometerLegs);
+  if (doesSubmit && billedMiles <= 0) {
+    throw new Error("Submission blocked: odometer readings give 0 billable miles");
+  }
+
+
   const payload = {
     id: jobId,
     medicaid_trip_id: trip.id,
@@ -283,7 +320,14 @@ export async function startRobotSubmission(
 
     pickup_odometer: Number(trip.odometer_start ?? 0),
     dropoff_odometer: Number(trip.odometer_end ?? 0),
+    // Authoritative mileage units for the claim — computed here from the
+    // odometer legs so the automation service never derives or reads its own.
+    miles: billedMiles,
+    mileage_units: billedMiles,
+    total_miles: billedMiles,
+    odometer_legs: odometerLegs,
     is_round_trip: trip.trip_kind === "round_trip",
+
     // Two-pass contract with the automation service. Aliases are sent so the
     // robot can read whichever flag name it implements.
     // The robot expects "confirm_submit" for a real fill → submit → confirm run.
