@@ -265,6 +265,30 @@ export async function startRobotSubmission(
   const vehicleType = (trip.vehicle_type as string | null) ?? "ambulatory";
   const rates = await requireCompanyRates(supabase, trip, vehicleType);
 
+  // BILLED MILES ARE ALWAYS CALCULATED, NEVER READ.
+  // Re-read the canonical odometer legs and compute (dropoff − pickup) per leg,
+  // summed. For a round trip this bills leg 1 + leg 2 only — never the raw
+  // start→end span, which would wrongly include the gap between legs.
+  const { data: legRows, error: legErr } = await supabase
+    .from("medicaid_trip_legs")
+    .select("leg_index, pickup_odometer, dropoff_odometer")
+    .eq("medicaid_trip_id", trip.id)
+    .order("leg_index");
+  if (legErr) {
+    throw new Error(`Could not read the odometer legs for this trip: ${legErr.message}`);
+  }
+  const odometerLegs = (legRows?.length ? legRows : [
+    { pickup_odometer: trip.odometer_start, dropoff_odometer: trip.odometer_end },
+  ]).map((l: any) => ({
+    pickup_odometer: Number(l.pickup_odometer ?? 0),
+    dropoff_odometer: Number(l.dropoff_odometer ?? 0),
+  }));
+  const billedMiles = computeBilledMiles(odometerLegs);
+  if (doesSubmit && billedMiles <= 0) {
+    throw new Error("Submission blocked: odometer readings give 0 billable miles");
+  }
+
+
   const payload = {
     id: jobId,
     medicaid_trip_id: trip.id,
