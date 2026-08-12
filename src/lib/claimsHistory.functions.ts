@@ -12,6 +12,16 @@ export type ClaimHistoryRow = {
   total_source: "captured" | "billing_records" | null;
 };
 
+async function assertBillingOrAdmin(supabase: any, userId: string) {
+  const [{ data: isAdmin }, { data: isBilling }] = await Promise.all([
+    supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+    supabase.rpc("has_role", { _user_id: userId, _role: "billing" }),
+  ]);
+  if (!isAdmin && !isBilling) throw new Error("Forbidden: billing or admin only");
+  return { isAdmin, isBilling };
+}
+
+
 /**
  * Permanent billing audit trail: every medicaid trip that reached the portal.
  * Total comes from the robot's captured claim when present, otherwise from the
