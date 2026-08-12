@@ -552,16 +552,31 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
       .from("billing_records")
       .select(
         `id, status, trip_id,
-         medicaid_trips!inner(id, robot_job_id, robot_pass, robot_last_status, robot_last_message, robot_last_checked_at)`,
+         medicaid_trips!inner(id, robot_job_id, robot_pass, robot_last_status, robot_last_message, robot_last_checked_at, status, submitted_confirmation, robot_confirmation_number)`,
       )
       .eq("id", data.id)
       .single();
     if (error) throw new Error(error.message);
     const trip: any = rec.medicaid_trips;
+
+    // Already reconciled/submitted: a stale robot job result must never be
+    // allowed to downgrade a trip that has a real portal confirmation number.
+    const knownConfirmation: string | null =
+      trip?.robot_confirmation_number ?? trip?.submitted_confirmation ?? null;
+    if (knownConfirmation) {
+      return {
+        pending: false,
+        status: "submitted",
+        message: `Already submitted — portal confirmation #${knownConfirmation}`,
+        confirmation_number: knownConfirmation,
+      };
+    }
+
     const jobId: string | null = trip?.robot_job_id ?? null;
     if (!jobId) {
       return { pending: false, status: "no_job", message: "No robot job has been started for this trip." };
     }
+
 
     const res = await fetch(`${ROBOT_BASE_URL}/job-status/${encodeURIComponent(jobId)}`, {
       method: "GET",
