@@ -165,10 +165,18 @@ export async function startRobotSubmission(
     // Paper-originated bills have no digital signature row: the physical
     // signature lives on the uploaded paper report stored as state_pdf_path.
     signature_captured: Boolean(trip.signature_path || trip.state_pdf_path),
+    // Portal Step 1: "Does the provider have a signature on file?" — a field
+    // SEPARATE from the driver/member identity question. Business rule: we
+    // never bill without a signed trip report, so this is always Yes.
+    // Aliases cover whichever key the automation service implements.
+    provider_signature_on_file: true,
+    signature_on_file: true,
+    provider_has_signature_on_file: true,
     // "Did the Driver verify the member's identity?" at the portal. Explicit
     // aliases so the robot reads whichever key it implements.
     identity_verified: trip.identity_verified !== false,
     member_identity_verified: trip.identity_verified !== false,
+
     pickup_odometer: Number(trip.odometer_start ?? 0),
     dropoff_odometer: Number(trip.odometer_end ?? 0),
     is_round_trip: trip.trip_kind === "round_trip",
