@@ -186,9 +186,9 @@ export async function startRobotSubmission(
     // SEPARATE from the driver/member identity question. Business rule: we
     // never bill without a signed trip report, so this is always Yes.
     // Aliases cover whichever key the automation service implements.
-    provider_signature_on_file: true,
-    signature_on_file: true,
-    provider_has_signature_on_file: true,
+    provider_signature_on_file: signatureCaptured,
+    signature_on_file: signatureCaptured,
+    provider_has_signature_on_file: signatureCaptured,
     // "Did the Driver verify the member's identity?" at the portal. Explicit
     // aliases so the robot reads whichever key it implements.
     identity_verified: proofRow?.identity_verified !== false,
