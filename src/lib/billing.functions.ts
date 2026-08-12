@@ -11,7 +11,10 @@ import {
   ROBOT_BASE_URL,
   
   startRobotSubmission,
+  looksLikePostConfirmTimeout,
+  UNVERIFIED_SUBMIT_STATUS,
   TRIP_SELECT_FOR_ROBOT,
+
 } from "@/lib/billingHelpers";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateStateFormPdf, type Leg } from "@/lib/medicaidPdf";
@@ -356,7 +359,8 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
         `id, status, trip_id,
          medicaid_trips!inner(
            id, pickup_at, odometer_start, odometer_end, signature_path,
-           state_pdf_path, identity_verified,
+           state_pdf_path, identity_verified, robot_last_status,
+           robot_confirmation_number, submitted_confirmation,
            vehicle_type, trip_kind, rider_id,
            riders(medicaid_id)
          )`,
@@ -364,7 +368,26 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .single();
     if (recErr) throw new Error(recErr.message);
+
+    const tripRow: any = rec.medicaid_trips;
+    // Double-submission guard: a claim that already exists at the portal —
+    // confirmed or unverified-after-timeout — can never be re-run from here.
+    if (tripRow?.robot_last_status === UNVERIFIED_SUBMIT_STATUS) {
+      throw new Error(
+        "Blocked: this claim was already sent to the portal and its outcome is unverified. " +
+          "Check the portal and record the claim number instead of resubmitting.",
+      );
+    }
+    if (tripRow?.robot_confirmation_number || tripRow?.submitted_confirmation) {
+      throw new Error(
+        `Blocked: this trip already has portal confirmation #${
+          tripRow.robot_confirmation_number ?? tripRow.submitted_confirmation
+        }. Resubmitting would create a duplicate claim.`,
+      );
+    }
+
     const allowed = ["approved", "needs_fix", "submitting"];
+
     // A previously captured claim (legacy two-pass) can be finished with a
     // single one-shot job instead of the separate confirm step.
     if (data.mode === "full") allowed.push("pending_submit");
@@ -529,16 +552,31 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
       .from("billing_records")
       .select(
         `id, status, trip_id,
-         medicaid_trips!inner(id, robot_job_id, robot_pass, robot_last_status, robot_last_message, robot_last_checked_at)`,
+         medicaid_trips!inner(id, robot_job_id, robot_pass, robot_last_status, robot_last_message, robot_last_checked_at, status, submitted_confirmation, robot_confirmation_number)`,
       )
       .eq("id", data.id)
       .single();
     if (error) throw new Error(error.message);
     const trip: any = rec.medicaid_trips;
+
+    // Already reconciled/submitted: a stale robot job result must never be
+    // allowed to downgrade a trip that has a real portal confirmation number.
+    const knownConfirmation: string | null =
+      trip?.robot_confirmation_number ?? trip?.submitted_confirmation ?? null;
+    if (knownConfirmation) {
+      return {
+        pending: false,
+        status: "submitted",
+        message: `Already submitted — portal confirmation #${knownConfirmation}`,
+        confirmation_number: knownConfirmation,
+      };
+    }
+
     const jobId: string | null = trip?.robot_job_id ?? null;
     if (!jobId) {
       return { pending: false, status: "no_job", message: "No robot job has been started for this trip." };
     }
+
 
     const res = await fetch(`${ROBOT_BASE_URL}/job-status/${encodeURIComponent(jobId)}`, {
       method: "GET",
@@ -731,6 +769,37 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
     const errMsg =
       resultReason ||
       (resultStatus ? `Automation returned ${resultStatus}` : "Automation failed");
+
+    // FALSE-FAILURE GUARD: the Confirm click landed and only the navigation
+    // wait timed out. The claim is very likely live at the portal, so this must
+    // NEVER go back into a retryable state — that would double-submit.
+    if (pass === "submit" && looksLikePostConfirmTimeout(errMsg)) {
+      const warn =
+        "The portal Confirm button was clicked successfully, but the page did not " +
+        "finish loading before the automation timed out. The claim was most likely " +
+        "SUBMITTED. Verify the claim in the portal and record its claim number — " +
+        "do NOT resubmit.";
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: UNVERIFIED_SUBMIT_STATUS,
+          robot_last_message: warn,
+          robot_last_checked_at: nowIso,
+        })
+        .eq("id", trip.id);
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "submitting",
+          submission_error: warn,
+          requires_human_step: true,
+        })
+        .eq("id", rec.id);
+      await logAudit(supabase, rec.id, userId, "robot_submit_unverified", `${warn} :: ${errMsg.slice(0, 500)}`);
+      return { pending: false, status: UNVERIFIED_SUBMIT_STATUS, message: warn };
+    }
+
+
     await supabase
       .from("medicaid_trips")
       .update({

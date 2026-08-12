@@ -286,3 +286,27 @@ export const TRIP_SELECT_FOR_ROBOT = `id, status, trip_id,
      vehicle_type, trip_kind, rider_id, robot_captured_claim,
      riders(medicaid_id)
    )`;
+
+/**
+ * FALSE-FAILURE GUARD.
+ *
+ * The HCPF portal's Confirm button posts back slowly. Playwright can click it
+ * successfully and then time out only while waiting for the resulting
+ * navigation to settle. The automation service reports that as a hard error,
+ * but the claim IS live at the portal — retrying would double-submit.
+ *
+ * Detects "the Confirm click landed, the wait afterwards timed out".
+ */
+export function looksLikePostConfirmTimeout(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  const t = String(raw);
+  const clickedConfirm =
+    /ConfirmCmnButton/i.test(t) || /confirm/i.test(t);
+  const clickLanded = /click action done/i.test(t);
+  const timedOutAfter =
+    /waiting for scheduled navigations to finish/i.test(t) || /Timeout \d+ms exceeded/i.test(t);
+  return clickedConfirm && clickLanded && timedOutAfter;
+}
+
+/** Status parked on a trip whose claim may already exist at the portal. */
+export const UNVERIFIED_SUBMIT_STATUS = "SUBMITTED_UNVERIFIED";
