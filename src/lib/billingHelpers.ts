@@ -127,6 +127,77 @@ export function formatTripDateMDY(pickupAt: string | null | undefined): string {
   return `${mm}/${dd}/${yyyy}`;
 }
 
+export const RATES_NOT_CONFIGURED_MESSAGE =
+  "Billing rates not configured for this company — set them in Billing Settings first";
+
+type ResolvedRate = {
+  procedure_code: string;
+  charge_amount: number;
+  place_of_service: string | null;
+};
+
+/**
+ * Resolve the billing rates that belong to the TRIP'S OWN COMPANY.
+ * Throws (fails closed) when the company is unknown or has no configured
+ * trip/mileage rate for the vehicle type being billed.
+ */
+export async function requireCompanyRates(
+  supabase: any,
+  trip: any,
+  vehicleType: string,
+): Promise<{
+  companyId: string;
+  trip: ResolvedRate;
+  mile: ResolvedRate;
+  diagnosis_code: string | null;
+}> {
+  let companyId: string | null = trip?.company_id ?? null;
+  if (!companyId) {
+    const { data } = await supabase
+      .from("medicaid_trips")
+      .select("company_id")
+      .eq("id", trip.id)
+      .single();
+    companyId = data?.company_id ?? null;
+  }
+  if (!companyId) {
+    throw new Error(`${RATES_NOT_CONFIGURED_MESSAGE} (no company linked to this trip)`);
+  }
+
+  const { data: rows, error } = await supabase
+    .from("billing_rate_settings")
+    .select("vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code")
+    .eq("company_id", companyId)
+    .eq("vehicle_type", vehicleType);
+  if (error) throw new Error(`Could not read billing rates: ${error.message}`);
+
+  const pick = (unit: "trip" | "mile") => {
+    const r = (rows ?? []).find((x: any) => x.unit_type === unit);
+    if (!r || !r.procedure_code || !(Number(r.charge_amount) > 0)) return null;
+    return {
+      procedure_code: String(r.procedure_code),
+      charge_amount: Number(r.charge_amount),
+      place_of_service: r.place_of_service ? String(r.place_of_service) : null,
+    } satisfies ResolvedRate;
+  };
+  const tripRate = pick("trip");
+  const mileRate = pick("mile");
+  const missing = [!tripRate && "trip", !mileRate && "mileage"].filter(Boolean);
+  if (missing.length) {
+    throw new Error(
+      `${RATES_NOT_CONFIGURED_MESSAGE} (missing ${missing.join(" and ")} rate for ${vehicleType}). Submission blocked.`,
+    );
+  }
+
+  const diag = (rows ?? []).find((r: any) => r.default_diagnosis_code)?.default_diagnosis_code;
+  return {
+    companyId,
+    trip: tripRate!,
+    mile: mileRate!,
+    diagnosis_code: diag ? String(diag) : null,
+  };
+}
+
 export async function startRobotSubmission(
   supabase: any,
   args: {
@@ -172,13 +243,29 @@ export async function startRobotSubmission(
     throw new Error("Submission blocked: this trip has no signed report on file");
   }
 
+  // FAIL CLOSED ON RATES.
+  // The automation service looks rates up itself and will otherwise fall back
+  // to built-in defaults (place of service 99 and stock dollar amounts) when a
+  // company has none configured — which silently bills wrong money at the
+  // portal. Resolve the company's own rates here and refuse to start a job
+  // unless both the trip and mileage rates exist for this vehicle type.
+  const vehicleType = (trip.vehicle_type as string | null) ?? "ambulatory";
+  const rates = await requireCompanyRates(supabase, trip, vehicleType);
+
   const payload = {
     id: jobId,
     medicaid_trip_id: trip.id,
     provider_id: providerUserId,
-    vehicle_type: (trip.vehicle_type as string | null) ?? "ambulatory",
+    company_id: rates.companyId,
+    vehicle_type: vehicleType,
     medicaid_member_id: medicaidMemberId,
     trip_date: formatTripDateMDY(trip.pickup_at),
+    // Explicit rates so the automation service never has to guess or fall back
+    // to its own built-in defaults.
+    trip_rate: rates.trip,
+    mile_rate: rates.mile,
+    place_of_service: rates.trip.place_of_service,
+    diagnosis_code: rates.diagnosis_code,
     // Paper-originated bills have no digital signature row: the physical
     // signature lives on the uploaded paper report stored as state_pdf_path.
     signature_captured: signatureCaptured,
@@ -281,7 +368,7 @@ export async function startRobotSubmission(
 
 export const TRIP_SELECT_FOR_ROBOT = `id, status, trip_id,
    medicaid_trips!inner(
-     id, pickup_at, odometer_start, odometer_end, signature_path,
+     id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
      state_pdf_path, identity_verified,
      vehicle_type, trip_kind, rider_id, robot_captured_claim,
      riders(medicaid_id)

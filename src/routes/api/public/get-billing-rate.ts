@@ -64,8 +64,9 @@ export const Route = createFileRoute("/api/public/get-billing-rate")({
         }
 
         // Rates are owned by the COMPANY, not by whichever staff member last
-        // saved them, so resolve the company first and look up by that. The
-        // provider_id match is kept only as a legacy fallback.
+        // saved them. FAIL CLOSED: if we cannot resolve the company, or the
+        // company has no configured rate, return an error the caller must
+        // treat as fatal — never fall back to another row/default.
         const explicitCompany = url.searchParams.get("company_id");
         let companyId: string | null =
           explicitCompany && isUuid(explicitCompany) ? explicitCompany : null;
@@ -77,19 +78,27 @@ export const Route = createFileRoute("/api/public/get-billing-rate")({
             .maybeSingle();
           companyId = (prof as any)?.company_id ?? null;
         }
+        if (!companyId) {
+          return json(
+            {
+              error:
+                "Billing rates not configured for this company - set them in Billing Settings first",
+              code: "RATES_NOT_CONFIGURED",
+              reason: "no_company_resolved",
+            },
+            409,
+          );
+        }
 
         const cols =
           "procedure_code, charge_amount, unit_type, place_of_service, default_diagnosis_code";
-        let query = supabaseAdmin
+        const { data, error } = await supabaseAdmin
           .from("billing_rate_settings" as any)
           .select(cols)
+          .eq("company_id", companyId)
           .eq("vehicle_type", vehicle_type)
-          .eq("unit_type", unit_type);
-        query = companyId
-          ? query.eq("company_id", companyId)
-          : query.eq("provider_id", provider_id);
-
-        const { data, error } = await query.maybeSingle();
+          .eq("unit_type", unit_type)
+          .maybeSingle();
 
         if (error) {
           console.error("get-billing-rate lookup error", { message: error.message, code: (error as any).code, details: (error as any).details, hint: (error as any).hint });
@@ -98,11 +107,17 @@ export const Route = createFileRoute("/api/public/get-billing-rate")({
         if (!data) {
           return json(
             {
-              error: "No billing rate found for the given provider_id, vehicle_type and unit_type",
+              error:
+                "Billing rates not configured for this company - set them in Billing Settings first",
+              code: "RATES_NOT_CONFIGURED",
+              company_id: companyId,
+              vehicle_type,
+              unit_type,
             },
-            404,
+            409,
           );
         }
+
 
         return json({
           provider_id,
