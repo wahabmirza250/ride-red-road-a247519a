@@ -185,9 +185,16 @@ export async function startRobotSubmission(
     id: jobId,
     medicaid_trip_id: trip.id,
     provider_id: providerUserId,
-    vehicle_type: (trip.vehicle_type as string | null) ?? "ambulatory",
+    company_id: rates.companyId,
+    vehicle_type: vehicleType,
     medicaid_member_id: medicaidMemberId,
     trip_date: formatTripDateMDY(trip.pickup_at),
+    // Explicit rates so the automation service never has to guess or fall back
+    // to its own built-in defaults.
+    trip_rate: rates.trip,
+    mile_rate: rates.mile,
+    place_of_service: rates.trip.place_of_service,
+    diagnosis_code: rates.diagnosis_code,
     // Paper-originated bills have no digital signature row: the physical
     // signature lives on the uploaded paper report stored as state_pdf_path.
     signature_captured: signatureCaptured,
