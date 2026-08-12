@@ -97,7 +97,18 @@ export function ClaimsHistoryTab() {
           <ArrowUpDown className="mr-1 h-3.5 w-3.5" />
           {desc ? "Newest first" : "Oldest first"}
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive"
+          disabled={rows.length === 0 || clearMutation.isPending}
+          onClick={() => setConfirmOpen(true)}
+        >
+          <Trash2 className="mr-1 h-3.5 w-3.5" />
+          Clear history
+        </Button>
       </div>
+
 
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
