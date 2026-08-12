@@ -21,14 +21,32 @@ import { listClaimsHistory, clearClaimsHistory, type ClaimHistoryRow } from "@/l
 /** Permanent audit trail of every claim that reached the state portal. */
 export function ClaimsHistoryTab() {
   const listFn = useServerFn(listClaimsHistory);
+  const clearFn = useServerFn(clearClaimsHistory);
+  const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [desc, setDesc] = useState(true);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const query = useQuery({
     queryKey: ["claims_history"],
     queryFn: () => listFn() as Promise<ClaimHistoryRow[]>,
     retry: false,
   });
+
+  const clearMutation = useMutation({
+    mutationFn: () => clearFn() as Promise<{ cleared: number }>,
+    onSuccess: (res) => {
+      toast.success(`Cleared ${res.cleared} claim${res.cleared === 1 ? "" : "s"} from history`);
+      setConfirmOpen(false);
+      void qc.invalidateQueries({ queryKey: ["claims_history"] });
+      void qc.invalidateQueries({ queryKey: ["billing_counts"] });
+      void qc.invalidateQueries({ queryKey: ["billing_list"] });
+    },
+    onError: (e) => {
+      toast.error(e instanceof Error ? e.message : "Could not clear history");
+    },
+  });
+
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
