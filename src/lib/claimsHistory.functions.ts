@@ -12,6 +12,16 @@ export type ClaimHistoryRow = {
   total_source: "captured" | "billing_records" | null;
 };
 
+async function assertBillingOrAdmin(supabase: any, userId: string) {
+  const [{ data: isAdmin }, { data: isBilling }] = await Promise.all([
+    supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+    supabase.rpc("has_role", { _user_id: userId, _role: "billing" }),
+  ]);
+  if (!isAdmin && !isBilling) throw new Error("Forbidden: billing or admin only");
+  return { isAdmin, isBilling };
+}
+
+
 /**
  * Permanent billing audit trail: every medicaid trip that reached the portal.
  * Total comes from the robot's captured claim when present, otherwise from the
@@ -21,14 +31,10 @@ export const listClaimsHistory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<ClaimHistoryRow[]> => {
     const { supabase, userId } = context;
-    // Billing staff own this audit trail day-to-day; admins can see it too.
-    const [{ data: isAdmin }, { data: isBilling }] = await Promise.all([
-      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
-      supabase.rpc("has_role", { _user_id: userId, _role: "billing" }),
-    ]);
-    if (!isAdmin && !isBilling) throw new Error("Forbidden: billing or admin only");
+    await assertBillingOrAdmin(supabase, userId);
 
     const { data, error } = await supabase
+
       .from("medicaid_trips")
       .select(
         "id, status, pickup_at, submitted_at, portal_submitted_at, submitted_confirmation, portal_confirmation, robot_confirmation_number, robot_captured_claim, dispatch_trip_id, riders(full_name, medicaid_id)",
@@ -79,3 +85,58 @@ export const listClaimsHistory = createServerFn({ method: "POST" })
       };
     });
   });
+
+/**
+ * Reset every submitted claim back to the billing workflow so it can be re-submitted.
+ * This clears the visible Claims History entries and the associated confirmation data.
+ */
+export const clearClaimsHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertBillingOrAdmin(supabase, userId);
+
+    const now = new Date().toISOString();
+
+    const { data: trips, error: findErr } = await supabase
+      .from("medicaid_trips")
+      .select("id")
+      .eq("status", "submitted");
+    if (findErr) throw new Error(findErr.message);
+
+    const ids = (trips ?? []).map((t: any) => t.id as string);
+    if (!ids.length) return { cleared: 0 };
+
+    const { error: tripErr } = await supabase
+      .from("medicaid_trips")
+      .update({
+        status: "approved",
+        submitted_at: null,
+        submitted_by: null,
+        submitted_confirmation: null,
+        portal_submitted_at: null,
+        portal_confirmation: null,
+        robot_confirmation_number: null,
+        robot_captured_claim: null,
+        robot_captured_at: null,
+        review_notes: "Cleared from claims history by billing staff.",
+        updated_at: now,
+      })
+      .in("id", ids);
+    if (tripErr) throw new Error(tripErr.message);
+
+    const { error: recErr } = await supabase
+      .from("billing_records")
+      .update({
+        status: "approved",
+        submitted_at: null,
+        state_confirmation_number: null,
+        submission_error: null,
+        updated_at: now,
+      })
+      .in("trip_id", ids);
+    if (recErr) throw new Error(recErr.message);
+
+    return { cleared: ids.length };
+  });
+

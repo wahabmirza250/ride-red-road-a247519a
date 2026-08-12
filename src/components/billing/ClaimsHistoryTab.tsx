@@ -1,24 +1,52 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpDown, Loader2, Search, ReceiptText } from "lucide-react";
+import { ArrowUpDown, Loader2, Search, ReceiptText, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/claimReview";
-import { listClaimsHistory, type ClaimHistoryRow } from "@/lib/claimsHistory.functions";
+import { listClaimsHistory, clearClaimsHistory, type ClaimHistoryRow } from "@/lib/claimsHistory.functions";
+
 
 /** Permanent audit trail of every claim that reached the state portal. */
 export function ClaimsHistoryTab() {
   const listFn = useServerFn(listClaimsHistory);
+  const clearFn = useServerFn(clearClaimsHistory);
+  const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [desc, setDesc] = useState(true);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const query = useQuery({
     queryKey: ["claims_history"],
     queryFn: () => listFn() as Promise<ClaimHistoryRow[]>,
     retry: false,
   });
+
+  const clearMutation = useMutation({
+    mutationFn: () => clearFn() as Promise<{ cleared: number }>,
+    onSuccess: (res) => {
+      toast.success(`Cleared ${res.cleared} claim${res.cleared === 1 ? "" : "s"} from history`);
+      setConfirmOpen(false);
+      void qc.invalidateQueries({ queryKey: ["claims_history"] });
+      void qc.invalidateQueries({ queryKey: ["billing_counts"] });
+      void qc.invalidateQueries({ queryKey: ["billing_list"] });
+    },
+    onError: (e) => {
+      toast.error(e instanceof Error ? e.message : "Could not clear history");
+    },
+  });
+
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -69,7 +97,18 @@ export function ClaimsHistoryTab() {
           <ArrowUpDown className="mr-1 h-3.5 w-3.5" />
           {desc ? "Newest first" : "Oldest first"}
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive"
+          disabled={rows.length === 0 || clearMutation.isPending}
+          onClick={() => setConfirmOpen(true)}
+        >
+          <Trash2 className="mr-1 h-3.5 w-3.5" />
+          Clear history
+        </Button>
       </div>
+
 
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
@@ -120,6 +159,33 @@ export function ClaimsHistoryTab() {
           </table>
         </div>
       )}
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear claims history?</DialogTitle>
+            <DialogDescription>
+              This will reset all {rows.length} submitted claim{rows.length === 1 ? "" : "s"} back to
+              “Ready to Submit” and remove the confirmation numbers. The trips themselves stay in the
+              billing workflow and can be re-submitted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={clearMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => clearMutation.mutate()}
+              disabled={clearMutation.isPending}
+            >
+              {clearMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Clear history
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
