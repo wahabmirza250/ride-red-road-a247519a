@@ -320,7 +320,14 @@ export async function startRobotSubmission(
 
     pickup_odometer: Number(trip.odometer_start ?? 0),
     dropoff_odometer: Number(trip.odometer_end ?? 0),
+    // Authoritative mileage units for the claim — computed here from the
+    // odometer legs so the automation service never derives or reads its own.
+    miles: billedMiles,
+    mileage_units: billedMiles,
+    total_miles: billedMiles,
+    odometer_legs: odometerLegs,
     is_round_trip: trip.trip_kind === "round_trip",
+
     // Two-pass contract with the automation service. Aliases are sent so the
     // robot can read whichever flag name it implements.
     // The robot expects "confirm_submit" for a real fill → submit → confirm run.
