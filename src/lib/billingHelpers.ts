@@ -155,6 +155,23 @@ export async function startRobotSubmission(
   /** Anything that is not a pure capture really submits at the portal. */
   const doesSubmit = mode !== "capture";
 
+  // Never trust a caller's relation projection for proof/signature fields.
+  // The Ready-to-Submit path previously omitted state_pdf_path from its select,
+  // which made paper bills look unsigned even though the canonical trip row had
+  // the uploaded signed report. Re-read these safety-critical values directly.
+  const { data: proofRow, error: proofError } = await supabase
+    .from("medicaid_trips")
+    .select("signature_path, state_pdf_path, identity_verified")
+    .eq("id", trip.id)
+    .single();
+  if (proofError) {
+    throw new Error(`Could not verify the trip signature before submission: ${proofError.message}`);
+  }
+  const signatureCaptured = Boolean(proofRow?.signature_path || proofRow?.state_pdf_path);
+  if (doesSubmit && !signatureCaptured) {
+    throw new Error("Submission blocked: this trip has no signed report on file");
+  }
+
   const payload = {
     id: jobId,
     medicaid_trip_id: trip.id,
@@ -164,7 +181,7 @@ export async function startRobotSubmission(
     trip_date: formatTripDateMDY(trip.pickup_at),
     // Paper-originated bills have no digital signature row: the physical
     // signature lives on the uploaded paper report stored as state_pdf_path.
-    signature_captured: Boolean(trip.signature_path || trip.state_pdf_path),
+    signature_captured: signatureCaptured,
     // Portal Step 1: "Does the provider have a signature on file?" — a field
     // SEPARATE from the driver/member identity question. Business rule: we
     // never bill without a signed trip report, so this is always Yes.
@@ -174,8 +191,8 @@ export async function startRobotSubmission(
     provider_has_signature_on_file: true,
     // "Did the Driver verify the member's identity?" at the portal. Explicit
     // aliases so the robot reads whichever key it implements.
-    identity_verified: trip.identity_verified !== false,
-    member_identity_verified: trip.identity_verified !== false,
+    identity_verified: proofRow?.identity_verified !== false,
+    member_identity_verified: proofRow?.identity_verified !== false,
 
     pickup_odometer: Number(trip.odometer_start ?? 0),
     dropoff_odometer: Number(trip.odometer_end ?? 0),
