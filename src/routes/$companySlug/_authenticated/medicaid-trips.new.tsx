@@ -333,18 +333,14 @@ function NewMedicaidTripPage() {
             </div>
             <div>
               <Label>Miles driven</Label>
-              <Input
-                type="number"
-                step="0.1"
-                inputMode="decimal"
-                placeholder={String(miles)}
-                value={milesOverride}
-                onChange={(e) => setMilesOverride(e.target.value)}
-              />
+              <div className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm tabular-nums">
+                {miles} mi
+              </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Auto-calculated: {miles} mi (edit to override)
+                Always calculated as ending odometer − starting odometer.
               </p>
             </div>
+
           </section>
 
           <div className="flex justify-end">
