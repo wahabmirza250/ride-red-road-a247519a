@@ -172,6 +172,15 @@ export async function startRobotSubmission(
     throw new Error("Submission blocked: this trip has no signed report on file");
   }
 
+  // FAIL CLOSED ON RATES.
+  // The automation service looks rates up itself and will otherwise fall back
+  // to built-in defaults (place of service 99 and stock dollar amounts) when a
+  // company has none configured — which silently bills wrong money at the
+  // portal. Resolve the company's own rates here and refuse to start a job
+  // unless both the trip and mileage rates exist for this vehicle type.
+  const vehicleType = (trip.vehicle_type as string | null) ?? "ambulatory";
+  const rates = await requireCompanyRates(supabase, trip, vehicleType);
+
   const payload = {
     id: jobId,
     medicaid_trip_id: trip.id,
