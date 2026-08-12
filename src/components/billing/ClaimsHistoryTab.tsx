@@ -159,6 +159,33 @@ export function ClaimsHistoryTab() {
           </table>
         </div>
       )}
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear claims history?</DialogTitle>
+            <DialogDescription>
+              This will reset all {rows.length} submitted claim{rows.length === 1 ? "" : "s"} back to
+              “Ready to Submit” and remove the confirmation numbers. The trips themselves stay in the
+              billing workflow and can be re-submitted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={clearMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => clearMutation.mutate()}
+              disabled={clearMutation.isPending}
+            >
+              {clearMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Clear history
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
