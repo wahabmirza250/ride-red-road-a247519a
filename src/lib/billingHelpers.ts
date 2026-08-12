@@ -209,6 +209,30 @@ export async function startRobotSubmission(
     click_submit: doesSubmit,
   };
 
+  // Persist the safety-critical outbound values before contacting the robot.
+  // This intentionally excludes member/provider identifiers and gives future
+  // incident reviews the exact flags sent for a specific job attempt.
+  const { error: payloadAuditError } = await supabase.from("billing_audit_log").insert({
+    billing_record_id: billingRecordId,
+    action: "robot_payload_prepared",
+    actor_id: providerUserId,
+    actor_type: "admin",
+    notes: JSON.stringify({
+      job_id: jobId,
+      mode: payload.mode,
+      signature_captured: payload.signature_captured,
+      identity_verified: payload.identity_verified,
+      has_signature_path: Boolean(proofRow?.signature_path),
+      has_state_pdf_path: Boolean(proofRow?.state_pdf_path),
+      capture_only: payload.capture_only,
+      confirm_submit: payload.confirm_submit,
+      click_submit: payload.click_submit,
+    }),
+  });
+  if (payloadAuditError) {
+    throw new Error(`Could not record the robot payload audit: ${payloadAuditError.message}`);
+  }
+
   const res = await fetch(`${ROBOT_BASE_URL}/submit-claim`, {
     method: "POST",
     headers: { "content-type": "application/json" },
