@@ -734,6 +734,37 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
     const errMsg =
       resultReason ||
       (resultStatus ? `Automation returned ${resultStatus}` : "Automation failed");
+
+    // FALSE-FAILURE GUARD: the Confirm click landed and only the navigation
+    // wait timed out. The claim is very likely live at the portal, so this must
+    // NEVER go back into a retryable state — that would double-submit.
+    if (pass === "submit" && looksLikePostConfirmTimeout(errMsg)) {
+      const warn =
+        "The portal Confirm button was clicked successfully, but the page did not " +
+        "finish loading before the automation timed out. The claim was most likely " +
+        "SUBMITTED. Verify the claim in the portal and record its claim number — " +
+        "do NOT resubmit.";
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: UNVERIFIED_SUBMIT_STATUS,
+          robot_last_message: warn,
+          robot_last_checked_at: nowIso,
+        })
+        .eq("id", trip.id);
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "submitting",
+          submission_error: warn,
+          requires_human_step: true,
+        })
+        .eq("id", rec.id);
+      await logAudit(supabase, rec.id, userId, "robot_submit_unverified", `${warn} :: ${errMsg.slice(0, 500)}`);
+      return { pending: false, status: UNVERIFIED_SUBMIT_STATUS, message: warn };
+    }
+
+
     await supabase
       .from("medicaid_trips")
       .update({
