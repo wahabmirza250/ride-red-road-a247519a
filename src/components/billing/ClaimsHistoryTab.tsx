@@ -1,12 +1,22 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpDown, Loader2, Search, ReceiptText } from "lucide-react";
+import { ArrowUpDown, Loader2, Search, ReceiptText, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/claimReview";
-import { listClaimsHistory, type ClaimHistoryRow } from "@/lib/claimsHistory.functions";
+import { listClaimsHistory, clearClaimsHistory, type ClaimHistoryRow } from "@/lib/claimsHistory.functions";
+
 
 /** Permanent audit trail of every claim that reached the state portal. */
 export function ClaimsHistoryTab() {
