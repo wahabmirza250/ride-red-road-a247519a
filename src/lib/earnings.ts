@@ -1,7 +1,11 @@
 export type EarningsBucket = { period: string; amount: number; claims: number };
 export type CompanyEarnings = {
+  /** Confirmed paid income only. */
   total: number;
   claims: number;
+  /** Submitted / suspended / not-yet-paid claims. */
+  pendingTotal: number;
+  pendingClaims: number;
   byDay: EarningsBucket[];
   byWeek: EarningsBucket[];
   byMonth: EarningsBucket[];
@@ -11,10 +15,13 @@ export type ClaimRow = {
   robot_captured_claim: unknown;
   /** Pre-resolved charge (captured OR recalculated from company rates). */
   amount?: number | null;
+  /** Current billing status; only "paid" counts as earned income. */
+  billing_status?: string | null;
   submitted_at?: string | null;
   portal_submitted_at?: string | null;
   updated_at?: string | null;
 };
+
 
 
 /** Parse "$1,234.56" / 1234.56 / null into a number. */
