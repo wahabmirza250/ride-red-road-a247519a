@@ -346,6 +346,12 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
          * in between — used by the paper-bill flow.
          */
         mode: z.enum(["capture", "full"]).default("full"),
+        /**
+         * Set by the UI only after the biller explicitly confirmed the
+         * "this may create a duplicate claim" warning dialog.
+         */
+        acknowledge_duplicate: z.boolean().default(false),
+
       })
       .parse(d),
   )
