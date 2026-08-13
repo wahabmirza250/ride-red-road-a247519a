@@ -395,7 +395,7 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
       });
     }
 
-    const allowed = ["approved", "needs_fix", "submitting"];
+    const allowed = ["approved", "needs_fix", "submitting", "queued"];
 
     // A previously captured claim (legacy two-pass) can be finished with a
     // single one-shot job instead of the separate confirm step.
