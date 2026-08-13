@@ -45,6 +45,8 @@ import {
   listBillingRecords,
   markPortalSubmitted,
   startRobotForRecord,
+  sweepRobotJobsForCompany,
+
 } from "@/lib/billing.functions";
 import { getPortal } from "@/lib/portals";
 import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
@@ -83,6 +85,7 @@ const TABS: {
   statuses: (
     | "pending_review"
     | "approved"
+    | "queued"
     | "submitting"
     | "needs_fix"
     | "pending_submit"
@@ -103,13 +106,15 @@ const TABS: {
     countKeys: ["approved", "needs_fix"],
   },
   {
-    // Anything the robot is actively working on ("submitting") plus claims it
-    // already filled in and handed back for a human portal submit.
+    // Anything the robot is actively working on ("submitting"), waiting its
+    // turn for the portal session ("queued"), plus claims it already filled in
+    // and handed back for a human portal submit.
     key: "awaiting_portal",
     label: "Awaiting Portal Submission",
-    statuses: ["submitting", "pending_submit"],
-    countKeys: ["submitting", "pending_submit"],
+    statuses: ["submitting", "queued", "pending_submit"],
+    countKeys: ["submitting", "queued", "pending_submit"],
   },
+
 
   {
     key: "submitted",
@@ -194,6 +199,42 @@ export function BillingWorkspace() {
       supabase.removeChannel(ch);
     };
   }, [qc]);
+
+  // Background status sweep. Robot results used to land only while a detail
+  // sheet was open, which is why a 4-minute job looked like an 18-minute one.
+  // While the billing app is open we reconcile every in-flight job for the
+  // company and release the next queued submission. (pg_cron does the same
+  // server-side when nobody has the app open.)
+  const sweepFn = useServerFn(sweepRobotJobsForCompany);
+  useEffect(() => {
+    if (!canBill) return;
+    let stopped = false;
+    let running = false;
+    const tick = async () => {
+      if (running || stopped || document.hidden) return;
+      running = true;
+      try {
+        const out: any = await sweepFn({});
+        if (!stopped && (out?.settled > 0 || out?.started)) {
+          qc.invalidateQueries({ queryKey: ["billing_list"] });
+          qc.invalidateQueries({ queryKey: ["billing_detail"] });
+          qc.invalidateQueries({ queryKey: ["billing_counts"] });
+        }
+      } catch {
+        // A failed sweep is harmless — the next tick (or cron) retries.
+      } finally {
+        running = false;
+      }
+    };
+    void tick();
+    const id = window.setInterval(tick, 15000);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, [canBill, qc, sweepFn]);
+
+
 
   function countFor(key: TabKey) {
     const t = TABS.find((x) => x.key === key)!;
@@ -603,8 +644,16 @@ function ReadyToSubmitTab({
   async function submitOne(id: string, acknowledge = false) {
     setSubmittingIds((prev) => new Set([...prev, id]));
     try {
-      await startFn({ data: { id, mode: "full", acknowledge_duplicate: acknowledge } });
+      const res: any = await startFn({
+        data: { id, mode: "full", acknowledge_duplicate: acknowledge },
+      });
+      if (res?.queued) {
+        toast.info(
+          `Trip ${id.slice(0, 8)}… is queued behind ${res.ahead + 1} submission(s). It starts automatically — the portal only allows one at a time.`,
+        );
+      }
       return "ok" as const;
+
     } catch (e: any) {
       const dup = parseDuplicateClaimError(e);
       if (dup) {
@@ -742,11 +791,16 @@ function ReadyToSubmitTab({
                     {formatDateTime(r.pickup_at)}
                   </td>
                   <td className="px-4 py-3">
-                    {isRunning ? (
+                    {r.status === "queued" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600">
+                        waiting in queue
+                      </span>
+                    ) : isRunning ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
                         <Loader2 className="h-3 w-3 animate-spin" /> robot running
                       </span>
                     ) : r.status === "needs_fix" ? (
+
                       <StatusPill status="needs_fix" />
                     ) : (
                       <StatusPill status="approved" />
