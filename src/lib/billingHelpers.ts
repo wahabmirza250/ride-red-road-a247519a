@@ -340,6 +340,8 @@ export async function startRobotSubmission(
     medicaid_trip_id: trip.id,
     provider_id: providerUserId,
     company_id: rates.companyId,
+    // Portal login is company-owned; tell the robot exactly which one to fetch.
+    portal_id: credential.portal_id,
     vehicle_type: vehicleType,
     // MEMBER ID vs PATIENT NUMBER — two different portal fields. The member
     // id is the state Medicaid id; the internal job id ("trip-<uuid>-...")
