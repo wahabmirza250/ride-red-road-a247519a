@@ -1,0 +1,2 @@
+ALTER TABLE public.billing_records DROP CONSTRAINT IF EXISTS billing_records_status_check;
+ALTER TABLE public.billing_records ADD CONSTRAINT billing_records_status_check CHECK (status = ANY (ARRAY['pending_review'::text,'pending_submit'::text,'queued'::text,'submitting'::text,'submitted'::text,'approved'::text,'rejected'::text,'needs_fix'::text,'paid'::text,'suspended'::text,'denied'::text]));
