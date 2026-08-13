@@ -83,6 +83,7 @@ const TABS: {
   statuses: (
     | "pending_review"
     | "approved"
+    | "queued"
     | "submitting"
     | "needs_fix"
     | "pending_submit"
@@ -103,13 +104,15 @@ const TABS: {
     countKeys: ["approved", "needs_fix"],
   },
   {
-    // Anything the robot is actively working on ("submitting") plus claims it
-    // already filled in and handed back for a human portal submit.
+    // Anything the robot is actively working on ("submitting"), waiting its
+    // turn for the portal session ("queued"), plus claims it already filled in
+    // and handed back for a human portal submit.
     key: "awaiting_portal",
     label: "Awaiting Portal Submission",
-    statuses: ["submitting", "pending_submit"],
-    countKeys: ["submitting", "pending_submit"],
+    statuses: ["submitting", "queued", "pending_submit"],
+    countKeys: ["submitting", "queued", "pending_submit"],
   },
+
 
   {
     key: "submitted",
