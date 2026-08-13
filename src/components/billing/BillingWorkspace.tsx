@@ -1,4 +1,6 @@
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
+import { DuplicateSubmitDialog } from "@/components/billing/DuplicateSubmitDialog";
+import { parseDuplicateClaimError, type DuplicateClaimInfo } from "@/lib/duplicateSubmit";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -561,6 +563,9 @@ function ReadyToSubmitTab({
   const startFn = useServerFn(startRobotForRecord);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submittingIds, setSubmittingIds] = useState<Set<string>>(new Set());
+  const [duplicate, setDuplicate] = useState<{ id: string; info: DuplicateClaimInfo } | null>(
+    null,
+  );
 
   const selectableIds = useMemo(
     () =>
@@ -595,29 +600,45 @@ function ReadyToSubmitTab({
     });
   }
 
+  async function submitOne(id: string, acknowledge = false) {
+    setSubmittingIds((prev) => new Set([...prev, id]));
+    try {
+      await startFn({ data: { id, mode: "full", acknowledge_duplicate: acknowledge } });
+      return "ok" as const;
+    } catch (e: any) {
+      const dup = parseDuplicateClaimError(e);
+      if (dup) {
+        // Needs a deliberate confirmation from the biller before we retry.
+        setDuplicate({ id, info: dup });
+        return "duplicate" as const;
+      }
+      toast.error(`Trip ${id.slice(0, 8)}…: ${e?.message ?? "Failed"}`);
+      return "failed" as const;
+    } finally {
+      setSubmittingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      qc.invalidateQueries({ queryKey: ["billing_list"] });
+      qc.invalidateQueries({ queryKey: ["billing_counts"] });
+    }
+  }
+
   async function submitSelected() {
     const ids = Array.from(selected);
     if (!ids.length) return;
-    setSubmittingIds((prev) => new Set([...prev, ...ids]));
     let ok = 0;
     let failed = 0;
     // Loop serially so we get an individual error per trip and don't flood
     // the automation service with parallel logins.
     for (const id of ids) {
-      try {
-        await startFn({ data: { id, mode: "full" } });
-        ok += 1;
-      } catch (e: any) {
-        failed += 1;
-        toast.error(`Trip ${id.slice(0, 8)}…: ${e?.message ?? "Failed"}`);
-      } finally {
-        setSubmittingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-        qc.invalidateQueries({ queryKey: ["billing_list"] });
-        qc.invalidateQueries({ queryKey: ["billing_counts"] });
+      const res = await submitOne(id);
+      if (res === "ok") ok += 1;
+      else if (res === "failed") failed += 1;
+      else {
+        // Stop the batch here; the warning dialog takes over for this trip.
+        break;
       }
     }
     setSelected(new Set());
