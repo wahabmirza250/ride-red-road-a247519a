@@ -45,6 +45,8 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
   const month = new Map<string, EarningsBucket>();
   let total = 0;
   let claims = 0;
+  let pendingTotal = 0;
+  let pendingClaims = 0;
 
   for (const r of rows) {
     const captured = (r.robot_captured_claim ?? null) as { total_charged_amount?: unknown } | null;
@@ -57,6 +59,14 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
     if (!stamp) continue;
     const d = new Date(stamp);
     if (Number.isNaN(d.getTime())) continue;
+
+    // Only claims the biller has confirmed as paid count as real income.
+    const isPaid = String(r.billing_status ?? "").toLowerCase() === "paid";
+    if (!isPaid) {
+      pendingTotal += amount;
+      pendingClaims += 1;
+      continue;
+    }
 
     total += amount;
     claims += 1;
@@ -80,8 +90,11 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
   return {
     total: Math.round(total * 100) / 100,
     claims,
+    pendingTotal: Math.round(pendingTotal * 100) / 100,
+    pendingClaims,
     byDay: sorted(day).slice(0, 30),
     byWeek: sorted(week).slice(0, 12),
     byMonth: sorted(month).slice(0, 12),
   };
+
 }
