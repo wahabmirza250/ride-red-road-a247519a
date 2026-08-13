@@ -651,6 +651,19 @@ function ReadyToSubmitTab({
 
   return (
     <div className="space-y-3">
+      <DuplicateSubmitDialog
+        info={duplicate?.info ?? null}
+        busy={submittingIds.size > 0}
+        onCancel={() => setDuplicate(null)}
+        onConfirm={async () => {
+          const target = duplicate;
+          setDuplicate(null);
+          if (!target) return;
+          const res = await submitOne(target.id, true);
+          if (res === "ok") toast.success("Resubmission started — recorded in the audit trail.");
+        }}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-3">
         <div className="flex items-center gap-3 text-sm">
           <Checkbox
