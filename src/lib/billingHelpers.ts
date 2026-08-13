@@ -321,15 +321,32 @@ export async function startRobotSubmission(
     identity_verified: proofRow?.identity_verified !== false,
     member_identity_verified: proofRow?.identity_verified !== false,
 
-    pickup_odometer: Number(trip.odometer_start ?? 0),
-    dropoff_odometer: Number(trip.odometer_end ?? 0),
+    // PROVEN BEHAVIOUR OF THE AUTOMATION SERVICE (2026-08-13):
+    // it fills the mileage service line with (dropoff_odometer − pickup_odometer)
+    // and IGNORES miles/mileage_units/total_miles. For a round trip that raw
+    // span includes the gap between legs, which over-bills mileage massively
+    // (real case: 93 units billed where the true billable distance is 4).
+    // So the odometer pair we send is now derived from the SAME computed
+    // billable miles the app shows, keeping every derivation path identical.
+    pickup_odometer: billedOdometerStart,
+    dropoff_odometer: Math.round((billedOdometerStart + billedMiles) * 10) / 10,
+    raw_odometer_start: Number(trip.odometer_start ?? 0),
+    raw_odometer_end: Number(trip.odometer_end ?? 0),
     // Authoritative mileage units for the claim — computed here from the
     // odometer legs so the automation service never derives or reads its own.
     miles: billedMiles,
     mileage_units: billedMiles,
     total_miles: billedMiles,
     odometer_legs: odometerLegs,
-    is_round_trip: trip.trip_kind === "round_trip",
+    is_round_trip: isRoundTrip,
+    // Explicit TRIP (base) service-line units. Previously only is_round_trip
+    // was sent and the robot decided the unit count itself, which billed a
+    // single unit for round trips. Aliases cover whichever key it reads.
+    trip_units: tripUnits,
+    units: tripUnits,
+    trip_unit_count: tripUnits,
+    base_units: tripUnits,
+
 
     // Two-pass contract with the automation service. Aliases are sent so the
     // robot can read whichever flag name it implements.
