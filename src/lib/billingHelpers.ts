@@ -401,7 +401,11 @@ export async function startRobotSubmission(
       capture_only: payload.capture_only,
       confirm_submit: payload.confirm_submit,
       click_submit: payload.click_submit,
+      trip_date_sent: payload.trip_date,
+      patient_number_sent: payload.patient_number,
+      member_id_last4: String(payload.member_id ?? "").slice(-4),
       is_round_trip: payload.is_round_trip,
+
       trip_units: payload.trip_units,
       billed_miles: payload.miles,
       pickup_odometer_sent: payload.pickup_odometer,
