@@ -644,8 +644,16 @@ function ReadyToSubmitTab({
   async function submitOne(id: string, acknowledge = false) {
     setSubmittingIds((prev) => new Set([...prev, id]));
     try {
-      await startFn({ data: { id, mode: "full", acknowledge_duplicate: acknowledge } });
+      const res: any = await startFn({
+        data: { id, mode: "full", acknowledge_duplicate: acknowledge },
+      });
+      if (res?.queued) {
+        toast.info(
+          `Trip ${id.slice(0, 8)}… is queued behind ${res.ahead + 1} submission(s). It starts automatically — the portal only allows one at a time.`,
+        );
+      }
       return "ok" as const;
+
     } catch (e: any) {
       const dup = parseDuplicateClaimError(e);
       if (dup) {
