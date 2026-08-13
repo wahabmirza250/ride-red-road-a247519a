@@ -306,8 +306,23 @@ export async function startRobotSubmission(
     provider_id: providerUserId,
     company_id: rates.companyId,
     vehicle_type: vehicleType,
+    // MEMBER ID vs PATIENT NUMBER — two different portal fields. The member
+    // id is the state Medicaid id; the internal job id ("trip-<uuid>-...")
+    // must only ever reach the Patient Number / account-number box, so both
+    // are now sent explicitly instead of leaving the robot to pick one.
     medicaid_member_id: medicaidMemberId,
+    member_id: medicaidMemberId,
+    medicaid_id: medicaidMemberId,
+    patient_number: trip.id,
+    patient_account_number: trip.id,
+    // Date of service. Aliases cover whichever key the robot reads; a blank
+    // date on the claim means none of these were picked up.
     trip_date: formatTripDateMDY(trip.pickup_at),
+    service_date: formatTripDateMDY(trip.pickup_at),
+    date_of_service: formatTripDateMDY(trip.pickup_at),
+    from_date: formatTripDateMDY(trip.pickup_at),
+    to_date: formatTripDateMDY(trip.pickup_at),
+
     // Explicit rates so the automation service never has to guess or fall back
     // to its own built-in defaults.
     trip_rate: rates.trip,
