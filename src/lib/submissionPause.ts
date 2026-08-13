@@ -4,4 +4,4 @@
  * Flip this to `false` to re-enable real submissions. No submission code is
  * removed or bypassed while this is `true`.
  */
-export const REAL_SUBMISSIONS_PAUSED = true;
+export const REAL_SUBMISSIONS_PAUSED = false;
