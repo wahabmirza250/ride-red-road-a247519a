@@ -32,8 +32,24 @@ export const getCompanyEarnings = createServerFn({ method: "POST" })
 
     const rows = (data ?? []) as any[];
     const totals = await computeClaimTotals(supabaseAdmin, rows);
+
+    // Current billing status per trip — only "paid" counts as earned income.
+    const statusByTrip = new Map<string, string>();
+    if (rows.length) {
+      const { data: recs } = await supabaseAdmin
+        .from("billing_records")
+        .select("trip_id, status")
+        .in("trip_id", rows.map((r) => r.id));
+      for (const r of (recs ?? []) as any[]) statusByTrip.set(r.trip_id, r.status);
+    }
+
     return aggregateEarnings(
-      rows.map((r) => ({ ...r, amount: totals.get(r.id)?.amount ?? null })),
+      rows.map((r) => ({
+        ...r,
+        amount: totals.get(r.id)?.amount ?? null,
+        billing_status: statusByTrip.get(r.id) ?? null,
+      })),
     );
   });
+
 

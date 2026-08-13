@@ -62,20 +62,32 @@ export function EarningsPanel() {
         </p>
       ) : (
         <>
-          <div className="mt-4 flex items-end gap-4">
+          <div className="mt-4 flex flex-wrap items-end gap-6">
             <div>
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                Total billed (all time)
+                Paid earnings (all time)
               </p>
               <p className="font-display text-3xl font-semibold tracking-tight">
                 {money(data?.total ?? 0)}
               </p>
+              <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                <TrendingUp className="h-3.5 w-3.5" />
+                {data?.claims ?? 0} paid claim{(data?.claims ?? 0) === 1 ? "" : "s"}
+              </p>
             </div>
-            <p className="mb-1.5 flex items-center gap-1 text-xs text-muted-foreground">
-              <TrendingUp className="h-3.5 w-3.5" />
-              {data?.claims ?? 0} submitted claim{(data?.claims ?? 0) === 1 ? "" : "s"}
-            </p>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                Submitted, not yet paid
+              </p>
+              <p className="font-display text-xl font-semibold tracking-tight text-muted-foreground">
+                {money(data?.pendingTotal ?? 0)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {data?.pendingClaims ?? 0} pending claim{(data?.pendingClaims ?? 0) === 1 ? "" : "s"}
+              </p>
+            </div>
           </div>
+
 
           <div className="mt-5 space-y-2">
             {buckets.length === 0 ? (

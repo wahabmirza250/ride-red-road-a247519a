@@ -13,9 +13,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/claimReview";
-import { listClaimsHistory, clearClaimsHistory, type ClaimHistoryRow } from "@/lib/claimsHistory.functions";
+import {
+  listClaimsHistory,
+  clearClaimsHistory,
+  setClaimStatus,
+  CLAIM_STATUS_OPTIONS,
+  type ClaimHistoryRow,
+} from "@/lib/claimsHistory.functions";
+
 
 
 /** Permanent audit trail of every claim that reached the state portal. */
@@ -45,6 +59,22 @@ export function ClaimsHistoryTab() {
     onError: (e) => {
       toast.error(e instanceof Error ? e.message : "Could not clear history");
     },
+  });
+
+  const statusFn = useServerFn(setClaimStatus);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const statusMutation = useMutation({
+    mutationFn: (vars: { tripId: string; status: string }) =>
+      statusFn({ data: vars as never }) as Promise<{ from: string | null; to: string }>,
+    onMutate: (vars) => setSavingId(vars.tripId),
+    onSettled: () => setSavingId(null),
+    onSuccess: (res) => {
+      toast.success(`Status updated to ${res.to}`);
+      void qc.invalidateQueries({ queryKey: ["claims_history"] });
+      void qc.invalidateQueries({ queryKey: ["company-earnings"] });
+      void qc.invalidateQueries({ queryKey: ["billing_list"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update status"),
   });
 
 
@@ -148,10 +178,29 @@ export function ClaimsHistoryTab() {
                     {r.submitted_at ? formatDateTime(r.submitted_at) : "—"}
                   </td>
                   <td className="px-3 py-2">
-                    <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium capitalize">
-                      {(r.status ?? "submitted").replace(/_/g, " ")}
-                    </span>
+                    <Select
+                      value={CLAIM_STATUS_OPTIONS.includes((r.status ?? "") as never)
+                        ? (r.status as string)
+                        : "submitted"}
+                      onValueChange={(v) => statusMutation.mutate({ tripId: r.id, status: v })}
+                      disabled={savingId === r.id}
+                    >
+                      <SelectTrigger className="h-8 w-[140px] text-xs capitalize">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CLAIM_STATUS_OPTIONS.map((s) => (
+                          <SelectItem key={s} value={s} className="text-xs capitalize">
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {savingId === r.id && (
+                      <Loader2 className="mt-1 h-3 w-3 animate-spin text-muted-foreground" />
+                    )}
                   </td>
+
                   <td className="px-3 py-2 text-right tabular-nums">
                     {r.total_amount != null ? formatMoney(r.total_amount) : "—"}
                     {r.total_source === "calculated" && (

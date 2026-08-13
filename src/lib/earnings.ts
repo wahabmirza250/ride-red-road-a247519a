@@ -1,7 +1,11 @@
 export type EarningsBucket = { period: string; amount: number; claims: number };
 export type CompanyEarnings = {
+  /** Confirmed paid income only. */
   total: number;
   claims: number;
+  /** Submitted / suspended / not-yet-paid claims. */
+  pendingTotal: number;
+  pendingClaims: number;
   byDay: EarningsBucket[];
   byWeek: EarningsBucket[];
   byMonth: EarningsBucket[];
@@ -11,10 +15,13 @@ export type ClaimRow = {
   robot_captured_claim: unknown;
   /** Pre-resolved charge (captured OR recalculated from company rates). */
   amount?: number | null;
+  /** Current billing status; only "paid" counts as earned income. */
+  billing_status?: string | null;
   submitted_at?: string | null;
   portal_submitted_at?: string | null;
   updated_at?: string | null;
 };
+
 
 
 /** Parse "$1,234.56" / 1234.56 / null into a number. */
@@ -38,6 +45,8 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
   const month = new Map<string, EarningsBucket>();
   let total = 0;
   let claims = 0;
+  let pendingTotal = 0;
+  let pendingClaims = 0;
 
   for (const r of rows) {
     const captured = (r.robot_captured_claim ?? null) as { total_charged_amount?: unknown } | null;
@@ -50,6 +59,14 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
     if (!stamp) continue;
     const d = new Date(stamp);
     if (Number.isNaN(d.getTime())) continue;
+
+    // Only claims the biller has confirmed as paid count as real income.
+    const isPaid = String(r.billing_status ?? "").toLowerCase() === "paid";
+    if (!isPaid) {
+      pendingTotal += amount;
+      pendingClaims += 1;
+      continue;
+    }
 
     total += amount;
     claims += 1;
@@ -73,8 +90,11 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
   return {
     total: Math.round(total * 100) / 100,
     claims,
+    pendingTotal: Math.round(pendingTotal * 100) / 100,
+    pendingClaims,
     byDay: sorted(day).slice(0, 30),
     byWeek: sorted(week).slice(0, 12),
     byMonth: sorted(month).slice(0, 12),
   };
+
 }
