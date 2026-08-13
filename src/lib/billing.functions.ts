@@ -19,6 +19,8 @@ import {
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateStateFormPdf, type Leg } from "@/lib/medicaidPdf";
 import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
+import { duplicateClaimError } from "@/lib/duplicateSubmit";
+
 
 
 /* ---------- LIST ---------- */
