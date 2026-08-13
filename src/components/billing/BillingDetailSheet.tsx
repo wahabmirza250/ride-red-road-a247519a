@@ -528,8 +528,15 @@ export function BillingDetailSheet({
             )}
           </div>
         )}
+        <DuplicateSubmitDialog
+          info={duplicateInfo}
+          busy={startRobot.isPending}
+          onCancel={() => setDuplicateInfo(null)}
+          onConfirm={() => startRobot.mutate(true)}
+        />
       </SheetContent>
     </Sheet>
+
   );
 }
 
