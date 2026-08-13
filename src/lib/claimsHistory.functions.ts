@@ -170,3 +170,48 @@ export const clearClaimsHistory = createServerFn({ method: "POST" })
     return { cleared: ids.length };
   });
 
+
+
+/**
+ * Manual status override: the biller records what the real portal shows for a
+ * claim (paid / suspended / denied …). Written to billing_records.status and
+ * logged in the billing audit trail.
+ */
+export const setClaimStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ tripId: z.string().uuid(), status: z.enum(CLAIM_STATUS_OPTIONS) })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    await assertBillingOrAdmin(supabase, userId);
+
+    const { data: rec, error: findErr } = await supabase
+      .from("billing_records")
+      .select("id, status")
+      .eq("trip_id", data.tripId)
+      .maybeSingle();
+    if (findErr) throw new Error(findErr.message);
+    if (!rec) throw new Error("No billing record exists for this claim yet.");
+
+    const from = rec.status as string | null;
+    if (from === data.status) return { ok: true, from, to: data.status };
+
+    const { error: upErr } = await supabase
+      .from("billing_records")
+      .update({ status: data.status, updated_at: new Date().toISOString() })
+      .eq("id", rec.id);
+    if (upErr) throw new Error(upErr.message);
+
+    await supabase.from("billing_audit_log").insert({
+      billing_record_id: rec.id,
+      action: "manual_status_override",
+      actor_id: userId,
+      actor_type: "user",
+      notes: `Status manually changed from ${from ?? "unknown"} to ${data.status}.`,
+    });
+
+    return { ok: true, from, to: data.status };
+  });
