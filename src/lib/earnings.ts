@@ -41,7 +41,11 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
 
   for (const r of rows) {
     const captured = (r.robot_captured_claim ?? null) as { total_charged_amount?: unknown } | null;
-    const amount = parseAmount(captured?.total_charged_amount);
+    const amount =
+      r.amount != null && Number.isFinite(Number(r.amount))
+        ? Number(r.amount)
+        : parseAmount(captured?.total_charged_amount);
+
     const stamp = r.submitted_at ?? r.portal_submitted_at ?? r.updated_at;
     if (!stamp) continue;
     const d = new Date(stamp);
