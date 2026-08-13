@@ -530,14 +530,19 @@ export const confirmAndSubmitClaim = createServerFn({ method: "POST" })
     }
 
     try {
-      await startRobotSubmission(supabase, {
+      const { enqueueOrStartRobot } = await import("@/lib/robotQueue.server");
+      const queueResult = await enqueueOrStartRobot(supabase, {
         billingRecordId: data.id,
+        companyId: trip.company_id ?? null,
         trip,
         providerUserId: userId,
         mode: "submit",
       });
-      await logAudit(supabase, data.id, userId, "claim_confirmed_submitting");
-      return { ok: true };
+      if (!queueResult.queued) {
+        await logAudit(supabase, data.id, userId, "claim_confirmed_submitting");
+      }
+      return { ok: true, queued: queueResult.queued, ahead: queueResult.ahead };
+
     } catch (e: any) {
       const msg = e?.message ?? "Could not start the real submission";
       await supabase
