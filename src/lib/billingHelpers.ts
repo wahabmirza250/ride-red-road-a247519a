@@ -46,6 +46,7 @@ export async function assertBilling(supabase: any, userId: string) {
 export const StatusEnum = z.enum([
   "pending_review",
   "pending_submit",
+  "queued",
   "submitting",
   "submitted",
   "approved",
@@ -56,12 +57,14 @@ export const StatusEnum = z.enum([
 export const ALL_STATUSES = [
   "pending_review",
   "approved",
+  "queued",
   "submitting",
   "needs_fix",
   "pending_submit",
   "submitted",
   "rejected",
 ] as const;
+
 
 export async function logAudit(
   supabase: any,
