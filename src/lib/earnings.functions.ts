@@ -18,10 +18,11 @@ export const getCompanyEarnings = createServerFn({ method: "POST" })
     const companyId = await requireCompanyId(userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { computeClaimTotals } = await import("@/lib/claimAmount.server");
     const { data, error } = await supabaseAdmin
       .from("medicaid_trips")
       .select(
-        "company_id, robot_captured_claim, submitted_at, portal_submitted_at, updated_at, status, robot_confirmation_number, submitted_confirmation",
+        "id, company_id, vehicle_type, odometer_start, odometer_end, robot_captured_claim, submitted_at, portal_submitted_at, updated_at, status, robot_confirmation_number, submitted_confirmation, medicaid_trip_legs(leg_index, pickup_odometer, dropoff_odometer)",
       )
       .eq("company_id", companyId)
       .or(
@@ -29,5 +30,10 @@ export const getCompanyEarnings = createServerFn({ method: "POST" })
       );
     if (error) throw new Error(error.message);
 
-    return aggregateEarnings(data ?? []);
+    const rows = (data ?? []) as any[];
+    const totals = await computeClaimTotals(supabaseAdmin, rows);
+    return aggregateEarnings(
+      rows.map((r) => ({ ...r, amount: totals.get(r.id)?.amount ?? null })),
+    );
   });
+
