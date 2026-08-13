@@ -416,6 +416,24 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
         providerUserId: userId,
         mode: data.mode,
       });
+      if (isResubmit) {
+        // Mark the trip so status polling knows this job is a deliberate
+        // resubmission and not a stale poll against the old claim.
+        await supabase
+          .from("medicaid_trips")
+          .update({ robot_pass: "resubmit" })
+          .eq("id", trip.id);
+        await logAudit(
+          supabase,
+          data.id,
+          userId,
+          "resubmission_confirmed",
+          `Intentional resubmission confirmed by billing staff at ${new Date().toISOString()}. ` +
+            `Previous claim #${priorClaim ?? "unknown"}` +
+            (unverified ? " (previous outcome unverified)" : "") +
+            `. Mode: ${data.mode}.`,
+        );
+      }
       await logAudit(
         supabase,
         data.id,
@@ -425,6 +443,7 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
       return { ok: true };
     } catch (e: any) {
       const msg = e?.message ?? "Failed to start automation";
+
       await supabase
         .from("billing_records")
         .update({ status: "needs_fix", submission_error: msg, fix_notes: msg })
