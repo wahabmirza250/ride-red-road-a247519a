@@ -9,8 +9,10 @@ export type ClaimHistoryRow = {
   trip_date: string | null;
   submitted_at: string | null;
   total_amount: number | null;
-  total_source: "captured" | "billing_records" | null;
+  total_source: "captured" | "calculated" | "billing_records" | null;
+  status: string | null;
 };
+
 
 async function assertBillingOrAdmin(supabase: any, userId: string) {
   const [{ data: isAdmin }, { data: isBilling }] = await Promise.all([
