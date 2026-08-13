@@ -261,6 +261,37 @@ export async function reconcileRobotJob(
       resultReason ||
       (resultStatus ? `Automation returned ${resultStatus}` : "Automation failed");
 
+    // DEFINITELY-NOT-SUBMITTED: the portal refused Step 3 because no service
+    // line was committed (or the pre-Submit guard aborted the run). No claim
+    // was created, so this stays a plain retryable failure with a message that
+    // says so — never the possibly-submitted state below.
+    if (looksLikeNoServiceLinesFailure(errMsg)) {
+      const clear =
+        "No claim was created. The portal rejected the claim because no service " +
+        "line was committed (the trip/base and mileage lines did not save). " +
+        "Nothing was submitted — this trip can safely be retried. " +
+        `Portal detail: ${errMsg.slice(0, 300)}`;
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: resultStatus || jobStatus || "NO_SERVICE_LINES",
+          robot_last_message: clear,
+          robot_last_checked_at: nowIso,
+        })
+        .eq("id", trip.id);
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "needs_fix",
+          submission_error: clear,
+          fix_notes: clear,
+          requires_human_step: false,
+        })
+        .eq("id", rec.id);
+      await logAudit(supabase, rec.id, userId, "robot_failed_no_service_lines", clear);
+      return { pending: false, status: resultStatus || "NO_SERVICE_LINES", message: clear };
+    }
+
     // FALSE-FAILURE GUARD: the Confirm click landed and only the navigation
     // wait timed out. The claim is very likely live at the portal, so this must
     // NEVER go back into a retryable state — that would double-submit.
