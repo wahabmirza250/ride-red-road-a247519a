@@ -146,6 +146,36 @@ export function formatTripDateMDY(pickupAt: string | null | undefined): string {
 export const RATES_NOT_CONFIGURED_MESSAGE =
   "Billing rates not configured for this company — set them in Billing Settings first";
 
+export const NO_PORTAL_CREDENTIAL_MESSAGE =
+  "No portal login configured for this company — add one in Team & apps first";
+
+/**
+ * FAIL CLOSED ON PORTAL LOGINS.
+ *
+ * A portal login belongs to exactly one company. It is never shared, never
+ * defaulted and never borrowed from another company — submitting under someone
+ * else's provider identity is a compliance incident, not an inconvenience.
+ */
+export async function requireCompanyPortalCredential(
+  supabase: any,
+  companyId: string,
+  portalId?: string | null,
+): Promise<{ portal_id: string; login_email: string }> {
+  let q = supabase
+    .from("state_portal_credentials")
+    .select("portal_id, login_email")
+    .eq("company_id", companyId);
+  if (portalId) q = q.eq("portal_id", portalId);
+  const { data, error } = await q.limit(1);
+  if (error) {
+    throw new Error(`Could not verify the portal login for this company: ${error.message}`);
+  }
+  const row = (data ?? [])[0];
+  if (!row) throw new Error(NO_PORTAL_CREDENTIAL_MESSAGE);
+  return { portal_id: String(row.portal_id), login_email: String(row.login_email) };
+}
+
+
 type ResolvedRate = {
   procedure_code: string;
   charge_amount: number;
@@ -268,6 +298,11 @@ export async function startRobotSubmission(
   const vehicleType = (trip.vehicle_type as string | null) ?? "ambulatory";
   const rates = await requireCompanyRates(supabase, trip, vehicleType);
 
+  // FAIL CLOSED ON PORTAL IDENTITY.
+  // Refuse to start a job unless THIS company owns a portal login of its own.
+  const credential = await requireCompanyPortalCredential(supabase, rates.companyId);
+
+
   // BILLED MILES ARE ALWAYS CALCULATED, NEVER READ.
   // Re-read the canonical odometer legs and compute (dropoff − pickup) per leg,
   // summed. For a round trip this bills leg 1 + leg 2 only — never the raw
@@ -305,6 +340,8 @@ export async function startRobotSubmission(
     medicaid_trip_id: trip.id,
     provider_id: providerUserId,
     company_id: rates.companyId,
+    // Portal login is company-owned; tell the robot exactly which one to fetch.
+    portal_id: credential.portal_id,
     vehicle_type: vehicleType,
     // MEMBER ID vs PATIENT NUMBER — two different portal fields. The member
     // id is the state Medicaid id; the internal job id ("trip-<uuid>-...")
