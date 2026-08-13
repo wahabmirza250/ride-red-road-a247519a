@@ -79,7 +79,11 @@ export const Route = createFileRoute("/api/public/get-portal-credential")({
         const row = Array.isArray(data) ? data[0] : data;
         if (!row) {
           return json(
-            { error: "No portal credentials configured for this provider" },
+            {
+              error:
+                "No portal login configured for this company — add one in Team & apps first",
+              code: "NO_PORTAL_CREDENTIAL",
+            },
             404,
           );
         }
