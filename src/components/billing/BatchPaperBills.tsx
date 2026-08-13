@@ -46,18 +46,39 @@ type Item = {
   l1d: string;
   l2p: string;
   l2d: string;
+  /** Times exactly as written on the paper form ("" = none readable). */
+  l1pt: string;
+  l1dt: string;
+  l2pt: string;
+  l2dt: string;
   result?: { trip_id: string; total: number; trip_kind: string; miles: number };
 };
 
 const UNASSIGNED = "Driver not read";
 
 function legsOf(i: Item) {
-  const legs: { pickup_odometer: number; dropoff_odometer: number }[] = [];
+  const legs: {
+    pickup_odometer: number;
+    dropoff_odometer: number;
+    pickup_time: string | null;
+    dropoff_time: string | null;
+  }[] = [];
   const n = (v: string) => (v.trim() === "" ? NaN : Number(v));
+  const t = (v: string) => (/^\d{2}:\d{2}$/.test(v.trim()) ? v.trim() : null);
   if (Number.isFinite(n(i.l1p)) && Number.isFinite(n(i.l1d)))
-    legs.push({ pickup_odometer: n(i.l1p), dropoff_odometer: n(i.l1d) });
+    legs.push({
+      pickup_odometer: n(i.l1p),
+      dropoff_odometer: n(i.l1d),
+      pickup_time: t(i.l1pt),
+      dropoff_time: t(i.l1dt),
+    });
   if (Number.isFinite(n(i.l2p)) && Number.isFinite(n(i.l2d)))
-    legs.push({ pickup_odometer: n(i.l2p), dropoff_odometer: n(i.l2d) });
+    legs.push({
+      pickup_odometer: n(i.l2p),
+      dropoff_odometer: n(i.l2d),
+      pickup_time: t(i.l2pt),
+      dropoff_time: t(i.l2dt),
+    });
   return legs;
 }
 
@@ -114,6 +135,10 @@ export function BatchPaperBills() {
         l1d: "",
         l2p: "",
         l2d: "",
+        l1pt: "",
+        l1dt: "",
+        l2pt: "",
+        l2dt: "",
       };
     });
     setItems((prev) => [...prev, ...created]);
@@ -164,6 +189,10 @@ export function BatchPaperBills() {
         l1d: string | null;
         l2p: string | null;
         l2d: string | null;
+        l1pt?: string | null;
+        l1dt?: string | null;
+        l2pt?: string | null;
+        l2dt?: string | null;
       };
       patch(key, {
         phase: "ready",
@@ -177,6 +206,11 @@ export function BatchPaperBills() {
         l1d: res?.l1d ?? "",
         l2p: res?.l2p ?? "",
         l2d: res?.l2d ?? "",
+        // Never invent a time — blank stays blank for manual entry.
+        l1pt: res?.l1pt ?? "",
+        l1dt: res?.l1dt ?? "",
+        l2pt: res?.l2pt ?? "",
+        l2dt: res?.l2dt ?? "",
       });
     } catch (e: any) {
       patch(key, { phase: "ready", error: e?.message ?? "Auto-read failed" });
@@ -467,6 +501,27 @@ function BatchRow({
               <Input
                 aria-label={`${label} for ${item.fileName}`}
                 inputMode="decimal"
+                value={item[field]}
+                onChange={(e) => onPatch({ [field]: e.target.value } as Partial<Item>)}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {(
+            [
+              ["l1pt", "Leg 1 pickup time"],
+              ["l1dt", "Leg 1 dropoff time"],
+              ["l2pt", "Leg 2 pickup time"],
+              ["l2dt", "Leg 2 dropoff time"],
+            ] as const
+          ).map(([field, label]) => (
+            <div key={field} className="space-y-1">
+              <Label className="text-xs">{label}</Label>
+              <Input
+                aria-label={`${label} for ${item.fileName}`}
+                type="time"
                 value={item[field]}
                 onChange={(e) => onPatch({ [field]: e.target.value } as Partial<Item>)}
               />
