@@ -52,7 +52,11 @@ export const getBillingRatesForCalc = createServerFn({ method: "GET" })
 const LegInput = z.object({
   pickup_odometer: z.number(),
   dropoff_odometer: z.number(),
+  /** "HH:MM" exactly as written on the paper form; null when unreadable. */
+  pickup_time: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  dropoff_time: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
 });
+
 
 const PaperBillInput = z.object({
   rider_id: z.string().uuid().nullable().optional(),
