@@ -880,9 +880,9 @@ function AwaitingPortalTab({
                     <Button
                       size="sm"
                       disabled={oneShot.isPending || REAL_SUBMISSIONS_PAUSED}
-                      onClick={() => oneShot.mutate(r.id)}
+                      onClick={() => oneShot.mutate({ id: r.id })}
                     >
-                      {oneShot.isPending && oneShot.variables === r.id ? (
+                      {oneShot.isPending && oneShot.variables?.id === r.id ? (
                         <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                       ) : (
                         <Send className="mr-1 h-4 w-4" />
