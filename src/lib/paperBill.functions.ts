@@ -167,7 +167,11 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
       vehicleType: data.vehicle_type,
     });
 
-    const pickupAt = new Date(`${data.trip_date.slice(0, 10)}T12:00:00Z`).toISOString();
+    // Pickup time comes from the paper form. There is NO invented fallback:
+    // when the time is unreadable the trip is anchored at local midnight and
+    // the leg's pickup_time stays null so the blank is visible.
+    const pickupAt = mountainIso(data.trip_date, legs[0].pickup_time ?? null);
+
     const pickupAddress = data.pickup_address?.trim() || "See attached paper trip report";
     const dropoffAddress = data.dropoff_address?.trim() || "See attached paper trip report";
 
