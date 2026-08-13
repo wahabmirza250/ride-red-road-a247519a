@@ -16,6 +16,7 @@ import {
   TRIP_SELECT_FOR_ROBOT,
 
 } from "@/lib/billingHelpers";
+import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateStateFormPdf, type Leg } from "@/lib/medicaidPdf";
 import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
@@ -360,6 +361,16 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertBilling(supabase, userId);
+
+    // REAL SUBMISSIONS PAUSED — enforced on the server, not just hidden in the
+    // UI, so no path (queue release, retry, direct call) can start a real
+    // portal submission while the pause is on. Capture-only runs stay allowed.
+    if (REAL_SUBMISSIONS_PAUSED && data.mode === "full") {
+      throw new Error(
+        "Real portal submissions are paused while service-line verification is being fixed. " +
+          "Capture-only runs are still allowed.",
+      );
+    }
 
     const { data: rec, error: recErr } = await supabase
       .from("billing_records")
