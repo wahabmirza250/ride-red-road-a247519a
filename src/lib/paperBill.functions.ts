@@ -228,6 +228,9 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
       leg_date: data.trip_date.slice(0, 10),
       pickup_odometer: l.pickup_odometer,
       dropoff_odometer: l.dropoff_odometer,
+      pickup_time: l.pickup_time ?? null,
+      dropoff_time: l.dropoff_time ?? null,
+
       pickup_address: i === 0 ? pickupAddress : dropoffAddress,
       dropoff_address: i === 0 ? dropoffAddress : pickupAddress,
     }));
