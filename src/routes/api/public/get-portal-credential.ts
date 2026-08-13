@@ -43,38 +43,27 @@ export const Route = createFileRoute("/api/public/get-portal-credential")({
         if (!portal_id) {
           return json({ error: "portal_id query parameter is required" }, 400);
         }
-        if (company_id && !isUuid(company_id)) {
+        // FAIL CLOSED: a portal login belongs to exactly one company and is
+        // NEVER shared, defaulted or borrowed. No company_id => no credential.
+        if (!company_id) {
+          return json(
+            { error: "company_id query parameter is required: portal logins are never shared between companies" },
+            400,
+          );
+        }
+        if (!isUuid(company_id)) {
           return json({ error: "company_id must be a UUID" }, 400);
         }
 
-        // Credentials are company-scoped. Older robot callers don't send a
-        // company_id — resolve it when exactly one company has this portal.
-        let resolvedCompanyId: string | null = company_id;
-        if (!resolvedCompanyId) {
-          const { data: owners } = await supabaseAdmin
-            .from("state_portal_credentials")
-            .select("company_id")
-            .eq("portal_id", portal_id);
-          const ids = Array.from(
-            new Set((owners ?? []).map((o) => o.company_id).filter(Boolean)),
-          ) as string[];
-          if (ids.length > 1) {
-            return json(
-              { error: "company_id is required: multiple companies use this portal" },
-              400,
-            );
-          }
-          resolvedCompanyId = ids[0] ?? null;
-        }
-
-        // Call service-role RPC to decrypt from vault
+        // Call service-role RPC to decrypt from vault (company-scoped, exact match)
         const { data, error } = await supabaseAdmin.rpc(
           "get_portal_credential_for_submission" as any,
           {
             _portal_id: portal_id,
-            _company_id: resolvedCompanyId,
+            _company_id: company_id,
           },
         );
+
 
 
         if (error) {
