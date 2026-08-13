@@ -1,0 +1,312 @@
+/**
+ * SHARED ROBOT RECONCILIATION.
+ *
+ * Polls the Railway automation service for one billing record's job and writes
+ * the real outcome back to the trip + billing record. Extracted out of
+ * `billing.functions.ts` so the interactive poll, the background sweep and the
+ * cron endpoint all reconcile identically.
+ */
+import {
+  logAudit,
+  ROBOT_BASE_URL,
+  looksLikePostConfirmTimeout,
+  UNVERIFIED_SUBMIT_STATUS,
+} from "@/lib/billingHelpers";
+import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
+
+export type ReconcileResult = {
+  pending: boolean;
+  status: string;
+  message: string | null;
+  confirmation_number?: string | null;
+};
+
+export async function reconcileRobotJob(
+  supabase: any,
+  recordId: string,
+  actorId: string,
+): Promise<ReconcileResult> {
+  const data = { id: recordId };
+  const userId = actorId;
+
+  const { data: rec, error } = await supabase
+      .from("billing_records")
+      .select(
+        `id, status, trip_id,
+         medicaid_trips!inner(id, robot_job_id, robot_pass, robot_last_status, robot_last_message, robot_last_checked_at, status, submitted_confirmation, robot_confirmation_number)`,
+      )
+      .eq("id", data.id)
+      .single();
+    if (error) throw new Error(error.message);
+    const trip: any = rec.medicaid_trips;
+
+    // Already reconciled/submitted: a stale robot job result must never be
+    // allowed to downgrade a trip that has a real portal confirmation number.
+    // An acknowledged resubmission (robot_pass = "resubmit") is polled normally
+    // so its new claim number can be recorded.
+    const knownConfirmation: string | null =
+      trip?.robot_confirmation_number ?? trip?.submitted_confirmation ?? null;
+    if (knownConfirmation && trip?.robot_pass !== "resubmit") {
+
+      return {
+        pending: false,
+        status: "submitted",
+        message: `Already submitted — portal confirmation #${knownConfirmation}`,
+        confirmation_number: knownConfirmation,
+      };
+    }
+
+    const jobId: string | null = trip?.robot_job_id ?? null;
+    if (!jobId) {
+      return { pending: false, status: "no_job", message: "No robot job has been started for this trip." };
+    }
+
+
+    const res = await fetch(`${ROBOT_BASE_URL}/job-status/${encodeURIComponent(jobId)}`, {
+      method: "GET",
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      // Don't mutate DB state on a transient poll failure
+      return {
+        pending: true,
+        status: "poll_error",
+        message: `Poll failed (${res.status}): ${text.slice(0, 200)}`,
+      };
+    }
+    let body: any = {};
+    try { body = JSON.parse(text); } catch { /* ignore */ }
+
+    const jobStatus: string = String(body?.status ?? "unknown");
+    const result = body?.result ?? {};
+    const resultStatus: string = String(result?.status ?? "");
+    const resultReason: string | null =
+      typeof result?.reason === "string" && result.reason ? result.reason :
+      typeof result?.message === "string" && result.message ? result.message :
+      typeof body?.error === "string" && body.error ? body.error : null;
+
+    const nowIso = new Date().toISOString();
+
+    // Still running
+    if (jobStatus !== "done" && jobStatus !== "error") {
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: jobStatus,
+          robot_last_message: resultReason,
+          robot_last_checked_at: nowIso,
+        })
+        .eq("id", trip.id);
+      return { pending: true, status: jobStatus, message: resultReason };
+    }
+
+    const pass: "capture" | "submit" = trip?.robot_pass === "submit" ? "submit" : "capture";
+
+    // Terminal: PASS 2 finished — the robot really clicked Submit + Confirm.
+    if (jobStatus === "done" && pass === "submit") {
+      const confirmation = extractConfirmationNumber(result) ?? extractConfirmationNumber(body);
+      const submitted =
+        !!confirmation ||
+        ["SUBMITTED", "CONFIRMED", "SUCCESS", "COMPLETED"].includes(resultStatus.toUpperCase());
+
+      if (submitted) {
+        await supabase
+          .from("medicaid_trips")
+          .update({
+            robot_last_status: resultStatus || "SUBMITTED",
+            robot_last_message: confirmation
+              ? `Submitted. Portal confirmation #${confirmation}`
+              : "Submitted to the portal.",
+            robot_last_checked_at: nowIso,
+            robot_confirmation_number: confirmation,
+            // Canonical submission record — kept in sync so the trip row itself
+            // reflects the real portal submission without manual correction.
+            status: "submitted",
+            submitted_confirmation: confirmation,
+            portal_confirmation: confirmation,
+            portal_status: "submitted",
+            portal_submitted_at: nowIso,
+            submitted_at: nowIso,
+            submitted_by: userId,
+          })
+          .eq("id", trip.id);
+
+        await supabase
+          .from("billing_records")
+          .update({
+            status: "submitted",
+            state_confirmation_number: confirmation,
+            submitted_at: nowIso,
+            submission_error: null,
+            requires_human_step: false,
+          })
+          .eq("id", rec.id);
+        await logAudit(
+          supabase,
+          rec.id,
+          userId,
+          "robot_submitted",
+          confirmation ? `Confirmation #${confirmation}` : "Submitted (no confirmation number returned)",
+        );
+        return {
+          pending: false,
+          status: "submitted",
+          message: confirmation
+            ? `Submitted — confirmation #${confirmation}`
+            : "Submitted, but the portal did not return a confirmation number.",
+          confirmation_number: confirmation,
+        };
+      }
+
+      // Pass 2 did NOT complete — never silently mark as submitted.
+      const failMsg =
+        resultReason ||
+        `The real submission did not complete (portal returned "${resultStatus || jobStatus}"). The claim was NOT submitted.`;
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: resultStatus || jobStatus,
+          robot_last_message: failMsg,
+          robot_last_checked_at: nowIso,
+        })
+        .eq("id", trip.id);
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "pending_submit",
+          requires_human_step: true,
+          submission_error: failMsg,
+        })
+        .eq("id", rec.id);
+      await logAudit(supabase, rec.id, userId, "robot_submit_failed", failMsg);
+      return { pending: false, status: resultStatus || jobStatus, message: failMsg };
+    }
+
+    // Terminal: one-shot full job really submitted and confirmed at the portal.
+    if (jobStatus === "done" && resultStatus === "SUBMITTED") {
+      // Keep any claim data the robot happened to read back, so Claims History
+      // and Earnings have the portal's own total when it is available.
+      const capturedOnSubmit = normalizeCapturedClaim(result) ?? normalizeCapturedClaim(body);
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: resultStatus,
+          robot_last_message: result.message ?? null,
+          robot_last_checked_at: nowIso,
+          ...(capturedOnSubmit
+            ? { robot_captured_claim: capturedOnSubmit, robot_captured_at: nowIso }
+            : {}),
+        })
+        .eq("id", trip.id);
+
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "submitted",
+          state_confirmation_number: result.claim_id ?? null,
+          submitted_at: nowIso,
+          submission_error: null,
+          requires_human_step: false,
+        })
+        .eq("id", rec.id);
+      await logAudit(
+        supabase,
+        rec.id,
+        userId,
+        "robot_submitted",
+        result.claim_id ? `Claim ID: ${result.claim_id}` : (result.message ?? null),
+      );
+      return { pending: false, status: resultStatus, message: result.message ?? null };
+    }
+
+    // Terminal: PASS 1 finished — the claim was filled and read back, session closed.
+    const isFailureStatus =
+      typeof resultStatus === "string" &&
+      /^(BLOCKED|ERROR|FAILED|PORTAL_)/i.test(resultStatus);
+    if (
+      jobStatus === "done" &&
+      !isFailureStatus &&
+      (resultStatus === "READY_FOR_HUMAN_REVIEW" || pass === "capture")
+    ) {
+
+      const captured = normalizeCapturedClaim(result) ?? normalizeCapturedClaim(body);
+      const msg = captured
+        ? "Claim data captured from the portal — review it below, then Confirm & Submit."
+        : "The robot filled the claim but did not return readable claim data. Review in the portal before submitting.";
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: resultStatus || "CAPTURED",
+          robot_last_message: msg,
+          robot_last_checked_at: nowIso,
+          robot_captured_claim: captured ?? null,
+          robot_captured_at: captured ? nowIso : null,
+        })
+        .eq("id", trip.id);
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "pending_submit",
+          requires_human_step: true,
+          submission_error: msg,
+        })
+        .eq("id", rec.id);
+      await logAudit(supabase, rec.id, userId, "robot_captured_for_review", msg);
+      return { pending: false, status: resultStatus || "CAPTURED", message: msg };
+    }
+
+
+    // Terminal: error / BLOCKED_*
+    const errMsg =
+      resultReason ||
+      (resultStatus ? `Automation returned ${resultStatus}` : "Automation failed");
+
+    // FALSE-FAILURE GUARD: the Confirm click landed and only the navigation
+    // wait timed out. The claim is very likely live at the portal, so this must
+    // NEVER go back into a retryable state — that would double-submit.
+    if (pass === "submit" && looksLikePostConfirmTimeout(errMsg)) {
+      const warn =
+        "The portal Confirm button was clicked successfully, but the page did not " +
+        "finish loading before the automation timed out. The claim was most likely " +
+        "SUBMITTED. Verify the claim in the portal and record its claim number — " +
+        "do NOT resubmit.";
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: UNVERIFIED_SUBMIT_STATUS,
+          robot_last_message: warn,
+          robot_last_checked_at: nowIso,
+        })
+        .eq("id", trip.id);
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "submitting",
+          submission_error: warn,
+          requires_human_step: true,
+        })
+        .eq("id", rec.id);
+      await logAudit(supabase, rec.id, userId, "robot_submit_unverified", `${warn} :: ${errMsg.slice(0, 500)}`);
+      return { pending: false, status: UNVERIFIED_SUBMIT_STATUS, message: warn };
+    }
+
+
+    await supabase
+      .from("medicaid_trips")
+      .update({
+        robot_last_status: resultStatus || jobStatus,
+        robot_last_message: errMsg,
+        robot_last_checked_at: nowIso,
+      })
+      .eq("id", trip.id);
+    await supabase
+      .from("billing_records")
+      .update({
+        status: "needs_fix",
+        submission_error: errMsg,
+        fix_notes: errMsg,
+        requires_human_step: false,
+      })
+      .eq("id", rec.id);
+    await logAudit(supabase, rec.id, userId, "robot_failed", errMsg);
+}
