@@ -10,7 +10,7 @@ import {
   normalizeTripLegs,
   ROBOT_BASE_URL,
   
-  startRobotSubmission,
+
   looksLikePostConfirmTimeout,
   UNVERIFIED_SUBMIT_STATUS,
   TRIP_SELECT_FOR_ROBOT,
@@ -1015,4 +1015,21 @@ export const deleteBillingRecords = createServerFn({ method: "POST" })
     }
 
     return { ok: true, deleted: ids.length, skipped: (recs ?? []).length - ids.length };
+  });
+
+/* ---------- BACKGROUND STATUS SWEEP ---------- */
+
+/**
+ * Reconcile every in-flight robot job for the caller's company and release the
+ * next queued submission. Called on a timer by the billing app so results land
+ * within seconds of the robot finishing, whether or not a detail sheet is open.
+ */
+export const sweepRobotJobsForCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertBilling(supabase, userId);
+    const { sweepRobotJobs } = await import("@/lib/robotQueue.server");
+    // RLS already scopes billing_records to the caller's company.
+    return await sweepRobotJobs(supabase, userId);
   });
