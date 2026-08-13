@@ -904,6 +904,32 @@ function EntryForm({
           />
         </div>
       </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {(
+          [
+            ["l1pt", "Leg 1 pickup time"],
+            ["l1dt", "Leg 1 dropoff time"],
+            ["l2pt", "Leg 2 pickup time (optional)"],
+            ["l2dt", "Leg 2 dropoff time (optional)"],
+          ] as const
+        ).map(([field, label]) => (
+          <div className="space-y-1" key={field}>
+            <Label className="text-xs">{label}</Label>
+            <Input
+              aria-label={label}
+              type="time"
+              value={draft[field]}
+              onChange={(e) => onPatch({ [field]: e.target.value } as Partial<Draft>)}
+            />
+          </div>
+        ))}
+        <p className="text-[11px] text-muted-foreground sm:col-span-2">
+          Times come from the paper report. Leave blank if the form has none — nothing is
+          filled in for you.
+        </p>
+      </div>
+
     </div>
   );
 }
