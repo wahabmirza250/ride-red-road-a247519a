@@ -198,6 +198,42 @@ export function BillingWorkspace() {
     };
   }, [qc]);
 
+  // Background status sweep. Robot results used to land only while a detail
+  // sheet was open, which is why a 4-minute job looked like an 18-minute one.
+  // While the billing app is open we reconcile every in-flight job for the
+  // company and release the next queued submission. (pg_cron does the same
+  // server-side when nobody has the app open.)
+  const sweepFn = useServerFn(sweepRobotJobsForCompany);
+  useEffect(() => {
+    if (!canBill) return;
+    let stopped = false;
+    let running = false;
+    const tick = async () => {
+      if (running || stopped || document.hidden) return;
+      running = true;
+      try {
+        const out: any = await sweepFn({});
+        if (!stopped && (out?.settled > 0 || out?.started)) {
+          qc.invalidateQueries({ queryKey: ["billing_list"] });
+          qc.invalidateQueries({ queryKey: ["billing_detail"] });
+          qc.invalidateQueries({ queryKey: ["billing_counts"] });
+        }
+      } catch {
+        // A failed sweep is harmless — the next tick (or cron) retries.
+      } finally {
+        running = false;
+      }
+    };
+    void tick();
+    const id = window.setInterval(tick, 15000);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, [canBill, qc, sweepFn]);
+
+
+
   function countFor(key: TabKey) {
     const t = TABS.find((x) => x.key === key)!;
     if (!counts.data || t.countKeys.length === 0) return null;
