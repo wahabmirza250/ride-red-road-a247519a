@@ -376,20 +376,20 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
     if (recErr) throw new Error(recErr.message);
 
     const tripRow: any = rec.medicaid_trips;
-    // Double-submission guard: a claim that already exists at the portal —
-    // confirmed or unverified-after-timeout — can never be re-run from here.
-    if (tripRow?.robot_last_status === UNVERIFIED_SUBMIT_STATUS) {
-      throw new Error(
-        "Blocked: this claim was already sent to the portal and its outcome is unverified. " +
-          "Check the portal and record the claim number instead of resubmitting.",
-      );
-    }
-    if (tripRow?.robot_confirmation_number || tripRow?.submitted_confirmation) {
-      throw new Error(
-        `Blocked: this trip already has portal confirmation #${
-          tripRow.robot_confirmation_number ?? tripRow.submitted_confirmation
-        }. Resubmitting would create a duplicate claim.`,
-      );
+    const priorClaim: string | null =
+      tripRow?.robot_confirmation_number ?? tripRow?.submitted_confirmation ?? null;
+    const unverified = tripRow?.robot_last_status === UNVERIFIED_SUBMIT_STATUS;
+    const isResubmit = !!priorClaim || unverified;
+
+    // Duplicate-submission guard. Not a hard block: suspended claims legitimately
+    // need to be corrected and resubmitted, so the UI must show an explicit
+    // warning and send acknowledge_duplicate once the biller confirms.
+    if (isResubmit && !data.acknowledge_duplicate) {
+      throw duplicateClaimError({
+        claim: priorClaim,
+        status: String(tripRow?.portal_status ?? tripRow?.status ?? rec.status ?? "unknown"),
+        unverified,
+      });
     }
 
     const allowed = ["approved", "needs_fix", "submitting"];
@@ -397,6 +397,9 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
     // A previously captured claim (legacy two-pass) can be finished with a
     // single one-shot job instead of the separate confirm step.
     if (data.mode === "full") allowed.push("pending_submit");
+    // An acknowledged resubmission may start from an already-submitted record.
+    if (isResubmit && data.acknowledge_duplicate) allowed.push("submitted", "pending_submit");
+
     if (!allowed.includes(rec.status as string)) {
       throw new Error(`Trip is in "${rec.status}" and cannot be submitted from here`);
     }
