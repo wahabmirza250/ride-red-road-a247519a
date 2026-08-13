@@ -734,14 +734,21 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
 
     // Terminal: one-shot full job really submitted and confirmed at the portal.
     if (jobStatus === "done" && resultStatus === "SUBMITTED") {
+      // Keep any claim data the robot happened to read back, so Claims History
+      // and Earnings have the portal's own total when it is available.
+      const capturedOnSubmit = normalizeCapturedClaim(result) ?? normalizeCapturedClaim(body);
       await supabase
         .from("medicaid_trips")
         .update({
           robot_last_status: resultStatus,
           robot_last_message: result.message ?? null,
           robot_last_checked_at: nowIso,
+          ...(capturedOnSubmit
+            ? { robot_captured_claim: capturedOnSubmit, robot_captured_at: nowIso }
+            : {}),
         })
         .eq("id", trip.id);
+
       await supabase
         .from("billing_records")
         .update({
