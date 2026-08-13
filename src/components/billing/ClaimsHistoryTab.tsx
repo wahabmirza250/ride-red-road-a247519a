@@ -61,6 +61,22 @@ export function ClaimsHistoryTab() {
     },
   });
 
+  const statusFn = useServerFn(setClaimStatus);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const statusMutation = useMutation({
+    mutationFn: (vars: { tripId: string; status: string }) =>
+      statusFn({ data: vars as never }) as Promise<{ from: string | null; to: string }>,
+    onMutate: (vars) => setSavingId(vars.tripId),
+    onSettled: () => setSavingId(null),
+    onSuccess: (res) => {
+      toast.success(`Status updated to ${res.to}`);
+      void qc.invalidateQueries({ queryKey: ["claims_history"] });
+      void qc.invalidateQueries({ queryKey: ["company-earnings"] });
+      void qc.invalidateQueries({ queryKey: ["billing_list"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update status"),
+  });
+
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
