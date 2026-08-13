@@ -372,37 +372,24 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
       max_tokens: 600,
     });
 
-    // The gateway rate-limits when several billers upload at the same moment.
-    // Retry a 429 / transient 5xx a few times with growing backoff instead of
-    // surfacing a hard failure on the first bounce. No timeout is ever placed
-    // on the fetch itself — a slow read must be allowed to finish.
-    let response: Response | null = null;
-    let lastError = "";
-    const MAX_ATTEMPTS = 3;
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // The gateway rate-limits when several billers upload at the same moment,
+    // so 429s and transient 5xx are retried with growing backoff.
+    const { response, lastError } = await fetchAiGatewayWithRetry(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body,
-      });
-      if (response.ok) break;
-
-      const retryable = response.status === 429 || response.status >= 500;
-      const text = await response.text().catch(() => "");
-      lastError = `${response.status}${text ? `: ${text.slice(0, 160)}` : ""}`;
-      console.log(
-        `[paper-bill-ocr] gateway ${response.status} on attempt ${attempt}/${MAX_ATTEMPTS}${retryable ? " (retrying)" : ""}`,
-      );
-      if (!retryable || attempt === MAX_ATTEMPTS) break;
-      // 1s, then 3s — enough for a short burst of concurrent uploads to clear.
-      await new Promise((r) => setTimeout(r, attempt === 1 ? 1000 : 3000));
-    }
+      },
+      { label: "paper-bill-ocr" },
+    );
 
     if (!response || !response.ok) {
       if (response?.status === 429)
         throw new Error("Auto-read is busy right now (429) — try again in a moment.");
       throw new Error(`Auto-read failed (${lastError || "no response"})`);
     }
+
 
 
     const payload = await response.json();
