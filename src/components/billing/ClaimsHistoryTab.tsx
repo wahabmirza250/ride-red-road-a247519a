@@ -123,9 +123,11 @@ export function ClaimsHistoryTab() {
                 <th className="px-3 py-2 text-left font-medium">Member</th>
                 <th className="px-3 py-2 text-left font-medium">Trip date</th>
                 <th className="px-3 py-2 text-left font-medium">Submitted</th>
+                <th className="px-3 py-2 text-left font-medium">Status</th>
                 <th className="px-3 py-2 text-right font-medium">Total</th>
               </tr>
             </thead>
+
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className="border-t border-border/60">
