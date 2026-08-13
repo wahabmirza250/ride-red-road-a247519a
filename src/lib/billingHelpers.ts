@@ -365,7 +365,17 @@ export async function startRobotSubmission(
     trip_rate: rates.trip,
     mile_rate: rates.mile,
     place_of_service: rates.trip.place_of_service,
+    // Diagnosis (illness) code. Confirmed being sent as diagnosis_code yet
+    // blank on a real claim — same alias pattern as member id / date of
+    // service, so every reasonable key the robot might read is sent.
     diagnosis_code: rates.diagnosis_code,
+    diagnosis: rates.diagnosis_code,
+    primary_diagnosis: rates.diagnosis_code,
+    primary_diagnosis_code: rates.diagnosis_code,
+    dx_code: rates.diagnosis_code,
+    icd_code: rates.diagnosis_code,
+    icd10_code: rates.diagnosis_code,
+    diagnosis_codes: rates.diagnosis_code ? [rates.diagnosis_code] : [],
     // Paper-originated bills have no digital signature row: the physical
     // signature lives on the uploaded paper report stored as state_pdf_path.
     signature_captured: signatureCaptured,
@@ -442,6 +452,7 @@ export async function startRobotSubmission(
       patient_number_sent: payload.patient_number,
       member_id_last4: String(payload.member_id ?? "").slice(-4),
       is_round_trip: payload.is_round_trip,
+      diagnosis_code_sent: payload.diagnosis_code,
 
       trip_units: payload.trip_units,
       billed_miles: payload.miles,
