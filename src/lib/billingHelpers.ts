@@ -428,6 +428,20 @@ export async function startRobotSubmission(
     close_session: true,
     confirm_submit: doesSubmit,
     click_submit: doesSubmit,
+
+    // HARD PRE-SUBMIT GUARD (2026-08-13 incident).
+    // A real job clicked Submit with ZERO committed service lines: the base
+    // line never committed, the mileage line stayed in an open edit form, and
+    // the portal bounced Step 3 with "At least one Service Detail must be
+    // entered." Instruct the automation service to verify committed rows in
+    // the Service Details table BEFORE clicking Submit, and to abort with a
+    // clear error instead of submitting an empty claim. Every claim we send
+    // has exactly two lines: the trip/base line and the mileage line.
+    require_committed_service_lines: true,
+    abort_if_no_committed_service_lines: true,
+    verify_service_lines_before_submit: true,
+    min_committed_service_lines: 2,
+    expected_service_lines: 2,
   };
 
   // Persist the safety-critical outbound values before contacting the robot.
@@ -540,6 +554,26 @@ export function looksLikePostConfirmTimeout(raw: string | null | undefined): boo
   const timedOutAfter =
     /waiting for scheduled navigations to finish/i.test(t) || /Timeout \d+ms exceeded/i.test(t);
   return clickedConfirm && clickLanded && timedOutAfter;
+}
+
+/**
+ * DEFINITIVELY NOT SUBMITTED.
+ *
+ * The portal rejected Step 3 (or the run aborted on the pre-Submit guard)
+ * because no service line was committed, so no claim exists and the record is
+ * safe to fix and retry. Must be checked BEFORE the post-confirm timeout
+ * guard, which parks a record as possibly-submitted.
+ */
+export function looksLikeNoServiceLinesFailure(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  const t = String(raw);
+  return (
+    /At least one Service Detail must be entered/i.test(t) ||
+    /no committed service lines/i.test(t) ||
+    /service line[s]? (?:were |was )?not committed/i.test(t) ||
+    (/Did not reach Confirm page after Submit click/i.test(t) &&
+      /SubmitClaimProf3/i.test(t))
+  );
 }
 
 /** Status parked on a trip whose claim may already exist at the portal. */
