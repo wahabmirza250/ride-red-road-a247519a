@@ -783,11 +783,16 @@ function ReadyToSubmitTab({
                     {formatDateTime(r.pickup_at)}
                   </td>
                   <td className="px-4 py-3">
-                    {isRunning ? (
+                    {r.status === "queued" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600">
+                        waiting in queue
+                      </span>
+                    ) : isRunning ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
                         <Loader2 className="h-3 w-3 animate-spin" /> robot running
                       </span>
                     ) : r.status === "needs_fix" ? (
+
                       <StatusPill status="needs_fix" />
                     ) : (
                       <StatusPill status="approved" />
