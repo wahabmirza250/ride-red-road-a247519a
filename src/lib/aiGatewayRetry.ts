@@ -48,7 +48,7 @@ export async function fetchAiGatewayWithRetry(
     const text = await response.text().catch(() => "");
     lastError = `${response.status}${text ? `: ${text.slice(0, 160)}` : ""}`;
     console.log(
-      `[${label}] gateway ${response.status} on attempt ${attempt}/${maxAttempts}${retryable ? " (retrying)" : ""}`,
+      `[${label}] gateway ${response.status} on attempt ${attempt}/${maxAttempts}${retryable && attempt < maxAttempts ? " (retrying)" : ""}`,
     );
     if (!retryable || attempt === maxAttempts)
       return { response, attempts: attempt, lastError };
