@@ -12,6 +12,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
+import { readPaperBillDataUrl, ocrErrorMessage } from "@/lib/paperBillUpload";
 import { AppLink } from "@/lib/appLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,17 +166,9 @@ export function BatchPaperBills() {
   }
 
   async function readOne(key: string, file: File) {
-    if (file.size > 9 * 1024 * 1024) {
-      patch(key, { phase: "ready" });
-      return;
-    }
+    patch(key, { error: undefined });
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error("Could not read the file"));
-        reader.readAsDataURL(file);
-      });
+      const dataUrl = await readPaperBillDataUrl(file);
       const res = (await detectFn({
         data: { image_data_url: dataUrl, file_name: file.name },
       })) as {
@@ -212,8 +205,12 @@ export function BatchPaperBills() {
         l2pt: res?.l2pt ?? "",
         l2dt: res?.l2dt ?? "",
       });
-    } catch (e: any) {
-      patch(key, { phase: "ready", error: e?.message ?? "Auto-read failed" });
+    } catch (e) {
+      const message = ocrErrorMessage(e);
+      // Never leave a row silently blank — say what went wrong and let the
+      // biller either retry the read or fill the fields by hand.
+      patch(key, { phase: "ready", error: message });
+      toast.error(`${file.name}: ${message}`);
     }
   }
 
@@ -429,8 +426,9 @@ function BatchRow({
           </div>
         )}
         {item.error && (
-          <div className="flex items-center gap-1.5 text-xs text-destructive">
-            <AlertTriangle className="h-3.5 w-3.5" /> {item.error}
+          <div className="flex items-start gap-1.5 rounded-lg border border-destructive/50 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>{item.error}</span>
           </div>
         )}
 
