@@ -202,18 +202,10 @@ export function PaperBillChat() {
    * only has to Confirm or Edit.
    */
   async function runOcr(key: string, file: File) {
-    if (file.size > 9 * 1024 * 1024) {
-      patch(key, { ocr: "failed" });
-      return;
-    }
-    patch(key, { ocr: "running" });
+    patch(key, { ocr: "running", ocrError: undefined });
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error("Could not read the file"));
-        reader.readAsDataURL(file);
-      });
+      const dataUrl = await readPaperBillDataUrl(file);
+
       const res = (await detectFn({
         data: { image_data_url: dataUrl, file_name: file.name },
       })) as {
