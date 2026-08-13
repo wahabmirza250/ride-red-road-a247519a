@@ -290,6 +290,14 @@ export async function startRobotSubmission(
   if (doesSubmit && billedMiles <= 0) {
     throw new Error("Submission blocked: odometer readings give 0 billable miles");
   }
+  const billedOdometerStart = Number(odometerLegs[0]?.pickup_odometer ?? 0);
+  // Round trip = two real billable legs (matches calcClaim/resolveTripKind).
+  const isRoundTrip =
+    trip.trip_kind === "round_trip" ||
+    odometerLegs.filter((l: { pickup_odometer: number; dropoff_odometer: number }) => legMiles(l) > 0).length >= 2;
+
+  const tripUnits = isRoundTrip ? 2 : 1;
+
 
 
   const payload = {
@@ -298,8 +306,23 @@ export async function startRobotSubmission(
     provider_id: providerUserId,
     company_id: rates.companyId,
     vehicle_type: vehicleType,
+    // MEMBER ID vs PATIENT NUMBER — two different portal fields. The member
+    // id is the state Medicaid id; the internal job id ("trip-<uuid>-...")
+    // must only ever reach the Patient Number / account-number box, so both
+    // are now sent explicitly instead of leaving the robot to pick one.
     medicaid_member_id: medicaidMemberId,
+    member_id: medicaidMemberId,
+    medicaid_id: medicaidMemberId,
+    patient_number: trip.id,
+    patient_account_number: trip.id,
+    // Date of service. Aliases cover whichever key the robot reads; a blank
+    // date on the claim means none of these were picked up.
     trip_date: formatTripDateMDY(trip.pickup_at),
+    service_date: formatTripDateMDY(trip.pickup_at),
+    date_of_service: formatTripDateMDY(trip.pickup_at),
+    from_date: formatTripDateMDY(trip.pickup_at),
+    to_date: formatTripDateMDY(trip.pickup_at),
+
     // Explicit rates so the automation service never has to guess or fall back
     // to its own built-in defaults.
     trip_rate: rates.trip,
@@ -321,15 +344,32 @@ export async function startRobotSubmission(
     identity_verified: proofRow?.identity_verified !== false,
     member_identity_verified: proofRow?.identity_verified !== false,
 
-    pickup_odometer: Number(trip.odometer_start ?? 0),
-    dropoff_odometer: Number(trip.odometer_end ?? 0),
+    // PROVEN BEHAVIOUR OF THE AUTOMATION SERVICE (2026-08-13):
+    // it fills the mileage service line with (dropoff_odometer − pickup_odometer)
+    // and IGNORES miles/mileage_units/total_miles. For a round trip that raw
+    // span includes the gap between legs, which over-bills mileage massively
+    // (real case: 93 units billed where the true billable distance is 4).
+    // So the odometer pair we send is now derived from the SAME computed
+    // billable miles the app shows, keeping every derivation path identical.
+    pickup_odometer: billedOdometerStart,
+    dropoff_odometer: Math.round((billedOdometerStart + billedMiles) * 10) / 10,
+    raw_odometer_start: Number(trip.odometer_start ?? 0),
+    raw_odometer_end: Number(trip.odometer_end ?? 0),
     // Authoritative mileage units for the claim — computed here from the
     // odometer legs so the automation service never derives or reads its own.
     miles: billedMiles,
     mileage_units: billedMiles,
     total_miles: billedMiles,
     odometer_legs: odometerLegs,
-    is_round_trip: trip.trip_kind === "round_trip",
+    is_round_trip: isRoundTrip,
+    // Explicit TRIP (base) service-line units. Previously only is_round_trip
+    // was sent and the robot decided the unit count itself, which billed a
+    // single unit for round trips. Aliases cover whichever key it reads.
+    trip_units: tripUnits,
+    units: tripUnits,
+    trip_unit_count: tripUnits,
+    base_units: tripUnits,
+
 
     // Two-pass contract with the automation service. Aliases are sent so the
     // robot can read whichever flag name it implements.
@@ -361,6 +401,18 @@ export async function startRobotSubmission(
       capture_only: payload.capture_only,
       confirm_submit: payload.confirm_submit,
       click_submit: payload.click_submit,
+      trip_date_sent: payload.trip_date,
+      patient_number_sent: payload.patient_number,
+      member_id_last4: String(payload.member_id ?? "").slice(-4),
+      is_round_trip: payload.is_round_trip,
+
+      trip_units: payload.trip_units,
+      billed_miles: payload.miles,
+      pickup_odometer_sent: payload.pickup_odometer,
+      dropoff_odometer_sent: payload.dropoff_odometer,
+      raw_odometer_start: payload.raw_odometer_start,
+      raw_odometer_end: payload.raw_odometer_end,
+
     }),
   });
   if (payloadAuditError) {
