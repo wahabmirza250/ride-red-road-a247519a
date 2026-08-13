@@ -16,6 +16,7 @@ import {
   Lock,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
+import { readPaperBillDataUrl, ocrErrorMessage } from "@/lib/paperBillUpload";
 import { AppLink } from "@/lib/appLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,8 @@ type Entry = {
   mime: string;
   uploading: boolean;
   ocr: "idle" | "running" | "done" | "failed";
+  /** Visible reason the auto-read failed, shown in the chat. */
+  ocrError?: string;
   ocrFilled: OdoField[];
   /** OCR read the Medicaid ID but is not confident it got the characters right. */
   idUncertain?: boolean;
@@ -269,8 +272,10 @@ export function PaperBillChat() {
       if (filled.length === 0) {
         toast.message("Couldn't read the document — enter the details manually.");
       }
-    } catch {
-      patch(key, { ocr: "failed", ocrFilled: [] });
+    } catch (e) {
+      const message = ocrErrorMessage(e);
+      patch(key, { ocr: "failed", ocrFilled: [], ocrError: message });
+      toast.error(message);
     }
   }
 
@@ -490,8 +495,13 @@ function ChatEntry({
                 highlighted numbers against the paper before calculating.
               </div>
             )}
-            {((entry.ocr === "done" && entry.ocrFilled.length === 0) ||
-              entry.ocr === "failed") && (
+            {entry.ocr === "failed" && (
+              <div className="flex items-start gap-1.5 rounded-lg border border-destructive/50 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{entry.ocrError ?? "Couldn't read this file — try again."}</span>
+              </div>
+            )}
+            {entry.ocr === "done" && entry.ocrFilled.length === 0 && (
               <div className="rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">
                 Couldn't auto-read the odometers — enter them manually below.
               </div>
