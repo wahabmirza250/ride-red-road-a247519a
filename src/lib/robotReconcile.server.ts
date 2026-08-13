@@ -309,4 +309,5 @@ export async function reconcileRobotJob(
       })
       .eq("id", rec.id);
     await logAudit(supabase, rec.id, userId, "robot_failed", errMsg);
+    return { pending: false, status: resultStatus || jobStatus, message: errMsg };
 }
