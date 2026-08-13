@@ -386,6 +386,14 @@ export async function startRobotSubmission(
       capture_only: payload.capture_only,
       confirm_submit: payload.confirm_submit,
       click_submit: payload.click_submit,
+      is_round_trip: payload.is_round_trip,
+      trip_units: payload.trip_units,
+      billed_miles: payload.miles,
+      pickup_odometer_sent: payload.pickup_odometer,
+      dropoff_odometer_sent: payload.dropoff_odometer,
+      raw_odometer_start: payload.raw_odometer_start,
+      raw_odometer_end: payload.raw_odometer_end,
+
     }),
   });
   if (payloadAuditError) {
