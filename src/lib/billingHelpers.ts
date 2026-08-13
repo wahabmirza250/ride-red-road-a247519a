@@ -556,5 +556,25 @@ export function looksLikePostConfirmTimeout(raw: string | null | undefined): boo
   return clickedConfirm && clickLanded && timedOutAfter;
 }
 
+/**
+ * DEFINITIVELY NOT SUBMITTED.
+ *
+ * The portal rejected Step 3 (or the run aborted on the pre-Submit guard)
+ * because no service line was committed, so no claim exists and the record is
+ * safe to fix and retry. Must be checked BEFORE the post-confirm timeout
+ * guard, which parks a record as possibly-submitted.
+ */
+export function looksLikeNoServiceLinesFailure(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  const t = String(raw);
+  return (
+    /At least one Service Detail must be entered/i.test(t) ||
+    /no committed service lines/i.test(t) ||
+    /service line[s]? (?:were |was )?not committed/i.test(t) ||
+    (/Did not reach Confirm page after Submit click/i.test(t) &&
+      /SubmitClaimProf3/i.test(t))
+  );
+}
+
 /** Status parked on a trip whose claim may already exist at the portal. */
 export const UNVERIFIED_SUBMIT_STATUS = "SUBMITTED_UNVERIFIED";
