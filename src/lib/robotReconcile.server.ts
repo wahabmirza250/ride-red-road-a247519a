@@ -84,6 +84,7 @@ export async function reconcileRobotJob(
     const resultReason: string | null =
       typeof result?.reason === "string" && result.reason ? result.reason :
       typeof result?.message === "string" && result.message ? result.message :
+      typeof result?.error === "string" && result.error ? result.error :
       typeof body?.error === "string" && body.error ? body.error : null;
 
     const nowIso = new Date().toISOString();
