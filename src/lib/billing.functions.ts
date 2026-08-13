@@ -411,8 +411,12 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
     if (!trip) throw new Error("Trip not found");
 
     try {
-      await startRobotSubmission(supabase, {
+      // Serialize against the portal session: if another job for this company
+      // is live, this record is parked as `queued` and starts on its own.
+      const { enqueueOrStartRobot } = await import("@/lib/robotQueue.server");
+      const queueResult = await enqueueOrStartRobot(supabase, {
         billingRecordId: data.id,
+        companyId: trip.company_id ?? null,
         trip,
         providerUserId: userId,
         mode: data.mode,
@@ -435,13 +439,16 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
             `. Mode: ${data.mode}.`,
         );
       }
-      await logAudit(
-        supabase,
-        data.id,
-        userId,
-        data.mode === "full" ? "robot_started_full_submit" : "robot_started",
-      );
-      return { ok: true };
+      if (!queueResult.queued) {
+        await logAudit(
+          supabase,
+          data.id,
+          userId,
+          data.mode === "full" ? "robot_started_full_submit" : "robot_started",
+        );
+      }
+      return { ok: true, queued: queueResult.queued, ahead: queueResult.ahead };
+
     } catch (e: any) {
       const msg = e?.message ?? "Failed to start automation";
 
