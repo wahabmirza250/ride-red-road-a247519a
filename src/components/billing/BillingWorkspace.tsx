@@ -801,16 +801,27 @@ function AwaitingPortalTab({
   });
   const queueById = new Map((queue.data ?? []).map((q: any) => [q.id, q]));
 
+  const [dupQueue, setDupQueue] = useState<{ id: string; info: DuplicateClaimInfo } | null>(null);
+
   /** One-shot: capture + submit + confirm in a single robot job. */
   const oneShot = useMutation({
-    mutationFn: (id: string) => startFn({ data: { id, mode: "full" } }),
+    mutationFn: (v: { id: string; acknowledge?: boolean }) =>
+      startFn({ data: { id: v.id, mode: "full", acknowledge_duplicate: !!v.acknowledge } }),
     onSuccess: () => {
+      setDupQueue(null);
       toast.success("Working at the portal now — the claim number will be saved automatically.");
       qc.invalidateQueries({ queryKey: ["billing_list"] });
       qc.invalidateQueries({ queryKey: ["billing_counts"] });
       qc.invalidateQueries({ queryKey: ["submission_queue"] });
     },
-    onError: (e: any) => toast.error(e?.message ?? "Could not start the submission"),
+    onError: (e: any, v) => {
+      const dup = parseDuplicateClaimError(e);
+      if (dup) {
+        setDupQueue({ id: v.id, info: dup });
+        return;
+      }
+      toast.error(e?.message ?? "Could not start the submission");
+    },
   });
 
 
@@ -821,6 +832,15 @@ function AwaitingPortalTab({
 
   return (
     <>
+      <DuplicateSubmitDialog
+        info={dupQueue?.info ?? null}
+        busy={oneShot.isPending}
+        onCancel={() => setDupQueue(null)}
+        onConfirm={() => {
+          if (dupQueue) oneShot.mutate({ id: dupQueue.id, acknowledge: true });
+        }}
+      />
+
       <div className="space-y-3">
         {rows.map((r) => (
           <div
