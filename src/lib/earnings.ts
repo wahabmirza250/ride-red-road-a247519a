@@ -9,10 +9,13 @@ export type CompanyEarnings = {
 
 export type ClaimRow = {
   robot_captured_claim: unknown;
+  /** Pre-resolved charge (captured OR recalculated from company rates). */
+  amount?: number | null;
   submitted_at?: string | null;
   portal_submitted_at?: string | null;
   updated_at?: string | null;
 };
+
 
 /** Parse "$1,234.56" / 1234.56 / null into a number. */
 export function parseAmount(raw: unknown): number {
@@ -38,7 +41,11 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
 
   for (const r of rows) {
     const captured = (r.robot_captured_claim ?? null) as { total_charged_amount?: unknown } | null;
-    const amount = parseAmount(captured?.total_charged_amount);
+    const amount =
+      r.amount != null && Number.isFinite(Number(r.amount))
+        ? Number(r.amount)
+        : parseAmount(captured?.total_charged_amount);
+
     const stamp = r.submitted_at ?? r.portal_submitted_at ?? r.updated_at;
     if (!stamp) continue;
     const d = new Date(stamp);

@@ -9,8 +9,10 @@ export type ClaimHistoryRow = {
   trip_date: string | null;
   submitted_at: string | null;
   total_amount: number | null;
-  total_source: "captured" | "billing_records" | null;
+  total_source: "captured" | "calculated" | "billing_records" | null;
+  status: string | null;
 };
+
 
 async function assertBillingOrAdmin(supabase: any, userId: string) {
   const [{ data: isAdmin }, { data: isBilling }] = await Promise.all([
@@ -32,12 +34,13 @@ export const listClaimsHistory = createServerFn({ method: "POST" })
   .handler(async ({ context }): Promise<ClaimHistoryRow[]> => {
     const { supabase, userId } = context;
     await assertBillingOrAdmin(supabase, userId);
+    const { computeClaimTotals } = await import("@/lib/claimAmount.server");
 
     const { data, error } = await supabase
 
       .from("medicaid_trips")
       .select(
-        "id, status, pickup_at, submitted_at, portal_submitted_at, submitted_confirmation, portal_confirmation, robot_confirmation_number, robot_captured_claim, dispatch_trip_id, riders(full_name, medicaid_id)",
+        "id, status, company_id, vehicle_type, odometer_start, odometer_end, pickup_at, submitted_at, portal_submitted_at, submitted_confirmation, portal_confirmation, portal_status, robot_last_status, robot_confirmation_number, robot_captured_claim, dispatch_trip_id, riders(full_name, medicaid_id), medicaid_trip_legs(leg_index, pickup_odometer, dropoff_odometer)",
       )
       .or(
         "status.eq.submitted,robot_confirmation_number.not.is.null,submitted_confirmation.not.is.null",
@@ -60,14 +63,22 @@ export const listClaimsHistory = createServerFn({ method: "POST" })
       }
     }
 
+    // Current billing status per trip (paid / submitted / rejected …).
+    const statusByTrip = new Map<string, string>();
+    if (rows.length) {
+      const { data: recs } = await supabase
+        .from("billing_records")
+        .select("trip_id, status, updated_at")
+        .in("trip_id", rows.map((r) => r.id));
+      for (const r of (recs ?? []) as any[]) statusByTrip.set(r.trip_id, r.status);
+    }
+
+    const computed = await computeClaimTotals(supabase, rows);
+
     return rows.map((r) => {
-      const capturedRaw = r.robot_captured_claim?.total_charged_amount;
-      const captured =
-        capturedRaw == null || capturedRaw === ""
-          ? null
-          : Number(String(capturedRaw).replace(/[$,]/g, ""));
+      const calc = computed.get(r.id);
       const fallback = r.dispatch_trip_id ? totalsByTrip.get(r.dispatch_trip_id) ?? null : null;
-      const total = captured != null && Number.isFinite(captured) ? captured : fallback;
+      const total = calc?.amount ?? fallback;
       return {
         id: r.id,
         claim_id:
@@ -77,14 +88,17 @@ export const listClaimsHistory = createServerFn({ method: "POST" })
         trip_date: r.pickup_at ?? null,
         submitted_at: r.submitted_at ?? r.portal_submitted_at ?? null,
         total_amount: total ?? null,
-        total_source: captured != null && Number.isFinite(captured)
-          ? ("captured" as const)
-          : fallback != null
-            ? ("billing_records" as const)
-            : null,
+        total_source: calc?.amount != null ? calc.source : fallback != null ? "billing_records" : null,
+        status:
+          statusByTrip.get(r.id) ??
+          r.portal_status ??
+          r.robot_last_status ??
+          r.status ??
+          null,
       };
     });
   });
+
 
 /**
  * Reset every submitted claim back to the billing workflow so it can be re-submitted.
