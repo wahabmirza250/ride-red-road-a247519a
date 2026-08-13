@@ -1,4 +1,6 @@
 import { digitsFromBracketAware, mountainIso, normalizeClockTime } from "./paperBillParse";
+import { fetchAiGatewayWithRetry } from "./aiGatewayRetry";
+
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
