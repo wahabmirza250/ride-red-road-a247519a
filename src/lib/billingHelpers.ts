@@ -293,7 +293,9 @@ export async function startRobotSubmission(
   const billedOdometerStart = Number(odometerLegs[0]?.pickup_odometer ?? 0);
   // Round trip = two real billable legs (matches calcClaim/resolveTripKind).
   const isRoundTrip =
-    trip.trip_kind === "round_trip" || odometerLegs.filter((l) => legMiles(l) > 0).length >= 2;
+    trip.trip_kind === "round_trip" ||
+    odometerLegs.filter((l: { pickup_odometer: number; dropoff_odometer: number }) => legMiles(l) > 0).length >= 2;
+
   const tripUnits = isRoundTrip ? 2 : 1;
 
 
