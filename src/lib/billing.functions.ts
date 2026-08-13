@@ -592,9 +592,12 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
 
     // Already reconciled/submitted: a stale robot job result must never be
     // allowed to downgrade a trip that has a real portal confirmation number.
+    // An acknowledged resubmission (robot_pass = "resubmit") is polled normally
+    // so its new claim number can be recorded.
     const knownConfirmation: string | null =
       trip?.robot_confirmation_number ?? trip?.submitted_confirmation ?? null;
-    if (knownConfirmation) {
+    if (knownConfirmation && trip?.robot_pass !== "resubmit") {
+
       return {
         pending: false,
         status: "submitted",
