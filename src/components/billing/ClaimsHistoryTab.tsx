@@ -13,9 +13,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/claimReview";
-import { listClaimsHistory, clearClaimsHistory, type ClaimHistoryRow } from "@/lib/claimsHistory.functions";
+import {
+  listClaimsHistory,
+  clearClaimsHistory,
+  setClaimStatus,
+  CLAIM_STATUS_OPTIONS,
+  type ClaimHistoryRow,
+} from "@/lib/claimsHistory.functions";
+
 
 
 /** Permanent audit trail of every claim that reached the state portal. */
