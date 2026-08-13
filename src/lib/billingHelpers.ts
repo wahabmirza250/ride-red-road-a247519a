@@ -428,6 +428,20 @@ export async function startRobotSubmission(
     close_session: true,
     confirm_submit: doesSubmit,
     click_submit: doesSubmit,
+
+    // HARD PRE-SUBMIT GUARD (2026-08-13 incident).
+    // A real job clicked Submit with ZERO committed service lines: the base
+    // line never committed, the mileage line stayed in an open edit form, and
+    // the portal bounced Step 3 with "At least one Service Detail must be
+    // entered." Instruct the automation service to verify committed rows in
+    // the Service Details table BEFORE clicking Submit, and to abort with a
+    // clear error instead of submitting an empty claim. Every claim we send
+    // has exactly two lines: the trip/base line and the mileage line.
+    require_committed_service_lines: true,
+    abort_if_no_committed_service_lines: true,
+    verify_service_lines_before_submit: true,
+    min_committed_service_lines: 2,
+    expected_service_lines: 2,
   };
 
   // Persist the safety-critical outbound values before contacting the robot.
