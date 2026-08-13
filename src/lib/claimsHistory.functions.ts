@@ -1,5 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+/** Statuses a biller can record manually from what the real portal shows. */
+export const CLAIM_STATUS_OPTIONS = [
+  "submitted",
+  "paid",
+  "approved",
+  "suspended",
+  "rejected",
+  "denied",
+] as const;
+export type ClaimStatus = (typeof CLAIM_STATUS_OPTIONS)[number];
+
+/** Only these count as real, earned income. */
+export const PAID_CLAIM_STATUSES: string[] = ["paid"];
 
 export type ClaimHistoryRow = {
   id: string;
@@ -12,6 +27,7 @@ export type ClaimHistoryRow = {
   total_source: "captured" | "calculated" | "billing_records" | null;
   status: string | null;
 };
+
 
 
 async function assertBillingOrAdmin(supabase: any, userId: string) {
