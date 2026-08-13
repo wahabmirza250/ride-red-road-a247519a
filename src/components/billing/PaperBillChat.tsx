@@ -44,6 +44,11 @@ type Draft = {
   l1d: string;
   l2p: string;
   l2d: string;
+  /** Times exactly as written on the paper form ("" = not readable). */
+  l1pt: string;
+  l1dt: string;
+  l2pt: string;
+  l2dt: string;
 };
 
 type Entry = {
@@ -85,18 +90,40 @@ const emptyDraft = (): Draft => ({
   l1d: "",
   l2p: "",
   l2d: "",
+  l1pt: "",
+  l1dt: "",
+  l2pt: "",
+  l2dt: "",
 });
 
 
 function legsFromDraft(d: Draft) {
-  const legs: { pickup_odometer: number; dropoff_odometer: number }[] = [];
+  const legs: {
+    pickup_odometer: number;
+    dropoff_odometer: number;
+    pickup_time: string | null;
+    dropoff_time: string | null;
+  }[] = [];
+  const t = (v: string) => (/^\d{2}:\d{2}$/.test(v.trim()) ? v.trim() : null);
   const n = (v: string) => (v.trim() === "" ? NaN : Number(v));
   const a = n(d.l1p);
   const b = n(d.l1d);
-  if (Number.isFinite(a) && Number.isFinite(b)) legs.push({ pickup_odometer: a, dropoff_odometer: b });
+  if (Number.isFinite(a) && Number.isFinite(b))
+    legs.push({
+      pickup_odometer: a,
+      dropoff_odometer: b,
+      pickup_time: t(d.l1pt),
+      dropoff_time: t(d.l1dt),
+    });
   const c = n(d.l2p);
   const e = n(d.l2d);
-  if (Number.isFinite(c) && Number.isFinite(e)) legs.push({ pickup_odometer: c, dropoff_odometer: e });
+  if (Number.isFinite(c) && Number.isFinite(e))
+    legs.push({
+      pickup_odometer: c,
+      dropoff_odometer: e,
+      pickup_time: t(d.l2pt),
+      dropoff_time: t(d.l2dt),
+    });
   return legs;
 }
 
@@ -197,7 +224,8 @@ export function PaperBillChat() {
         rider: Rider | null;
         trip_date: string | null;
         vehicle_type: "ambulatory" | "wheelchair_van" | null;
-      } & Record<OdoField, string | null>;
+      } & Record<OdoField, string | null> &
+        Partial<Record<"l1pt" | "l1dt" | "l2pt" | "l2dt", string | null>>;
 
       const filled: OdoField[] = [];
       const nextDraft: Partial<Draft> = {};
@@ -206,6 +234,10 @@ export function PaperBillChat() {
           nextDraft[f] = res[f] as string;
           filled.push(f);
         }
+      });
+      // Times: only ever taken from what was actually read off the paper.
+      (["l1pt", "l1dt", "l2pt", "l2dt"] as const).forEach((f) => {
+        if (res?.[f]) nextDraft[f] = res[f] as string;
       });
       if (res?.trip_date) nextDraft.trip_date = res.trip_date;
       if (res?.driver_name) nextDraft.driver_name = res.driver_name;
@@ -367,6 +399,31 @@ export function PaperBillChat() {
                 : "Rates loaded — totals calculate instantly."}
           </span>
         </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {(
+          [
+            ["l1pt", "Leg 1 pickup time"],
+            ["l1dt", "Leg 1 dropoff time"],
+            ["l2pt", "Leg 2 pickup time (optional)"],
+            ["l2dt", "Leg 2 dropoff time (optional)"],
+          ] as const
+        ).map(([field, label]) => (
+          <div className="space-y-1" key={field}>
+            <Label className="text-xs">{label}</Label>
+            <Input
+              aria-label={label}
+              type="time"
+              value={draft[field]}
+              onChange={(e) => onPatch({ [field]: e.target.value } as Partial<Draft>)}
+            />
+          </div>
+        ))}
+        <p className="text-[11px] text-muted-foreground sm:col-span-2">
+          Times come from the paper report. Leave blank if the form has none — nothing is
+          filled in for you.
+        </p>
       </div>
     </div>
   );
