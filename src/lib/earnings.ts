@@ -9,10 +9,13 @@ export type CompanyEarnings = {
 
 export type ClaimRow = {
   robot_captured_claim: unknown;
+  /** Pre-resolved charge (captured OR recalculated from company rates). */
+  amount?: number | null;
   submitted_at?: string | null;
   portal_submitted_at?: string | null;
   updated_at?: string | null;
 };
+
 
 /** Parse "$1,234.56" / 1234.56 / null into a number. */
 export function parseAmount(raw: unknown): number {
