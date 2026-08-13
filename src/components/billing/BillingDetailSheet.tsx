@@ -136,13 +136,23 @@ export function BillingDetailSheet({
 
   const startRobot = useMutation({
     // One-shot: fill, read back, Submit + Confirm on the portal in a single job.
-    mutationFn: () => startRobotFn({ data: { id: id!, mode: "full" } }),
+    mutationFn: (ack: boolean = false) =>
+      startRobotFn({ data: { id: id!, mode: "full", acknowledge_duplicate: ack } }),
     onSuccess: () => {
+      setDuplicateInfo(null);
       toast.success("Working at the portal now — the claim number will be saved automatically.");
       invalidate();
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => {
+      const dup = parseDuplicateClaimError(e);
+      if (dup) {
+        setDuplicateInfo(dup);
+        return;
+      }
+      toast.error(e.message);
+    },
   });
+
 
 
   const markSubmitted = useMutation({
