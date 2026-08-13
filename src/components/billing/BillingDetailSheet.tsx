@@ -15,6 +15,8 @@ import { Loader2, FileDown, Check, X, AlertCircle, RefreshCw, Bot } from "lucide
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 import { PdfInlineViewer } from "@/components/PdfInlineViewer";
+import { DuplicateSubmitDialog } from "@/components/billing/DuplicateSubmitDialog";
+import { parseDuplicateClaimError, type DuplicateClaimInfo } from "@/lib/duplicateSubmit";
 
 import { formatDateTime } from "@/lib/format";
 import {
@@ -53,6 +55,7 @@ export function BillingDetailSheet({
   const [fixNotes, setFixNotes] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [confirmationNumber, setConfirmationNumber] = useState("");
+  const [duplicateInfo, setDuplicateInfo] = useState<DuplicateClaimInfo | null>(null);
 
   const detail = useQuery({
     queryKey: ["billing_detail", id],
@@ -136,13 +139,23 @@ export function BillingDetailSheet({
 
   const startRobot = useMutation({
     // One-shot: fill, read back, Submit + Confirm on the portal in a single job.
-    mutationFn: () => startRobotFn({ data: { id: id!, mode: "full" } }),
+    mutationFn: (ack: boolean = false) =>
+      startRobotFn({ data: { id: id!, mode: "full", acknowledge_duplicate: ack } }),
     onSuccess: () => {
+      setDuplicateInfo(null);
       toast.success("Working at the portal now — the claim number will be saved automatically.");
       invalidate();
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => {
+      const dup = parseDuplicateClaimError(e);
+      if (dup) {
+        setDuplicateInfo(dup);
+        return;
+      }
+      toast.error(e.message);
+    },
   });
+
 
 
   const markSubmitted = useMutation({
@@ -369,7 +382,7 @@ export function BillingDetailSheet({
                 <>
                   <Button
                     className="w-full"
-                    onClick={() => startRobot.mutate()}
+                    onClick={() => startRobot.mutate(false)}
                     disabled={startRobot.isPending || rec.status === "submitting"}
                   >
                     {startRobot.isPending || rec.status === "submitting" ? (
@@ -413,7 +426,7 @@ export function BillingDetailSheet({
                   <Button
                     className="w-full"
                     disabled={startRobot.isPending || REAL_SUBMISSIONS_PAUSED}
-                    onClick={() => startRobot.mutate()}
+                    onClick={() => startRobot.mutate(false)}
                   >
                     {startRobot.isPending ? (
                       <Loader2 className="mr-1 h-4 w-4 animate-spin" />
@@ -515,8 +528,15 @@ export function BillingDetailSheet({
             )}
           </div>
         )}
+        <DuplicateSubmitDialog
+          info={duplicateInfo}
+          busy={startRobot.isPending}
+          onCancel={() => setDuplicateInfo(null)}
+          onConfirm={() => startRobot.mutate(true)}
+        />
       </SheetContent>
     </Sheet>
+
   );
 }
 

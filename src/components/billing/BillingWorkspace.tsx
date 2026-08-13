@@ -1,4 +1,6 @@
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
+import { DuplicateSubmitDialog } from "@/components/billing/DuplicateSubmitDialog";
+import { parseDuplicateClaimError, type DuplicateClaimInfo } from "@/lib/duplicateSubmit";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -561,6 +563,9 @@ function ReadyToSubmitTab({
   const startFn = useServerFn(startRobotForRecord);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submittingIds, setSubmittingIds] = useState<Set<string>>(new Set());
+  const [duplicate, setDuplicate] = useState<{ id: string; info: DuplicateClaimInfo } | null>(
+    null,
+  );
 
   const selectableIds = useMemo(
     () =>
@@ -595,29 +600,45 @@ function ReadyToSubmitTab({
     });
   }
 
+  async function submitOne(id: string, acknowledge = false) {
+    setSubmittingIds((prev) => new Set([...prev, id]));
+    try {
+      await startFn({ data: { id, mode: "full", acknowledge_duplicate: acknowledge } });
+      return "ok" as const;
+    } catch (e: any) {
+      const dup = parseDuplicateClaimError(e);
+      if (dup) {
+        // Needs a deliberate confirmation from the biller before we retry.
+        setDuplicate({ id, info: dup });
+        return "duplicate" as const;
+      }
+      toast.error(`Trip ${id.slice(0, 8)}…: ${e?.message ?? "Failed"}`);
+      return "failed" as const;
+    } finally {
+      setSubmittingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      qc.invalidateQueries({ queryKey: ["billing_list"] });
+      qc.invalidateQueries({ queryKey: ["billing_counts"] });
+    }
+  }
+
   async function submitSelected() {
     const ids = Array.from(selected);
     if (!ids.length) return;
-    setSubmittingIds((prev) => new Set([...prev, ...ids]));
     let ok = 0;
     let failed = 0;
     // Loop serially so we get an individual error per trip and don't flood
     // the automation service with parallel logins.
     for (const id of ids) {
-      try {
-        await startFn({ data: { id, mode: "full" } });
-        ok += 1;
-      } catch (e: any) {
-        failed += 1;
-        toast.error(`Trip ${id.slice(0, 8)}…: ${e?.message ?? "Failed"}`);
-      } finally {
-        setSubmittingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-        qc.invalidateQueries({ queryKey: ["billing_list"] });
-        qc.invalidateQueries({ queryKey: ["billing_counts"] });
+      const res = await submitOne(id);
+      if (res === "ok") ok += 1;
+      else if (res === "failed") failed += 1;
+      else {
+        // Stop the batch here; the warning dialog takes over for this trip.
+        break;
       }
     }
     setSelected(new Set());
@@ -630,6 +651,19 @@ function ReadyToSubmitTab({
 
   return (
     <div className="space-y-3">
+      <DuplicateSubmitDialog
+        info={duplicate?.info ?? null}
+        busy={submittingIds.size > 0}
+        onCancel={() => setDuplicate(null)}
+        onConfirm={async () => {
+          const target = duplicate;
+          setDuplicate(null);
+          if (!target) return;
+          const res = await submitOne(target.id, true);
+          if (res === "ok") toast.success("Resubmission started — recorded in the audit trail.");
+        }}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-3">
         <div className="flex items-center gap-3 text-sm">
           <Checkbox
@@ -767,16 +801,27 @@ function AwaitingPortalTab({
   });
   const queueById = new Map((queue.data ?? []).map((q: any) => [q.id, q]));
 
+  const [dupQueue, setDupQueue] = useState<{ id: string; info: DuplicateClaimInfo } | null>(null);
+
   /** One-shot: capture + submit + confirm in a single robot job. */
   const oneShot = useMutation({
-    mutationFn: (id: string) => startFn({ data: { id, mode: "full" } }),
+    mutationFn: (v: { id: string; acknowledge?: boolean }) =>
+      startFn({ data: { id: v.id, mode: "full", acknowledge_duplicate: !!v.acknowledge } }),
     onSuccess: () => {
+      setDupQueue(null);
       toast.success("Working at the portal now — the claim number will be saved automatically.");
       qc.invalidateQueries({ queryKey: ["billing_list"] });
       qc.invalidateQueries({ queryKey: ["billing_counts"] });
       qc.invalidateQueries({ queryKey: ["submission_queue"] });
     },
-    onError: (e: any) => toast.error(e?.message ?? "Could not start the submission"),
+    onError: (e: any, v) => {
+      const dup = parseDuplicateClaimError(e);
+      if (dup) {
+        setDupQueue({ id: v.id, info: dup });
+        return;
+      }
+      toast.error(e?.message ?? "Could not start the submission");
+    },
   });
 
 
@@ -787,6 +832,15 @@ function AwaitingPortalTab({
 
   return (
     <>
+      <DuplicateSubmitDialog
+        info={dupQueue?.info ?? null}
+        busy={oneShot.isPending}
+        onCancel={() => setDupQueue(null)}
+        onConfirm={() => {
+          if (dupQueue) oneShot.mutate({ id: dupQueue.id, acknowledge: true });
+        }}
+      />
+
       <div className="space-y-3">
         {rows.map((r) => (
           <div
@@ -826,9 +880,9 @@ function AwaitingPortalTab({
                     <Button
                       size="sm"
                       disabled={oneShot.isPending || REAL_SUBMISSIONS_PAUSED}
-                      onClick={() => oneShot.mutate(r.id)}
+                      onClick={() => oneShot.mutate({ id: r.id })}
                     >
-                      {oneShot.isPending && oneShot.variables === r.id ? (
+                      {oneShot.isPending && oneShot.variables?.id === r.id ? (
                         <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                       ) : (
                         <Send className="mr-1 h-4 w-4" />

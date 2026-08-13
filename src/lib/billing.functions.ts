@@ -19,6 +19,8 @@ import {
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateStateFormPdf, type Leg } from "@/lib/medicaidPdf";
 import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
+import { duplicateClaimError } from "@/lib/duplicateSubmit";
+
 
 
 /* ---------- LIST ---------- */
@@ -346,6 +348,12 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
          * in between — used by the paper-bill flow.
          */
         mode: z.enum(["capture", "full"]).default("full"),
+        /**
+         * Set by the UI only after the biller explicitly confirmed the
+         * "this may create a duplicate claim" warning dialog.
+         */
+        acknowledge_duplicate: z.boolean().default(false),
+
       })
       .parse(d),
   )
@@ -359,8 +367,9 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
         `id, status, trip_id,
          medicaid_trips!inner(
            id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
-           state_pdf_path, identity_verified, robot_last_status,
+           state_pdf_path, identity_verified, robot_last_status, status, portal_status,
            robot_confirmation_number, submitted_confirmation,
+
            vehicle_type, trip_kind, rider_id,
            riders(medicaid_id)
          )`,
@@ -370,20 +379,20 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
     if (recErr) throw new Error(recErr.message);
 
     const tripRow: any = rec.medicaid_trips;
-    // Double-submission guard: a claim that already exists at the portal —
-    // confirmed or unverified-after-timeout — can never be re-run from here.
-    if (tripRow?.robot_last_status === UNVERIFIED_SUBMIT_STATUS) {
-      throw new Error(
-        "Blocked: this claim was already sent to the portal and its outcome is unverified. " +
-          "Check the portal and record the claim number instead of resubmitting.",
-      );
-    }
-    if (tripRow?.robot_confirmation_number || tripRow?.submitted_confirmation) {
-      throw new Error(
-        `Blocked: this trip already has portal confirmation #${
-          tripRow.robot_confirmation_number ?? tripRow.submitted_confirmation
-        }. Resubmitting would create a duplicate claim.`,
-      );
+    const priorClaim: string | null =
+      tripRow?.robot_confirmation_number ?? tripRow?.submitted_confirmation ?? null;
+    const unverified = tripRow?.robot_last_status === UNVERIFIED_SUBMIT_STATUS;
+    const isResubmit = !!priorClaim || unverified;
+
+    // Duplicate-submission guard. Not a hard block: suspended claims legitimately
+    // need to be corrected and resubmitted, so the UI must show an explicit
+    // warning and send acknowledge_duplicate once the biller confirms.
+    if (isResubmit && !data.acknowledge_duplicate) {
+      throw duplicateClaimError({
+        claim: priorClaim,
+        status: String(tripRow?.portal_status ?? tripRow?.status ?? rec.status ?? "unknown"),
+        unverified,
+      });
     }
 
     const allowed = ["approved", "needs_fix", "submitting"];
@@ -391,6 +400,9 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
     // A previously captured claim (legacy two-pass) can be finished with a
     // single one-shot job instead of the separate confirm step.
     if (data.mode === "full") allowed.push("pending_submit");
+    // An acknowledged resubmission may start from an already-submitted record.
+    if (isResubmit && data.acknowledge_duplicate) allowed.push("submitted", "pending_submit");
+
     if (!allowed.includes(rec.status as string)) {
       throw new Error(`Trip is in "${rec.status}" and cannot be submitted from here`);
     }
@@ -405,6 +417,24 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
         providerUserId: userId,
         mode: data.mode,
       });
+      if (isResubmit) {
+        // Mark the trip so status polling knows this job is a deliberate
+        // resubmission and not a stale poll against the old claim.
+        await supabase
+          .from("medicaid_trips")
+          .update({ robot_pass: "resubmit" })
+          .eq("id", trip.id);
+        await logAudit(
+          supabase,
+          data.id,
+          userId,
+          "resubmission_confirmed",
+          `Intentional resubmission confirmed by billing staff at ${new Date().toISOString()}. ` +
+            `Previous claim #${priorClaim ?? "unknown"}` +
+            (unverified ? " (previous outcome unverified)" : "") +
+            `. Mode: ${data.mode}.`,
+        );
+      }
       await logAudit(
         supabase,
         data.id,
@@ -414,6 +444,7 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
       return { ok: true };
     } catch (e: any) {
       const msg = e?.message ?? "Failed to start automation";
+
       await supabase
         .from("billing_records")
         .update({ status: "needs_fix", submission_error: msg, fix_notes: msg })
@@ -561,9 +592,12 @@ export const checkRobotJobStatus = createServerFn({ method: "POST" })
 
     // Already reconciled/submitted: a stale robot job result must never be
     // allowed to downgrade a trip that has a real portal confirmation number.
+    // An acknowledged resubmission (robot_pass = "resubmit") is polled normally
+    // so its new claim number can be recorded.
     const knownConfirmation: string | null =
       trip?.robot_confirmation_number ?? trip?.submitted_confirmation ?? null;
-    if (knownConfirmation) {
+    if (knownConfirmation && trip?.robot_pass !== "resubmit") {
+
       return {
         pending: false,
         status: "submitted",
