@@ -1,6 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { readPaperBillDataUrl, ocrErrorMessage, MAX_RAW_FILE_BYTES, MAX_DATA_URL_CHARS } from "@/lib/paperBillUpload";
 
+if (typeof (globalThis as any).FileReader === "undefined") {
+  (globalThis as any).FileReader = class {
+    result: string | null = null;
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    async readAsDataURL(file: File) {
+      const buf = Buffer.from(await file.arrayBuffer());
+      this.result = `data:${file.type};base64,${buf.toString("base64")}`;
+      this.onload?.();
+    }
+  };
+}
+
 describe("paper bill upload guards", () => {
   it("rejects a file whose base64 would exceed the server limit", async () => {
     const big = new File([new Uint8Array(MAX_RAW_FILE_BYTES + 1)], "big.pdf", { type: "application/pdf" });
