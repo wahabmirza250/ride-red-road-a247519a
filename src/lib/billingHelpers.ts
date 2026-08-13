@@ -298,6 +298,11 @@ export async function startRobotSubmission(
   const vehicleType = (trip.vehicle_type as string | null) ?? "ambulatory";
   const rates = await requireCompanyRates(supabase, trip, vehicleType);
 
+  // FAIL CLOSED ON PORTAL IDENTITY.
+  // Refuse to start a job unless THIS company owns a portal login of its own.
+  const credential = await requireCompanyPortalCredential(supabase, rates.companyId);
+
+
   // BILLED MILES ARE ALWAYS CALCULATED, NEVER READ.
   // Re-read the canonical odometer legs and compute (dropoff − pickup) per leg,
   // summed. For a round trip this bills leg 1 + leg 2 only — never the raw
