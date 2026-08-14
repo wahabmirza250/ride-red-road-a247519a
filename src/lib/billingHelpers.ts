@@ -135,14 +135,74 @@ export function normalizeTripLegs(trip: any): Leg[] {
 export const ROBOT_BASE_URL =
   "https://redart-hcpf-automation-production.up.railway.app";
 
-export function formatTripDateMDY(pickupAt: string | null | undefined): string {
-  const d = pickupAt ? new Date(pickupAt) : new Date();
+/**
+ * PORTAL TIME ZONE: America/Denver.
+ *
+ * The HCPF portal validates the date of service against its own Mountain Time
+ * clock. Formatting in UTC pushed every evening trip (after ~6 PM MST) onto
+ * "tomorrow", and the portal rejected the service line with "The From Date
+ * date cannot be in the future" — which silently left the claim at $0.00.
+ */
+export const PORTAL_TIME_ZONE = "America/Denver";
+
+function denverParts(d: Date): { y: number; m: number; day: number; hh: string; mm: string } {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: PORTAL_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(d).map((p) => [p.type, p.value]));
+  return {
+    y: Number(parts.year),
+    m: Number(parts.month),
+    day: Number(parts.day),
+    hh: parts.hour === "24" ? "00" : String(parts.hour),
+    mm: String(parts.minute),
+  };
+}
+
+/** YYYY-MM-DD in Mountain Time. */
+export function denverDateISO(input: Date | string | null | undefined): string {
+  const d = input ? new Date(input) : new Date();
   const safe = Number.isNaN(d.getTime()) ? new Date() : d;
-  const mm = String(safe.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(safe.getUTCDate()).padStart(2, "0");
-  const yyyy = safe.getUTCFullYear();
+  const { y, m, day } = denverParts(safe);
+  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** HH:MM in Mountain Time. */
+export function denverTimeHM(input: Date | string | null | undefined): string {
+  const d = input ? new Date(input) : new Date();
+  const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+  const { hh, mm } = denverParts(safe);
+  return `${hh.padStart(2, "0")}:${mm.padStart(2, "0")}`;
+}
+
+export function formatTripDateMDY(pickupAt: string | null | undefined): string {
+  const iso = denverDateISO(pickupAt);
+  const [yyyy, mm, dd] = iso.split("-");
   return `${mm}/${dd}/${yyyy}`;
 }
+
+/**
+ * Blocks a submission whose service date is still in the future on the
+ * portal's own Mountain-Time clock, with a clear message instead of a
+ * mysterious $0.00 claim.
+ */
+export function assertServiceDateNotFuture(serviceDateMDY: string): void {
+  const [mm, dd, yyyy] = serviceDateMDY.split("/");
+  const serviceISO = `${yyyy}-${mm}-${dd}`;
+  const todayISO = denverDateISO(new Date());
+  if (serviceISO > todayISO) {
+    throw new Error(
+      `Submission blocked: the service date ${serviceDateMDY} is still in the future in Mountain Time (today is ${todayISO} in Denver). The portal rejects future dates — submit this trip on or after its service date.`,
+    );
+  }
+}
+
 
 export const RATES_NOT_CONFIGURED_MESSAGE =
   "Billing rates not configured for this company — set them in Billing Settings first";
