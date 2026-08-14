@@ -111,12 +111,11 @@ export function normalizeTripLegs(trip: any): Leg[] {
   }
 
   const pickupAt = trip.pickup_at ? new Date(trip.pickup_at) : new Date();
-  const date = Number.isNaN(pickupAt.getTime())
-    ? new Date().toISOString().slice(0, 10)
-    : pickupAt.toISOString().slice(0, 10);
-  const time = Number.isNaN(pickupAt.getTime())
-    ? null
-    : pickupAt.toTimeString().slice(0, 5);
+  const valid = !Number.isNaN(pickupAt.getTime());
+  // Mountain Time — the portal's clock — not UTC and not the server locale.
+  const date = denverDateISO(valid ? pickupAt : new Date());
+  const time = valid ? denverTimeHM(pickupAt) : null;
+
 
   return [
     {
