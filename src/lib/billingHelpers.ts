@@ -314,8 +314,10 @@ export async function startRobotSubmission(
      * "capture" = PASS 1 (fill + read back, never submit).
      * "submit"  = PASS 2 (confirm a previously captured claim).
      * "full"    = one-shot: fill, read back AND click Submit + Confirm.
+     * "debug_confirm_page" = diagnostic: fill + screenshot, never submits.
      */
-    mode?: "capture" | "submit" | "full";
+    mode?: "capture" | "submit" | "full" | "debug_confirm_page";
+
   },
 ) {
   const { billingRecordId, trip, providerUserId } = args;
