@@ -314,8 +314,10 @@ export async function startRobotSubmission(
      * "capture" = PASS 1 (fill + read back, never submit).
      * "submit"  = PASS 2 (confirm a previously captured claim).
      * "full"    = one-shot: fill, read back AND click Submit + Confirm.
+     * "debug_confirm_page" = diagnostic: fill + screenshot, never submits.
      */
-    mode?: "capture" | "submit" | "full";
+    mode?: "capture" | "submit" | "full" | "debug_confirm_page";
+
   },
 ) {
   const { billingRecordId, trip, providerUserId } = args;
@@ -330,7 +332,7 @@ export async function startRobotSubmission(
   // monotonic even if two attempts race.
   const jobId = `trip-${trip.id}-${mode}-${Date.now()}`;
   /** Anything that is not a pure capture really submits at the portal. */
-  const doesSubmit = mode !== "capture";
+  const doesSubmit = mode === "submit" || mode === "full";
 
   // This is the final safety boundary shared by every submission path,
   // including queued work and the legacy review flow. UI/server-function
