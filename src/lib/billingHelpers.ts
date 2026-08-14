@@ -342,6 +342,12 @@ export async function startRobotSubmission(
     );
   }
 
+  // Portal-clock guard: never send a date of service the portal will reject as
+  // being in the future (Mountain Time), which silently zeroes the claim.
+  const serviceDateMDY = formatTripDateMDY(trip.pickup_at);
+  if (doesSubmit) assertServiceDateNotFuture(serviceDateMDY);
+
+
   // Never trust a caller's relation projection for proof/signature fields.
   // The Ready-to-Submit path previously omitted state_pdf_path from its select,
   // which made paper bills look unsigned even though the canonical trip row had
