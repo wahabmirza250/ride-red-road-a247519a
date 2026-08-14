@@ -10,6 +10,7 @@ import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import type { Leg } from "@/lib/medicaidPdf";
 import { legMiles } from "@/lib/claimCalc";
+import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 
 /**
  * Billed miles are ALWAYS computed in code from odometer readings —
@@ -271,6 +272,16 @@ export async function startRobotSubmission(
   const jobId = `trip-${trip.id}-${mode}-${Date.now()}`;
   /** Anything that is not a pure capture really submits at the portal. */
   const doesSubmit = mode !== "capture";
+
+  // This is the final safety boundary shared by every submission path,
+  // including queued work and the legacy review flow. UI/server-function
+  // checks alone are insufficient because dispatchNextQueued calls this
+  // helper directly.
+  if (doesSubmit && REAL_SUBMISSIONS_PAUSED) {
+    throw new Error(
+      "Real portal submissions are paused because the automation is not saving service lines. Nothing was submitted.",
+    );
+  }
 
   // Never trust a caller's relation projection for proof/signature fields.
   // The Ready-to-Submit path previously omitted state_pdf_path from its select,
