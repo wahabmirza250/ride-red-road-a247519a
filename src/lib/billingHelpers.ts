@@ -332,7 +332,7 @@ export async function startRobotSubmission(
   // monotonic even if two attempts race.
   const jobId = `trip-${trip.id}-${mode}-${Date.now()}`;
   /** Anything that is not a pure capture really submits at the portal. */
-  const doesSubmit = mode !== "capture";
+  const doesSubmit = mode === "submit" || mode === "full";
 
   // This is the final safety boundary shared by every submission path,
   // including queued work and the legacy review flow. UI/server-function
