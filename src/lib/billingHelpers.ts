@@ -111,12 +111,11 @@ export function normalizeTripLegs(trip: any): Leg[] {
   }
 
   const pickupAt = trip.pickup_at ? new Date(trip.pickup_at) : new Date();
-  const date = Number.isNaN(pickupAt.getTime())
-    ? new Date().toISOString().slice(0, 10)
-    : pickupAt.toISOString().slice(0, 10);
-  const time = Number.isNaN(pickupAt.getTime())
-    ? null
-    : pickupAt.toTimeString().slice(0, 5);
+  const valid = !Number.isNaN(pickupAt.getTime());
+  // Mountain Time — the portal's clock — not UTC and not the server locale.
+  const date = denverDateISO(valid ? pickupAt : new Date());
+  const time = valid ? denverTimeHM(pickupAt) : null;
+
 
   return [
     {
@@ -135,14 +134,74 @@ export function normalizeTripLegs(trip: any): Leg[] {
 export const ROBOT_BASE_URL =
   "https://redart-hcpf-automation-production.up.railway.app";
 
-export function formatTripDateMDY(pickupAt: string | null | undefined): string {
-  const d = pickupAt ? new Date(pickupAt) : new Date();
+/**
+ * PORTAL TIME ZONE: America/Denver.
+ *
+ * The HCPF portal validates the date of service against its own Mountain Time
+ * clock. Formatting in UTC pushed every evening trip (after ~6 PM MST) onto
+ * "tomorrow", and the portal rejected the service line with "The From Date
+ * date cannot be in the future" — which silently left the claim at $0.00.
+ */
+export const PORTAL_TIME_ZONE = "America/Denver";
+
+function denverParts(d: Date): { y: number; m: number; day: number; hh: string; mm: string } {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: PORTAL_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(d).map((p) => [p.type, p.value]));
+  return {
+    y: Number(parts.year),
+    m: Number(parts.month),
+    day: Number(parts.day),
+    hh: parts.hour === "24" ? "00" : String(parts.hour),
+    mm: String(parts.minute),
+  };
+}
+
+/** YYYY-MM-DD in Mountain Time. */
+export function denverDateISO(input: Date | string | null | undefined): string {
+  const d = input ? new Date(input) : new Date();
   const safe = Number.isNaN(d.getTime()) ? new Date() : d;
-  const mm = String(safe.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(safe.getUTCDate()).padStart(2, "0");
-  const yyyy = safe.getUTCFullYear();
+  const { y, m, day } = denverParts(safe);
+  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** HH:MM in Mountain Time. */
+export function denverTimeHM(input: Date | string | null | undefined): string {
+  const d = input ? new Date(input) : new Date();
+  const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+  const { hh, mm } = denverParts(safe);
+  return `${hh.padStart(2, "0")}:${mm.padStart(2, "0")}`;
+}
+
+export function formatTripDateMDY(pickupAt: string | null | undefined): string {
+  const iso = denverDateISO(pickupAt);
+  const [yyyy, mm, dd] = iso.split("-");
   return `${mm}/${dd}/${yyyy}`;
 }
+
+/**
+ * Blocks a submission whose service date is still in the future on the
+ * portal's own Mountain-Time clock, with a clear message instead of a
+ * mysterious $0.00 claim.
+ */
+export function assertServiceDateNotFuture(serviceDateMDY: string): void {
+  const [mm, dd, yyyy] = serviceDateMDY.split("/");
+  const serviceISO = `${yyyy}-${mm}-${dd}`;
+  const todayISO = denverDateISO(new Date());
+  if (serviceISO > todayISO) {
+    throw new Error(
+      `Submission blocked: the service date ${serviceDateMDY} is still in the future in Mountain Time (today is ${todayISO} in Denver). The portal rejects future dates — submit this trip on or after its service date.`,
+    );
+  }
+}
+
 
 export const RATES_NOT_CONFIGURED_MESSAGE =
   "Billing rates not configured for this company — set them in Billing Settings first";
@@ -283,6 +342,12 @@ export async function startRobotSubmission(
     );
   }
 
+  // Portal-clock guard: never send a date of service the portal will reject as
+  // being in the future (Mountain Time), which silently zeroes the claim.
+  const serviceDateMDY = formatTripDateMDY(trip.pickup_at);
+  if (doesSubmit) assertServiceDateNotFuture(serviceDateMDY);
+
+
   // Never trust a caller's relation projection for proof/signature fields.
   // The Ready-to-Submit path previously omitted state_pdf_path from its select,
   // which made paper bills look unsigned even though the canonical trip row had
@@ -365,11 +430,12 @@ export async function startRobotSubmission(
     patient_account_number: trip.id,
     // Date of service. Aliases cover whichever key the robot reads; a blank
     // date on the claim means none of these were picked up.
-    trip_date: formatTripDateMDY(trip.pickup_at),
-    service_date: formatTripDateMDY(trip.pickup_at),
-    date_of_service: formatTripDateMDY(trip.pickup_at),
-    from_date: formatTripDateMDY(trip.pickup_at),
-    to_date: formatTripDateMDY(trip.pickup_at),
+    trip_date: serviceDateMDY,
+    service_date: serviceDateMDY,
+    date_of_service: serviceDateMDY,
+    from_date: serviceDateMDY,
+    to_date: serviceDateMDY,
+
 
     // Explicit rates so the automation service never has to guess or fall back
     // to its own built-in defaults.
