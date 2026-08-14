@@ -430,11 +430,12 @@ export async function startRobotSubmission(
     patient_account_number: trip.id,
     // Date of service. Aliases cover whichever key the robot reads; a blank
     // date on the claim means none of these were picked up.
-    trip_date: formatTripDateMDY(trip.pickup_at),
-    service_date: formatTripDateMDY(trip.pickup_at),
-    date_of_service: formatTripDateMDY(trip.pickup_at),
-    from_date: formatTripDateMDY(trip.pickup_at),
-    to_date: formatTripDateMDY(trip.pickup_at),
+    trip_date: serviceDateMDY,
+    service_date: serviceDateMDY,
+    date_of_service: serviceDateMDY,
+    from_date: serviceDateMDY,
+    to_date: serviceDateMDY,
+
 
     // Explicit rates so the automation service never has to guess or fall back
     // to its own built-in defaults.
