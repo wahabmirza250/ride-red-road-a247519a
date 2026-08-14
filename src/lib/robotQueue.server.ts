@@ -88,7 +88,7 @@ export async function enqueueOrStartRobot(
     companyId: string | null | undefined;
     trip: any;
     providerUserId: string;
-    mode: "capture" | "submit" | "full";
+    mode: "capture" | "submit" | "full" | "debug_confirm_page";
   },
 ): Promise<{ queued: boolean; ahead: number }> {
   const { billingRecordId, companyId, trip, providerUserId, mode } = args;
@@ -98,7 +98,7 @@ export async function enqueueOrStartRobot(
     excludeRecordId: billingRecordId,
   });
 
-  if (active && mode === "capture") {
+  if (active && (mode === "capture" || mode === "debug_confirm_page")) {
     throw new Error(
       "The portal session is busy with another submission right now. Try the capture run again in a few minutes.",
     );

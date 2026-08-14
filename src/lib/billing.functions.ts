@@ -348,7 +348,7 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
          * job in one shot (fill + submit + confirm) with no human checkpoint
          * in between — used by the paper-bill flow.
          */
-        mode: z.enum(["capture", "full"]).default("full"),
+        mode: z.enum(["capture", "full", "debug_confirm_page"]).default("full"),
         /**
          * Set by the UI only after the biller explicitly confirmed the
          * "this may create a duplicate claim" warning dialog.
@@ -407,6 +407,8 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
     }
 
     const allowed = ["approved", "needs_fix", "submitting", "queued"];
+    // Diagnostic runs never submit, so they may start from any state.
+    if (data.mode === "debug_confirm_page") allowed.push(...["pending_submit", "submitted", "needs_review", "draft", "ready"]);
 
     // A previously captured claim (legacy two-pass) can be finished with a
     // single one-shot job instead of the separate confirm step.
