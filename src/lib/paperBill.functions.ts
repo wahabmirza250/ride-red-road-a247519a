@@ -108,9 +108,35 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
     const { requireCompanyId } = await import("@/lib/company.server");
     const companyId = await requireCompanyId(userId);
 
+    // 0. HARD GATE — automatic READ-ONLY portal identity check. A paper bill
+    //    never becomes a submittable trip unless the portal's name for the
+    //    entered Medicaid ID matches the name on the paper form exactly.
+    let verifyName = data.new_rider?.full_name ?? "";
+    let verifyId = data.new_rider?.medicaid_id ?? "";
+    if (data.rider_id) {
+      const { data: existingRider } = await supabase
+        .from("riders")
+        .select("full_name, medicaid_id")
+        .eq("id", data.rider_id)
+        .maybeSingle();
+      verifyName = existingRider?.full_name ?? "";
+      verifyId = existingRider?.medicaid_id ?? "";
+    }
+    {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { assertPaperBillIdentity } = await import("@/lib/paperBillVerify.server");
+      await assertPaperBillIdentity({
+        supabaseAdmin: supabaseAdmin as any,
+        userId,
+        medicaidId: verifyId,
+        paperName: verifyName,
+      });
+    }
+
     // 1. Resolve the rider — match an existing passenger on Medicaid ID first
     //    so re-billing a known member never trips the unique index.
     let riderId = data.rider_id ?? null;
+
     if (!riderId) {
       if (!data.new_rider) throw new Error("Pick an existing passenger or add a new one");
       const medicaidId = data.new_rider.medicaid_id.trim();
