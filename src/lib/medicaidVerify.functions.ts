@@ -106,8 +106,10 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
       };
     }
 
+    const provider = await resolveProviderContext(supabaseAdmin as any, userId);
     return callVerifyRobot({
-      providerUserId: await resolveProviderUserId(supabaseAdmin as any, userId),
+      providerUserId: provider.providerUserId,
+      companyId: provider.companyId,
       expectedName: `${pax.first_name ?? ""} ${pax.last_name ?? ""}`.trim(),
       memberId: hasRealMedicaid ? medicaidRaw : null,
       ssn,
@@ -115,6 +117,7 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
       usedIdentifier,
       apiKey: await getRobotApiKey(supabaseAdmin as any),
     });
+
   });
 
 /**
