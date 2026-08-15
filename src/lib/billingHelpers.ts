@@ -421,15 +421,14 @@ export async function startRobotSubmission(
     // Portal login is company-owned; tell the robot exactly which one to fetch.
     portal_id: credential.portal_id,
     vehicle_type: vehicleType,
-    // MEMBER ID vs PATIENT NUMBER — two different portal fields. The member
-    // id is the state Medicaid id; the internal job id ("trip-<uuid>-...")
-    // must only ever reach the Patient Number / account-number box, so both
-    // are now sent explicitly instead of leaving the robot to pick one.
+    // MEMBER ID and PATIENT NUMBER now both carry the real state Medicaid
+    // member id — the portal's Patient Number box must match the member id
+    // exactly, so the internal trip uuid is no longer sent there.
     medicaid_member_id: medicaidMemberId,
     member_id: medicaidMemberId,
     medicaid_id: medicaidMemberId,
-    patient_number: trip.id,
-    patient_account_number: trip.id,
+    patient_number: medicaidMemberId,
+    patient_account_number: medicaidMemberId,
     // Date of service. Aliases cover whichever key the robot reads; a blank
     // date on the claim means none of these were picked up.
     trip_date: serviceDateMDY,
