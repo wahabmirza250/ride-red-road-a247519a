@@ -287,6 +287,7 @@ export function PaperBillChat() {
   async function confirm(entry: Entry) {
     const legs = legsFromDraft(entry.draft);
     setSaving(entry.key);
+    patch(entry.key, { verifyError: undefined });
     try {
       const res = (await createFn({
         data: {
@@ -312,10 +313,15 @@ export function PaperBillChat() {
       patch(entry.key, { stage: "done", result: res });
       toast.success("Trip created — waiting in Workflow → Ready to submit");
     } catch (e: any) {
-      toast.error(e?.message ?? "Could not create the trip");
+      const message = e?.message ?? "Could not create the trip";
+      if (/Medicaid ID (not verified|could not be verified)|not a valid Medicaid member ID|verified against the portal/i.test(message)) {
+        patch(entry.key, { verifyError: message });
+      }
+      toast.error(message);
     } finally {
       setSaving(null);
     }
+
   }
 
 
