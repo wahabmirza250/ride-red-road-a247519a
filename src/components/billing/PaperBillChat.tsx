@@ -40,7 +40,8 @@ type Draft = {
   newRider: { full_name: string; medicaid_id: string };
   driver_name: string;
   trip_date: string;
-  vehicle_type: "ambulatory" | "wheelchair_van";
+  /** null = not chosen yet. There is deliberately NO default. */
+  vehicle_type: "ambulatory" | "wheelchair_van" | null;
   l1p: string;
   l1d: string;
   l2p: string;
@@ -88,7 +89,7 @@ const emptyDraft = (): Draft => ({
   newRider: { full_name: "", medicaid_id: "" },
   driver_name: "",
   trip_date: new Date().toISOString().slice(0, 10),
-  vehicle_type: "ambulatory",
+  vehicle_type: null,
   l1p: "",
   l1d: "",
   l2p: "",
@@ -296,7 +297,7 @@ export function PaperBillChat() {
           driver_name: entry.draft.driver_name.trim() || null,
           trip_date: entry.draft.trip_date,
 
-          vehicle_type: entry.draft.vehicle_type,
+          vehicle_type: entry.draft.vehicle_type!,
           // Business rule: paper bills are never billed without a signed paper
           // report, so identity verification is always Yes.
           identity_verified: true,
@@ -444,7 +445,7 @@ function ChatEntry({
 }) {
   const legs = legsFromDraft(entry.draft);
   const calc = useMemo(
-    () => calcClaim({ legs, rates, vehicleType: entry.draft.vehicle_type }),
+    () => calcClaim({ legs, rates, vehicleType: entry.draft.vehicle_type ?? "" }),
     [entry.draft, rates],
   );
   const riderName = entry.draft.rider?.full_name || entry.draft.newRider.full_name || "—";
@@ -455,6 +456,7 @@ function ChatEntry({
   const canReview =
     legs.length >= 1 &&
     !!entry.draft.trip_date &&
+    !!entry.draft.vehicle_type &&
     (!!entry.draft.rider ||
       (entry.draft.newRider.full_name.trim() && entry.draft.newRider.medicaid_id.trim()));
 
@@ -576,7 +578,8 @@ function ChatEntry({
               ))}
               {calc.missing_rates.length > 0 && (
                 <div className="text-xs text-destructive">
-                  Missing {calc.missing_rates.join(" + ")} rate for {entry.draft.vehicle_type}.
+                  Missing {calc.missing_rates.join(" + ")} rate for{" "}
+                {entry.draft.vehicle_type ?? "the selected vehicle type"}.
                 </div>
               )}
               <div className="mt-1 flex items-baseline justify-between border-t border-border pt-1 text-base font-semibold">
@@ -810,12 +813,20 @@ function EntryForm({
           <select
             aria-label="Vehicle type"
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            value={draft.vehicle_type}
-            onChange={(e) => onPatch({ vehicle_type: e.target.value as Draft["vehicle_type"] })}
+            value={draft.vehicle_type ?? ""}
+            onChange={(e) =>
+              onPatch({ vehicle_type: (e.target.value || null) as Draft["vehicle_type"] })
+            }
           >
+            <option value="">Select vehicle type…</option>
             <option value="ambulatory">Ambulatory</option>
             <option value="wheelchair_van">Wheelchair van</option>
           </select>
+          {!draft.vehicle_type && (
+            <p className="text-[11px] font-medium text-destructive">
+              Required — read it off the paper. Nothing is assumed.
+            </p>
+          )}
         </div>
         <div className="space-y-1 sm:col-span-2">
           <Label className="text-xs">
