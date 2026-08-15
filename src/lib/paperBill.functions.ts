@@ -130,6 +130,8 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
         userId,
         medicaidId: verifyId,
         paperName: verifyName,
+        companyId,
+
       });
     }
 
