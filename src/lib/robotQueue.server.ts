@@ -192,10 +192,11 @@ export async function sweepRobotJobs(
   companyId?: string | null,
 ): Promise<{ checked: number; settled: number; started: string | null }> {
   const { reconcileRobotJob } = await import("@/lib/robotReconcile.server");
+  const { resolveUnverifiedClaim } = await import("@/lib/unverifiedClaim.server");
 
   let q = supabase
     .from("billing_records")
-    .select(`id, medicaid_trips!inner(robot_job_id)`)
+    .select(`id, medicaid_trips!inner(robot_job_id, robot_last_status)`)
     .eq("status", "submitting")
     .order("updated_at", { ascending: true });
   if (companyId) q = q.eq("company_id", companyId);
@@ -205,13 +206,22 @@ export async function sweepRobotJobs(
   let settled = 0;
   const targets = (rows ?? []).filter((r: any) => r.medicaid_trips?.robot_job_id);
   for (const r of targets) {
+    const robotStatus = String(r.medicaid_trips?.robot_last_status ?? "");
+    // Already handed to a human — stop the automatic lookups.
+    if (robotStatus === "NEEDS_HUMAN_LOOKUP") continue;
     try {
-      const res = await reconcileRobotJob(supabase, r.id, actorId);
+      // Confirm was clicked but the page timed out: treat as still in flight and
+      // keep running read-only portal searches until the real claim turns up.
+      const res =
+        robotStatus === "SUBMITTED_UNVERIFIED"
+          ? await resolveUnverifiedClaim(supabase, r.id, actorId)
+          : await reconcileRobotJob(supabase, r.id, actorId);
       if (!res.pending) settled += 1;
     } catch {
       // A single bad record must never stop the sweep.
     }
   }
+
 
   const { started } = await dispatchNextQueued(supabase, actorId, companyId);
   return { checked: targets.length, settled, started };
