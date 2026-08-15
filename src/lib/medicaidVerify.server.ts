@@ -174,6 +174,18 @@ export async function resolveProviderUserId(
   supabaseAdmin: { from: (t: string) => any },
   fallback: string,
 ): Promise<string> {
+  return (await resolveProviderContext(supabaseAdmin, fallback)).providerUserId;
+}
+
+/**
+ * Provider id AND the company whose portal login the robot must use. The
+ * robot rejects a lookup without a company_id — portal logins are never
+ * shared between companies.
+ */
+export async function resolveProviderContext(
+  supabaseAdmin: { from: (t: string) => any },
+  fallback: string,
+): Promise<{ providerUserId: string; companyId: string | null }> {
   const { data: prof } = await supabaseAdmin
     .from("profiles")
     .select("company_id")
@@ -184,5 +196,9 @@ export async function resolveProviderUserId(
   let query = supabaseAdmin.from("billing_rate_settings").select("provider_id");
   if (companyId) query = query.eq("company_id", companyId);
   const { data } = await query.limit(1).maybeSingle();
-  return (data as { provider_id?: string } | null)?.provider_id ?? fallback;
+  return {
+    providerUserId: (data as { provider_id?: string } | null)?.provider_id ?? fallback,
+    companyId,
+  };
 }
+
