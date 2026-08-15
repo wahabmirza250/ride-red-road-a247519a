@@ -57,6 +57,21 @@ export async function reconcileRobotJob(
       };
     }
 
+    // Confirm was clicked but the page timed out on a previous poll. Re-polling
+    // the job would just replay the same timeout, so run the read-only portal
+    // claim search instead until the real claim number is found.
+    if (trip?.robot_last_status === UNVERIFIED_SUBMIT_STATUS) {
+      const { resolveUnverifiedClaim } = await import("@/lib/unverifiedClaim.server");
+      return await resolveUnverifiedClaim(supabase, rec.id, userId);
+    }
+    if (trip?.robot_last_status === "NEEDS_HUMAN_LOOKUP") {
+      return {
+        pending: false,
+        status: "NEEDS_HUMAN_LOOKUP",
+        message: trip?.robot_last_message ?? "Needs a manual portal claim lookup.",
+      };
+    }
+
     const jobId: string | null = trip?.robot_job_id ?? null;
     if (!jobId) {
       return { pending: false, status: "no_job", message: "No robot job has been started for this trip." };
