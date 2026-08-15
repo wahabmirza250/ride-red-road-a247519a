@@ -7,6 +7,8 @@ import type { VerifyResult } from "@/lib/medicaidVerify.functions";
  */
 export async function callVerifyRobot(args: {
   providerUserId: string;
+  /** Company whose portal login the robot must use. Logins are never shared. */
+  companyId?: string | null;
   expectedName: string;
   memberId: string | null;
   ssn: string | null;
@@ -38,12 +40,14 @@ export async function callVerifyRobot(args: {
       },
       body: JSON.stringify({
         provider_id: args.providerUserId,
+        company_id: args.companyId ?? null,
         expected_name: expectedName,
         member_id: memberId,
         ssn: memberId ? null : args.ssn,
         date_of_birth: memberId ? null : args.dateOfBirth,
       }),
     });
+
 
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
