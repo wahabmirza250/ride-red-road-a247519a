@@ -67,7 +67,10 @@ type Entry = {
   ocrFilled: OdoField[];
   /** OCR read the Medicaid ID but is not confident it got the characters right. */
   idUncertain?: boolean;
+  /** Portal identity check failed — the bill was not created. */
+  verifyError?: string;
   stage: "form" | "review" | "done";
+
   draft: Draft;
   result?: {
     trip_id: string;
