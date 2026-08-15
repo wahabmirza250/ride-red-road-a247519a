@@ -301,8 +301,8 @@ export async function reconcileRobotJob(
       const warn =
         "The portal Confirm button was clicked successfully, but the page did not " +
         "finish loading before the automation timed out. The claim was most likely " +
-        "SUBMITTED. Verify the claim in the portal and record its claim number — " +
-        "do NOT resubmit.";
+        "SUBMITTED. An automatic read-only portal search will now run every few " +
+        "minutes to find the real claim number — do NOT resubmit.";
       await supabase
         .from("medicaid_trips")
         .update({
@@ -316,12 +316,15 @@ export async function reconcileRobotJob(
         .update({
           status: "submitting",
           submission_error: warn,
-          requires_human_step: true,
+          requires_human_step: false,
         })
         .eq("id", rec.id);
       await logAudit(supabase, rec.id, userId, "robot_submit_unverified", `${warn} :: ${errMsg.slice(0, 500)}`);
-      return { pending: false, status: UNVERIFIED_SUBMIT_STATUS, message: warn };
+      // Non-terminal: the sweep keeps checking until the claim is found or a
+      // human is flagged after the retry budget runs out.
+      return { pending: true, status: UNVERIFIED_SUBMIT_STATUS, message: warn };
     }
+
 
 
     await supabase
