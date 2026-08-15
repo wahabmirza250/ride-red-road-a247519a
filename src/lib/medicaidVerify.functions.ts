@@ -149,8 +149,11 @@ export const verifyMedicaidIdAdHoc = createServerFn({ method: "POST" })
       "@/lib/medicaidVerify.server"
     );
 
+    const provider = await resolveProviderContext(supabaseAdmin as any, userId);
     return callVerifyRobot({
-      providerUserId: await resolveProviderUserId(supabaseAdmin as any, userId),
+      providerUserId: provider.providerUserId,
+      companyId: provider.companyId,
+
       // Robot requires a non-empty expected_name; in lookup mode we ignore its
       // match verdict and report the portal name instead.
       expectedName: "LOOKUP ONLY",
