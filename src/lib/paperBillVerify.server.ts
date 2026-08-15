@@ -38,6 +38,8 @@ export async function assertPaperBillIdentity(args: {
   userId: string;
   medicaidId: string;
   paperName: string;
+  /** Company whose portal login the robot must use. */
+  companyId?: string | null;
 }): Promise<{ portal_name: string | null }> {
   const medicaidId = args.medicaidId.trim();
   const paperName = args.paperName.trim();
@@ -57,12 +59,15 @@ export async function assertPaperBillIdentity(args: {
     );
   }
 
-  const { callVerifyRobot, getRobotApiKey, resolveProviderUserId } = await import(
+  const { callVerifyRobot, getRobotApiKey, resolveProviderContext } = await import(
     "@/lib/medicaidVerify.server"
   );
 
+  const provider = await resolveProviderContext(args.supabaseAdmin, args.userId);
+
   const result = await callVerifyRobot({
-    providerUserId: await resolveProviderUserId(args.supabaseAdmin, args.userId),
+    providerUserId: provider.providerUserId,
+    companyId: args.companyId ?? provider.companyId,
     expectedName: paperName,
     memberId: medicaidId,
     ssn: null,
@@ -70,6 +75,7 @@ export async function assertPaperBillIdentity(args: {
     usedIdentifier: "medicaid_id",
     apiKey: await getRobotApiKey(args.supabaseAdmin),
   });
+
 
   if (result.status === "matched") {
     return { portal_name: result.portal_name ?? null };
