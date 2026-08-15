@@ -92,7 +92,9 @@ const emptyDraft = (): Draft => ({
   newRider: { full_name: "", medicaid_id: "" },
   driver_name: "",
   trip_date: new Date().toISOString().slice(0, 10),
-  vehicle_type: null,
+  // Ambulatory is the only type this business bills, so it starts pre-selected.
+  // OCR still overrides it when a different type is explicitly marked on the paper.
+  vehicle_type: "ambulatory",
   l1p: "",
   l1d: "",
   l2p: "",
@@ -842,9 +844,7 @@ function EntryForm({
             <option value="wheelchair_van">Wheelchair van</option>
           </select>
           {!draft.vehicle_type && (
-            <p className="text-[11px] font-medium text-destructive">
-              Required — read it off the paper. Nothing is assumed.
-            </p>
+            <p className="text-[11px] font-medium text-destructive">Required.</p>
           )}
         </div>
         <div className="space-y-1 sm:col-span-2">

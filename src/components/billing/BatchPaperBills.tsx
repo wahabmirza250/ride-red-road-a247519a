@@ -134,7 +134,9 @@ export function BatchPaperBills() {
         passenger_name: "",
         medicaid_id: "",
         trip_date: new Date().toISOString().slice(0, 10),
-        vehicle_type: null,
+        // Ambulatory pre-selected (only type billed); OCR overrides when the
+        // paper clearly marks a different vehicle type.
+        vehicle_type: "ambulatory",
         l1p: "",
         l1d: "",
         l2p: "",
