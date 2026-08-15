@@ -89,6 +89,8 @@ function isValid(i: Item) {
   if (!legs.length) return false;
   if (legs.some((l) => l.dropoff_odometer <= l.pickup_odometer)) return false;
   if (!i.trip_date) return false;
+  // Vehicle type must be actively chosen — never assumed.
+  if (!i.vehicle_type) return false;
   if (!i.rider && !(i.passenger_name.trim() && i.medicaid_id.trim())) return false;
   return true;
 }
