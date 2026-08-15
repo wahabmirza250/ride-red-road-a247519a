@@ -66,7 +66,7 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
     if (!allowed) throw new Error("Not authorized to verify this passenger");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { callVerifyRobot, getRobotApiKey, resolveProviderUserId } = await import(
+    const { callVerifyRobot, getRobotApiKey, resolveProviderContext } = await import(
       "@/lib/medicaidVerify.server"
     );
 
@@ -106,8 +106,10 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
       };
     }
 
+    const provider = await resolveProviderContext(supabaseAdmin as any, userId);
     return callVerifyRobot({
-      providerUserId: await resolveProviderUserId(supabaseAdmin as any, userId),
+      providerUserId: provider.providerUserId,
+      companyId: provider.companyId,
       expectedName: `${pax.first_name ?? ""} ${pax.last_name ?? ""}`.trim(),
       memberId: hasRealMedicaid ? medicaidRaw : null,
       ssn,
@@ -115,6 +117,7 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
       usedIdentifier,
       apiKey: await getRobotApiKey(supabaseAdmin as any),
     });
+
   });
 
 /**
@@ -142,12 +145,15 @@ export const verifyMedicaidIdAdHoc = createServerFn({ method: "POST" })
     if (!allowed) throw new Error("Not authorized to run verification");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { callVerifyRobot, getRobotApiKey, resolveProviderUserId } = await import(
+    const { callVerifyRobot, getRobotApiKey, resolveProviderContext } = await import(
       "@/lib/medicaidVerify.server"
     );
 
+    const provider = await resolveProviderContext(supabaseAdmin as any, userId);
     return callVerifyRobot({
-      providerUserId: await resolveProviderUserId(supabaseAdmin as any, userId),
+      providerUserId: provider.providerUserId,
+      companyId: provider.companyId,
+
       // Robot requires a non-empty expected_name; in lookup mode we ignore its
       // match verdict and report the portal name instead.
       expectedName: "LOOKUP ONLY",
