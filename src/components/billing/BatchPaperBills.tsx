@@ -42,7 +42,7 @@ type Item = {
   passenger_name: string;
   medicaid_id: string;
   trip_date: string;
-  /** null = not chosen yet. No default is ever assumed. */
+  /** Defaults to ambulatory; OCR overrides when the paper marks another type. */
   vehicle_type: "ambulatory" | "wheelchair_van" | null;
   l1p: string;
   l1d: string;
@@ -89,7 +89,6 @@ function isValid(i: Item) {
   if (!legs.length) return false;
   if (legs.some((l) => l.dropoff_odometer <= l.pickup_odometer)) return false;
   if (!i.trip_date) return false;
-  // Vehicle type must be actively chosen — never assumed.
   if (!i.vehicle_type) return false;
   if (!i.rider && !(i.passenger_name.trim() && i.medicaid_id.trim())) return false;
   return true;
@@ -134,7 +133,9 @@ export function BatchPaperBills() {
         passenger_name: "",
         medicaid_id: "",
         trip_date: new Date().toISOString().slice(0, 10),
-        vehicle_type: null,
+        // Ambulatory pre-selected (only type billed); OCR overrides when the
+        // paper clearly marks a different vehicle type.
+        vehicle_type: "ambulatory",
         l1p: "",
         l1d: "",
         l2p: "",
