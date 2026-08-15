@@ -66,7 +66,7 @@ export const verifyPassengerIdentity = createServerFn({ method: "POST" })
     if (!allowed) throw new Error("Not authorized to verify this passenger");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { callVerifyRobot, getRobotApiKey, resolveProviderUserId } = await import(
+    const { callVerifyRobot, getRobotApiKey, resolveProviderContext } = await import(
       "@/lib/medicaidVerify.server"
     );
 
@@ -145,7 +145,7 @@ export const verifyMedicaidIdAdHoc = createServerFn({ method: "POST" })
     if (!allowed) throw new Error("Not authorized to run verification");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { callVerifyRobot, getRobotApiKey, resolveProviderUserId } = await import(
+    const { callVerifyRobot, getRobotApiKey, resolveProviderContext } = await import(
       "@/lib/medicaidVerify.server"
     );
 
