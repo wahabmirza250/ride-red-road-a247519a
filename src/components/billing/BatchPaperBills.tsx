@@ -42,7 +42,8 @@ type Item = {
   passenger_name: string;
   medicaid_id: string;
   trip_date: string;
-  vehicle_type: "ambulatory" | "wheelchair_van";
+  /** null = not chosen yet. No default is ever assumed. */
+  vehicle_type: "ambulatory" | "wheelchair_van" | null;
   l1p: string;
   l1d: string;
   l2p: string;
@@ -88,6 +89,8 @@ function isValid(i: Item) {
   if (!legs.length) return false;
   if (legs.some((l) => l.dropoff_odometer <= l.pickup_odometer)) return false;
   if (!i.trip_date) return false;
+  // Vehicle type must be actively chosen — never assumed.
+  if (!i.vehicle_type) return false;
   if (!i.rider && !(i.passenger_name.trim() && i.medicaid_id.trim())) return false;
   return true;
 }
@@ -131,7 +134,7 @@ export function BatchPaperBills() {
         passenger_name: "",
         medicaid_id: "",
         trip_date: new Date().toISOString().slice(0, 10),
-        vehicle_type: "ambulatory",
+        vehicle_type: null,
         l1p: "",
         l1d: "",
         l2p: "",
@@ -242,7 +245,7 @@ export function BatchPaperBills() {
                 },
             driver_name: item.driver_name.trim() || null,
             trip_date: item.trip_date,
-            vehicle_type: item.vehicle_type,
+            vehicle_type: item.vehicle_type!,
             // Paper bills always carry a signed paper report → always Yes.
             identity_verified: true,
             legs: legsOf(item),
@@ -334,7 +337,7 @@ export function BatchPaperBills() {
           const groupTotal = list.reduce(
             (s, i) =>
               s +
-              calcClaim({ legs: legsOf(i), rates: rateRows, vehicleType: i.vehicle_type }).total,
+              calcClaim({ legs: legsOf(i), rates: rateRows, vehicleType: i.vehicle_type ?? "" }).total,
             0,
           );
           return (
@@ -393,7 +396,7 @@ function BatchRow({
   onRemove: () => void;
 }) {
   const calc = useMemo(
-    () => calcClaim({ legs: legsOf(item), rates, vehicleType: item.vehicle_type }),
+    () => calcClaim({ legs: legsOf(item), rates, vehicleType: item.vehicle_type ?? "" }),
     [item, rates],
   );
   const valid = isValid(item);
@@ -476,9 +479,12 @@ function BatchRow({
             <select
               aria-label={`Vehicle type for ${item.fileName}`}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={item.vehicle_type}
-              onChange={(e) => onPatch({ vehicle_type: e.target.value as Item["vehicle_type"] })}
+              value={item.vehicle_type ?? ""}
+              onChange={(e) =>
+                onPatch({ vehicle_type: (e.target.value || null) as Item["vehicle_type"] })
+              }
             >
+              <option value="">Select vehicle type…</option>
               <option value="ambulatory">Ambulatory</option>
               <option value="wheelchair_van">Wheelchair van</option>
             </select>
@@ -544,7 +550,8 @@ function BatchRow({
         ))}
         {calc.missing_rates.length > 0 && (
           <div className="text-xs text-destructive">
-            Missing {calc.missing_rates.join(" + ")} rate for {item.vehicle_type}.
+            Missing {calc.missing_rates.join(" + ")} rate for{" "}
+            {item.vehicle_type ?? "the selected vehicle type"}.
           </div>
         )}
         <div className="flex items-baseline justify-between border-t border-border pt-1 font-semibold">
