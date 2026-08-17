@@ -866,9 +866,19 @@ function NewNemtTripWizard() {
           <Field label="Escort name (optional)">
             <Input value={escortName} onChange={(e) => setEscortName(e.target.value)} />
           </Field>
+          {vehicleType && rateCheck && !rateCheck.ok && (
+            <div className="rounded-xl border border-red-500/40 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-300">
+              <div className="font-semibold">No billing rate for this vehicle type</div>
+              <div className="mt-1">
+                Missing {rateCheck.missing.join(" and ")} rate. Billing has to add it before this
+                trip can be completed — nothing will be submitted without a rate on file.
+              </div>
+            </div>
+          )}
           <div className="flex justify-end">
             <Button onClick={() => goNext("riders", vehicleIssue)}>Next</Button>
           </div>
+
         </TabsContent>
 
         {/* ---------- STEP 2 ---------- */}
