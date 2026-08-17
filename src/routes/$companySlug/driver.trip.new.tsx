@@ -975,6 +975,8 @@ function NewNemtTripWizard() {
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
+                <VerifyBadge entry={verify[s.rider.id]} />
+
                 <div className="mt-2 flex flex-wrap gap-3 text-xs">
                   <label className="flex items-center gap-1.5">
                     <Checkbox
