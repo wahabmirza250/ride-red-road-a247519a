@@ -544,7 +544,8 @@ function NewNemtTripWizard() {
 
   async function handleSubmit() {
     if (!user) return;
-    const issue = vehicleIssue || riderIssue || legsIssue || signatureIssue;
+    const issue =
+      vehicleIssue || riderIssue || legsIssue || signatureIssue || safetyIssue;
     if (issue) return toast.error(issue);
     setSubmitting(true);
     try {
