@@ -37,6 +37,11 @@ import {
 } from "@/lib/nemtTrip.functions";
 import { generateStateFormPdf } from "@/lib/medicaidPdf";
 import { getRiderIdentifierForPdf } from "@/lib/rider.functions";
+import {
+  checkVehicleRates,
+  verifyRiderIdentity,
+  type RiderVerifyResult,
+} from "@/lib/manualTripSafety.functions";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 
 
