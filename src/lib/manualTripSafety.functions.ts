@@ -24,16 +24,31 @@ export const checkVehicleRates = createServerFn({ method: "POST" })
     return { vehicle_type };
   })
   .handler(async ({ data, context }): Promise<RateCheck> => {
-    const { data: rows, error } = await (context.supabase as any)
+    // Drivers cannot read billing_rate_settings under RLS (billing/admin only),
+    // so this read-only rate lookup runs with the admin client, scoped to the
+    // caller's own company.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: profile } = await (context.supabase as any)
+      .from("profiles")
+      .select("company_id")
+      .eq("id", context.userId)
+      .maybeSingle();
+
+    let q = (supabaseAdmin as any)
       .from("billing_rate_settings")
       .select("unit_type")
       .eq("vehicle_type", data.vehicle_type);
+    if (profile?.company_id) q = q.eq("company_id", profile.company_id);
+
+    const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
 
     const have = new Set(((rows ?? []) as { unit_type: string }[]).map((r) => r.unit_type));
     const missing = (["trip", "mile"] as const).filter((u) => !have.has(u));
     return { ok: missing.length === 0, missing, vehicle_type: data.vehicle_type };
   });
+
 
 export type RiderVerifyResult = {
   status: "matched" | "mismatch" | "unavailable" | "skipped";
