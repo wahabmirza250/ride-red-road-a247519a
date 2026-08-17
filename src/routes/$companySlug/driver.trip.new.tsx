@@ -422,6 +422,74 @@ function NewNemtTripWizard() {
 
   // Submit
   const submitGroup = useServerFn(createNemtTripGroup);
+
+  // ---- Safety pre-flight (same rules as the paper-bill / billing pipeline) ----
+  const runRateCheck = useServerFn(checkVehicleRates);
+  const runRiderVerify = useServerFn(verifyRiderIdentity);
+  const [rateCheck, setRateCheck] = useState<{ ok: boolean; missing: string[] } | null>(null);
+  const [verify, setVerify] = useState<
+    Record<string, { state: "running" | "done"; result?: RiderVerifyResult }>
+  >({});
+
+  useEffect(() => {
+    if (!vehicleType) {
+      setRateCheck(null);
+      return;
+    }
+    let cancelled = false;
+    runRateCheck({ data: { vehicle_type: vehicleType } })
+      .then((r) => {
+        if (!cancelled) setRateCheck({ ok: r.ok, missing: r.missing });
+      })
+      .catch(() => {
+        if (!cancelled) setRateCheck({ ok: false, missing: ["trip", "mile"] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runRateCheck, vehicleType]);
+
+  const riderSlotIds = riderSlots.map((s) => s.rider.id).join(",");
+  useEffect(() => {
+    const ids = riderSlotIds ? riderSlotIds.split(",") : [];
+    for (const id of ids) {
+      if (verify[id]) continue;
+      setVerify((p) => ({ ...p, [id]: { state: "running" } }));
+      runRiderVerify({ data: { rider_id: id } })
+        .then((result) => setVerify((p) => ({ ...p, [id]: { state: "done", result } })))
+        .catch((e) =>
+          setVerify((p) => ({
+            ...p,
+            [id]: {
+              state: "done",
+              result: {
+                status: "unavailable",
+                message: e instanceof Error ? e.message : "Verification failed",
+                portal_name: null,
+              },
+            },
+          })),
+        );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [riderSlotIds]);
+
+  const safetyIssue = useMemo(() => {
+    if (vehicleType && rateCheck && !rateCheck.ok) {
+      return `No billing rate configured for this vehicle type (missing: ${rateCheck.missing.join(", ")}). Ask billing to add it before completing this trip.`;
+    }
+    for (const s of riderSlots) {
+      const v = verify[s.rider.id];
+      if (!v || v.state === "running") {
+        return `Still verifying ${s.rider.full_name}'s Medicaid ID against the portal — this takes a minute.`;
+      }
+      if (v.result?.status === "mismatch" || v.result?.status === "unavailable") {
+        return v.result.message;
+      }
+    }
+    return null;
+  }, [rateCheck, riderSlots, vehicleType, verify]);
+
   const attachSig = useServerFn(attachRiderSignature);
   const attachPdf = useServerFn(attachStatePdf);
   const [submitting, setSubmitting] = useState(false);
