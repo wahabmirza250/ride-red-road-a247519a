@@ -1172,7 +1172,34 @@ function NewNemtTripWizard() {
   );
 }
 
+function VerifyBadge({
+  entry,
+}: {
+  entry?: { state: "running" | "done"; result?: RiderVerifyResult };
+}) {
+  if (!entry || entry.state === "running") {
+    return (
+      <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1.5 text-[11px] text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" /> Verifying Medicaid ID against the state
+        portal…
+      </div>
+    );
+  }
+  const r = entry.result;
+  if (!r) return null;
+  const tone =
+    r.status === "matched"
+      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+      : r.status === "skipped"
+        ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+        : "bg-red-500/10 text-red-700 dark:text-red-300";
+  return (
+    <div className={`mt-2 rounded-lg px-2 py-1.5 text-[11px] ${tone}`}>{r.message}</div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+
   return (
     <div>
       <Label className="text-xs text-muted-foreground">{label}</Label>
