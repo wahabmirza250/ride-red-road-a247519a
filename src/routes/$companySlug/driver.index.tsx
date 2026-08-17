@@ -642,6 +642,22 @@ function DriverHome() {
         speedMph={online ? speedMph : null} onShift={online}
       />
 
+      {/* Manual trip entry — driver records and completes a trip themselves */}
+      <AppLink
+        to="/driver/trip/new"
+        className="flex items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-primary/10 p-4 shadow-soft"
+      >
+        <div>
+          <div className="text-sm font-semibold">New Trip</div>
+          <div className="text-xs text-muted-foreground">
+            Record a trip you did yourself — passenger, odometer, signature, PDF
+          </div>
+        </div>
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
+          <Plus className="h-5 w-5" />
+        </span>
+      </AppLink>
+
       <div className="grid grid-cols-3 gap-2">
         <AppLink to="/driver/expenses"
           className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface py-2 text-xs">
@@ -659,6 +675,7 @@ function DriverHome() {
 
       {/* Standalone read-only Medicaid check — available with or without a trip */}
       <VerifyMedicaidCard />
+
 
 
 

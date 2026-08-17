@@ -37,6 +37,11 @@ import {
 } from "@/lib/nemtTrip.functions";
 import { generateStateFormPdf } from "@/lib/medicaidPdf";
 import { getRiderIdentifierForPdf } from "@/lib/rider.functions";
+import {
+  checkVehicleRates,
+  verifyRiderIdentity,
+  type RiderVerifyResult,
+} from "@/lib/manualTripSafety.functions";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 
 
@@ -417,6 +422,74 @@ function NewNemtTripWizard() {
 
   // Submit
   const submitGroup = useServerFn(createNemtTripGroup);
+
+  // ---- Safety pre-flight (same rules as the paper-bill / billing pipeline) ----
+  const runRateCheck = useServerFn(checkVehicleRates);
+  const runRiderVerify = useServerFn(verifyRiderIdentity);
+  const [rateCheck, setRateCheck] = useState<{ ok: boolean; missing: string[] } | null>(null);
+  const [verify, setVerify] = useState<
+    Record<string, { state: "running" | "done"; result?: RiderVerifyResult }>
+  >({});
+
+  useEffect(() => {
+    if (!vehicleType) {
+      setRateCheck(null);
+      return;
+    }
+    let cancelled = false;
+    runRateCheck({ data: { vehicle_type: vehicleType } })
+      .then((r) => {
+        if (!cancelled) setRateCheck({ ok: r.ok, missing: r.missing });
+      })
+      .catch(() => {
+        if (!cancelled) setRateCheck({ ok: false, missing: ["trip", "mile"] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runRateCheck, vehicleType]);
+
+  const riderSlotIds = riderSlots.map((s) => s.rider.id).join(",");
+  useEffect(() => {
+    const ids = riderSlotIds ? riderSlotIds.split(",") : [];
+    for (const id of ids) {
+      if (verify[id]) continue;
+      setVerify((p) => ({ ...p, [id]: { state: "running" } }));
+      runRiderVerify({ data: { rider_id: id } })
+        .then((result) => setVerify((p) => ({ ...p, [id]: { state: "done", result } })))
+        .catch((e) =>
+          setVerify((p) => ({
+            ...p,
+            [id]: {
+              state: "done",
+              result: {
+                status: "unavailable",
+                message: e instanceof Error ? e.message : "Verification failed",
+                portal_name: null,
+              },
+            },
+          })),
+        );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [riderSlotIds]);
+
+  const safetyIssue = useMemo(() => {
+    if (vehicleType && rateCheck && !rateCheck.ok) {
+      return `No billing rate configured for this vehicle type (missing: ${rateCheck.missing.join(", ")}). Ask billing to add it before completing this trip.`;
+    }
+    for (const s of riderSlots) {
+      const v = verify[s.rider.id];
+      if (!v || v.state === "running") {
+        return `Still verifying ${s.rider.full_name}'s Medicaid ID against the portal — this takes a minute.`;
+      }
+      if (v.result?.status === "mismatch" || v.result?.status === "unavailable") {
+        return v.result.message;
+      }
+    }
+    return null;
+  }, [rateCheck, riderSlots, vehicleType, verify]);
+
   const attachSig = useServerFn(attachRiderSignature);
   const attachPdf = useServerFn(attachStatePdf);
   const [submitting, setSubmitting] = useState(false);
@@ -471,7 +544,8 @@ function NewNemtTripWizard() {
 
   async function handleSubmit() {
     if (!user) return;
-    const issue = vehicleIssue || riderIssue || legsIssue || signatureIssue;
+    const issue =
+      vehicleIssue || riderIssue || legsIssue || signatureIssue || safetyIssue;
     if (issue) return toast.error(issue);
     setSubmitting(true);
     try {
@@ -792,9 +866,19 @@ function NewNemtTripWizard() {
           <Field label="Escort name (optional)">
             <Input value={escortName} onChange={(e) => setEscortName(e.target.value)} />
           </Field>
+          {vehicleType && rateCheck && !rateCheck.ok && (
+            <div className="rounded-xl border border-red-500/40 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-300">
+              <div className="font-semibold">No billing rate for this vehicle type</div>
+              <div className="mt-1">
+                Missing {rateCheck.missing.join(" and ")} rate. Billing has to add it before this
+                trip can be completed — nothing will be submitted without a rate on file.
+              </div>
+            </div>
+          )}
           <div className="flex justify-end">
             <Button onClick={() => goNext("riders", vehicleIssue)}>Next</Button>
           </div>
+
         </TabsContent>
 
         {/* ---------- STEP 2 ---------- */}
@@ -891,6 +975,8 @@ function NewNemtTripWizard() {
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
+                <VerifyBadge entry={verify[s.rider.id]} />
+
                 <div className="mt-2 flex flex-wrap gap-3 text-xs">
                   <label className="flex items-center gap-1.5">
                     <Checkbox
@@ -1086,7 +1172,34 @@ function NewNemtTripWizard() {
   );
 }
 
+function VerifyBadge({
+  entry,
+}: {
+  entry?: { state: "running" | "done"; result?: RiderVerifyResult };
+}) {
+  if (!entry || entry.state === "running") {
+    return (
+      <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1.5 text-[11px] text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" /> Verifying Medicaid ID against the state
+        portal…
+      </div>
+    );
+  }
+  const r = entry.result;
+  if (!r) return null;
+  const tone =
+    r.status === "matched"
+      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+      : r.status === "skipped"
+        ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+        : "bg-red-500/10 text-red-700 dark:text-red-300";
+  return (
+    <div className={`mt-2 rounded-lg px-2 py-1.5 text-[11px] ${tone}`}>{r.message}</div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+
   return (
     <div>
       <Label className="text-xs text-muted-foreground">{label}</Label>
