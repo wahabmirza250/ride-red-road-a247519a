@@ -7,6 +7,7 @@ import { Loader2, Car, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import { signInAsRole } from "@/lib/roleGuardedSignIn";
+import { resolveOwnCompanySlug, NO_COMPANY_MESSAGE } from "@/lib/ownCompanyRedirect";
 
 /**
  * Driver sign in. Rendered both at the company-scoped URL
@@ -21,8 +22,14 @@ export function DriverSignInScreen({ companySlug }: { companySlug?: string }) {
 
   useEffect(() => {
     if (loading || !user || submitting) return;
-    if (isDriver) window.location.replace(companySlug ? `/${companySlug}/driver` : "/driver");
-  }, [loading, user, isDriver, companySlug, submitting]);
+    // Route only by the account's OWN company — never by the URL slug.
+    if (isDriver) {
+      resolveOwnCompanySlug().then((slug) => {
+        if (slug) window.location.replace(`/${slug}/driver`);
+        else setErrorMsg(NO_COMPANY_MESSAGE);
+      });
+    }
+  }, [loading, user, isDriver, submitting]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,8 +38,8 @@ export function DriverSignInScreen({ companySlug }: { companySlug?: string }) {
     try {
       const result = await signInAsRole(email, password, "driver");
       toast.success("Welcome");
-      const slug = result.companySlug ?? companySlug ?? null;
-      window.location.replace(slug ? `/${slug}/driver` : "/driver");
+      if (!result.companySlug) throw new Error(NO_COMPANY_MESSAGE);
+      window.location.replace(`/${result.companySlug}/driver`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
       setErrorMsg(msg);

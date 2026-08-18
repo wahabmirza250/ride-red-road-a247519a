@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrandWordmark } from "@/components/Brand";
 import { signInAsRole } from "@/lib/roleGuardedSignIn";
+import { resolveOwnCompanySlug, NO_COMPANY_MESSAGE } from "@/lib/ownCompanyRedirect";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,8 +37,15 @@ export function AdminSignInScreen({ companySlug }: { companySlug?: string }) {
       window.location.replace("/owner");
       return;
     }
-    if (isAdmin) window.location.replace(companySlug ? `/${companySlug}/dashboard` : "/dashboard");
-  }, [loading, user, isAdmin, isOwner, submitting, companySlug]);
+    // NEVER route from the URL slug: an account signed in on another
+    // company's /login must land on its OWN company dashboard.
+    if (isAdmin) {
+      resolveOwnCompanySlug().then((slug) => {
+        if (slug) window.location.replace(`/${slug}/dashboard`);
+        else setErrorMsg(NO_COMPANY_MESSAGE);
+      });
+    }
+  }, [loading, user, isAdmin, isOwner, submitting]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -50,8 +58,8 @@ export function AdminSignInScreen({ companySlug }: { companySlug?: string }) {
         return;
       }
       toast.success("Signed in");
-      const slug = result.companySlug ?? companySlug ?? null;
-      window.location.replace(slug ? `/${slug}/dashboard` : "/dashboard");
+      if (!result.companySlug) throw new Error(NO_COMPANY_MESSAGE);
+      window.location.replace(`/${result.companySlug}/dashboard`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
       window.sessionStorage.setItem(BLOCK_KEY, msg);
