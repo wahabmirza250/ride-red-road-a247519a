@@ -928,6 +928,7 @@ export type Database = {
           status: Database["public"]["Enums"]["driver_status"]
           total_ratings: number
           total_trips: number
+          unit_number: string | null
           updated_at: string
           user_id: string
           vehicle_color: string | null
@@ -935,6 +936,7 @@ export type Database = {
           vehicle_model: string | null
           vehicle_photo_path: string | null
           vehicle_plate: string | null
+          vehicle_vin: string | null
           vehicle_year: number | null
         }
         Insert: {
@@ -955,6 +957,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["driver_status"]
           total_ratings?: number
           total_trips?: number
+          unit_number?: string | null
           updated_at?: string
           user_id: string
           vehicle_color?: string | null
@@ -962,6 +965,7 @@ export type Database = {
           vehicle_model?: string | null
           vehicle_photo_path?: string | null
           vehicle_plate?: string | null
+          vehicle_vin?: string | null
           vehicle_year?: number | null
         }
         Update: {
@@ -982,6 +986,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["driver_status"]
           total_ratings?: number
           total_trips?: number
+          unit_number?: string | null
           updated_at?: string
           user_id?: string
           vehicle_color?: string | null
@@ -989,6 +994,7 @@ export type Database = {
           vehicle_model?: string | null
           vehicle_photo_path?: string | null
           vehicle_plate?: string | null
+          vehicle_vin?: string | null
           vehicle_year?: number | null
         }
         Relationships: [
@@ -2339,6 +2345,79 @@ export type Database = {
           },
         ]
       }
+      staff_conversations: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          id: string
+          last_message_at: string | null
+          member_a: string
+          member_b: string
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          member_a: string
+          member_b: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          member_a?: string
+          member_b?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_conversations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_messages: {
+        Row: {
+          body: string
+          conversation_id: string
+          created_at: string
+          id: string
+          read_at: string | null
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       state_portal_credentials: {
         Row: {
           company_id: string | null
@@ -2829,6 +2908,10 @@ export type Database = {
         Returns: boolean
       }
       is_platform_owner: { Args: never; Returns: boolean }
+      is_staff_conversation_member: {
+        Args: { _conversation_id: string }
+        Returns: boolean
+      }
       owner_unscoped: { Args: never; Returns: boolean }
       requests_on_route: {
         Args: { _ids: string[] }
