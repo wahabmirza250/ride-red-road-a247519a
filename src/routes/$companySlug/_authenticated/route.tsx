@@ -22,7 +22,6 @@ import {
   Shield,
   Sparkles,
   Banknote,
-  Percent,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
@@ -58,8 +57,7 @@ const ADMIN_NAV_GROUPS = [
   ],
   [
     { to: "/drivers", label: "Drivers", icon: Users },
-    { to: "/payroll", label: "Payroll", icon: Banknote },
-    { to: "/driver-pay", label: "Driver Pay", icon: Percent },
+    { to: "/salary", label: "Salary", icon: Banknote },
     { to: "/passengers", label: "Passengers", icon: UserRound },
   ],
   [

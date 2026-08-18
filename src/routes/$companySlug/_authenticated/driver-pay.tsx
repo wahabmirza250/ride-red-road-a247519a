@@ -55,7 +55,7 @@ function defaultRange() {
   return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
 }
 
-function DriverPayPage() {
+export function DriverPayPage() {
   const qc = useQueryClient();
   const driversFn = useServerFn(listPayoutDrivers);
   const pctFn = useServerFn(setDriverPayoutPercentage);

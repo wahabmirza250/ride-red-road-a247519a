@@ -62,6 +62,7 @@ import { Route as CompanySlugBillingBatchRouteImport } from './routes/$companySl
 import { Route as CompanySlugAuthenticatedTripsRouteImport } from './routes/$companySlug/_authenticated/trips'
 import { Route as CompanySlugAuthenticatedTeamRouteImport } from './routes/$companySlug/_authenticated/team'
 import { Route as CompanySlugAuthenticatedSchedulesRouteImport } from './routes/$companySlug/_authenticated/schedules'
+import { Route as CompanySlugAuthenticatedSalaryRouteImport } from './routes/$companySlug/_authenticated/salary'
 import { Route as CompanySlugAuthenticatedRewardsSettingsRouteImport } from './routes/$companySlug/_authenticated/rewards-settings'
 import { Route as CompanySlugAuthenticatedReportsRouteImport } from './routes/$companySlug/_authenticated/reports'
 import { Route as CompanySlugAuthenticatedPlannerRouteImport } from './routes/$companySlug/_authenticated/planner'
@@ -381,6 +382,12 @@ const CompanySlugAuthenticatedSchedulesRoute =
     path: '/schedules',
     getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
   } as any)
+const CompanySlugAuthenticatedSalaryRoute =
+  CompanySlugAuthenticatedSalaryRouteImport.update({
+    id: '/salary',
+    path: '/salary',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
 const CompanySlugAuthenticatedRewardsSettingsRoute =
   CompanySlugAuthenticatedRewardsSettingsRouteImport.update({
     id: '/rewards-settings',
@@ -572,6 +579,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/planner': typeof CompanySlugAuthenticatedPlannerRoute
   '/$companySlug/reports': typeof CompanySlugAuthenticatedReportsRoute
   '/$companySlug/rewards-settings': typeof CompanySlugAuthenticatedRewardsSettingsRoute
+  '/$companySlug/salary': typeof CompanySlugAuthenticatedSalaryRoute
   '/$companySlug/schedules': typeof CompanySlugAuthenticatedSchedulesRoute
   '/$companySlug/team': typeof CompanySlugAuthenticatedTeamRoute
   '/$companySlug/trips': typeof CompanySlugAuthenticatedTripsRoute
@@ -647,6 +655,7 @@ export interface FileRoutesByTo {
   '/$companySlug/planner': typeof CompanySlugAuthenticatedPlannerRoute
   '/$companySlug/reports': typeof CompanySlugAuthenticatedReportsRoute
   '/$companySlug/rewards-settings': typeof CompanySlugAuthenticatedRewardsSettingsRoute
+  '/$companySlug/salary': typeof CompanySlugAuthenticatedSalaryRoute
   '/$companySlug/schedules': typeof CompanySlugAuthenticatedSchedulesRoute
   '/$companySlug/team': typeof CompanySlugAuthenticatedTeamRoute
   '/$companySlug/trips': typeof CompanySlugAuthenticatedTripsRoute
@@ -728,6 +737,7 @@ export interface FileRoutesById {
   '/$companySlug/_authenticated/planner': typeof CompanySlugAuthenticatedPlannerRoute
   '/$companySlug/_authenticated/reports': typeof CompanySlugAuthenticatedReportsRoute
   '/$companySlug/_authenticated/rewards-settings': typeof CompanySlugAuthenticatedRewardsSettingsRoute
+  '/$companySlug/_authenticated/salary': typeof CompanySlugAuthenticatedSalaryRoute
   '/$companySlug/_authenticated/schedules': typeof CompanySlugAuthenticatedSchedulesRoute
   '/$companySlug/_authenticated/team': typeof CompanySlugAuthenticatedTeamRoute
   '/$companySlug/_authenticated/trips': typeof CompanySlugAuthenticatedTripsRoute
@@ -810,6 +820,7 @@ export interface FileRouteTypes {
     | '/$companySlug/planner'
     | '/$companySlug/reports'
     | '/$companySlug/rewards-settings'
+    | '/$companySlug/salary'
     | '/$companySlug/schedules'
     | '/$companySlug/team'
     | '/$companySlug/trips'
@@ -885,6 +896,7 @@ export interface FileRouteTypes {
     | '/$companySlug/planner'
     | '/$companySlug/reports'
     | '/$companySlug/rewards-settings'
+    | '/$companySlug/salary'
     | '/$companySlug/schedules'
     | '/$companySlug/team'
     | '/$companySlug/trips'
@@ -965,6 +977,7 @@ export interface FileRouteTypes {
     | '/$companySlug/_authenticated/planner'
     | '/$companySlug/_authenticated/reports'
     | '/$companySlug/_authenticated/rewards-settings'
+    | '/$companySlug/_authenticated/salary'
     | '/$companySlug/_authenticated/schedules'
     | '/$companySlug/_authenticated/team'
     | '/$companySlug/_authenticated/trips'
@@ -1403,6 +1416,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugAuthenticatedSchedulesRouteImport
       parentRoute: typeof CompanySlugAuthenticatedRouteRoute
     }
+    '/$companySlug/_authenticated/salary': {
+      id: '/$companySlug/_authenticated/salary'
+      path: '/salary'
+      fullPath: '/$companySlug/salary'
+      preLoaderRoute: typeof CompanySlugAuthenticatedSalaryRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
     '/$companySlug/_authenticated/rewards-settings': {
       id: '/$companySlug/_authenticated/rewards-settings'
       path: '/rewards-settings'
@@ -1620,6 +1640,7 @@ interface CompanySlugAuthenticatedRouteRouteChildren {
   CompanySlugAuthenticatedPlannerRoute: typeof CompanySlugAuthenticatedPlannerRoute
   CompanySlugAuthenticatedReportsRoute: typeof CompanySlugAuthenticatedReportsRoute
   CompanySlugAuthenticatedRewardsSettingsRoute: typeof CompanySlugAuthenticatedRewardsSettingsRoute
+  CompanySlugAuthenticatedSalaryRoute: typeof CompanySlugAuthenticatedSalaryRoute
   CompanySlugAuthenticatedSchedulesRoute: typeof CompanySlugAuthenticatedSchedulesRoute
   CompanySlugAuthenticatedTeamRoute: typeof CompanySlugAuthenticatedTeamRoute
   CompanySlugAuthenticatedTripsRoute: typeof CompanySlugAuthenticatedTripsRoute
@@ -1655,6 +1676,7 @@ const CompanySlugAuthenticatedRouteRouteChildren: CompanySlugAuthenticatedRouteR
     CompanySlugAuthenticatedReportsRoute: CompanySlugAuthenticatedReportsRoute,
     CompanySlugAuthenticatedRewardsSettingsRoute:
       CompanySlugAuthenticatedRewardsSettingsRoute,
+    CompanySlugAuthenticatedSalaryRoute: CompanySlugAuthenticatedSalaryRoute,
     CompanySlugAuthenticatedSchedulesRoute:
       CompanySlugAuthenticatedSchedulesRoute,
     CompanySlugAuthenticatedTeamRoute: CompanySlugAuthenticatedTeamRoute,
