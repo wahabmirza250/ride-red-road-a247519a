@@ -86,7 +86,7 @@ function AdminBillingPage() {
       </Tabs>
 
       {tab === "overview" && <BillingOverview />}
-      {tab === "workflow" && <BillingWorkspace />}
+      {tab === "workflow" && <BillingWorkspace embedded />}
       {tab === "paper" && <PaperBillChat />}
       {tab === "batch" && <BatchPaperBills />}
     </div>
