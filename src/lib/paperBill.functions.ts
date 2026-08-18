@@ -177,6 +177,31 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
     }
 
 
+    // 1b. Keep the unified Passenger database in sync. A member billed from
+    //     paper must also exist in `passengers`, which is what the admin
+    //     Passenger list, dispatch and booking all read.
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { syncPassengerFromPaperBill } = await import("@/lib/paperBillPassenger.server");
+      const { data: riderRow } = await supabase
+        .from("riders")
+        .select("full_name, medicaid_id, dob, phone")
+        .eq("id", riderId!)
+        .maybeSingle();
+      if (riderRow) {
+        await syncPassengerFromPaperBill({
+          supabaseAdmin: supabaseAdmin as any,
+          companyId,
+          fullName: riderRow.full_name,
+          medicaidId: riderRow.medicaid_id,
+          dob: riderRow.dob,
+          phone: riderRow.phone,
+        });
+      }
+    } catch {
+      /* passenger sync is best-effort — never block a valid bill */
+    }
+
     // 2. Odometers → miles → trip kind (purely from what was entered)
     const legs = data.legs.filter(
       (l) => Number.isFinite(l.pickup_odometer) && Number.isFinite(l.dropoff_odometer),
