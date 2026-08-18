@@ -20,8 +20,9 @@ const LABEL: Record<AppRole, string> = {
 export async function signInAsRole(
   email: string,
   password: string,
-  requiredRole: AppRole,
+  requiredRole: AppRole | AppRole[],
 ): Promise<{ companySlug: string | null; isOwner: boolean }> {
+  const allowed: AppRole[] = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
   const { data, error } = await supabase.auth.signInWithPassword({
     email: email.trim().toLowerCase(),
     password,
@@ -41,10 +42,10 @@ export async function signInAsRole(
   }
 
   const roles = (roleRows ?? []).map((r) => r.role as AppRole);
-  if (!roles.includes(requiredRole)) {
+  if (!allowed.some((r) => roles.includes(r))) {
     await supabase.auth.signOut();
     throw new Error(
-      `This account is not registered as ${LABEL[requiredRole]}. Please use the correct sign-in page.`,
+      `This account is not registered as ${LABEL[allowed[0]]}. Please use the correct sign-in page.`,
     );
   }
 
