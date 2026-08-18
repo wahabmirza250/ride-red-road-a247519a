@@ -6,7 +6,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getDriverPay, setDriverHourlyRate, getDriverEarnings } from "@/lib/driverPay.functions";
+import {
+  getDriverPay,
+  setDriverHourlyRate,
+  setDriverPayType,
+  getDriverEarnings,
+} from "@/lib/driverPay.functions";
+import { resetDriverPassword } from "@/lib/admin.functions";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 
 function isoDaysAgo(n: number) {
@@ -22,6 +28,9 @@ export function DriverPayPanel({ driverId }: { driverId: string }) {
   const payFn = useServerFn(getDriverPay);
   const saveFn = useServerFn(setDriverHourlyRate);
   const earnFn = useServerFn(getDriverEarnings);
+  const payTypeFn = useServerFn(setDriverPayType);
+  const resetFn = useServerFn(resetDriverPassword);
+  const [newPassword, setNewPassword] = useState("");
   const [days, setDays] = useState(14);
   const [rate, setRate] = useState<string | null>(null);
 
@@ -51,6 +60,28 @@ export function DriverPayPanel({ driverId }: { driverId: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const savePayType = useMutation({
+    mutationFn: (pay_type: "per_hour" | "commission") =>
+      payTypeFn({ data: { driver_id: driverId, pay_type } }),
+    onSuccess: () => {
+      toast.success("Pay type updated");
+      qc.invalidateQueries({ queryKey: ["driver-pay", driverId] });
+      qc.invalidateQueries({ queryKey: ["payroll-period"] });
+      qc.invalidateQueries({ queryKey: ["payout-drivers"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resetPassword = useMutation({
+    mutationFn: () => resetFn({ data: { driver_id: driverId, password: newPassword } }),
+    onSuccess: () => {
+      toast.success("Password reset — share the new password with the driver");
+      setNewPassword("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const payType = pay.data?.pay_type ?? "per_hour";
   const currentRate = pay.data?.hourly_rate ?? null;
   const value = rate ?? (currentRate == null ? "" : String(currentRate));
   const e = earnings.data;
@@ -59,6 +90,35 @@ export function DriverPayPanel({ driverId }: { driverId: string }) {
     <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
       <div className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
         <DollarSign className="h-3.5 w-3.5" /> Pay &amp; earnings — admin only
+      </div>
+
+      <div className="mb-4 space-y-1.5">
+        <Label>Pay type</Label>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              { key: "per_hour", label: "Hourly" },
+              { key: "commission", label: "% of paid claims" },
+            ] as const
+          ).map((o) => (
+            <button
+              key={o.key}
+              type="button"
+              disabled={savePayType.isPending}
+              onClick={() => savePayType.mutate(o.key)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                payType === o.key
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Determines which Salary calculator this driver appears in.
+        </p>
       </div>
 
       <div className="flex items-end gap-2">
@@ -157,6 +217,30 @@ export function DriverPayPanel({ driverId }: { driverId: string }) {
           )}
         </>
       )}
+
+      <div className="mt-5 space-y-1.5 border-t border-border pt-4">
+        <Label>Reset password</Label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="text"
+            className="w-56"
+            placeholder="New password (min 6 chars)"
+            value={newPassword}
+            onChange={(ev) => setNewPassword(ev.target.value)}
+          />
+          <Button
+            variant="outline"
+            disabled={resetPassword.isPending || newPassword.length < 6}
+            onClick={() => resetPassword.mutate()}
+          >
+            {resetPassword.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Reset password
+          </Button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Sets the driver&apos;s sign-in password immediately. Share it with them directly.
+        </p>
+      </div>
     </div>
   );
 }
