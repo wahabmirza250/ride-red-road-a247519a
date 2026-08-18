@@ -254,11 +254,13 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
   }
 
   return (
-    <div className="surface-red space-y-6">
-      <PageHeader
-        title="Medicaid Billing"
-        description="Review driver-submitted trips, batch-send them to the automation robot, then confirm the state's receipt number after human portal submission."
-      />
+    <div className={embedded ? "space-y-4" : "surface-red space-y-6"}>
+      {!embedded && (
+        <PageHeader
+          title="Medicaid Billing"
+          description="Review driver-submitted trips, batch-send them to the automation robot, then confirm the state's receipt number after human portal submission."
+        />
+      )}
 
       {!defaultPortal && (
         <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
@@ -273,13 +275,14 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         </div>
       )}
 
-      {defaultPortal && (
+      {defaultPortal && !embedded && (
         <div className="text-xs text-muted-foreground">
           Billing through <strong>{defaultPortal.name}</strong> · {defaultPortal.state}
         </div>
       )}
 
-      {isAdmin && <BillingRatesCard />}
+      {isAdmin && !embedded && <BillingRatesCard />}
+
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap sm:flex-wrap">
