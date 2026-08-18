@@ -281,6 +281,36 @@ function NewAdminDialog({ onClose }: { onClose: () => void }) {
           <Label>Phone</Label>
           <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Access level</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                { value: "billing", title: "Biller", desc: "Sees only the bills they created" },
+                {
+                  value: "admin_biller",
+                  title: "Admin Biller",
+                  desc: "Sees every bill in the company",
+                },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setForm({ ...form, role: opt.value })}
+                className={
+                  "rounded-xl border p-3 text-left text-xs transition " +
+                  (form.role === opt.value
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:bg-accent")
+                }
+              >
+                <div className="text-sm font-medium">{opt.title}</div>
+                <div className="text-muted-foreground">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       <DialogFooter>
         <Button variant="ghost" onClick={onClose}>
@@ -404,6 +434,7 @@ function NewDispatcherDialog({ onClose }: { onClose: () => void }) {
     first_name: "",
     last_name: "",
     phone: "",
+    role: "billing" as "billing" | "admin_biller",
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -464,6 +495,36 @@ function NewDispatcherDialog({ onClose }: { onClose: () => void }) {
         <div className="space-y-1.5 sm:col-span-2">
           <Label>Phone</Label>
           <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Access level</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                { value: "billing", title: "Biller", desc: "Sees only the bills they created" },
+                {
+                  value: "admin_biller",
+                  title: "Admin Biller",
+                  desc: "Sees every bill in the company",
+                },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setForm({ ...form, role: opt.value })}
+                className={
+                  "rounded-xl border p-3 text-left text-xs transition " +
+                  (form.role === opt.value
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:bg-accent")
+                }
+              >
+                <div className="text-sm font-medium">{opt.title}</div>
+                <div className="text-muted-foreground">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <DialogFooter>
@@ -547,9 +608,15 @@ function BillingStaffCard() {
                 <div className="truncate text-xs text-muted-foreground">{d.email}</div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-600">
+                <span
+                  className={
+                    (d as { role?: string }).role === "admin_biller"
+                      ? "rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary"
+                      : "rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-600"
+                  }
+                >
                   <ReceiptText className="mr-1 inline h-3 w-3" />
-                  Billing
+                  {(d as { role?: string }).role === "admin_biller" ? "Admin Biller" : "Billing"}
                 </span>
                 <Button
                   size="icon"
@@ -589,6 +656,7 @@ function NewBillingUserDialog({ onClose }: { onClose: () => void }) {
     first_name: "",
     last_name: "",
     phone: "",
+    role: "billing" as "billing" | "admin_biller",
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -600,7 +668,11 @@ function NewBillingUserDialog({ onClose }: { onClose: () => void }) {
     setSubmitting(true);
     try {
       await create({ data: form });
-      toast.success("Billing user created — they sign in at /billing/signin");
+      toast.success(
+        form.role === "admin_biller"
+          ? "Admin biller created — they sign in at /billing/signin and see all bills"
+          : "Billing user created — they sign in at /billing/signin",
+      );
       qc.invalidateQueries({ queryKey: ["billing_users"] });
       onClose();
     } catch (e) {
@@ -649,6 +721,36 @@ function NewBillingUserDialog({ onClose }: { onClose: () => void }) {
         <div className="space-y-1.5 sm:col-span-2">
           <Label>Phone</Label>
           <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Access level</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                { value: "billing", title: "Biller", desc: "Sees only the bills they created" },
+                {
+                  value: "admin_biller",
+                  title: "Admin Biller",
+                  desc: "Sees every bill in the company",
+                },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setForm({ ...form, role: opt.value })}
+                className={
+                  "rounded-xl border p-3 text-left text-xs transition " +
+                  (form.role === opt.value
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:bg-accent")
+                }
+              >
+                <div className="text-sm font-medium">{opt.title}</div>
+                <div className="text-muted-foreground">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <DialogFooter>
