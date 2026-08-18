@@ -1362,6 +1362,7 @@ export type Database = {
           arrived_pickup_at: string | null
           company_id: string | null
           created_at: string
+          created_by: string | null
           dispatch_trip_id: string | null
           driver_id: string
           dropoff_address: string
@@ -1421,6 +1422,7 @@ export type Database = {
           arrived_pickup_at?: string | null
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           dispatch_trip_id?: string | null
           driver_id: string
           dropoff_address: string
@@ -1480,6 +1482,7 @@ export type Database = {
           arrived_pickup_at?: string | null
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           dispatch_trip_id?: string | null
           driver_id?: string
           dropoff_address?: string
@@ -2795,6 +2798,7 @@ export type Database = {
       }
       current_user_is_billing: { Args: never; Returns: boolean }
       current_user_is_dispatch: { Args: never; Returns: boolean }
+      current_user_sees_all_bills: { Args: never; Returns: boolean }
       driver_can_see_passenger: {
         Args: { _passenger_id: string }
         Returns: boolean
@@ -2864,6 +2868,7 @@ export type Database = {
         | "dispatch"
         | "platform_owner"
         | "billing"
+        | "admin_biller"
       billing_status: "pending" | "submitted" | "paid" | "rejected"
       driver_pay_type: "per_hour" | "commission"
       driver_status: "available" | "busy" | "offline"
@@ -3032,6 +3037,7 @@ export const Constants = {
         "dispatch",
         "platform_owner",
         "billing",
+        "admin_biller",
       ],
       billing_status: ["pending", "submitted", "paid", "rejected"],
       driver_pay_type: ["per_hour", "commission"],

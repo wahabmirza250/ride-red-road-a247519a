@@ -204,6 +204,21 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
     // the leg's pickup_time stays null so the blank is visible.
     const pickupAt = mountainIso(data.trip_date, legs[0].pickup_time ?? null);
 
+    // Snap the paper driver name onto the real driver profile spelling so
+    // Driver Pay (which links paper claims by normalized name) matches even
+    // when the handwriting/OCR was slightly off. No confident match => keep
+    // exactly what was typed/read.
+    let paperDriverName = data.driver_name?.trim() || null;
+    if (paperDriverName) {
+      try {
+        const { resolveDriverName } = await import("@/lib/driverNameMatch.server");
+        const m = await resolveDriverName(supabase, companyId, paperDriverName);
+        paperDriverName = m.resolved_name ?? paperDriverName;
+      } catch {
+        /* keep the raw name */
+      }
+    }
+
     const pickupAddress = data.pickup_address?.trim() || "See attached paper trip report";
     const dropoffAddress = data.dropoff_address?.trim() || "See attached paper trip report";
 
@@ -212,6 +227,9 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
       .from("medicaid_trips")
       .insert({
         driver_id: userId,
+        // Authorship for billing visibility: a plain biller only ever sees the
+        // bills they created themselves.
+        created_by: userId,
         rider_id: riderId,
         company_id: companyId,
         pickup_at: pickupAt,
@@ -222,7 +240,7 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
         miles: calc.miles,
         trip_kind: calc.trip_kind,
         vehicle_type: data.vehicle_type,
-        paper_driver_name: data.driver_name?.trim() || null,
+        paper_driver_name: paperDriverName,
         identity_verified: data.identity_verified,
 
         // Paper bills are already human-reviewed in the chat flow, so they go
@@ -491,9 +509,33 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
       if (match) rider = match as { id: string; full_name: string; medicaid_id: string };
     }
 
+    // Driver name: OCR inherits handwriting misspellings, so snap it to the
+    // closest real driver profile in this company when we are confident.
+    const rawDriverName = node("driver_name");
+    let driverName = rawDriverName;
+    let driverMatch: { matched: boolean; score: number; raw: string | null } = {
+      matched: false,
+      score: 0,
+      raw: rawDriverName,
+    };
+    if (rawDriverName) {
+      try {
+        const { requireCompanyId } = await import("@/lib/company.server");
+        const { resolveDriverName } = await import("@/lib/driverNameMatch.server");
+        const companyId = await requireCompanyId(context.userId);
+        const m = await resolveDriverName(context.supabase, companyId, rawDriverName);
+        driverName = m.resolved_name ?? rawDriverName;
+        driverMatch = { matched: !!m.canonical_name, score: m.score, raw: rawDriverName };
+      } catch {
+        // Matching is a convenience — never block an OCR read on it.
+      }
+    }
+
     return {
       name: node("name"),
-      driver_name: node("driver_name"),
+      driver_name: driverName,
+      /** How the driver name was resolved (for UI hinting). */
+      driver_name_match: driverMatch,
       medicaid_id: medicaidId,
       /** True when the ID needs a careful human double-check before use. */
       medicaid_id_uncertain,

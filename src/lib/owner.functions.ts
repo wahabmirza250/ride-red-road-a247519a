@@ -687,8 +687,8 @@ export const stopViewAsCompany = createServerFn({ method: "POST" })
  * ANY company. Roles stay in `user_roles`; tenancy stays on `profiles`.
  * ------------------------------------------------------------------ */
 
-export type StaffRole = "admin" | "dispatch" | "billing" | "driver";
-const STAFF_ROLES: StaffRole[] = ["admin", "dispatch", "billing", "driver"];
+export type StaffRole = "admin" | "dispatch" | "billing" | "admin_biller" | "driver";
+const STAFF_ROLES: StaffRole[] = ["admin", "dispatch", "billing", "admin_biller", "driver"];
 
 export type CompanyStaff = {
   id: string;
@@ -779,6 +779,7 @@ export const createCompanyStaff = createServerFn({ method: "POST" })
       driver: "max_drivers",
       dispatch: "max_dispatchers",
       billing: "max_billers",
+      admin_biller: "max_billers",
       admin: "max_admins",
     }[data.role] as "max_drivers" | "max_dispatchers" | "max_billers" | "max_admins";
     const cap = (company as unknown as Record<string, number | null>)[capField];

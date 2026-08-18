@@ -33,7 +33,7 @@ export function BillingSignInScreen({ companySlug }: { companySlug?: string }) {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const result = await signInAsRole(email, password, "billing");
+      const result = await signInAsRole(email, password, ["billing", "admin_biller"]);
       toast.success("Welcome");
       if (!result.companySlug) throw new Error(NO_COMPANY_MESSAGE);
       window.location.replace(`/${result.companySlug}/billing`);

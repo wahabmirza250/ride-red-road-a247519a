@@ -225,6 +225,7 @@ export function PaperBillChat() {
         rider: Rider | null;
         trip_date: string | null;
         vehicle_type: "ambulatory" | "wheelchair_van" | null;
+        driver_name_match?: { matched: boolean; score: number; raw: string | null };
       } & Record<OdoField, string | null> &
         Partial<Record<"l1pt" | "l1dt" | "l2pt" | "l2dt", string | null>>;
 
@@ -242,6 +243,17 @@ export function PaperBillChat() {
       });
       if (res?.trip_date) nextDraft.trip_date = res.trip_date;
       if (res?.driver_name) nextDraft.driver_name = res.driver_name;
+      // The server snapped a slightly misspelled handwritten name onto a real
+      // driver profile — tell the biller so the correction is never silent.
+      if (
+        res?.driver_name_match?.matched &&
+        res.driver_name_match.raw &&
+        res.driver_name_match.raw.trim() !== (res.driver_name ?? "").trim()
+      ) {
+        toast.success(
+          `Driver "${res.driver_name_match.raw}" matched to profile "${res.driver_name}"`,
+        );
+      }
       if (res?.vehicle_type) nextDraft.vehicle_type = res.vehicle_type;
 
       if (res?.rider) {

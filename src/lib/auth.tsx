@@ -2,7 +2,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseBrowser";
 
-export type AppRole = "admin" | "driver" | "passenger" | "dispatch" | "billing" | "platform_owner";
+export type AppRole =
+  | "admin"
+  | "driver"
+  | "passenger"
+  | "dispatch"
+  | "billing"
+  | "admin_biller"
+  | "platform_owner";
 
 export type AuthState = {
   user: User | null;
@@ -14,7 +21,10 @@ export type AuthState = {
   isDriver: boolean;
   isPassenger: boolean;
   isDispatch: boolean;
+  /** Any billing workspace access (plain biller or admin biller). */
   isBilling: boolean;
+  /** Elevated biller — sees every bill in the company, not just their own. */
+  isAdminBiller: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -91,7 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isDriver: roles.includes("driver"),
       isPassenger: roles.includes("passenger"),
       isDispatch: roles.includes("dispatch"),
-      isBilling: roles.includes("billing"),
+      isBilling: roles.includes("billing") || roles.includes("admin_biller"),
+      isAdminBiller: roles.includes("admin_biller"),
       refresh,
       signOut: async () => {
         await supabase.auth.signOut();
