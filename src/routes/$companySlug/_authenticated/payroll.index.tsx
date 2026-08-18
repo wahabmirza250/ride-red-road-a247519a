@@ -50,7 +50,7 @@ function defaultPeriod() {
 const startOfDay = (d: string) => new Date(`${d}T00:00:00`).toISOString();
 const endOfDay = (d: string) => new Date(`${d}T23:59:59.999`).toISOString();
 
-function PayrollPage() {
+export function PayrollPage() {
   const qc = useQueryClient();
   const [range, setRange] = useState(defaultPeriod);
   const [paying, setPaying] = useState<PayrollRow | null>(null);
