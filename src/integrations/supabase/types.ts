@@ -2864,6 +2864,7 @@ export type Database = {
         | "dispatch"
         | "platform_owner"
         | "billing"
+        | "admin_biller"
       billing_status: "pending" | "submitted" | "paid" | "rejected"
       driver_pay_type: "per_hour" | "commission"
       driver_status: "available" | "busy" | "offline"
@@ -3032,6 +3033,7 @@ export const Constants = {
         "dispatch",
         "platform_owner",
         "billing",
+        "admin_biller",
       ],
       billing_status: ["pending", "submitted", "paid", "rejected"],
       driver_pay_type: ["per_hour", "commission"],
