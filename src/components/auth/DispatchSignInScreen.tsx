@@ -7,6 +7,7 @@ import { Loader2, Radio, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import { signInAsRole } from "@/lib/roleGuardedSignIn";
+import { resolveOwnCompanySlug, NO_COMPANY_MESSAGE } from "@/lib/ownCompanyRedirect";
 
 /**
  * Dispatcher sign in. Rendered at `/{slug}/dispatch/signin` and at the legacy
@@ -21,8 +22,14 @@ export function DispatchSignInScreen({ companySlug }: { companySlug?: string }) 
 
   useEffect(() => {
     if (loading || !user || submitting) return;
-    if (isDispatch) window.location.replace(companySlug ? `/${companySlug}/dispatch` : "/dispatch");
-  }, [loading, user, isDispatch, companySlug, submitting]);
+    // Route only by the account's OWN company — never by the URL slug.
+    if (isDispatch) {
+      resolveOwnCompanySlug().then((slug) => {
+        if (slug) window.location.replace(`/${slug}/dispatch`);
+        else setErrorMsg(NO_COMPANY_MESSAGE);
+      });
+    }
+  }, [loading, user, isDispatch, submitting]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,8 +38,8 @@ export function DispatchSignInScreen({ companySlug }: { companySlug?: string }) 
     try {
       const result = await signInAsRole(email, password, "dispatch");
       toast.success("Welcome");
-      const slug = result.companySlug ?? companySlug ?? null;
-      window.location.replace(slug ? `/${slug}/dispatch` : "/dispatch");
+      if (!result.companySlug) throw new Error(NO_COMPANY_MESSAGE);
+      window.location.replace(`/${result.companySlug}/dispatch`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
       setErrorMsg(msg);

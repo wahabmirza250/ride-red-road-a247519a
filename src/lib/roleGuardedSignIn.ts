@@ -89,6 +89,13 @@ export async function signInAsRole(
     );
   }
 
+  // Fail closed: without an authoritative company we must NOT let the caller
+  // fall back to whatever slug happened to be in the URL.
+  if (!companySlug) {
+    await supabase.auth.signOut();
+    throw new Error("Your account isn't linked to a provider. Contact your administrator.");
+  }
+
   return { companySlug, isOwner: false };
 }
 

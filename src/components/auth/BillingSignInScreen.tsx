@@ -7,6 +7,7 @@ import { Loader2, ReceiptText, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import { signInAsRole } from "@/lib/roleGuardedSignIn";
+import { resolveOwnCompanySlug, NO_COMPANY_MESSAGE } from "@/lib/ownCompanyRedirect";
 
 /** Billing-staff sign in. Rendered at `/{slug}/billing/signin`. */
 export function BillingSignInScreen({ companySlug }: { companySlug?: string }) {
@@ -18,8 +19,14 @@ export function BillingSignInScreen({ companySlug }: { companySlug?: string }) {
 
   useEffect(() => {
     if (loading || !user || submitting) return;
-    if (isBilling) window.location.replace(companySlug ? `/${companySlug}/billing` : "/billing");
-  }, [loading, user, isBilling, companySlug, submitting]);
+    // Route only by the account's OWN company — never by the URL slug.
+    if (isBilling) {
+      resolveOwnCompanySlug().then((slug) => {
+        if (slug) window.location.replace(`/${slug}/billing`);
+        else setErrorMsg(NO_COMPANY_MESSAGE);
+      });
+    }
+  }, [loading, user, isBilling, submitting]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,8 +35,8 @@ export function BillingSignInScreen({ companySlug }: { companySlug?: string }) {
     try {
       const result = await signInAsRole(email, password, "billing");
       toast.success("Welcome");
-      const slug = result.companySlug ?? companySlug ?? null;
-      window.location.replace(slug ? `/${slug}/billing` : "/billing");
+      if (!result.companySlug) throw new Error(NO_COMPANY_MESSAGE);
+      window.location.replace(`/${result.companySlug}/billing`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
       setErrorMsg(msg);
