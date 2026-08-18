@@ -133,7 +133,13 @@ const TABS: {
 
 /** The full billing workflow. Lives in the dedicated Billing app; admins can
  *  reach it too. */
-export function BillingWorkspace() {
+/**
+ * `embedded` is used when the workspace is nested inside another tabbed page
+ * (the admin dashboard). It drops the duplicate page header and the rates
+ * card so the stage tabs stay at the top of the panel instead of being pushed
+ * far below the fold.
+ */
+export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = {}) {
   const { isAdmin, isBilling } = useAuth();
   const canBill = isAdmin || isBilling;
   const qc = useQueryClient();
@@ -248,11 +254,13 @@ export function BillingWorkspace() {
   }
 
   return (
-    <div className="surface-red space-y-6">
-      <PageHeader
-        title="Medicaid Billing"
-        description="Review driver-submitted trips, batch-send them to the automation robot, then confirm the state's receipt number after human portal submission."
-      />
+    <div className={embedded ? "space-y-4" : "surface-red space-y-6"}>
+      {!embedded && (
+        <PageHeader
+          title="Medicaid Billing"
+          description="Review driver-submitted trips, batch-send them to the automation robot, then confirm the state's receipt number after human portal submission."
+        />
+      )}
 
       {!defaultPortal && (
         <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
@@ -267,13 +275,14 @@ export function BillingWorkspace() {
         </div>
       )}
 
-      {defaultPortal && (
+      {defaultPortal && !embedded && (
         <div className="text-xs text-muted-foreground">
           Billing through <strong>{defaultPortal.name}</strong> · {defaultPortal.state}
         </div>
       )}
 
-      {isAdmin && <BillingRatesCard />}
+      {isAdmin && !embedded && <BillingRatesCard />}
+
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap sm:flex-wrap">
