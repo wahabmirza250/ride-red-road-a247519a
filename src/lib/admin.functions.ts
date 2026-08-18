@@ -525,3 +525,36 @@ export const deleteBillingUser = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+/** Admin resets a driver's password directly from the driver profile.
+ *  Scoped to the admin's own company so one tenant can never touch another's
+ *  accounts. */
+export const resetDriverPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { driver_id: string; password: string }) => {
+    if (!input.driver_id) throw new Error("Driver required");
+    if (!input.password || input.password.length < 6) {
+      throw new Error("Password must be at least 6 characters");
+    }
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.supabase, context.userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: d } = await supabaseAdmin
+      .from("drivers")
+      .select("user_id")
+      .eq("id", data.driver_id)
+      .eq("company_id", companyId)
+      .maybeSingle();
+    if (!d?.user_id) throw new Error("Driver not found in your company");
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(d.user_id, {
+      password: data.password,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

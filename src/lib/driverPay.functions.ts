@@ -55,6 +55,26 @@ export const setDriverHourlyRate = createServerFn({ method: "POST" })
     return { ok: true, hourly_rate: data.hourly_rate };
   });
 
+/** Admin chooses how a driver is paid: clocked hours, or a percentage of the
+ *  Medicaid claims the state actually paid. Drives which Salary calculator
+ *  the driver appears in. */
+export const setDriverPayType = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { driver_id: string; pay_type: "per_hour" | "commission" }) => {
+    if (input.pay_type !== "per_hour" && input.pay_type !== "commission") {
+      throw new Error("Invalid pay type");
+    }
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { error } = await context.supabase
+      .from("driver_pay")
+      .upsert({ driver_id: data.driver_id, pay_type: data.pay_type }, { onConflict: "driver_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true, pay_type: data.pay_type };
+  });
+
 type EarningsInput = { driver_id: string; from: string; to: string };
 
 /** Hours × hourly_rate, broken out by day, for the period, plus a running

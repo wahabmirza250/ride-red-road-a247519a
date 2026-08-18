@@ -69,7 +69,13 @@ export function DriverPayPage() {
   const [overridePct, setOverridePct] = useState<string>("");
   const [confirming, setConfirming] = useState(false);
 
-  const drivers = useQuery({ queryKey: ["payout-drivers"], queryFn: () => driversFn({}) });
+  const driversQuery = useQuery({ queryKey: ["payout-drivers"], queryFn: () => driversFn({}) });
+  // Only commission drivers belong here; hourly drivers are paid in the
+  // Hourly payroll tab.
+  const drivers = {
+    ...driversQuery,
+    data: driversQuery.data?.filter((d) => d.pay_type === "commission"),
+  } as typeof driversQuery;
 
   const period = useQuery({
     queryKey: ["payout-period", selected, range.from, range.to],
