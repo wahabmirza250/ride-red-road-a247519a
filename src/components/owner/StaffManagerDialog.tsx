@@ -35,6 +35,7 @@ const ROLE_LABEL: Record<StaffRole, string> = {
   admin: "Admin",
   dispatch: "Dispatch",
   billing: "Billing",
+  admin_biller: "Admin Biller",
   driver: "Driver",
 };
 
