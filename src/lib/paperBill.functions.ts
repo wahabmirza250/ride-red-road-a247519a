@@ -212,6 +212,9 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
       .from("medicaid_trips")
       .insert({
         driver_id: userId,
+        // Authorship for billing visibility: a plain biller only ever sees the
+        // bills they created themselves.
+        created_by: userId,
         rider_id: riderId,
         company_id: companyId,
         pickup_at: pickupAt,
