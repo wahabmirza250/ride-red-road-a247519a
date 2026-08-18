@@ -22,7 +22,6 @@ import {
   Shield,
   Sparkles,
   Banknote,
-  Percent,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
