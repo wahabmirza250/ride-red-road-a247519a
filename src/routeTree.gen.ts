@@ -75,6 +75,7 @@ import { Route as CompanySlugAuthenticatedIncidentsRouteImport } from './routes/
 import { Route as CompanySlugAuthenticatedGamesRouteImport } from './routes/$companySlug/_authenticated/games'
 import { Route as CompanySlugAuthenticatedEventsRouteImport } from './routes/$companySlug/_authenticated/events'
 import { Route as CompanySlugAuthenticatedDriversRouteImport } from './routes/$companySlug/_authenticated/drivers'
+import { Route as CompanySlugAuthenticatedDriverPayRouteImport } from './routes/$companySlug/_authenticated/driver-pay'
 import { Route as CompanySlugAuthenticatedDashboardRouteImport } from './routes/$companySlug/_authenticated/dashboard'
 import { Route as CompanySlugDispatchRoutesIndexRouteImport } from './routes/$companySlug/dispatch.routes.index'
 import { Route as CompanySlugAuthenticatedPayrollIndexRouteImport } from './routes/$companySlug/_authenticated/payroll.index'
@@ -457,6 +458,12 @@ const CompanySlugAuthenticatedDriversRoute =
     path: '/drivers',
     getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
   } as any)
+const CompanySlugAuthenticatedDriverPayRoute =
+  CompanySlugAuthenticatedDriverPayRouteImport.update({
+    id: '/driver-pay',
+    path: '/driver-pay',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
 const CompanySlugAuthenticatedDashboardRoute =
   CompanySlugAuthenticatedDashboardRouteImport.update({
     id: '/dashboard',
@@ -543,6 +550,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/': typeof CompanySlugIndexRoute
   '/owner/': typeof OwnerIndexRoute
   '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
+  '/$companySlug/driver-pay': typeof CompanySlugAuthenticatedDriverPayRoute
   '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
   '/$companySlug/events': typeof CompanySlugAuthenticatedEventsRoute
   '/$companySlug/games': typeof CompanySlugAuthenticatedGamesRoute
@@ -616,6 +624,7 @@ export interface FileRoutesByTo {
   '/track/$tripId': typeof TrackTripIdRoute
   '/owner': typeof OwnerIndexRoute
   '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
+  '/$companySlug/driver-pay': typeof CompanySlugAuthenticatedDriverPayRoute
   '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
   '/$companySlug/events': typeof CompanySlugAuthenticatedEventsRoute
   '/$companySlug/games': typeof CompanySlugAuthenticatedGamesRoute
@@ -695,6 +704,7 @@ export interface FileRoutesById {
   '/$companySlug/': typeof CompanySlugIndexRoute
   '/owner/': typeof OwnerIndexRoute
   '/$companySlug/_authenticated/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
+  '/$companySlug/_authenticated/driver-pay': typeof CompanySlugAuthenticatedDriverPayRoute
   '/$companySlug/_authenticated/drivers': typeof CompanySlugAuthenticatedDriversRoute
   '/$companySlug/_authenticated/events': typeof CompanySlugAuthenticatedEventsRoute
   '/$companySlug/_authenticated/games': typeof CompanySlugAuthenticatedGamesRoute
@@ -775,6 +785,7 @@ export interface FileRouteTypes {
     | '/$companySlug/'
     | '/owner/'
     | '/$companySlug/dashboard'
+    | '/$companySlug/driver-pay'
     | '/$companySlug/drivers'
     | '/$companySlug/events'
     | '/$companySlug/games'
@@ -848,6 +859,7 @@ export interface FileRouteTypes {
     | '/track/$tripId'
     | '/owner'
     | '/$companySlug/dashboard'
+    | '/$companySlug/driver-pay'
     | '/$companySlug/drivers'
     | '/$companySlug/events'
     | '/$companySlug/games'
@@ -926,6 +938,7 @@ export interface FileRouteTypes {
     | '/$companySlug/'
     | '/owner/'
     | '/$companySlug/_authenticated/dashboard'
+    | '/$companySlug/_authenticated/driver-pay'
     | '/$companySlug/_authenticated/drivers'
     | '/$companySlug/_authenticated/events'
     | '/$companySlug/_authenticated/games'
@@ -1468,6 +1481,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugAuthenticatedDriversRouteImport
       parentRoute: typeof CompanySlugAuthenticatedRouteRoute
     }
+    '/$companySlug/_authenticated/driver-pay': {
+      id: '/$companySlug/_authenticated/driver-pay'
+      path: '/driver-pay'
+      fullPath: '/$companySlug/driver-pay'
+      preLoaderRoute: typeof CompanySlugAuthenticatedDriverPayRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
     '/$companySlug/_authenticated/dashboard': {
       id: '/$companySlug/_authenticated/dashboard'
       path: '/dashboard'
@@ -1565,6 +1585,7 @@ const CompanySlugAuthenticatedMedicaidTripsRouteWithChildren =
 
 interface CompanySlugAuthenticatedRouteRouteChildren {
   CompanySlugAuthenticatedDashboardRoute: typeof CompanySlugAuthenticatedDashboardRoute
+  CompanySlugAuthenticatedDriverPayRoute: typeof CompanySlugAuthenticatedDriverPayRoute
   CompanySlugAuthenticatedDriversRoute: typeof CompanySlugAuthenticatedDriversRoute
   CompanySlugAuthenticatedEventsRoute: typeof CompanySlugAuthenticatedEventsRoute
   CompanySlugAuthenticatedGamesRoute: typeof CompanySlugAuthenticatedGamesRoute
@@ -1591,6 +1612,8 @@ const CompanySlugAuthenticatedRouteRouteChildren: CompanySlugAuthenticatedRouteR
   {
     CompanySlugAuthenticatedDashboardRoute:
       CompanySlugAuthenticatedDashboardRoute,
+    CompanySlugAuthenticatedDriverPayRoute:
+      CompanySlugAuthenticatedDriverPayRoute,
     CompanySlugAuthenticatedDriversRoute: CompanySlugAuthenticatedDriversRoute,
     CompanySlugAuthenticatedEventsRoute: CompanySlugAuthenticatedEventsRoute,
     CompanySlugAuthenticatedGamesRoute: CompanySlugAuthenticatedGamesRoute,
