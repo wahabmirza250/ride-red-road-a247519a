@@ -34,6 +34,7 @@ export type PayrollRow = {
   outstanding: number | null;
   last_paid_at: string | null;
   open_shift: boolean;
+  pay_type: "per_hour" | "commission";
 };
 
 /** Everything the payroll tab needs for one pay period. */
@@ -47,7 +48,7 @@ export const getPayrollPeriod = createServerFn({ method: "POST" })
     const [{ data: drivers }, { data: pays }, { data: shifts }, { data: payouts }, { data: receipts }] =
       await Promise.all([
         s.from("drivers").select("id, user_id, status"),
-        s.from("driver_pay").select("driver_id, hourly_rate"),
+        s.from("driver_pay").select("driver_id, hourly_rate, pay_type"),
         s
           .from("driver_shifts")
           .select("driver_id, clock_in_at, clock_out_at")
@@ -72,6 +73,9 @@ export const getPayrollPeriod = createServerFn({ method: "POST" })
     const profileOf = new Map((profiles ?? []).map((p) => [p.id, p]));
     const rateOf = new Map(
       (pays ?? []).map((p) => [p.driver_id, p.hourly_rate == null ? null : Number(p.hourly_rate)]),
+    );
+    const payTypeOf = new Map(
+      (pays ?? []).map((p) => [p.driver_id, (p as { pay_type?: string }).pay_type ?? "per_hour"]),
     );
 
     const hoursOf = new Map<string, number>();
@@ -116,6 +120,7 @@ export const getPayrollPeriod = createServerFn({ method: "POST" })
         outstanding: gross == null ? null : round2(Math.max(0, gross + fuel - paid)),
         last_paid_at: lastPaidOf.get(d.id) ?? null,
         open_shift: openOf.has(d.id),
+        pay_type: (payTypeOf.get(d.id) ?? "per_hour") as "per_hour" | "commission",
       };
     });
 
@@ -237,4 +242,53 @@ export const deletePayout = createServerFn({ method: "POST" })
     const { error } = await context.supabase.from("driver_payouts").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/**
+ * Manual time / overtime entry. Hourly drivers sometimes work time the app
+ * never saw (paper timesheet, forgotten clock-in, approved overtime). This
+ * writes a normal closed `driver_shifts` row so the hours flow through every
+ * existing payroll calculation unchanged.
+ */
+export const addManualHours = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: { driver_id: string; date: string; hours: number; note?: string | null }) => {
+      if (!input.driver_id) throw new Error("Pick a driver");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new Error("Pick a valid date");
+      if (!Number.isFinite(input.hours) || input.hours <= 0 || input.hours > 24) {
+        throw new Error("Hours must be between 0 and 24");
+      }
+      return input;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const s = context.supabase;
+
+    const { data: pay } = await s
+      .from("driver_pay")
+      .select("hourly_rate")
+      .eq("driver_id", data.driver_id)
+      .maybeSingle();
+    const rate = pay?.hourly_rate == null ? 0 : Number(pay.hourly_rate);
+
+    // Anchor the entry at 09:00 on the chosen day so it lands inside any
+    // pay period that contains that date.
+    const start = new Date(`${data.date}T09:00:00`);
+    const end = new Date(start.getTime() + data.hours * 3_600_000);
+
+    const { data: row, error } = await s
+      .from("driver_shifts")
+      .insert({
+        driver_id: data.driver_id,
+        clock_in_at: start.toISOString(),
+        clock_out_at: end.toISOString(),
+        hourly_rate_snapshot: rate,
+        earnings: round2(data.hours * rate),
+      })
+      .select("id, clock_in_at, clock_out_at, earnings")
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
   });

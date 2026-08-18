@@ -29,6 +29,7 @@ export type PayoutDriver = {
   name: string;
   phone: string | null;
   payout_percentage: number | null;
+  pay_type: "per_hour" | "commission";
 };
 
 export type PayoutHistoryRow = {
@@ -81,12 +82,15 @@ export const listPayoutDrivers = createServerFn({ method: "POST" })
       userIds.length
         ? supabase.from("profiles").select("id, first_name, last_name, phone").in("id", userIds)
         : Promise.resolve({ data: [] as any[] }),
-      supabase.from("driver_pay").select("driver_id, payout_percentage"),
+      supabase.from("driver_pay").select("driver_id, payout_percentage, pay_type"),
     ]);
 
     const byUser = new Map((profiles ?? []).map((p: any) => [p.id, p]));
     const pctByDriver = new Map(
       (pay ?? []).map((p: any) => [p.driver_id, p.payout_percentage]),
+    );
+    const payTypeByDriver = new Map(
+      (pay ?? []).map((p: any) => [p.driver_id, p.pay_type ?? "per_hour"]),
     );
 
     return rows.map((d) => {
@@ -99,6 +103,7 @@ export const listPayoutDrivers = createServerFn({ method: "POST" })
         name: name || p?.email || "Unnamed driver",
         phone: p?.phone || null,
         payout_percentage: pct == null ? null : Number(pct),
+        pay_type: (payTypeByDriver.get(d.id) ?? "per_hour") as "per_hour" | "commission",
       };
     });
   });
