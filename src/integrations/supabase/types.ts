@@ -579,6 +579,114 @@ export type Database = {
           },
         ]
       }
+      driver_claim_payout_items: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          payout_id: string
+          trip_date: string | null
+          trip_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          payout_id: string
+          trip_date?: string | null
+          trip_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          payout_id?: string
+          trip_date?: string | null
+          trip_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_claim_payout_items_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "driver_claim_payouts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_claim_payout_items_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: true
+            referencedRelation: "medicaid_trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_claim_payouts: {
+        Row: {
+          claim_count: number
+          company_id: string | null
+          created_at: string
+          driver_id: string
+          id: string
+          notes: string | null
+          paid_at: string
+          paid_by: string | null
+          payout_amount: number
+          percentage_used: number
+          period_end: string
+          period_start: string
+          total_billed: number
+          updated_at: string
+        }
+        Insert: {
+          claim_count?: number
+          company_id?: string | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          notes?: string | null
+          paid_at?: string
+          paid_by?: string | null
+          payout_amount?: number
+          percentage_used: number
+          period_end: string
+          period_start: string
+          total_billed?: number
+          updated_at?: string
+        }
+        Update: {
+          claim_count?: number
+          company_id?: string | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string
+          paid_by?: string | null
+          payout_amount?: number
+          percentage_used?: number
+          period_end?: string
+          period_start?: string
+          total_billed?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_claim_payouts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_claim_payouts_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_hour_clearings: {
         Row: {
           cleared_at: string
@@ -641,6 +749,7 @@ export type Database = {
           driver_id: string
           hourly_rate: number | null
           pay_type: Database["public"]["Enums"]["driver_pay_type"]
+          payout_percentage: number | null
           updated_at: string
         }
         Insert: {
@@ -648,6 +757,7 @@ export type Database = {
           driver_id: string
           hourly_rate?: number | null
           pay_type?: Database["public"]["Enums"]["driver_pay_type"]
+          payout_percentage?: number | null
           updated_at?: string
         }
         Update: {
@@ -655,6 +765,7 @@ export type Database = {
           driver_id?: string
           hourly_rate?: number | null
           pay_type?: Database["public"]["Enums"]["driver_pay_type"]
+          payout_percentage?: number | null
           updated_at?: string
         }
         Relationships: [

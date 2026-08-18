@@ -24,6 +24,7 @@ export const APP_PREFIXES = new Set([
   "schedules",
   "drivers",
   "payroll",
+  "driver-pay",
   "passengers",
   "reports",
   "incidents",
