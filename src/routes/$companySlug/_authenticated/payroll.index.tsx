@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Banknote, CheckCircle2, Loader2, Undo2, Wallet } from "lucide-react";
+import { Banknote, CheckCircle2, Clock, Loader2, Undo2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ import {
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import {
+  addManualHours,
   clearDriverPay,
   deletePayout,
   getPayrollPeriod,
@@ -54,6 +55,7 @@ export function PayrollPage() {
   const qc = useQueryClient();
   const [range, setRange] = useState(defaultPeriod);
   const [paying, setPaying] = useState<PayrollRow | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
 
   const periodFn = useServerFn(getPayrollPeriod);
   const payoutsFn = useServerFn(listPayouts);
@@ -81,7 +83,22 @@ export function PayrollPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const t = period.data?.totals;
+  // Only hourly-paid drivers belong in this calculator; commission drivers are
+  // paid from the "% of paid claims" tab.
+  const rows = useMemo(
+    () => (period.data?.rows ?? []).filter((r) => r.pay_type !== "commission"),
+    [period.data],
+  );
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const t = period.data
+    ? {
+        hours: round2(rows.reduce((n, r) => n + r.hours, 0)),
+        gross: round2(rows.reduce((n, r) => n + (r.gross_earnings ?? 0), 0)),
+        fuel: round2(rows.reduce((n, r) => n + r.fuel_pending, 0)),
+        paid: round2(rows.reduce((n, r) => n + r.paid_in_period, 0)),
+        outstanding: round2(rows.reduce((n, r) => n + (r.outstanding ?? 0), 0)),
+      }
+    : null;
 
   return (
     <div className="space-y-6">
@@ -125,6 +142,9 @@ export function PayrollPage() {
           >
             Last week
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setManualOpen(true)}>
+            <Clock className="mr-1.5 h-4 w-4" /> Add manual hours
+          </Button>
         </div>
 
         {t && (
@@ -161,7 +181,7 @@ export function PayrollPage() {
                 </td>
               </tr>
             )}
-            {period.data?.rows.map((r) => (
+            {rows.map((r) => (
               <tr key={r.driver_id} className="border-t border-border">
                 <td className="px-4 py-3">
                   <div className="font-medium">{r.name}</div>
@@ -197,10 +217,10 @@ export function PayrollPage() {
                 </td>
               </tr>
             ))}
-            {period.data && !period.data.rows.length && (
+            {period.data && !rows.length && (
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
-                  No drivers yet.
+                  No hourly-paid drivers in this period.
                 </td>
               </tr>
             )}
@@ -258,6 +278,16 @@ export function PayrollPage() {
           </tbody>
         </table>
       </div>
+
+      <ManualHoursDialog
+        open={manualOpen}
+        drivers={rows}
+        onClose={() => setManualOpen(false)}
+        onDone={() => {
+          setManualOpen(false);
+          qc.invalidateQueries({ queryKey: ["payroll-period"] });
+        }}
+      />
 
       <ClearPayDialog
         row={paying}
@@ -434,5 +464,95 @@ function Line({ label, value }: { label: string; value: string }) {
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium tabular-nums">{value}</span>
     </div>
+  );
+}
+
+/**
+ * Manual time / overtime entry. Records real worked time that never came from
+ * a clock-in (paper timesheet, approved overtime) so it counts in this
+ * driver's hourly payroll exactly like a clocked shift.
+ */
+function ManualHoursDialog({
+  open,
+  drivers,
+  onClose,
+  onDone,
+}: {
+  open: boolean;
+  drivers: PayrollRow[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const addFn = useServerFn(addManualHours);
+  const [driverId, setDriverId] = useState("");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [hours, setHours] = useState("");
+
+  const add = useMutation({
+    mutationFn: () =>
+      addFn({ data: { driver_id: driverId, date, hours: Number(hours) } }),
+    onSuccess: () => {
+      toast.success("Hours added to this driver's payroll");
+      setHours("");
+      onDone();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add manual hours / overtime</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Driver</Label>
+            <select
+              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+              value={driverId}
+              onChange={(e) => setDriverId(e.target.value)}
+            >
+              <option value="">Select a driver…</option>
+              {drivers.map((d) => (
+                <option key={d.driver_id} value={d.driver_id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Date worked</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Hours</Label>
+              <Input
+                inputMode="decimal"
+                placeholder="e.g. 2.5"
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Added at the driver&apos;s current hourly rate and included in any pay period
+            containing this date.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!driverId || !hours || add.isPending}
+            onClick={() => add.mutate()}
+          >
+            {add.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add hours
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
