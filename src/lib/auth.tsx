@@ -21,7 +21,10 @@ export type AuthState = {
   isDriver: boolean;
   isPassenger: boolean;
   isDispatch: boolean;
+  /** Any billing workspace access (plain biller or admin biller). */
   isBilling: boolean;
+  /** Elevated biller — sees every bill in the company, not just their own. */
+  isAdminBiller: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 };
