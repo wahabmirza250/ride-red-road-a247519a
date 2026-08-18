@@ -281,36 +281,6 @@ function NewAdminDialog({ onClose }: { onClose: () => void }) {
           <Label>Phone</Label>
           <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>Access level</Label>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {(
-              [
-                { value: "billing", title: "Biller", desc: "Sees only the bills they created" },
-                {
-                  value: "admin_biller",
-                  title: "Admin Biller",
-                  desc: "Sees every bill in the company",
-                },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setForm({ ...form, role: opt.value })}
-                className={
-                  "rounded-xl border p-3 text-left text-xs transition " +
-                  (form.role === opt.value
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:bg-accent")
-                }
-              >
-                <div className="text-sm font-medium">{opt.title}</div>
-                <div className="text-muted-foreground">{opt.desc}</div>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
       <DialogFooter>
         <Button variant="ghost" onClick={onClose}>
@@ -434,7 +404,6 @@ function NewDispatcherDialog({ onClose }: { onClose: () => void }) {
     first_name: "",
     last_name: "",
     phone: "",
-    role: "billing" as "billing" | "admin_biller",
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -495,36 +464,6 @@ function NewDispatcherDialog({ onClose }: { onClose: () => void }) {
         <div className="space-y-1.5 sm:col-span-2">
           <Label>Phone</Label>
           <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>Access level</Label>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {(
-              [
-                { value: "billing", title: "Biller", desc: "Sees only the bills they created" },
-                {
-                  value: "admin_biller",
-                  title: "Admin Biller",
-                  desc: "Sees every bill in the company",
-                },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setForm({ ...form, role: opt.value })}
-                className={
-                  "rounded-xl border p-3 text-left text-xs transition " +
-                  (form.role === opt.value
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:bg-accent")
-                }
-              >
-                <div className="text-sm font-medium">{opt.title}</div>
-                <div className="text-muted-foreground">{opt.desc}</div>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
       <DialogFooter>
