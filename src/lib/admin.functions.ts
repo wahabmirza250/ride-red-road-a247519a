@@ -430,7 +430,10 @@ export const getPayroll = createServerFn({ method: "POST" })
   });
 
 
-type CreateBillingUserInput = CreateDispatcherInput;
+type CreateBillingUserInput = CreateDispatcherInput & {
+  /** "billing" = sees only their own bills. "admin_biller" = sees every bill in the company. */
+  role?: "billing" | "admin_biller";
+};
 
 export const createBillingUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -438,13 +441,15 @@ export const createBillingUser = createServerFn({ method: "POST" })
     if (!input.email?.trim()) throw new Error("Email required");
     if (!input.password || input.password.length < 6)
       throw new Error("Password must be at least 6 characters");
-    return input;
+    const role = input.role === "admin_biller" ? "admin_biller" : "billing";
+    return { ...input, role } as CreateBillingUserInput & { role: "billing" | "admin_biller" };
   })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.supabase, context.userId);
     const { requireCompanyId } = await import("@/lib/company.server");
     const companyId = await requireCompanyId(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const role = data.role === "admin_biller" ? "admin_biller" : "billing";
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email.trim().toLowerCase(),
       password: data.password,
@@ -453,7 +458,7 @@ export const createBillingUser = createServerFn({ method: "POST" })
         first_name: data.first_name,
         last_name: data.last_name,
         phone: data.phone ?? "",
-        role: "billing",
+        role,
         company_id: companyId,
       },
     });
@@ -462,10 +467,10 @@ export const createBillingUser = createServerFn({ method: "POST" })
     await supabaseAdmin
       .from("user_roles")
       .upsert(
-        { user_id: userId, role: "billing", company_id: companyId },
+        { user_id: userId, role, company_id: companyId },
         { onConflict: "user_id,role" },
       );
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).neq("role", "billing");
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).neq("role", role);
     await supabaseAdmin
       .from("profiles")
       .update({
@@ -475,7 +480,7 @@ export const createBillingUser = createServerFn({ method: "POST" })
         company_id: companyId,
       })
       .eq("id", userId);
-    return { ok: true, user_id: userId };
+    return { ok: true, user_id: userId, role };
   });
 
 export const listBillingUsers = createServerFn({ method: "GET" })
@@ -484,15 +489,16 @@ export const listBillingUsers = createServerFn({ method: "GET" })
     await ensureAdmin(context.supabase, context.userId);
     const { data: roles } = await context.supabase
       .from("user_roles")
-      .select("user_id")
-      .eq("role", "billing");
+      .select("user_id, role")
+      .in("role", ["billing", "admin_biller"]);
     const ids = (roles ?? []).map((r) => r.user_id);
     if (!ids.length) return [];
     const { data: profs } = await context.supabase
       .from("profiles")
       .select("id, first_name, last_name, email, phone")
       .in("id", ids);
-    return profs ?? [];
+    const roleOf = new Map((roles ?? []).map((r) => [r.user_id, r.role as string]));
+    return (profs ?? []).map((p) => ({ ...p, role: roleOf.get(p.id) ?? "billing" }));
   });
 
 export const deleteBillingUser = createServerFn({ method: "POST" })
@@ -510,7 +516,7 @@ export const deleteBillingUser = createServerFn({ method: "POST" })
       .from("user_roles")
       .select("role")
       .eq("user_id", data.user_id)
-      .eq("role", "billing")
+      .in("role", ["billing", "admin_biller"])
       .eq("company_id", companyId)
       .maybeSingle();
     if (!role) throw new Error("Not a billing account");
