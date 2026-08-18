@@ -26,7 +26,9 @@ export type DriverNameMatch = {
 };
 
 /** Confidence needed before we overwrite what the paper actually says. */
-export const DRIVER_NAME_MATCH_THRESHOLD = 0.82;
+export const DRIVER_NAME_MATCH_THRESHOLD = 0.74;
+/** The winner must be this much clearer than the runner-up to be trusted. */
+export const DRIVER_NAME_MATCH_MARGIN = 0.08;
 
 export function normalizeName(s: string | null | undefined): string {
   return String(s ?? "")
@@ -148,6 +150,7 @@ export async function resolveDriverName(
     .in("id", userIds);
 
   let best: DriverNameMatch = miss;
+  let runnerUp = 0;
   for (const d of rows) {
     const p = (profs ?? []).find((x: any) => x.id === d.user_id);
     if (!p) continue;
@@ -155,6 +158,7 @@ export async function resolveDriverName(
     if (!full) continue;
     const score = nameSimilarity(raw, full);
     if (score > best.score) {
+      runnerUp = best.score;
       best = {
         canonical_name: full,
         driver_id: d.id,
@@ -162,10 +166,13 @@ export async function resolveDriverName(
         score,
         resolved_name: full,
       };
+    } else if (score > runnerUp) {
+      runnerUp = score;
     }
   }
 
-  if (best.score < DRIVER_NAME_MATCH_THRESHOLD) {
+  // Ambiguous (two drivers with near-identical names) => keep the raw text.
+  if (best.score < DRIVER_NAME_MATCH_THRESHOLD || best.score - runnerUp < DRIVER_NAME_MATCH_MARGIN) {
     return { ...miss, score: best.score };
   }
   return best;
