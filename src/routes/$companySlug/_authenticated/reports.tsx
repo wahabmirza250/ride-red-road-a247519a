@@ -59,6 +59,7 @@ function ReportsPage() {
     return { from: new Date("2000-01-01"), to: endOfDay(now) };
   }, [range]);
 
+  const slug = useCompanySlug() ?? "";
   const payrollFn = useServerFn(getPayroll);
   const payroll = useQuery({
     queryKey: ["payroll", driverId, period.from.toISOString(), period.to.toISOString()],
@@ -126,7 +127,7 @@ function ReportsPage() {
             className="ml-auto"
             target="_blank"
             rel="noreferrer"
-            href={`/payroll/${driverId}?from=${period.from.toISOString()}&to=${period.to.toISOString()}`}
+            href={`/${slug}/payroll/${driverId}?from=${period.from.toISOString()}&to=${period.to.toISOString()}`}
           >
             <Button variant="secondary" className="rounded-full">
               <ExternalLink className="mr-2 h-4 w-4" /> Export payroll
