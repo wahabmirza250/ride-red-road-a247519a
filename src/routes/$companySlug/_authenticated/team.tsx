@@ -154,7 +154,7 @@ function TeamPage() {
             </p>
           </div>
           <Button asChild size="sm" className="rounded-full">
-            <a href="/drivers">
+            <a href={`/${slug}/drivers`}>
               <Plus className="mr-1 h-4 w-4" /> Create driver
             </a>
           </Button>
