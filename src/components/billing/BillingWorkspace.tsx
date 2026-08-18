@@ -133,7 +133,13 @@ const TABS: {
 
 /** The full billing workflow. Lives in the dedicated Billing app; admins can
  *  reach it too. */
-export function BillingWorkspace() {
+/**
+ * `embedded` is used when the workspace is nested inside another tabbed page
+ * (the admin dashboard). It drops the duplicate page header and the rates
+ * card so the stage tabs stay at the top of the panel instead of being pushed
+ * far below the fold.
+ */
+export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = {}) {
   const { isAdmin, isBilling } = useAuth();
   const canBill = isAdmin || isBilling;
   const qc = useQueryClient();
