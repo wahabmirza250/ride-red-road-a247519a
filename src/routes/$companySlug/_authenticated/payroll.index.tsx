@@ -3,7 +3,17 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Banknote, CheckCircle2, Clock, Loader2, Undo2, Wallet } from "lucide-react";
+import {
+  Banknote,
+  CheckCircle2,
+  Clock,
+  Gift,
+  Loader2,
+  Percent,
+  Search,
+  Undo2,
+  Wallet,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
+import { setDriverHourlyRate, setDriverPayType } from "@/lib/driverPay.functions";
 import {
   addManualHours,
   clearDriverPay,
@@ -51,11 +62,15 @@ function defaultPeriod() {
 const startOfDay = (d: string) => new Date(`${d}T00:00:00`).toISOString();
 const endOfDay = (d: string) => new Date(`${d}T23:59:59.999`).toISOString();
 
-export function PayrollPage() {
+export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const [range, setRange] = useState(defaultPeriod);
   const [paying, setPaying] = useState<PayrollRow | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
+  const [manualDriver, setManualDriver] = useState<string>("");
+  const [detail, setDetail] = useState<PayrollRow | null>(null);
+  const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   const periodFn = useServerFn(getPayrollPeriod);
   const payoutsFn = useServerFn(listPayouts);
@@ -85,10 +100,21 @@ export function PayrollPage() {
 
   // Only hourly-paid drivers belong in this calculator; commission drivers are
   // paid from the "% of paid claims" tab.
-  const rows = useMemo(
+  const allRows = useMemo(
     () => (period.data?.rows ?? []).filter((r) => r.pay_type !== "commission"),
     [period.data],
   );
+  /** A driver is "active" when something actually happened in this period. */
+  const hasActivity = (r: PayrollRow) =>
+    r.hours > 0 || r.fuel_pending > 0 || r.paid_in_period > 0 || (r.outstanding ?? 0) > 0;
+  const activeCount = allRows.filter(hasActivity).length;
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = allRows;
+    if (!showAll && !q) list = list.filter(hasActivity);
+    if (q) list = list.filter((r) => r.name.toLowerCase().includes(q));
+    return list;
+  }, [allRows, search, showAll]);
   const round2 = (n: number) => Math.round(n * 100) / 100;
   const t = period.data
     ? {
@@ -102,10 +128,12 @@ export function PayrollPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Payroll"
-        description="Admin only — review clocked hours and fuel, then clear driver payments."
-      />
+      {!embedded && (
+        <PageHeader
+          title="Payroll"
+          description="Admin only — review clocked hours and fuel, then clear driver payments."
+        />
+      )}
 
       {/* Pay period picker */}
       <div className="rounded-2xl border border-border bg-surface p-4">
@@ -142,9 +170,26 @@ export function PayrollPage() {
           >
             Last week
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setManualOpen(true)}>
-            <Clock className="mr-1.5 h-4 w-4" /> Add manual hours
-          </Button>
+          <div className="ml-auto flex items-end gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="w-56 pl-9"
+                placeholder="Search driver"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setManualDriver("");
+                setManualOpen(true);
+              }}
+            >
+              <Clock className="mr-1.5 h-4 w-4" /> Add hours
+            </Button>
+          </div>
         </div>
 
         {t && (
@@ -160,6 +205,21 @@ export function PayrollPage() {
 
       {/* Driver table */}
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold">Drivers in this period</h2>
+            <p className="text-xs text-muted-foreground">
+              Click a driver to open their pay details. Showing {rows.length} of {allRows.length}{" "}
+              hourly drivers
+              {!showAll && !search.trim() ? ` with activity (${activeCount})` : ""}.
+            </p>
+          </div>
+          {!search.trim() && (
+            <Button variant="ghost" size="sm" onClick={() => setShowAll((v) => !v)}>
+              {showAll ? "Show only active drivers" : `Show all ${allRows.length} drivers`}
+            </Button>
+          )}
+        </div>
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
             <tr>
@@ -182,7 +242,11 @@ export function PayrollPage() {
               </tr>
             )}
             {rows.map((r) => (
-              <tr key={r.driver_id} className="border-t border-border">
+              <tr
+                key={r.driver_id}
+                onClick={() => setDetail(r)}
+                className="cursor-pointer border-t border-border transition-colors hover:bg-accent/50"
+              >
                 <td className="px-4 py-3">
                   <div className="font-medium">{r.name}</div>
                   <div className="text-xs text-muted-foreground">
@@ -206,7 +270,7 @@ export function PayrollPage() {
                 <td className="px-4 py-3 font-semibold tabular-nums">
                   {r.outstanding == null ? "—" : formatCurrency(r.outstanding)}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                   <Button
                     size="sm"
                     disabled={r.outstanding == null || r.outstanding <= 0}
@@ -220,7 +284,11 @@ export function PayrollPage() {
             {period.data && !rows.length && (
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
-                  No hourly-paid drivers in this period.
+                  {search.trim()
+                    ? "No driver matches that search."
+                    : allRows.length
+                      ? "No hourly driver recorded time in this period — use “Show all drivers”."
+                      : "No hourly-paid drivers yet."}
                 </td>
               </tr>
             )}
@@ -279,9 +347,29 @@ export function PayrollPage() {
         </table>
       </div>
 
+      <DriverDetailDialog
+        row={detail}
+        payments={(history.data ?? []).filter((p) => p.driver_id === detail?.driver_id)}
+        onClose={() => setDetail(null)}
+        onClearPay={(r) => {
+          setDetail(null);
+          setPaying(r);
+        }}
+        onAddHours={(r) => {
+          setDetail(null);
+          setManualDriver(r.driver_id);
+          setManualOpen(true);
+        }}
+        onChanged={() => {
+          qc.invalidateQueries({ queryKey: ["payroll-period"] });
+          qc.invalidateQueries({ queryKey: ["payout-drivers"] });
+        }}
+      />
+
       <ManualHoursDialog
         open={manualOpen}
-        drivers={rows}
+        drivers={allRows}
+        initialDriverId={manualDriver}
         onClose={() => setManualOpen(false)}
         onDone={() => {
           setManualOpen(false);
