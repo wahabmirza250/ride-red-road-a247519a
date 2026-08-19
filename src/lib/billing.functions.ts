@@ -475,6 +475,108 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
   });
 
 /**
+ * BULK SUBMIT ("Submit All" / "Submit Claims" on the Ready-to-Submit tab).
+ *
+ * Every selected record is parked as `queued` in one pass, then the shared
+ * queue dispatcher fills all free concurrency slots at once (up to
+ * MAX_CONCURRENT_ROBOT_JOBS). Anything beyond the slots stays `queued` and is
+ * picked up automatically by the background sweep as jobs finish — the same
+ * path proven by the queue fix. Never dispatch per-record from the client: a
+ * serial loop is slow and parallel client calls race on the slot count.
+ */
+export const startRobotForRecords = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        ids: z.array(z.string().uuid()).min(1).max(200),
+        acknowledge_duplicate: z.boolean().default(false),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertBilling(supabase, userId);
+
+    if (REAL_SUBMISSIONS_PAUSED) {
+      throw new Error(
+        "Real portal submissions are paused while service-line verification is being fixed.",
+      );
+    }
+
+    const { data: recs, error: recErr } = await supabase
+      .from("billing_records")
+      .select(
+        `id, status, trip_id,
+         medicaid_trips!inner(
+           id, company_id, robot_last_status, status, portal_status,
+           robot_confirmation_number, submitted_confirmation
+         )`,
+      )
+      .in("id", data.ids);
+    if (recErr) throw new Error(recErr.message);
+
+    const allowed = ["approved", "needs_fix", "pending_submit", "queued"];
+    const skipped: Array<{ id: string; reason: string }> = [];
+    const duplicates: string[] = [];
+    const companies = new Set<string | null>();
+    const toQueue: string[] = [];
+
+    for (const rec of recs ?? []) {
+      const trip: any = (rec as any).medicaid_trips;
+      const priorClaim: string | null =
+        trip?.robot_confirmation_number ?? trip?.submitted_confirmation ?? null;
+      const unverified = trip?.robot_last_status === UNVERIFIED_SUBMIT_STATUS;
+      const isResubmit = !!priorClaim || unverified;
+
+      if (isResubmit && !data.acknowledge_duplicate) {
+        duplicates.push(rec.id as string);
+        skipped.push({ id: rec.id as string, reason: "already has a claim — submit it individually to confirm" });
+        continue;
+      }
+      if (!allowed.includes(rec.status as string) && !(isResubmit && data.acknowledge_duplicate)) {
+        skipped.push({ id: rec.id as string, reason: `status "${rec.status}"` });
+        continue;
+      }
+      toQueue.push(rec.id as string);
+      companies.add(trip?.company_id ?? null);
+    }
+
+    if (toQueue.length === 0) {
+      return { queued: 0, started: 0, startedIds: [] as string[], skipped, duplicates };
+    }
+
+    const { error: qErr } = await supabase
+      .from("billing_records")
+      .update({ status: "queued", submission_error: null, requires_human_step: false })
+      .in("id", toQueue);
+    if (qErr) throw new Error(qErr.message);
+    for (const id of toQueue) {
+      await logAudit(supabase, id, userId, "queued_for_bulk_submit");
+    }
+
+    // One dispatcher pass per company fills every free slot in parallel.
+    const { dispatchNextQueued } = await import("@/lib/robotQueue.server");
+    const startedIds: string[] = [];
+    for (const companyId of companies) {
+      try {
+        const res = await dispatchNextQueued(supabase, userId, companyId);
+        startedIds.push(...res.startedIds);
+      } catch {
+        // Anything not started stays `queued`; the sweep retries it.
+      }
+    }
+
+    return {
+      queued: toQueue.length,
+      started: startedIds.length,
+      startedIds,
+      skipped,
+      duplicates,
+    };
+  });
+
+/**
  * Record that a human logged into the portal, clicked Submit, and captured
  * the state's confirmation/receipt number. Moves the record to `submitted`.
  */
