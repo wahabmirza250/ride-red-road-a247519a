@@ -201,24 +201,49 @@ export async function dispatchNextQueued(
   actorId: string,
   companyId?: string | null,
 ): Promise<{ started: string | null; startedIds: string[] }> {
-  const slots = await availableRobotSlots(supabase, { companyId });
+  const active = await listActiveRobotJobs(supabase, { companyId });
+  const slots = Math.max(0, MAX_CONCURRENT_ROBOT_JOBS - active.length);
   if (slots <= 0) return { started: null, startedIds: [] };
+
+  // Per-passenger live counts, so a batch of bills for one member can't fill
+  // every free slot at once.
+  const riderLive = new Map<string, number>();
+  for (const a of active) {
+    if (!a.riderKey) continue;
+    riderLive.set(a.riderKey, (riderLive.get(a.riderKey) ?? 0) + 1);
+  }
 
   let q = supabase
     .from("billing_records")
     .select(TRIP_SELECT)
     .eq("status", "queued")
     .order("updated_at", { ascending: true })
-    .limit(slots);
+    // Read deeper than the free slots: same-passenger rows get skipped over so
+    // different-passenger work behind them still runs at full speed.
+    .limit(Math.max(slots * 5, 40));
   if (companyId) q = q.eq("company_id", companyId);
   const { data: rows, error } = await q;
   if (error) throw new Error(error.message);
   const recs: any[] = rows ?? [];
   if (recs.length === 0) return { started: null, startedIds: [] };
 
+  // Pick oldest-first, honouring both the global cap and the per-rider cap.
+  const picked: any[] = [];
+  for (const rec of recs) {
+    if (picked.length >= slots) break;
+    const key = riderKeyOf(rec.medicaid_trips);
+    if (key) {
+      const live = riderLive.get(key) ?? 0;
+      if (live >= MAX_CONCURRENT_JOBS_PER_RIDER) continue; // paced; stays queued
+      riderLive.set(key, live + 1);
+    }
+    picked.push(rec);
+  }
+  if (picked.length === 0) return { started: null, startedIds: [] };
+
   // Claim the rows first so a concurrent sweep cannot pick the same records.
   const claimed: any[] = [];
-  for (const rec of recs) {
+  for (const rec of picked) {
     const { data: upd } = await supabase
       .from("billing_records")
       .update({ status: "submitting" })
@@ -228,6 +253,7 @@ export async function dispatchNextQueued(
     if ((upd ?? []).length > 0) claimed.push(rec);
   }
   if (claimed.length === 0) return { started: null, startedIds: [] };
+
 
   // Parallel dispatch — the robot runs these sessions concurrently.
   const results = await Promise.all(
