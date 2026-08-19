@@ -242,7 +242,13 @@ async function pauseSync(supabase: any, reason: string) {
  */
 export async function runClaimStatusSync(
   supabase: any,
-  opts: { actorId?: string | null; recordIds?: string[]; force?: boolean } = {},
+  opts: {
+    actorId?: string | null;
+    recordIds?: string[];
+    force?: boolean;
+    /** Test seam only: lets a harness stand in for the portal call. */
+    fetchImpl?: typeof fetch;
+  } = {},
 ): Promise<SyncRunResult> {
   const empty: SyncRunResult = {
     ok: true,
@@ -351,6 +357,7 @@ export async function runClaimStatusSync(
         portalId,
         providerUserId,
         claims: group,
+        fetchImpl: opts.fetchImpl,
       });
 
       if (!lookup.ok) {
