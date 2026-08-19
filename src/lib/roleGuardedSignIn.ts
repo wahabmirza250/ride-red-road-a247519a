@@ -11,6 +11,79 @@ const LABEL: Record<AppRole, string> = {
   platform_owner: "a platform owner",
 };
 
+const SESSION_HYDRATION_DELAYS_MS = [0, 250, 600, 1200] as const;
+
+async function wait(ms: number) {
+  if (ms > 0) await new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function readRolesAfterSignIn(userId: string): Promise<AppRole[]> {
+  let lastError: unknown;
+  for (const delay of SESSION_HYDRATION_DELAYS_MS) {
+    await wait(delay);
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+    if (!error && data && data.length > 0) {
+      return data.map((row) => row.role as AppRole);
+    }
+    if (error) lastError = error;
+  }
+  if (lastError) throw new Error("Could not verify account role. Please try again.");
+  return [];
+}
+
+async function readCompanyAfterSignIn(userId: string): Promise<{
+  slug: string;
+  name: string | null;
+  active: boolean;
+} | null> {
+  let lastError: unknown;
+  for (const delay of SESSION_HYDRATION_DELAYS_MS) {
+    await wait(delay);
+
+    // Revalidate the newly issued session before tenant reads. On a fresh
+    // browser the auth event and persisted session can hydrate a fraction of
+    // a second after signInWithPassword resolves.
+    const { data: verified, error: userError } = await supabase.auth.getUser();
+    if (userError || verified.user?.id !== userId) {
+      lastError = userError;
+      continue;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profileError) {
+      lastError = profileError;
+      continue;
+    }
+    if (!profile?.company_id) continue;
+
+    const { data: company, error: companyError } = await supabase
+      .from("companies")
+      .select("name, status, url_slug")
+      .eq("id", profile.company_id)
+      .maybeSingle();
+    if (companyError) {
+      lastError = companyError;
+      continue;
+    }
+    if (company?.url_slug) {
+      return {
+        slug: company.url_slug,
+        name: company.name,
+        active: company.status === "active",
+      };
+    }
+  }
+  if (lastError) throw new Error("Could not verify the account's company. Please try again.");
+  return null;
+}
+
 /**
  * Sign in and immediately verify the account carries the required role.
  * If it doesn't, the session is torn down and an Error is thrown so the
@@ -31,17 +104,13 @@ export async function signInAsRole(
   const userId = data.user?.id;
   if (!userId) throw new Error("Sign in failed");
 
-  const { data: roleRows, error: roleErr } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId);
-
-  if (roleErr) {
+  let roles: AppRole[];
+  try {
+    roles = await readRolesAfterSignIn(userId);
+  } catch (error) {
     await supabase.auth.signOut();
-    throw new Error("Could not verify account role. Please try again.");
+    throw error;
   }
-
-  const roles = (roleRows ?? []).map((r) => r.role as AppRole);
   if (!allowed.some((r) => roles.includes(r))) {
     await supabase.auth.signOut();
     throw new Error(
@@ -59,46 +128,29 @@ export async function signInAsRole(
   // Resolve the tenant directly with the freshly authenticated browser
   // session. This avoids a server-function bearer race immediately after
   // sign-in and gives the caller a deterministic redirect destination.
-  let status: { name: string | null; active: boolean } | null = null;
-  let companySlug: string | null = null;
-  const { data: prof, error: profileError } = await supabase
-    .from("profiles")
-    .select("company_id")
-    .eq("id", userId)
-    .maybeSingle();
-  if (profileError) {
+  let company: Awaited<ReturnType<typeof readCompanyAfterSignIn>>;
+  try {
+    company = await readCompanyAfterSignIn(userId);
+  } catch (error) {
     await supabase.auth.signOut();
-    throw new Error("Could not verify the account's company. Please try again.");
-  }
-  if (prof?.company_id) {
-    const { data: co, error: companyError } = await supabase
-      .from("companies")
-      .select("name, status, url_slug")
-      .eq("id", prof.company_id)
-      .maybeSingle();
-    if (companyError || !co) {
-      await supabase.auth.signOut();
-      throw new Error("Could not verify the account's company. Please try again.");
-    }
-    status = { name: co.name, active: co.status === "active" };
-    companySlug = co.url_slug;
+    throw error;
   }
 
-  if (status && !status.active) {
+  if (company && !company.active) {
     await supabase.auth.signOut();
     throw new Error(
-      `${status.name ?? "This provider"}'s account is suspended. Please contact RedArt Digital to restore access.`,
+      `${company.name ?? "This provider"}'s account is suspended. Please contact RedArt Digital to restore access.`,
     );
   }
 
   // Fail closed: without an authoritative company we must NOT let the caller
   // fall back to whatever slug happened to be in the URL.
-  if (!companySlug) {
+  if (!company) {
     await supabase.auth.signOut();
     throw new Error("Your account isn't linked to a provider. Contact your administrator.");
   }
 
-  return { companySlug, isOwner: false };
+  return { companySlug: company.slug, isOwner: false };
 }
 
 
