@@ -43,7 +43,6 @@ function createBrowserClient() {
       storage: typeof window !== "undefined" ? window.localStorage : undefined,
       persistSession: true,
       autoRefreshToken: true,
-      lock: async (_name, _timeout, fn) => fn(),
     },
   });
 }
