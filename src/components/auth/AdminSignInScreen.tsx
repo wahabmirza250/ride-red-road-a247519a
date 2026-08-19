@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ const BLOCK_KEY = "signin_blocked_message";
  * `/auth`. The platform owner always wins over any company role.
  */
 export function AdminSignInScreen({ companySlug }: { companySlug?: string }) {
+  const router = useRouter();
   const { user, loading, isAdmin, isOwner } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,18 +35,18 @@ export function AdminSignInScreen({ companySlug }: { companySlug?: string }) {
   useEffect(() => {
     if (loading || !user || submitting) return;
     if (isOwner) {
-      window.location.replace("/owner");
+      void router.navigate({ to: "/owner" });
       return;
     }
     // NEVER route from the URL slug: an account signed in on another
     // company's /login must land on its OWN company dashboard.
     if (isAdmin) {
       resolveOwnCompanySlug().then((slug) => {
-        if (slug) window.location.replace(`/${slug}/dashboard`);
+        if (slug) void router.navigate({ to: "/$companySlug/dashboard", params: { companySlug: slug }, replace: true });
         else setErrorMsg(NO_COMPANY_MESSAGE);
       });
     }
-  }, [loading, user, isAdmin, isOwner, submitting]);
+  }, [loading, user, isAdmin, isOwner, submitting, router]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -54,12 +55,16 @@ export function AdminSignInScreen({ companySlug }: { companySlug?: string }) {
     try {
       const result = await signInAsRole(email, password, "admin");
       if (result.isOwner) {
-        window.location.replace("/owner");
+        await router.navigate({ to: "/owner" });
         return;
       }
       toast.success("Signed in");
       if (!result.companySlug) throw new Error(NO_COMPANY_MESSAGE);
-      window.location.replace(`/${result.companySlug}/dashboard`);
+      await router.navigate({
+        to: "/$companySlug/dashboard",
+        params: { companySlug: result.companySlug },
+        replace: true,
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
       window.sessionStorage.setItem(BLOCK_KEY, msg);
