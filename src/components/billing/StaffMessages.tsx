@@ -31,7 +31,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 /** Direct messaging between billing staff inside the same company. */
-export function StaffMessages() {
+export function StaffMessages({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const listColleagues = useServerFn(listBillingColleagues);
@@ -53,7 +53,9 @@ export function StaffMessages() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Team messages" description="Message other billing staff in your company." />
+      {!embedded && (
+        <PageHeader title="Team messages" description="Message other billing staff in your company." />
+      )}
 
       <div className="grid h-[70vh] gap-4 rounded-2xl border border-border bg-surface shadow-soft lg:grid-cols-[300px_1fr]">
         <aside className="overflow-y-auto border-b border-border p-3 lg:border-b-0 lg:border-r">
