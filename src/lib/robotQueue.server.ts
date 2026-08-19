@@ -1,21 +1,14 @@
 /**
  * PORTAL SUBMISSION QUEUE (server-side).
  *
- * The state portal allows exactly ONE live session per provider account, and
- * the automation service serializes nothing for us: firing two jobs seconds
- * apart makes both fight over the same session and the loser dies with
- * "Job timed out after 480s".
+ * The automation service runs up to MAX_CONCURRENT_ROBOT_JOBS isolated portal
+ * sessions per company at once (proven in production). The queue therefore
+ * exists to cap concurrency, not to serialize:
  *
- * With several billers working the same account all day this happens by
- * accident, so submissions are gated here:
- *
- *   - one active robot job per company at a time
- *   - anything started while a job is live is parked as `queued`
- *   - as soon as a job reconciles to a terminal state, the oldest queued
- *     record is dispatched automatically
- *
- * Never used for `capture` runs: those are test/diagnostic passes and must
- * fail loudly rather than sit in a queue.
+ *   - up to MAX_CONCURRENT_ROBOT_JOBS active robot jobs per company
+ *   - anything started while all slots are busy is parked as `queued`
+ *   - as jobs reconcile to terminal states, every freed slot is refilled in
+ *     one pass, dispatching the oldest queued records in parallel
  */
 import { startRobotSubmission, logAudit } from "@/lib/billingHelpers";
 
@@ -26,6 +19,12 @@ import { startRobotSubmission, logAudit } from "@/lib/billingHelpers";
  */
 export const ROBOT_JOB_STALE_MS = 12 * 60 * 1000;
 
+/**
+ * How many portal sessions the automation service can genuinely run at once
+ * for a single provider account.
+ */
+export const MAX_CONCURRENT_ROBOT_JOBS = 8;
+
 const TRIP_SELECT = `id, status, trip_id, company_id,
    medicaid_trips!inner(
      id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
@@ -35,11 +34,11 @@ const TRIP_SELECT = `id, status, trip_id, company_id,
      riders(medicaid_id)
    )`;
 
-/** The billing record whose robot job currently owns the portal session. */
-export async function findActiveRobotJob(
+/** Billing records whose robot jobs currently hold a live portal session. */
+export async function listActiveRobotJobs(
   supabase: any,
   opts: { companyId?: string | null; excludeRecordId?: string } = {},
-): Promise<{ id: string; startedAt: string | null } | null> {
+): Promise<Array<{ id: string; startedAt: string | null }>> {
   let q = supabase
     .from("billing_records")
     .select(`id, medicaid_trips!inner(robot_job_started_at, robot_job_id)`)
@@ -49,15 +48,34 @@ export async function findActiveRobotJob(
   if (error) throw new Error(error.message);
 
   const now = Date.now();
+  const out: Array<{ id: string; startedAt: string | null }> = [];
   for (const r of data ?? []) {
     if (opts.excludeRecordId && r.id === opts.excludeRecordId) continue;
     const trip: any = r.medicaid_trips;
     if (!trip?.robot_job_id) continue;
     const started = trip.robot_job_started_at ? new Date(trip.robot_job_started_at).getTime() : 0;
     if (started && now - started > ROBOT_JOB_STALE_MS) continue; // dead job, not blocking
-    return { id: r.id as string, startedAt: trip.robot_job_started_at ?? null };
+    out.push({ id: r.id as string, startedAt: trip.robot_job_started_at ?? null });
   }
-  return null;
+  return out;
+}
+
+/** First active job, or null. Kept for callers that only need "is anything live?". */
+export async function findActiveRobotJob(
+  supabase: any,
+  opts: { companyId?: string | null; excludeRecordId?: string } = {},
+): Promise<{ id: string; startedAt: string | null } | null> {
+  const active = await listActiveRobotJobs(supabase, opts);
+  return active[0] ?? null;
+}
+
+/** Free concurrency slots for a company right now. */
+export async function availableRobotSlots(
+  supabase: any,
+  opts: { companyId?: string | null; excludeRecordId?: string } = {},
+): Promise<number> {
+  const active = await listActiveRobotJobs(supabase, opts);
+  return Math.max(0, MAX_CONCURRENT_ROBOT_JOBS - active.length);
 }
 
 /** How many records are parked in front of this one. */
@@ -93,18 +111,19 @@ export async function enqueueOrStartRobot(
 ): Promise<{ queued: boolean; ahead: number }> {
   const { billingRecordId, companyId, trip, providerUserId, mode } = args;
 
-  const active = await findActiveRobotJob(supabase, {
+  const active = await listActiveRobotJobs(supabase, {
     companyId,
     excludeRecordId: billingRecordId,
   });
+  const full = active.length >= MAX_CONCURRENT_ROBOT_JOBS;
 
-  if (active && (mode === "capture" || mode === "debug_confirm_page")) {
+  if (full && (mode === "capture" || mode === "debug_confirm_page")) {
     throw new Error(
-      "The portal session is busy with another submission right now. Try the capture run again in a few minutes.",
+      `All ${MAX_CONCURRENT_ROBOT_JOBS} portal sessions are busy right now. Try the capture run again in a few minutes.`,
     );
   }
 
-  if (active) {
+  if (full) {
     await supabase
       .from("billing_records")
       .update({
@@ -119,7 +138,7 @@ export async function enqueueOrStartRobot(
       billingRecordId,
       providerUserId,
       "queued_behind_active_job",
-      `Portal session busy (record ${active.id}). Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`,
+      `All ${MAX_CONCURRENT_ROBOT_JOBS} portal sessions busy. Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`,
     );
     return { queued: true, ahead };
   }
@@ -134,49 +153,70 @@ export async function enqueueOrStartRobot(
 }
 
 /**
- * Called after a job reaches a terminal state: hand the freed portal session
- * to the oldest queued record, if any.
+ * Called after a job reaches a terminal state: fill every free concurrency
+ * slot with the oldest queued records, dispatching them in parallel.
  */
 export async function dispatchNextQueued(
   supabase: any,
   actorId: string,
   companyId?: string | null,
-): Promise<{ started: string | null }> {
-  const active = await findActiveRobotJob(supabase, { companyId });
-  if (active) return { started: null };
+): Promise<{ started: string | null; startedIds: string[] }> {
+  const slots = await availableRobotSlots(supabase, { companyId });
+  if (slots <= 0) return { started: null, startedIds: [] };
 
   let q = supabase
     .from("billing_records")
     .select(TRIP_SELECT)
     .eq("status", "queued")
     .order("updated_at", { ascending: true })
-    .limit(1);
+    .limit(slots);
   if (companyId) q = q.eq("company_id", companyId);
   const { data: rows, error } = await q;
   if (error) throw new Error(error.message);
-  const rec: any = (rows ?? [])[0];
-  if (!rec) return { started: null };
+  const recs: any[] = rows ?? [];
+  if (recs.length === 0) return { started: null, startedIds: [] };
 
-  try {
-    await startRobotSubmission(supabase, {
-      billingRecordId: rec.id,
-      trip: rec.medicaid_trips,
-      providerUserId: actorId,
-      // Queued work is always a real one-shot submission; capture runs are
-      // never queued (see enqueueOrStartRobot).
-      mode: "full",
-    });
-    await logAudit(supabase, rec.id, actorId, "robot_started_from_queue");
-    return { started: rec.id as string };
-  } catch (e: any) {
-    const msg = e?.message ?? "Failed to start the queued automation";
-    await supabase
+  // Claim the rows first so a concurrent sweep cannot pick the same records.
+  const claimed: any[] = [];
+  for (const rec of recs) {
+    const { data: upd } = await supabase
       .from("billing_records")
-      .update({ status: "needs_fix", submission_error: msg, fix_notes: msg })
-      .eq("id", rec.id);
-    await logAudit(supabase, rec.id, actorId, "robot_start_failed", msg);
-    return { started: null };
+      .update({ status: "submitting" })
+      .eq("id", rec.id)
+      .eq("status", "queued")
+      .select("id");
+    if ((upd ?? []).length > 0) claimed.push(rec);
   }
+  if (claimed.length === 0) return { started: null, startedIds: [] };
+
+  // Parallel dispatch — the robot runs these sessions concurrently.
+  const results = await Promise.all(
+    claimed.map(async (rec: any) => {
+      try {
+        await startRobotSubmission(supabase, {
+          billingRecordId: rec.id,
+          trip: rec.medicaid_trips,
+          providerUserId: actorId,
+          // Queued work is always a real one-shot submission; capture runs are
+          // never queued (see enqueueOrStartRobot).
+          mode: "full",
+        });
+        await logAudit(supabase, rec.id, actorId, "robot_started_from_queue");
+        return rec.id as string;
+      } catch (e: any) {
+        const msg = e?.message ?? "Failed to start the queued automation";
+        await supabase
+          .from("billing_records")
+          .update({ status: "needs_fix", submission_error: msg, fix_notes: msg })
+          .eq("id", rec.id);
+        await logAudit(supabase, rec.id, actorId, "robot_start_failed", msg);
+        return null;
+      }
+    }),
+  );
+
+  const startedIds = results.filter((x): x is string => Boolean(x));
+  return { started: startedIds[0] ?? null, startedIds };
 }
 
 /**
@@ -190,7 +230,7 @@ export async function sweepRobotJobs(
   supabase: any,
   actorId: string,
   companyId?: string | null,
-): Promise<{ checked: number; settled: number; started: string | null }> {
+): Promise<{ checked: number; settled: number; started: string | null; startedIds: string[] }> {
   const { reconcileRobotJob } = await import("@/lib/robotReconcile.server");
   const { resolveUnverifiedClaim } = await import("@/lib/unverifiedClaim.server");
 
@@ -203,26 +243,32 @@ export async function sweepRobotJobs(
   const { data: rows, error } = await q;
   if (error) throw new Error(error.message);
 
-  let settled = 0;
   const targets = (rows ?? []).filter((r: any) => r.medicaid_trips?.robot_job_id);
-  for (const r of targets) {
-    const robotStatus = String(r.medicaid_trips?.robot_last_status ?? "");
-    // Already handed to a human — stop the automatic lookups.
-    if (robotStatus === "NEEDS_HUMAN_LOOKUP") continue;
-    try {
-      // Confirm was clicked but the page timed out: treat as still in flight and
-      // keep running read-only portal searches until the real claim turns up.
-      const res =
-        robotStatus === "SUBMITTED_UNVERIFIED"
-          ? await resolveUnverifiedClaim(supabase, r.id, actorId)
-          : await reconcileRobotJob(supabase, r.id, actorId);
-      if (!res.pending) settled += 1;
-    } catch {
-      // A single bad record must never stop the sweep.
-    }
-  }
+  // Reconcile every in-flight job in parallel: with up to
+  // MAX_CONCURRENT_ROBOT_JOBS live jobs, sequential polling delayed each
+  // freed slot by the sum of all the polls before it.
+  const outcomes = await Promise.all(
+    targets.map(async (r: any) => {
+      const robotStatus = String(r.medicaid_trips?.robot_last_status ?? "");
+      // Already handed to a human — stop the automatic lookups.
+      if (robotStatus === "NEEDS_HUMAN_LOOKUP") return false;
+      try {
+        // Confirm was clicked but the page timed out: treat as still in flight
+        // and keep running read-only portal searches until the claim turns up.
+        const res =
+          robotStatus === "SUBMITTED_UNVERIFIED"
+            ? await resolveUnverifiedClaim(supabase, r.id, actorId)
+            : await reconcileRobotJob(supabase, r.id, actorId);
+        return !res.pending;
+      } catch {
+        // A single bad record must never stop the sweep.
+        return false;
+      }
+    }),
+  );
+  const settled = outcomes.filter(Boolean).length;
 
 
-  const { started } = await dispatchNextQueued(supabase, actorId, companyId);
-  return { checked: targets.length, settled, started };
+  const { started, startedIds } = await dispatchNextQueued(supabase, actorId, companyId);
+  return { checked: targets.length, settled, started, startedIds };
 }
