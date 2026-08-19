@@ -289,7 +289,7 @@ export function DriverPayPanel({ driverId }: { driverId: string }) {
                   <SelectValue placeholder="Select %" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Not set</SelectItem>
+                  
                   {Array.from({ length: 101 }, (_, i) => (
                     <SelectItem key={i} value={String(i)}>
                       {i}%
