@@ -165,6 +165,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       }
     },
     enabled: canBill,
+    // A robot job can settle at any moment; never show a frozen snapshot.
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 
   const counts = useQuery({
@@ -177,7 +181,9 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       }
     },
     enabled: canBill,
-    refetchInterval: 20000,
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 
 
@@ -195,10 +201,24 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "billing_records" },
-        () => {
+        (payload: any) => {
           qc.invalidateQueries({ queryKey: ["billing_list"] });
           qc.invalidateQueries({ queryKey: ["billing_detail"] });
           qc.invalidateQueries({ queryKey: ["billing_counts"] });
+          qc.invalidateQueries({ queryKey: ["submission_queue"] });
+
+          // Surface a terminal failure immediately: the row leaves the
+          // "Awaiting portal" list the moment it fails, so without this the
+          // only signal is a row silently disappearing.
+          const next: any = payload?.new;
+          const prev: any = payload?.old;
+          if (
+            next?.status === "needs_fix" &&
+            prev?.status !== "needs_fix" &&
+            next?.submission_error
+          ) {
+            toast.error(`Submission failed: ${next.submission_error}`);
+          }
         },
       )
       .subscribe();
@@ -206,6 +226,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       supabase.removeChannel(ch);
     };
   }, [qc]);
+
 
   // Background status sweep. Robot results used to land only while a detail
   // sheet was open, which is why a 4-minute job looked like an 18-minute one.
