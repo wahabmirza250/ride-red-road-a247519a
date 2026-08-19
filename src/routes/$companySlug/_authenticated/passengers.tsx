@@ -51,6 +51,7 @@ function PassengersPage() {
       const { data, error } = await supabase
         .from("passengers")
         .select("*")
+        .eq("is_active", true)
         .order("last_name", { ascending: true });
       if (error) throw error;
       return (data ?? []) as Passenger[];
