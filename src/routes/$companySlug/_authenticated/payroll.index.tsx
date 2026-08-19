@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -683,6 +683,152 @@ function ManualHoursDialog({
             onClick={() => add.mutate()}
           >
             {add.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add hours
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Per-driver detail. Opens when an admin clicks a driver row: shows this
+ * period's numbers, lets them fix the rate or pay type, and jumps straight
+ * into adding hours or clearing pay for that one driver.
+ */
+function DriverDetailDialog({
+  row,
+  payments,
+  onClose,
+  onClearPay,
+  onAddHours,
+  onChanged,
+}: {
+  row: PayrollRow | null;
+  payments: { id: string; paid_at: string; total_paid: number; method: string }[];
+  onClose: () => void;
+  onClearPay: (r: PayrollRow) => void;
+  onAddHours: (r: PayrollRow) => void;
+  onChanged: () => void;
+}) {
+  const rateFn = useServerFn(setDriverHourlyRate);
+  const typeFn = useServerFn(setDriverPayType);
+  const [rate, setRate] = useState("");
+
+  useEffect(() => {
+    setRate(row?.hourly_rate == null ? "" : String(row.hourly_rate));
+  }, [row]);
+
+  const saveRate = useMutation({
+    mutationFn: () =>
+      rateFn({ data: { driver_id: row!.driver_id, hourly_rate: Number(rate) } }),
+    onSuccess: () => {
+      toast.success("Hourly rate updated");
+      onChanged();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const switchType = useMutation({
+    mutationFn: () =>
+      typeFn({ data: { driver_id: row!.driver_id, pay_type: "commission" } }),
+    onSuccess: () => {
+      toast.success("Moved to % of paid claims");
+      onChanged();
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={!!row} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{row?.name}</DialogTitle>
+        </DialogHeader>
+        {row && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Metric label="Hours" value={`${row.hours.toFixed(2)}h`} />
+              <Metric
+                label="Gross"
+                value={row.gross_earnings == null ? "—" : formatCurrency(row.gross_earnings)}
+              />
+              <Metric label="Fuel pending" value={formatCurrency(row.fuel_pending)} />
+              <Metric
+                label="Outstanding"
+                value={row.outstanding == null ? "—" : formatCurrency(row.outstanding)}
+                highlight
+              />
+            </div>
+
+            <div className="rounded-xl border border-border bg-surface-muted p-3 text-sm">
+              <Line label="Paid in this period" value={formatCurrency(row.paid_in_period)} />
+              <Line
+                label="Last payment"
+                value={row.last_paid_at ? formatDate(row.last_paid_at) : "never"}
+              />
+              <Line label="Status" value={row.open_shift ? "Clocked in now" : row.status} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Hourly rate (USD)</Label>
+              <div className="flex gap-2">
+                <Input
+                  inputMode="decimal"
+                  placeholder="not set"
+                  value={rate}
+                  onChange={(e) => setRate(e.target.value)}
+                />
+                <Button
+                  variant="outline"
+                  disabled={!rate || saveRate.isPending}
+                  onClick={() => saveRate.mutate()}
+                >
+                  {saveRate.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="mb-1.5 text-sm font-medium">Recent payments</h3>
+              {payments.length ? (
+                <ul className="space-y-1 text-sm">
+                  {payments.slice(0, 5).map((p) => (
+                    <li key={p.id} className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {formatDate(p.paid_at)} · {p.method}
+                      </span>
+                      <span className="font-medium tabular-nums">
+                        {formatCurrency(p.total_paid)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">No payments cleared yet.</p>
+              )}
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              disabled={switchType.isPending}
+              onClick={() => switchType.mutate()}
+            >
+              <Percent className="mr-1.5 h-4 w-4" /> Switch to % of paid claims
+            </Button>
+          </div>
+        )}
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => row && onAddHours(row)}>
+            <Clock className="mr-1.5 h-4 w-4" /> Add hours
+          </Button>
+          <Button
+            disabled={!row || row.outstanding == null || row.outstanding <= 0}
+            onClick={() => row && onClearPay(row)}
+          >
+            <Wallet className="mr-1.5 h-4 w-4" /> Clear pay
           </Button>
         </DialogFooter>
       </DialogContent>
