@@ -321,7 +321,8 @@ export async function startRobotSubmission(
   },
 ) {
   const { billingRecordId, trip, providerUserId } = args;
-  const mode = args.mode ?? "capture";
+  // One-shot is the default everywhere; a capture-only run must be asked for.
+  const mode = args.mode ?? "full";
   const rider = trip.riders;
   const medicaidMemberId: string | null = rider?.medicaid_id ?? null;
   if (!medicaidMemberId) {
