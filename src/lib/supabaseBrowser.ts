@@ -40,6 +40,10 @@ function createBrowserClient() {
       fetch: createSupabaseFetch(key),
     },
     auth: {
+      // Isolate the canonical app session from legacy/generated clients that
+      // used the backend SDK's default key. Old cached tabs can otherwise
+      // keep rotating the same refresh token after a new build is published.
+      storageKey: "redart-auth-v2",
       storage: typeof window !== "undefined" ? window.localStorage : undefined,
       persistSession: true,
       // Do not let GoTrue's background timer rotate a freshly-issued token.
