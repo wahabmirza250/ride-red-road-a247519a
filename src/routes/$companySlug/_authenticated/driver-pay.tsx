@@ -55,7 +55,7 @@ function defaultRange() {
   return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
 }
 
-export function DriverPayPage() {
+export function DriverPayPage({ embedded }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const driversFn = useServerFn(listPayoutDrivers);
   const pctFn = useServerFn(setDriverPayoutPercentage);
@@ -68,6 +68,8 @@ export function DriverPayPage() {
   const [range, setRange] = useState(defaultRange);
   const [overridePct, setOverridePct] = useState<string>("");
   const [confirming, setConfirming] = useState(false);
+  const [extraAmount, setExtraAmount] = useState("");
+  const [extraNote, setExtraNote] = useState("");
 
   const driversQuery = useQuery({ queryKey: ["payout-drivers"], queryFn: () => driversFn({}) });
   // Only commission drivers belong here; hourly drivers are paid in the
@@ -108,10 +110,19 @@ export function DriverPayPage() {
   const confirmPayout = useMutation({
     mutationFn: (v: { percentage: number }) =>
       confirmFn({
-        data: { driver_id: selected!, from: range.from, to: range.to, percentage: v.percentage },
+        data: {
+          driver_id: selected!,
+          from: range.from,
+          to: range.to,
+          percentage: v.percentage,
+          extra_amount: Number(extraAmount) || 0,
+          extra_note: extraNote.trim() || undefined,
+        },
       }),
     onSuccess: (r) => {
       setConfirming(false);
+      setExtraAmount("");
+      setExtraNote("");
       toast.success(`Payout of ${formatCurrency(r.payout_amount)} recorded`);
       qc.invalidateQueries({ queryKey: ["payout-period"] });
       qc.invalidateQueries({ queryKey: ["payout-history"] });
@@ -141,10 +152,12 @@ export function DriverPayPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Driver Pay"
-        description="Pay drivers a percentage of the claims the state actually paid."
-      />
+      {!embedded && (
+        <PageHeader
+          title="Driver Pay"
+          description="Pay drivers a percentage of the claims the state actually paid."
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         {/* Driver profiles + default percentage */}
@@ -153,7 +166,10 @@ export function DriverPayPage() {
           {drivers.isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : !drivers.data?.length ? (
-            <p className="text-sm text-muted-foreground">No drivers yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No drivers are on percentage pay yet. Open a driver on the “Hourly payroll” tab and
+              choose “Switch to % of paid claims” to move them here.
+            </p>
           ) : (
             <ul className="space-y-2">
               {drivers.data.map((d) => (
@@ -342,6 +358,7 @@ export function DriverPayPage() {
                       <th className="px-3 py-2">Period</th>
                       <th className="px-3 py-2 text-right">Billed</th>
                       <th className="px-3 py-2 text-right">%</th>
+                      <th className="px-3 py-2 text-right">Extra</th>
                       <th className="px-3 py-2 text-right">Paid out</th>
                       <th className="px-3 py-2">When / by</th>
                       <th className="px-3 py-2" />
@@ -358,6 +375,12 @@ export function DriverPayPage() {
                           {formatCurrency(h.total_billed)}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">{h.percentage_used}%</td>
+                        <td
+                          className="px-3 py-2 text-right tabular-nums"
+                          title={h.extra_note ?? undefined}
+                        >
+                          {h.extra_amount ? formatCurrency(h.extra_amount) : "—"}
+                        </td>
                         <td className="px-3 py-2 text-right font-semibold tabular-nums">
                           {formatCurrency(h.payout_amount)}
                         </td>
@@ -405,6 +428,36 @@ export function DriverPayPage() {
                 automatically, but double-check the dates.
               </p>
             )}
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+              <div className="mb-2 flex items-center gap-2 font-medium">
+                <Gift className="h-4 w-4 text-primary" /> Extra amount (bonus / adjustment)
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Amount (USD)</Label>
+                  <Input
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={extraAmount}
+                    onChange={(e) => setExtraAmount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Reason (optional)</Label>
+                  <Input
+                    value={extraNote}
+                    onChange={(e) => setExtraNote(e.target.value)}
+                    placeholder="e.g. perfect-attendance bonus"
+                  />
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Total to pay:{" "}
+                <span className="font-semibold text-foreground">
+                  {formatCurrency((payout ?? 0) + (Number(extraAmount) || 0))}
+                </span>
+              </p>
+            </div>
             <p className="text-muted-foreground">
               Every included bill is locked to this payout and can never be paid twice.
             </p>
