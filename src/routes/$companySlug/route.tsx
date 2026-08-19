@@ -28,6 +28,7 @@ function CompanyLayout() {
   const { companySlug } = Route.useParams();
   const isBareLegacy = APP_PREFIXES.has(companySlug);
   const { user, loading } = useAuth();
+  const userId = user?.id;
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // Guest-facing routes (passenger booking, sign-in pages) are resolved STRICTLY
   // from the URL slug. They must never inherit company context from a staff /
@@ -53,9 +54,18 @@ function CompanyLayout() {
 
     (async () => {
       try {
-        if (user && !isPublicRoute) {
-          const mine = await myCompany({});
+        if (userId && !isPublicRoute) {
+          let mine: Awaited<ReturnType<typeof myCompany>> | undefined;
+          for (let attempt = 0; attempt < 2 && !mine; attempt += 1) {
+            try {
+              mine = await myCompany({});
+            } catch (error) {
+              if (attempt === 1) throw error;
+              await new Promise((resolveRetry) => window.setTimeout(resolveRetry, 500));
+            }
+          }
           if (cancelled) return;
+          if (!mine) return setState("bad");
           if (!mine.slug) return setState("nocompany");
           if (!mine.active) return setState("suspended");
           if (mine.slug !== companySlug) {
@@ -83,7 +93,7 @@ function CompanyLayout() {
     return () => {
       cancelled = true;
     };
-  }, [companySlug, isBareLegacy, loading, user, isPublicRoute, myCompany, resolve]);
+  }, [companySlug, isBareLegacy, loading, userId, isPublicRoute, myCompany, resolve]);
 
   if (isBareLegacy) return <Outlet />;
 
