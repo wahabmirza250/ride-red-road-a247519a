@@ -127,7 +127,7 @@ export function DriverPayPanel({ driverId }: { driverId: string }) {
   const currentRate = pay.data?.hourly_rate ?? null;
   const rateValue = rate ?? (currentRate == null ? "" : String(currentRate));
   const currentPct = claims.data?.default_percentage ?? null;
-  const pctValue = pct ?? (currentPct == null ? "" : String(currentPct));
+  const pctValue = pct ?? (currentPct == null ? undefined : String(currentPct));
   const e = earnings.data;
   const c = claims.data;
   const estimate =
