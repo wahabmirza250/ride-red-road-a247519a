@@ -25,6 +25,26 @@ export const ROBOT_JOB_STALE_MS = 12 * 60 * 1000;
  */
 export const MAX_CONCURRENT_ROBOT_JOBS = 8;
 
+/**
+ * PER-PASSENGER THROTTLE.
+ *
+ * Grouping several bills for the same member and submitting them together is
+ * the normal workflow, but the portal cannot handle many simultaneous sessions
+ * touching one member record — those runs time out at 480s. So each passenger
+ * gets at most this many live jobs, no matter how many global slots are free;
+ * the rest park as `queued` and follow automatically.
+ */
+export const MAX_CONCURRENT_JOBS_PER_RIDER = 2;
+
+/** Stable per-passenger key: rider row first, Medicaid ID as a fallback. */
+export function riderKeyOf(trip: any): string | null {
+  if (!trip) return null;
+  const rid = trip.rider_id ?? null;
+  if (rid) return `rider:${rid}`;
+  const mid = trip.riders?.medicaid_id ?? trip.medicaid_id ?? null;
+  return mid ? `mid:${String(mid).trim().toUpperCase()}` : null;
+}
+
 const TRIP_SELECT = `id, status, trip_id, company_id,
    medicaid_trips!inner(
      id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
@@ -38,26 +58,33 @@ const TRIP_SELECT = `id, status, trip_id, company_id,
 export async function listActiveRobotJobs(
   supabase: any,
   opts: { companyId?: string | null; excludeRecordId?: string } = {},
-): Promise<Array<{ id: string; startedAt: string | null }>> {
+): Promise<Array<{ id: string; startedAt: string | null; riderKey: string | null }>> {
   let q = supabase
     .from("billing_records")
-    .select(`id, medicaid_trips!inner(robot_job_started_at, robot_job_id)`)
+    .select(
+      `id, medicaid_trips!inner(robot_job_started_at, robot_job_id, rider_id, riders(medicaid_id))`,
+    )
     .eq("status", "submitting");
   if (opts.companyId) q = q.eq("company_id", opts.companyId);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
 
   const now = Date.now();
-  const out: Array<{ id: string; startedAt: string | null }> = [];
+  const out: Array<{ id: string; startedAt: string | null; riderKey: string | null }> = [];
   for (const r of data ?? []) {
     if (opts.excludeRecordId && r.id === opts.excludeRecordId) continue;
     const trip: any = r.medicaid_trips;
     if (!trip?.robot_job_id) continue;
     const started = trip.robot_job_started_at ? new Date(trip.robot_job_started_at).getTime() : 0;
     if (started && now - started > ROBOT_JOB_STALE_MS) continue; // dead job, not blocking
-    out.push({ id: r.id as string, startedAt: trip.robot_job_started_at ?? null });
+    out.push({
+      id: r.id as string,
+      startedAt: trip.robot_job_started_at ?? null,
+      riderKey: riderKeyOf(trip),
+    });
   }
   return out;
+
 }
 
 /** First active job, or null. Kept for callers that only need "is anything live?". */
@@ -115,11 +142,21 @@ export async function enqueueOrStartRobot(
     companyId,
     excludeRecordId: billingRecordId,
   });
-  const full = active.length >= MAX_CONCURRENT_ROBOT_JOBS;
+  const globalFull = active.length >= MAX_CONCURRENT_ROBOT_JOBS;
+
+  // Same-passenger pacing: the portal chokes when several sessions touch one
+  // member at once, so cap per rider even when global slots are free.
+  const key = riderKeyOf(trip);
+  const riderActive = key ? active.filter((a) => a.riderKey === key).length : 0;
+  const riderFull = Boolean(key) && riderActive >= MAX_CONCURRENT_JOBS_PER_RIDER;
+
+  const full = globalFull || riderFull;
 
   if (full && (mode === "capture" || mode === "debug_confirm_page")) {
     throw new Error(
-      `All ${MAX_CONCURRENT_ROBOT_JOBS} portal sessions are busy right now. Try the capture run again in a few minutes.`,
+      riderFull && !globalFull
+        ? `This passenger already has ${riderActive} portal session(s) running. Try the capture run again in a few minutes.`
+        : `All ${MAX_CONCURRENT_ROBOT_JOBS} portal sessions are busy right now. Try the capture run again in a few minutes.`,
     );
   }
 
@@ -138,10 +175,13 @@ export async function enqueueOrStartRobot(
       billingRecordId,
       providerUserId,
       "queued_behind_active_job",
-      `All ${MAX_CONCURRENT_ROBOT_JOBS} portal sessions busy. Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`,
+      riderFull && !globalFull
+        ? `Paced automatically: this passenger already has ${riderActive} of ${MAX_CONCURRENT_JOBS_PER_RIDER} allowed portal sessions running. Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`
+        : `All ${MAX_CONCURRENT_ROBOT_JOBS} portal sessions busy. Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`,
     );
     return { queued: true, ahead };
   }
+
 
   await startRobotSubmission(supabase, {
     billingRecordId,
@@ -161,24 +201,49 @@ export async function dispatchNextQueued(
   actorId: string,
   companyId?: string | null,
 ): Promise<{ started: string | null; startedIds: string[] }> {
-  const slots = await availableRobotSlots(supabase, { companyId });
+  const active = await listActiveRobotJobs(supabase, { companyId });
+  const slots = Math.max(0, MAX_CONCURRENT_ROBOT_JOBS - active.length);
   if (slots <= 0) return { started: null, startedIds: [] };
+
+  // Per-passenger live counts, so a batch of bills for one member can't fill
+  // every free slot at once.
+  const riderLive = new Map<string, number>();
+  for (const a of active) {
+    if (!a.riderKey) continue;
+    riderLive.set(a.riderKey, (riderLive.get(a.riderKey) ?? 0) + 1);
+  }
 
   let q = supabase
     .from("billing_records")
     .select(TRIP_SELECT)
     .eq("status", "queued")
     .order("updated_at", { ascending: true })
-    .limit(slots);
+    // Read deeper than the free slots: same-passenger rows get skipped over so
+    // different-passenger work behind them still runs at full speed.
+    .limit(Math.max(slots * 5, 40));
   if (companyId) q = q.eq("company_id", companyId);
   const { data: rows, error } = await q;
   if (error) throw new Error(error.message);
   const recs: any[] = rows ?? [];
   if (recs.length === 0) return { started: null, startedIds: [] };
 
+  // Pick oldest-first, honouring both the global cap and the per-rider cap.
+  const picked: any[] = [];
+  for (const rec of recs) {
+    if (picked.length >= slots) break;
+    const key = riderKeyOf(rec.medicaid_trips);
+    if (key) {
+      const live = riderLive.get(key) ?? 0;
+      if (live >= MAX_CONCURRENT_JOBS_PER_RIDER) continue; // paced; stays queued
+      riderLive.set(key, live + 1);
+    }
+    picked.push(rec);
+  }
+  if (picked.length === 0) return { started: null, startedIds: [] };
+
   // Claim the rows first so a concurrent sweep cannot pick the same records.
   const claimed: any[] = [];
-  for (const rec of recs) {
+  for (const rec of picked) {
     const { data: upd } = await supabase
       .from("billing_records")
       .update({ status: "submitting" })
@@ -188,6 +253,7 @@ export async function dispatchNextQueued(
     if ((upd ?? []).length > 0) claimed.push(rec);
   }
   if (claimed.length === 0) return { started: null, startedIds: [] };
+
 
   // Parallel dispatch — the robot runs these sessions concurrently.
   const results = await Promise.all(
