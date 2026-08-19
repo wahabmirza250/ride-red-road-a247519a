@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   getDriverPay,
   setDriverHourlyRate,
   setDriverPayType,
@@ -274,13 +281,22 @@ export function DriverPayPanel({ driverId }: { driverId: string }) {
           <div className="flex items-end gap-2">
             <div className="space-y-1.5">
               <Label>Payout percentage (%)</Label>
-              <Input
-                inputMode="decimal"
-                placeholder="not set"
-                className="w-36"
+              <Select
                 value={pctValue}
-                onChange={(ev) => setPct(ev.target.value)}
-              />
+                onValueChange={(value) => setPct(value)}
+              >
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Select %" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Not set</SelectItem>
+                  {Array.from({ length: 101 }, (_, i) => (
+                    <SelectItem key={i} value={String(i)}>
+                      {i}%
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Button onClick={() => savePct.mutate()} disabled={savePct.isPending}>
               {savePct.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
