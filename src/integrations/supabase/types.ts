@@ -627,6 +627,8 @@ export type Database = {
           company_id: string | null
           created_at: string
           driver_id: string
+          extra_amount: number
+          extra_note: string | null
           id: string
           notes: string | null
           paid_at: string
@@ -643,6 +645,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           driver_id: string
+          extra_amount?: number
+          extra_note?: string | null
           id?: string
           notes?: string | null
           paid_at?: string
@@ -659,6 +663,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           driver_id?: string
+          extra_amount?: number
+          extra_note?: string | null
           id?: string
           notes?: string | null
           paid_at?: string
@@ -780,6 +786,8 @@ export type Database = {
       }
       driver_payouts: {
         Row: {
+          bonus_amount: number
+          bonus_note: string | null
           created_at: string
           driver_id: string
           fuel_reimbursed: number
@@ -798,6 +806,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bonus_amount?: number
+          bonus_note?: string | null
           created_at?: string
           driver_id: string
           fuel_reimbursed?: number
@@ -816,6 +826,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bonus_amount?: number
+          bonus_note?: string | null
           created_at?: string
           driver_id?: string
           fuel_reimbursed?: number

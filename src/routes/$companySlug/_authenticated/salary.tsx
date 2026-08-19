@@ -52,7 +52,7 @@ function SalaryPage() {
         </TabsList>
       </Tabs>
 
-      {method === "hourly" ? <PayrollPage /> : <DriverPayPage />}
+      {method === "hourly" ? <PayrollPage embedded /> : <DriverPayPage embedded />}
     </div>
   );
 }

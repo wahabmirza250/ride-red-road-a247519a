@@ -1,9 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Banknote, CheckCircle2, Clock, Loader2, Undo2, Wallet } from "lucide-react";
+import {
+  Banknote,
+  CheckCircle2,
+  Clock,
+  Gift,
+  Loader2,
+  Percent,
+  Search,
+  Undo2,
+  Wallet,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
+import { setDriverHourlyRate, setDriverPayType } from "@/lib/driverPay.functions";
 import {
   addManualHours,
   clearDriverPay,
@@ -51,11 +62,15 @@ function defaultPeriod() {
 const startOfDay = (d: string) => new Date(`${d}T00:00:00`).toISOString();
 const endOfDay = (d: string) => new Date(`${d}T23:59:59.999`).toISOString();
 
-export function PayrollPage() {
+export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const [range, setRange] = useState(defaultPeriod);
   const [paying, setPaying] = useState<PayrollRow | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
+  const [manualDriver, setManualDriver] = useState<string>("");
+  const [detail, setDetail] = useState<PayrollRow | null>(null);
+  const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   const periodFn = useServerFn(getPayrollPeriod);
   const payoutsFn = useServerFn(listPayouts);
@@ -85,10 +100,21 @@ export function PayrollPage() {
 
   // Only hourly-paid drivers belong in this calculator; commission drivers are
   // paid from the "% of paid claims" tab.
-  const rows = useMemo(
+  const allRows = useMemo(
     () => (period.data?.rows ?? []).filter((r) => r.pay_type !== "commission"),
     [period.data],
   );
+  /** A driver is "active" when something actually happened in this period. */
+  const hasActivity = (r: PayrollRow) =>
+    r.hours > 0 || r.fuel_pending > 0 || r.paid_in_period > 0 || (r.outstanding ?? 0) > 0;
+  const activeCount = allRows.filter(hasActivity).length;
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = allRows;
+    if (!showAll && !q) list = list.filter(hasActivity);
+    if (q) list = list.filter((r) => r.name.toLowerCase().includes(q));
+    return list;
+  }, [allRows, search, showAll]);
   const round2 = (n: number) => Math.round(n * 100) / 100;
   const t = period.data
     ? {
@@ -102,10 +128,12 @@ export function PayrollPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Payroll"
-        description="Admin only — review clocked hours and fuel, then clear driver payments."
-      />
+      {!embedded && (
+        <PageHeader
+          title="Payroll"
+          description="Admin only — review clocked hours and fuel, then clear driver payments."
+        />
+      )}
 
       {/* Pay period picker */}
       <div className="rounded-2xl border border-border bg-surface p-4">
@@ -142,9 +170,26 @@ export function PayrollPage() {
           >
             Last week
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setManualOpen(true)}>
-            <Clock className="mr-1.5 h-4 w-4" /> Add manual hours
-          </Button>
+          <div className="ml-auto flex items-end gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="w-56 pl-9"
+                placeholder="Search driver"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setManualDriver("");
+                setManualOpen(true);
+              }}
+            >
+              <Clock className="mr-1.5 h-4 w-4" /> Add hours
+            </Button>
+          </div>
         </div>
 
         {t && (
@@ -160,6 +205,21 @@ export function PayrollPage() {
 
       {/* Driver table */}
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold">Drivers in this period</h2>
+            <p className="text-xs text-muted-foreground">
+              Click a driver to open their pay details. Showing {rows.length} of {allRows.length}{" "}
+              hourly drivers
+              {!showAll && !search.trim() ? ` with activity (${activeCount})` : ""}.
+            </p>
+          </div>
+          {!search.trim() && (
+            <Button variant="ghost" size="sm" onClick={() => setShowAll((v) => !v)}>
+              {showAll ? "Show only active drivers" : `Show all ${allRows.length} drivers`}
+            </Button>
+          )}
+        </div>
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
             <tr>
@@ -182,7 +242,11 @@ export function PayrollPage() {
               </tr>
             )}
             {rows.map((r) => (
-              <tr key={r.driver_id} className="border-t border-border">
+              <tr
+                key={r.driver_id}
+                onClick={() => setDetail(r)}
+                className="cursor-pointer border-t border-border transition-colors hover:bg-accent/50"
+              >
                 <td className="px-4 py-3">
                   <div className="font-medium">{r.name}</div>
                   <div className="text-xs text-muted-foreground">
@@ -206,7 +270,7 @@ export function PayrollPage() {
                 <td className="px-4 py-3 font-semibold tabular-nums">
                   {r.outstanding == null ? "—" : formatCurrency(r.outstanding)}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                   <Button
                     size="sm"
                     disabled={r.outstanding == null || r.outstanding <= 0}
@@ -220,7 +284,11 @@ export function PayrollPage() {
             {period.data && !rows.length && (
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
-                  No hourly-paid drivers in this period.
+                  {search.trim()
+                    ? "No driver matches that search."
+                    : allRows.length
+                      ? "No hourly driver recorded time in this period — use “Show all drivers”."
+                      : "No hourly-paid drivers yet."}
                 </td>
               </tr>
             )}
@@ -279,9 +347,29 @@ export function PayrollPage() {
         </table>
       </div>
 
+      <DriverDetailDialog
+        row={detail}
+        payments={(history.data ?? []).filter((p) => p.driver_id === detail?.driver_id)}
+        onClose={() => setDetail(null)}
+        onClearPay={(r) => {
+          setDetail(null);
+          setPaying(r);
+        }}
+        onAddHours={(r) => {
+          setDetail(null);
+          setManualDriver(r.driver_id);
+          setManualOpen(true);
+        }}
+        onChanged={() => {
+          qc.invalidateQueries({ queryKey: ["payroll-period"] });
+          qc.invalidateQueries({ queryKey: ["payout-drivers"] });
+        }}
+      />
+
       <ManualHoursDialog
         open={manualOpen}
-        drivers={rows}
+        drivers={allRows}
+        initialDriverId={manualDriver}
         onClose={() => setManualOpen(false)}
         onDone={() => {
           setManualOpen(false);
@@ -336,12 +424,16 @@ function ClearPayDialog({
   const [method, setMethod] = useState("manual");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
+  const [bonus, setBonus] = useState("");
+  const [bonusNote, setBonusNote] = useState("");
 
-  const suggested = useMemo(() => {
+  const bonusAmount = Number(bonus) || 0;
+  const earned = useMemo(() => {
     if (!row) return 0;
     const gross = (row.gross_earnings ?? 0) - row.paid_in_period;
     return Math.max(0, Math.round((gross + (includeFuel ? row.fuel_pending : 0)) * 100) / 100);
   }, [row, includeFuel]);
+  const suggested = Math.round((earned + bonusAmount) * 100) / 100;
 
   const save = useMutation({
     mutationFn: async () => {
@@ -358,6 +450,8 @@ function ClearPayDialog({
           gross_earnings: row.gross_earnings ?? 0,
           fuel_reimbursed: includeFuel ? row.fuel_pending : 0,
           total_paid: total,
+          bonus_amount: bonusAmount,
+          bonus_note: bonusNote.trim() || null,
           method,
           reference: reference.trim() || null,
           notes: notes.trim() || null,
@@ -369,6 +463,8 @@ function ClearPayDialog({
       setAmount(null);
       setReference("");
       setNotes("");
+      setBonus("");
+      setBonusNote("");
       onDone();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -406,9 +502,41 @@ function ClearPayDialog({
               Include fuel reimbursement (marks those receipts reimbursed)
             </label>
 
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                <Gift className="h-4 w-4 text-primary" /> Extra amount (bonus / adjustment)
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Amount (USD)</Label>
+                  <Input
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={bonus}
+                    onChange={(e) => {
+                      setBonus(e.target.value);
+                      setAmount(null);
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Reason (optional)</Label>
+                  <Input
+                    value={bonusNote}
+                    onChange={(e) => setBonusNote(e.target.value)}
+                    placeholder="e.g. holiday bonus"
+                  />
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Earned {formatCurrency(earned)} + extra {formatCurrency(bonusAmount)} ={" "}
+                <span className="font-semibold text-foreground">{formatCurrency(suggested)}</span>
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Amount to pay (USD)</Label>
+                <Label>Total to pay (USD)</Label>
                 <Input
                   inputMode="decimal"
                   value={amount ?? String(suggested)}
@@ -475,16 +603,21 @@ function Line({ label, value }: { label: string; value: string }) {
 function ManualHoursDialog({
   open,
   drivers,
+  initialDriverId,
   onClose,
   onDone,
 }: {
   open: boolean;
   drivers: PayrollRow[];
+  initialDriverId?: string;
   onClose: () => void;
   onDone: () => void;
 }) {
   const addFn = useServerFn(addManualHours);
-  const [driverId, setDriverId] = useState("");
+  const [driverId, setDriverId] = useState(initialDriverId ?? "");
+  useEffect(() => {
+    if (open) setDriverId(initialDriverId ?? "");
+  }, [open, initialDriverId]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [hours, setHours] = useState("");
 
@@ -550,6 +683,152 @@ function ManualHoursDialog({
             onClick={() => add.mutate()}
           >
             {add.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add hours
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Per-driver detail. Opens when an admin clicks a driver row: shows this
+ * period's numbers, lets them fix the rate or pay type, and jumps straight
+ * into adding hours or clearing pay for that one driver.
+ */
+function DriverDetailDialog({
+  row,
+  payments,
+  onClose,
+  onClearPay,
+  onAddHours,
+  onChanged,
+}: {
+  row: PayrollRow | null;
+  payments: { id: string; paid_at: string; total_paid: number; method: string }[];
+  onClose: () => void;
+  onClearPay: (r: PayrollRow) => void;
+  onAddHours: (r: PayrollRow) => void;
+  onChanged: () => void;
+}) {
+  const rateFn = useServerFn(setDriverHourlyRate);
+  const typeFn = useServerFn(setDriverPayType);
+  const [rate, setRate] = useState("");
+
+  useEffect(() => {
+    setRate(row?.hourly_rate == null ? "" : String(row.hourly_rate));
+  }, [row]);
+
+  const saveRate = useMutation({
+    mutationFn: () =>
+      rateFn({ data: { driver_id: row!.driver_id, hourly_rate: Number(rate) } }),
+    onSuccess: () => {
+      toast.success("Hourly rate updated");
+      onChanged();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const switchType = useMutation({
+    mutationFn: () =>
+      typeFn({ data: { driver_id: row!.driver_id, pay_type: "commission" } }),
+    onSuccess: () => {
+      toast.success("Moved to % of paid claims");
+      onChanged();
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={!!row} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{row?.name}</DialogTitle>
+        </DialogHeader>
+        {row && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Metric label="Hours" value={`${row.hours.toFixed(2)}h`} />
+              <Metric
+                label="Gross"
+                value={row.gross_earnings == null ? "—" : formatCurrency(row.gross_earnings)}
+              />
+              <Metric label="Fuel pending" value={formatCurrency(row.fuel_pending)} />
+              <Metric
+                label="Outstanding"
+                value={row.outstanding == null ? "—" : formatCurrency(row.outstanding)}
+                highlight
+              />
+            </div>
+
+            <div className="rounded-xl border border-border bg-surface-muted p-3 text-sm">
+              <Line label="Paid in this period" value={formatCurrency(row.paid_in_period)} />
+              <Line
+                label="Last payment"
+                value={row.last_paid_at ? formatDate(row.last_paid_at) : "never"}
+              />
+              <Line label="Status" value={row.open_shift ? "Clocked in now" : row.status} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Hourly rate (USD)</Label>
+              <div className="flex gap-2">
+                <Input
+                  inputMode="decimal"
+                  placeholder="not set"
+                  value={rate}
+                  onChange={(e) => setRate(e.target.value)}
+                />
+                <Button
+                  variant="outline"
+                  disabled={!rate || saveRate.isPending}
+                  onClick={() => saveRate.mutate()}
+                >
+                  {saveRate.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="mb-1.5 text-sm font-medium">Recent payments</h3>
+              {payments.length ? (
+                <ul className="space-y-1 text-sm">
+                  {payments.slice(0, 5).map((p) => (
+                    <li key={p.id} className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {formatDate(p.paid_at)} · {p.method}
+                      </span>
+                      <span className="font-medium tabular-nums">
+                        {formatCurrency(p.total_paid)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">No payments cleared yet.</p>
+              )}
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              disabled={switchType.isPending}
+              onClick={() => switchType.mutate()}
+            >
+              <Percent className="mr-1.5 h-4 w-4" /> Switch to % of paid claims
+            </Button>
+          </div>
+        )}
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => row && onAddHours(row)}>
+            <Clock className="mr-1.5 h-4 w-4" /> Add hours
+          </Button>
+          <Button
+            disabled={!row || row.outstanding == null || row.outstanding <= 0}
+            onClick={() => row && onClearPay(row)}
+          >
+            <Wallet className="mr-1.5 h-4 w-4" /> Clear pay
           </Button>
         </DialogFooter>
       </DialogContent>
