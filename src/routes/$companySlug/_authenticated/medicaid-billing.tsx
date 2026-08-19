@@ -15,6 +15,7 @@ import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
 import { BillingWorkspace } from "@/components/billing/BillingWorkspace";
 import { PaperBillChat } from "@/components/billing/PaperBillChat";
 import { BatchPaperBills } from "@/components/billing/BatchPaperBills";
+import { StaffMessages } from "@/components/billing/StaffMessages";
 
 export const Route = createFileRoute("/$companySlug/_authenticated/medicaid-billing")({
   head: () => ({
@@ -51,6 +52,7 @@ const TABS = [
   { key: "workflow", label: "Workflow & claims" },
   { key: "paper", label: "Paper bills" },
   { key: "batch", label: "Batch upload" },
+  { key: "team", label: "Team messages" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -89,6 +91,7 @@ function AdminBillingPage() {
       {tab === "workflow" && <BillingWorkspace embedded />}
       {tab === "paper" && <PaperBillChat />}
       {tab === "batch" && <BatchPaperBills />}
+      {tab === "team" && <StaffMessages embedded />}
     </div>
   );
 }
