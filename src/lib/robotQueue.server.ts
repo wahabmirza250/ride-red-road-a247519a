@@ -25,6 +25,26 @@ export const ROBOT_JOB_STALE_MS = 12 * 60 * 1000;
  */
 export const MAX_CONCURRENT_ROBOT_JOBS = 8;
 
+/**
+ * PER-PASSENGER THROTTLE.
+ *
+ * Grouping several bills for the same member and submitting them together is
+ * the normal workflow, but the portal cannot handle many simultaneous sessions
+ * touching one member record — those runs time out at 480s. So each passenger
+ * gets at most this many live jobs, no matter how many global slots are free;
+ * the rest park as `queued` and follow automatically.
+ */
+export const MAX_CONCURRENT_JOBS_PER_RIDER = 2;
+
+/** Stable per-passenger key: rider row first, Medicaid ID as a fallback. */
+export function riderKeyOf(trip: any): string | null {
+  if (!trip) return null;
+  const rid = trip.rider_id ?? null;
+  if (rid) return `rider:${rid}`;
+  const mid = trip.riders?.medicaid_id ?? trip.medicaid_id ?? null;
+  return mid ? `mid:${String(mid).trim().toUpperCase()}` : null;
+}
+
 const TRIP_SELECT = `id, status, trip_id, company_id,
    medicaid_trips!inner(
      id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
@@ -38,26 +58,33 @@ const TRIP_SELECT = `id, status, trip_id, company_id,
 export async function listActiveRobotJobs(
   supabase: any,
   opts: { companyId?: string | null; excludeRecordId?: string } = {},
-): Promise<Array<{ id: string; startedAt: string | null }>> {
+): Promise<Array<{ id: string; startedAt: string | null; riderKey: string | null }>> {
   let q = supabase
     .from("billing_records")
-    .select(`id, medicaid_trips!inner(robot_job_started_at, robot_job_id)`)
+    .select(
+      `id, medicaid_trips!inner(robot_job_started_at, robot_job_id, rider_id, riders(medicaid_id))`,
+    )
     .eq("status", "submitting");
   if (opts.companyId) q = q.eq("company_id", opts.companyId);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
 
   const now = Date.now();
-  const out: Array<{ id: string; startedAt: string | null }> = [];
+  const out: Array<{ id: string; startedAt: string | null; riderKey: string | null }> = [];
   for (const r of data ?? []) {
     if (opts.excludeRecordId && r.id === opts.excludeRecordId) continue;
     const trip: any = r.medicaid_trips;
     if (!trip?.robot_job_id) continue;
     const started = trip.robot_job_started_at ? new Date(trip.robot_job_started_at).getTime() : 0;
     if (started && now - started > ROBOT_JOB_STALE_MS) continue; // dead job, not blocking
-    out.push({ id: r.id as string, startedAt: trip.robot_job_started_at ?? null });
+    out.push({
+      id: r.id as string,
+      startedAt: trip.robot_job_started_at ?? null,
+      riderKey: riderKeyOf(trip),
+    });
   }
   return out;
+
 }
 
 /** First active job, or null. Kept for callers that only need "is anything live?". */
