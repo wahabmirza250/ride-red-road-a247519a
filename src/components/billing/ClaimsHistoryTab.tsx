@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatDateTime } from "@/lib/format";
+import { ClaimStatusSyncCard } from "@/components/billing/ClaimStatusSyncCard";
 import { formatMoney } from "@/lib/claimReview";
 import {
   listClaimsHistory,
@@ -113,6 +114,7 @@ export function ClaimsHistoryTab() {
 
   return (
     <div className="space-y-3">
+      <ClaimStatusSyncCard />
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

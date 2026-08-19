@@ -162,12 +162,14 @@ export type Database = {
           created_at: string
           fix_notes: string | null
           id: string
+          portal_status_raw: string | null
           rejection_reason: string | null
           requires_human_step: boolean
           reviewed_at: string | null
           reviewed_by: string | null
           state_confirmation_number: string | null
           status: string
+          status_checked_at: string | null
           submission_error: string | null
           submitted_at: string | null
           trip_form_id: string | null
@@ -179,12 +181,14 @@ export type Database = {
           created_at?: string
           fix_notes?: string | null
           id?: string
+          portal_status_raw?: string | null
           rejection_reason?: string | null
           requires_human_step?: boolean
           reviewed_at?: string | null
           reviewed_by?: string | null
           state_confirmation_number?: string | null
           status?: string
+          status_checked_at?: string | null
           submission_error?: string | null
           submitted_at?: string | null
           trip_form_id?: string | null
@@ -196,12 +200,14 @@ export type Database = {
           created_at?: string
           fix_notes?: string | null
           id?: string
+          portal_status_raw?: string | null
           rejection_reason?: string | null
           requires_human_step?: boolean
           reviewed_at?: string | null
           reviewed_by?: string | null
           state_confirmation_number?: string | null
           status?: string
+          status_checked_at?: string | null
           submission_error?: string | null
           submitted_at?: string | null
           trip_form_id?: string | null
@@ -327,6 +333,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      claim_status_sync_state: {
+        Row: {
+          id: boolean
+          last_result: Json
+          last_run_at: string | null
+          lease_until: string | null
+          pause_reason: string | null
+          paused: boolean
+          singleton: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          last_result?: Json
+          last_run_at?: string | null
+          lease_until?: string | null
+          pause_reason?: string | null
+          paused?: boolean
+          singleton?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          last_result?: Json
+          last_run_at?: string | null
+          lease_until?: string | null
+          pause_reason?: string | null
+          paused?: boolean
+          singleton?: boolean
+          updated_at?: string
+        }
+        Relationships: []
       }
       companies: {
         Row: {
