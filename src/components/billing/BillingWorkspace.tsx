@@ -910,8 +910,12 @@ function AwaitingPortalTab({
   const queue = useQuery({
     queryKey: ["submission_queue"],
     queryFn: () => queueFn() as Promise<any[]>,
-    refetchInterval: 15000,
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
+
   const queueById = new Map((queue.data ?? []).map((q: any) => [q.id, q]));
 
   const [dupQueue, setDupQueue] = useState<{ id: string; info: DuplicateClaimInfo } | null>(null);
