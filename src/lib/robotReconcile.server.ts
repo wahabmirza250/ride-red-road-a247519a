@@ -240,14 +240,14 @@ export async function reconcileRobotJob(
     }
 
     // Terminal: PASS 1 finished — the claim was filled and read back, session closed.
+    // ONLY an explicit capture-only run may land here. A one-shot "full"/submit
+    // run that reports READY_FOR_HUMAN_REVIEW means the robot stopped BEFORE
+    // clicking Submit: nothing was sent, so it is a plain retryable failure —
+    // never a second "please review this too" checkpoint.
     const isFailureStatus =
       typeof resultStatus === "string" &&
       /^(BLOCKED|ERROR|FAILED|PORTAL_)/i.test(resultStatus);
-    if (
-      jobStatus === "done" &&
-      !isFailureStatus &&
-      (resultStatus === "READY_FOR_HUMAN_REVIEW" || pass === "capture")
-    ) {
+    if (jobStatus === "done" && !isFailureStatus && pass === "capture") {
 
       const captured = normalizeCapturedClaim(result) ?? normalizeCapturedClaim(body);
       const msg = captured
@@ -274,6 +274,33 @@ export async function reconcileRobotJob(
       await logAudit(supabase, rec.id, userId, "robot_captured_for_review", msg);
       return { pending: false, status: resultStatus || "CAPTURED", message: msg };
     }
+
+    // One-shot run that stopped at the review point without submitting.
+    if (jobStatus === "done" && !isFailureStatus && resultStatus === "READY_FOR_HUMAN_REVIEW") {
+      const stopped =
+        "The robot filled the claim but stopped before clicking Submit, so nothing " +
+        "was sent to the portal. No claim was created — retry the submission.";
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: "STOPPED_BEFORE_SUBMIT",
+          robot_last_message: stopped,
+          robot_last_checked_at: nowIso,
+        })
+        .eq("id", trip.id);
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "needs_fix",
+          submission_error: stopped,
+          fix_notes: stopped,
+          requires_human_step: false,
+        })
+        .eq("id", rec.id);
+      await logAudit(supabase, rec.id, userId, "robot_stopped_before_submit", stopped);
+      return { pending: false, status: "STOPPED_BEFORE_SUBMIT", message: stopped };
+    }
+
 
 
     // Terminal: error / BLOCKED_*
