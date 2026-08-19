@@ -153,6 +153,9 @@ export const clearDriverPay = createServerFn({ method: "POST" })
       gross_earnings: number;
       fuel_reimbursed: number;
       total_paid: number;
+      /** Optional bonus / adjustment already included in total_paid. */
+      bonus_amount?: number;
+      bonus_note?: string | null;
       method?: string;
       reference?: string | null;
       notes?: string | null;
@@ -176,6 +179,8 @@ export const clearDriverPay = createServerFn({ method: "POST" })
         gross_earnings: data.gross_earnings,
         fuel_reimbursed: data.fuel_reimbursed,
         total_paid: data.total_paid,
+        bonus_amount: round2(data.bonus_amount ?? 0),
+        bonus_note: data.bonus_note?.trim() || null,
         method: data.method ?? "manual",
         reference: data.reference ?? null,
         notes: data.notes ?? null,

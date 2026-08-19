@@ -40,6 +40,11 @@ export type PayoutHistoryRow = {
   period_end: string;
   total_billed: number;
   percentage_used: number;
+  /** Percentage-derived amount, before any manual extra. */
+  base_amount: number;
+  /** Manual bonus/adjustment added on top of the calculated amount. */
+  extra_amount: number;
+  extra_note: string | null;
   payout_amount: number;
   claim_count: number;
   notes: string | null;
@@ -281,7 +286,13 @@ export const confirmDriverPayout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     rangeInput
-      .extend({ percentage: z.number().min(0).max(100), notes: z.string().max(500).optional() })
+      .extend({
+        percentage: z.number().min(0).max(100),
+        notes: z.string().max(500).optional(),
+        // Optional bonus / adjustment added on top of the calculated payout.
+        extra_amount: z.number().min(-100000).max(100000).optional(),
+        extra_note: z.string().max(300).optional(),
+      })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -296,7 +307,10 @@ export const confirmDriverPayout = createServerFn({ method: "POST" })
     }
 
     const totalBilled = round2(payable.reduce((s, c) => s + c.amount, 0));
-    const payoutAmount = round2((totalBilled * data.percentage) / 100);
+    const baseAmount = round2((totalBilled * data.percentage) / 100);
+    const extraAmount = round2(data.extra_amount ?? 0);
+    const payoutAmount = round2(baseAmount + extraAmount);
+    if (payoutAmount < 0) throw new Error("The extra amount cannot make the payout negative.");
 
     const { data: payout, error } = await supabase
       .from("driver_claim_payouts")
@@ -307,6 +321,8 @@ export const confirmDriverPayout = createServerFn({ method: "POST" })
         total_billed: totalBilled,
         percentage_used: data.percentage,
         payout_amount: payoutAmount,
+        extra_amount: extraAmount,
+        extra_note: data.extra_note?.trim() || null,
         claim_count: payable.length,
         notes: data.notes ?? null,
         paid_by: userId,
@@ -334,6 +350,8 @@ export const confirmDriverPayout = createServerFn({ method: "POST" })
     return {
       id: payout.id as string,
       total_billed: totalBilled,
+      base_amount: baseAmount,
+      extra_amount: extraAmount,
       payout_amount: payoutAmount,
       claim_count: payable.length,
     };
@@ -352,7 +370,7 @@ export const listDriverPayouts = createServerFn({ method: "POST" })
     let q = supabase
       .from("driver_claim_payouts")
       .select(
-        "id, driver_id, period_start, period_end, total_billed, percentage_used, payout_amount, claim_count, notes, paid_at, paid_by",
+        "id, driver_id, period_start, period_end, total_billed, percentage_used, payout_amount, extra_amount, extra_note, claim_count, notes, paid_at, paid_by",
       )
       .order("paid_at", { ascending: false })
       .limit(200);
@@ -387,6 +405,9 @@ export const listDriverPayouts = createServerFn({ method: "POST" })
       period_end: r.period_end,
       total_billed: Number(r.total_billed ?? 0),
       percentage_used: Number(r.percentage_used ?? 0),
+      base_amount: round2(Number(r.payout_amount ?? 0) - Number(r.extra_amount ?? 0)),
+      extra_amount: Number(r.extra_amount ?? 0),
+      extra_note: r.extra_note ?? null,
       payout_amount: Number(r.payout_amount ?? 0),
       claim_count: Number(r.claim_count ?? 0),
       notes: r.notes ?? null,
