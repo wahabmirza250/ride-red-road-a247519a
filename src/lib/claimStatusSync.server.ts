@@ -339,7 +339,7 @@ export async function runClaimStatusSync(
       let providerUserId: string | null = null;
       try {
         const { requireCompanyPortalCredential } = await import("@/lib/billingHelpers");
-        const cred = await requireCompanyPortalCredential(supabase, companyId);
+        const cred = await requireCompanyPortalCredential(supabase, companyId ?? "");
         portalId = cred.portal_id;
       } catch {
         portalId = null;
