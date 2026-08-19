@@ -117,7 +117,10 @@ export async function reconcileRobotJob(
       return { pending: true, status: jobStatus, message: resultReason };
     }
 
-    const pass: "capture" | "submit" = trip?.robot_pass === "submit" ? "submit" : "capture";
+    // Only an explicit capture run is a capture. "submit", "resubmit" and the
+    // one-shot "full" runs all really click Submit, so they must never fall
+    // into the legacy "captured — please review this too" branch below.
+    const pass: "capture" | "submit" = trip?.robot_pass === "capture" ? "capture" : "submit";
 
     // Terminal: PASS 2 finished — the robot really clicked Submit + Confirm.
     if (jobStatus === "done" && pass === "submit") {

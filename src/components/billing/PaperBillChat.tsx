@@ -615,10 +615,6 @@ function ChatEntry({
                 {entry.verifyError}
               </div>
             )}
-            <div className="text-[11px] text-muted-foreground">
-              Confirming runs an automatic read-only Medicaid ID check against the state portal
-              (takes up to a couple of minutes).
-            </div>
             <div className="flex gap-2 pt-1">
               <Button size="sm" className="rounded-full" disabled={saving} onClick={onConfirm}>
                 {saving ? (
@@ -626,7 +622,7 @@ function ChatEntry({
                 ) : (
                   <CheckCircle2 className="mr-1 h-4 w-4" />
                 )}
-                {saving ? "Verifying ID…" : "Confirm"}
+                {saving ? "Creating…" : "Confirm"}
               </Button>
 
               <Button
