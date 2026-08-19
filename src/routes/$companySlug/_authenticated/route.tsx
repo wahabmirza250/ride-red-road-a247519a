@@ -24,6 +24,7 @@ import {
   Banknote,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabaseBrowser";
 import { useTheme } from "@/lib/theme";
 import { useDriverLocationPing } from "@/lib/useDriverLocationPing";
 import { cn } from "@/lib/utils";
@@ -85,19 +86,34 @@ const ADMIN_NAV = ADMIN_NAV_GROUPS.flat();
 function AuthenticatedLayout() {
   const { companySlug } = Route.useParams();
   const signInHref = `/${companySlug}/login`;
-  const { loading, user, isAdmin, signOut } = useAuth();
+  const { loading, user, isAdmin, signOut, refresh } = useAuth();
   const navigate = useAppNavigate();
   const location = useLocation();
   const { theme, toggle: toggleTheme } = useTheme();
 
   useDriverLocationPing();
 
+  // Never bounce straight back to the login screen on a transient read: a
+  // slow token refresh right after sign-in can briefly report "no user".
+  // Re-check the stored session once before giving up.
   useEffect(() => {
-    if (loading) return;
-    if (!user) {
+    if (loading || user) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (data.session?.user) {
+        void refresh();
+        return;
+      }
       window.location.replace(signInHref);
-    }
-  }, [loading, user, signInHref]);
+    }, 1200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [loading, user, signInHref, refresh]);
+
 
   // Admins get browser push for new ride requests and events.
   useEffect(() => {
