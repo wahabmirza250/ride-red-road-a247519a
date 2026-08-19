@@ -247,6 +247,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
           qc.invalidateQueries({ queryKey: ["billing_list"] });
           qc.invalidateQueries({ queryKey: ["billing_detail"] });
           qc.invalidateQueries({ queryKey: ["billing_counts"] });
+          qc.invalidateQueries({ queryKey: ["submission_queue"] });
         }
       } catch {
         // A failed sweep is harmless — the next tick (or cron) retries.
@@ -256,11 +257,23 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     };
     void tick();
     const id = window.setInterval(tick, 15000);
+    // Coming back to a backgrounded tab must never show a 6-minute-old queue.
+    const onVisible = () => {
+      if (!document.hidden) {
+        qc.invalidateQueries({ queryKey: ["submission_queue"] });
+        qc.invalidateQueries({ queryKey: ["billing_list"] });
+        qc.invalidateQueries({ queryKey: ["billing_counts"] });
+        void tick();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       stopped = true;
       window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [canBill, qc, sweepFn]);
+
 
 
 
