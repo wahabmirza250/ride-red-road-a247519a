@@ -142,11 +142,21 @@ export async function enqueueOrStartRobot(
     companyId,
     excludeRecordId: billingRecordId,
   });
-  const full = active.length >= MAX_CONCURRENT_ROBOT_JOBS;
+  const globalFull = active.length >= MAX_CONCURRENT_ROBOT_JOBS;
+
+  // Same-passenger pacing: the portal chokes when several sessions touch one
+  // member at once, so cap per rider even when global slots are free.
+  const key = riderKeyOf(trip);
+  const riderActive = key ? active.filter((a) => a.riderKey === key).length : 0;
+  const riderFull = Boolean(key) && riderActive >= MAX_CONCURRENT_JOBS_PER_RIDER;
+
+  const full = globalFull || riderFull;
 
   if (full && (mode === "capture" || mode === "debug_confirm_page")) {
     throw new Error(
-      `All ${MAX_CONCURRENT_ROBOT_JOBS} portal sessions are busy right now. Try the capture run again in a few minutes.`,
+      riderFull && !globalFull
+        ? `This passenger already has ${riderActive} portal session(s) running. Try the capture run again in a few minutes.`
+        : `All ${MAX_CONCURRENT_ROBOT_JOBS} portal sessions are busy right now. Try the capture run again in a few minutes.`,
     );
   }
 
@@ -165,10 +175,13 @@ export async function enqueueOrStartRobot(
       billingRecordId,
       providerUserId,
       "queued_behind_active_job",
-      `All ${MAX_CONCURRENT_ROBOT_JOBS} portal sessions busy. Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`,
+      riderFull && !globalFull
+        ? `Paced automatically: this passenger already has ${riderActive} of ${MAX_CONCURRENT_JOBS_PER_RIDER} allowed portal sessions running. Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`
+        : `All ${MAX_CONCURRENT_ROBOT_JOBS} portal sessions busy. Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`,
     );
     return { queued: true, ahead };
   }
+
 
   await startRobotSubmission(supabase, {
     billingRecordId,
