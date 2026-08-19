@@ -92,12 +92,27 @@ function AuthenticatedLayout() {
 
   useDriverLocationPing();
 
+  // Never bounce straight back to the login screen on a transient read: a
+  // slow token refresh right after sign-in can briefly report "no user".
+  // Re-check the stored session once before giving up.
   useEffect(() => {
-    if (loading) return;
-    if (!user) {
+    if (loading || user) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (data.session?.user) {
+        void refresh();
+        return;
+      }
       window.location.replace(signInHref);
-    }
-  }, [loading, user, signInHref]);
+    }, 1200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [loading, user, signInHref, refresh]);
+
 
   // Admins get browser push for new ride requests and events.
   useEffect(() => {
