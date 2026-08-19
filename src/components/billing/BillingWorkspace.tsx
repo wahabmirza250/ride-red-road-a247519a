@@ -165,6 +165,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       }
     },
     enabled: canBill,
+    // A robot job can settle at any moment; never show a frozen snapshot.
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 
   const counts = useQuery({
@@ -177,7 +181,9 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       }
     },
     enabled: canBill,
-    refetchInterval: 20000,
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 
 
@@ -195,10 +201,24 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "billing_records" },
-        () => {
+        (payload: any) => {
           qc.invalidateQueries({ queryKey: ["billing_list"] });
           qc.invalidateQueries({ queryKey: ["billing_detail"] });
           qc.invalidateQueries({ queryKey: ["billing_counts"] });
+          qc.invalidateQueries({ queryKey: ["submission_queue"] });
+
+          // Surface a terminal failure immediately: the row leaves the
+          // "Awaiting portal" list the moment it fails, so without this the
+          // only signal is a row silently disappearing.
+          const next: any = payload?.new;
+          const prev: any = payload?.old;
+          if (
+            next?.status === "needs_fix" &&
+            prev?.status !== "needs_fix" &&
+            next?.submission_error
+          ) {
+            toast.error(`Submission failed: ${next.submission_error}`);
+          }
         },
       )
       .subscribe();
@@ -206,6 +226,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       supabase.removeChannel(ch);
     };
   }, [qc]);
+
 
   // Background status sweep. Robot results used to land only while a detail
   // sheet was open, which is why a 4-minute job looked like an 18-minute one.
@@ -226,6 +247,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
           qc.invalidateQueries({ queryKey: ["billing_list"] });
           qc.invalidateQueries({ queryKey: ["billing_detail"] });
           qc.invalidateQueries({ queryKey: ["billing_counts"] });
+          qc.invalidateQueries({ queryKey: ["submission_queue"] });
         }
       } catch {
         // A failed sweep is harmless — the next tick (or cron) retries.
@@ -235,11 +257,23 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     };
     void tick();
     const id = window.setInterval(tick, 15000);
+    // Coming back to a backgrounded tab must never show a 6-minute-old queue.
+    const onVisible = () => {
+      if (!document.hidden) {
+        qc.invalidateQueries({ queryKey: ["submission_queue"] });
+        qc.invalidateQueries({ queryKey: ["billing_list"] });
+        qc.invalidateQueries({ queryKey: ["billing_counts"] });
+        void tick();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       stopped = true;
       window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [canBill, qc, sweepFn]);
+
 
 
 
@@ -876,8 +910,12 @@ function AwaitingPortalTab({
   const queue = useQuery({
     queryKey: ["submission_queue"],
     queryFn: () => queueFn() as Promise<any[]>,
-    refetchInterval: 15000,
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
+
   const queueById = new Map((queue.data ?? []).map((q: any) => [q.id, q]));
 
   const [dupQueue, setDupQueue] = useState<{ id: string; info: DuplicateClaimInfo } | null>(null);
@@ -1003,6 +1041,15 @@ function AwaitingPortalTab({
 
 /** Live queue position / progress for a claim the robot is working on. */
 function QueueBadge({ info }: { info?: any }) {
+  // Elapsed time is derived from the job's real start timestamp and re-rendered
+  // on a local clock, so it can never sit frozen on the number that happened to
+  // be true at the last fetch.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 10000);
+    return () => window.clearInterval(id);
+  }, []);
+
   if (!info) return null;
   const tone =
     info.queue_state === "queued"
@@ -1010,16 +1057,26 @@ function QueueBadge({ info }: { info?: any }) {
       : info.queue_state === "running"
         ? "bg-info/10 text-info"
         : "bg-muted text-muted-foreground";
+
+  const startedMs = info.started_at ? new Date(info.started_at).getTime() : null;
+  const elapsedMin = startedMs
+    ? Math.max(0, Math.round((now - startedMs) / 60000))
+    : (info.elapsed_minutes ?? null);
+  // The automation service hard-kills a job at 8 minutes.
+  const overdue = elapsedMin != null && elapsedMin >= 8 && info.queue_state === "running";
+
   return (
     <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${tone}`}>
       <Clock className="h-3.5 w-3.5" />
       {info.queue_label}
-      {info.elapsed_minutes != null && info.queue_state !== "awaiting_review" && (
-        <span className="opacity-70">· {info.elapsed_minutes}m elapsed</span>
+      {elapsedMin != null && info.queue_state !== "awaiting_review" && (
+        <span className="opacity-70">· {elapsedMin}m elapsed</span>
       )}
+      {overdue && <span className="opacity-70">· checking result…</span>}
     </div>
   );
 }
+
 
 /**
  * Cancelling is only ever allowed before the real Medicaid submit. The server

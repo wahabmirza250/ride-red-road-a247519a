@@ -959,14 +959,16 @@ export const listSubmissionQueue = createServerFn({ method: "GET" })
            robot_job_started_at, robot_confirmation_number, riders(full_name, medicaid_id)
          )`,
       )
-      .in("status", ["submitting", "pending_submit"])
+      .in("status", ["submitting", "queued", "pending_submit"])
       .order("updated_at", { ascending: true });
     if (error) throw new Error(error.message);
 
     const running = (rows ?? []).filter((r: any) => r.status === "submitting");
+    const parked = (rows ?? []).filter((r: any) => r.status === "queued");
     return (rows ?? []).map((r: any) => {
       const trip = r.medicaid_trips ?? {};
-      const startedAt: string | null = trip.robot_job_started_at ?? null;
+      const startedAt: string | null =
+        r.status === "queued" ? null : (trip.robot_job_started_at ?? null);
       const elapsedMin = startedAt
         ? Math.max(0, Math.round((Date.now() - new Date(startedAt).getTime()) / 60000))
         : null;
@@ -974,6 +976,8 @@ export const listSubmissionQueue = createServerFn({ method: "GET" })
         r.status === "submitting"
           ? running.findIndex((x: any) => x.id === r.id) + 1
           : null;
+      const aheadInQueue =
+        r.status === "queued" ? parked.findIndex((x: any) => x.id === r.id) : null;
 
       let queue_state: "queued" | "running" | "awaiting_review" | "submitted";
       let queue_label: string;
@@ -983,6 +987,10 @@ export const listSubmissionQueue = createServerFn({ method: "GET" })
       } else if (r.status === "pending_submit") {
         queue_state = "awaiting_review";
         queue_label = "Captured — waiting for your review";
+      } else if (r.status === "queued") {
+        const ahead = (aheadInQueue ?? 0) + running.length;
+        queue_state = "queued";
+        queue_label = `Queued — ${ahead} job${ahead === 1 ? "" : "s"} ahead on the portal account`;
       } else if (position && position > 1) {
         queue_state = "queued";
         queue_label = `Queued — ${position - 1} job${position === 2 ? "" : "s"} ahead on the portal account`;
@@ -990,6 +998,7 @@ export const listSubmissionQueue = createServerFn({ method: "GET" })
         queue_state = "running";
         queue_label = "Working at the portal now";
       }
+
 
       return {
         id: r.id,
