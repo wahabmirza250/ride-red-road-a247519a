@@ -42,7 +42,12 @@ function createBrowserClient() {
     auth: {
       storage: typeof window !== "undefined" ? window.localStorage : undefined,
       persistSession: true,
-      autoRefreshToken: true,
+      // Do not let GoTrue's background timer rotate a freshly-issued token.
+      // On devices whose clock is ahead, the timer can consider the new token
+      // expired immediately and start concurrent refreshes across open tabs,
+      // revoking the session and rate-limiting the account. Authenticated API
+      // calls still refresh on demand through getSession() when necessary.
+      autoRefreshToken: false,
     },
   });
 }
