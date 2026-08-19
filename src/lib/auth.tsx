@@ -59,26 +59,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
+    let sessionRevision = 0;
 
-    async function applySession(sess: Session | null) {
-      if (cancelled) return;
-      setSession(sess);
+    async function applySession(sess: Session | null, revision: number) {
+      if (cancelled || revision !== sessionRevision) return;
       const nextRoles = sess?.user ? await fetchRolesFor(sess.user.id) : [];
+      // Role reads from an older auth event must never overwrite a newer
+      // session. This can otherwise turn a successful refresh into a logout.
+      if (cancelled || revision !== sessionRevision) return;
+      setSession(sess);
       setRoles(nextRoles);
-      if (!cancelled) setLoading(false);
+      setLoading(false);
     }
 
     async function init() {
       try {
         const { data } = await supabase.auth.getSession();
-        await applySession(data.session);
+        const revision = ++sessionRevision;
+        await applySession(data.session, revision);
       } catch {
-        await applySession(null);
+        const revision = ++sessionRevision;
+        await applySession(null, revision);
       }
 
       if (cancelled) return;
       const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
-        window.setTimeout(() => void applySession(sess), 0);
+        const revision = ++sessionRevision;
+        window.setTimeout(() => void applySession(sess, revision), 0);
       });
       unsubscribe = () => sub.subscription.unsubscribe();
     }
