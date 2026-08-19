@@ -424,12 +424,16 @@ function ClearPayDialog({
   const [method, setMethod] = useState("manual");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
+  const [bonus, setBonus] = useState("");
+  const [bonusNote, setBonusNote] = useState("");
 
-  const suggested = useMemo(() => {
+  const bonusAmount = Number(bonus) || 0;
+  const earned = useMemo(() => {
     if (!row) return 0;
     const gross = (row.gross_earnings ?? 0) - row.paid_in_period;
     return Math.max(0, Math.round((gross + (includeFuel ? row.fuel_pending : 0)) * 100) / 100);
   }, [row, includeFuel]);
+  const suggested = Math.round((earned + bonusAmount) * 100) / 100;
 
   const save = useMutation({
     mutationFn: async () => {
@@ -446,6 +450,8 @@ function ClearPayDialog({
           gross_earnings: row.gross_earnings ?? 0,
           fuel_reimbursed: includeFuel ? row.fuel_pending : 0,
           total_paid: total,
+          bonus_amount: bonusAmount,
+          bonus_note: bonusNote.trim() || null,
           method,
           reference: reference.trim() || null,
           notes: notes.trim() || null,
@@ -457,6 +463,8 @@ function ClearPayDialog({
       setAmount(null);
       setReference("");
       setNotes("");
+      setBonus("");
+      setBonusNote("");
       onDone();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -494,9 +502,41 @@ function ClearPayDialog({
               Include fuel reimbursement (marks those receipts reimbursed)
             </label>
 
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                <Gift className="h-4 w-4 text-primary" /> Extra amount (bonus / adjustment)
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Amount (USD)</Label>
+                  <Input
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={bonus}
+                    onChange={(e) => {
+                      setBonus(e.target.value);
+                      setAmount(null);
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Reason (optional)</Label>
+                  <Input
+                    value={bonusNote}
+                    onChange={(e) => setBonusNote(e.target.value)}
+                    placeholder="e.g. holiday bonus"
+                  />
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Earned {formatCurrency(earned)} + extra {formatCurrency(bonusAmount)} ={" "}
+                <span className="font-semibold text-foreground">{formatCurrency(suggested)}</span>
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Amount to pay (USD)</Label>
+                <Label>Total to pay (USD)</Label>
                 <Input
                   inputMode="decimal"
                   value={amount ?? String(suggested)}
@@ -563,16 +603,21 @@ function Line({ label, value }: { label: string; value: string }) {
 function ManualHoursDialog({
   open,
   drivers,
+  initialDriverId,
   onClose,
   onDone,
 }: {
   open: boolean;
   drivers: PayrollRow[];
+  initialDriverId?: string;
   onClose: () => void;
   onDone: () => void;
 }) {
   const addFn = useServerFn(addManualHours);
-  const [driverId, setDriverId] = useState("");
+  const [driverId, setDriverId] = useState(initialDriverId ?? "");
+  useEffect(() => {
+    if (open) setDriverId(initialDriverId ?? "");
+  }, [open, initialDriverId]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [hours, setHours] = useState("");
 
