@@ -81,6 +81,7 @@ import { Route as CompanySlugAuthenticatedDriverPayRouteImport } from './routes/
 import { Route as CompanySlugAuthenticatedDashboardRouteImport } from './routes/$companySlug/_authenticated/dashboard'
 import { Route as CompanySlugDispatchRoutesIndexRouteImport } from './routes/$companySlug/dispatch.routes.index'
 import { Route as CompanySlugAuthenticatedPayrollIndexRouteImport } from './routes/$companySlug/_authenticated/payroll.index'
+import { Route as ApiPublicHooksSyncClaimStatusRouteImport } from './routes/api/public/hooks/sync-claim-status'
 import { Route as ApiPublicHooksPollRobotJobsRouteImport } from './routes/api/public/hooks/poll-robot-jobs'
 import { Route as CompanySlugPassengerBookVehicleRouteImport } from './routes/$companySlug/passenger.book.vehicle'
 import { Route as CompanySlugPassengerBookPickupRouteImport } from './routes/$companySlug/passenger.book.pickup'
@@ -496,6 +497,12 @@ const CompanySlugAuthenticatedPayrollIndexRoute =
     path: '/payroll/',
     getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
   } as any)
+const ApiPublicHooksSyncClaimStatusRoute =
+  ApiPublicHooksSyncClaimStatusRouteImport.update({
+    id: '/api/public/hooks/sync-claim-status',
+    path: '/api/public/hooks/sync-claim-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksPollRobotJobsRoute =
   ApiPublicHooksPollRobotJobsRouteImport.update({
     id: '/api/public/hooks/poll-robot-jobs',
@@ -622,6 +629,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/passenger/book/pickup': typeof CompanySlugPassengerBookPickupRoute
   '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
   '/api/public/hooks/poll-robot-jobs': typeof ApiPublicHooksPollRobotJobsRoute
+  '/api/public/hooks/sync-claim-status': typeof ApiPublicHooksSyncClaimStatusRoute
   '/$companySlug/payroll/': typeof CompanySlugAuthenticatedPayrollIndexRoute
   '/$companySlug/dispatch/routes/': typeof CompanySlugDispatchRoutesIndexRoute
   '/$companySlug/trips/$tripId/proof': typeof CompanySlugAuthenticatedTripsTripIdProofRoute
@@ -697,6 +705,7 @@ export interface FileRoutesByTo {
   '/$companySlug/passenger/book/pickup': typeof CompanySlugPassengerBookPickupRoute
   '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
   '/api/public/hooks/poll-robot-jobs': typeof ApiPublicHooksPollRobotJobsRoute
+  '/api/public/hooks/sync-claim-status': typeof ApiPublicHooksSyncClaimStatusRoute
   '/$companySlug/payroll': typeof CompanySlugAuthenticatedPayrollIndexRoute
   '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesIndexRoute
   '/$companySlug/trips/$tripId/proof': typeof CompanySlugAuthenticatedTripsTripIdProofRoute
@@ -780,6 +789,7 @@ export interface FileRoutesById {
   '/$companySlug/passenger/book/pickup': typeof CompanySlugPassengerBookPickupRoute
   '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
   '/api/public/hooks/poll-robot-jobs': typeof ApiPublicHooksPollRobotJobsRoute
+  '/api/public/hooks/sync-claim-status': typeof ApiPublicHooksSyncClaimStatusRoute
   '/$companySlug/_authenticated/payroll/': typeof CompanySlugAuthenticatedPayrollIndexRoute
   '/$companySlug/dispatch/routes/': typeof CompanySlugDispatchRoutesIndexRoute
   '/$companySlug/_authenticated/trips_/$tripId/proof': typeof CompanySlugAuthenticatedTripsTripIdProofRoute
@@ -863,6 +873,7 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/book/pickup'
     | '/$companySlug/passenger/book/vehicle'
     | '/api/public/hooks/poll-robot-jobs'
+    | '/api/public/hooks/sync-claim-status'
     | '/$companySlug/payroll/'
     | '/$companySlug/dispatch/routes/'
     | '/$companySlug/trips/$tripId/proof'
@@ -938,6 +949,7 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/book/pickup'
     | '/$companySlug/passenger/book/vehicle'
     | '/api/public/hooks/poll-robot-jobs'
+    | '/api/public/hooks/sync-claim-status'
     | '/$companySlug/payroll'
     | '/$companySlug/dispatch/routes'
     | '/$companySlug/trips/$tripId/proof'
@@ -1020,6 +1032,7 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/book/pickup'
     | '/$companySlug/passenger/book/vehicle'
     | '/api/public/hooks/poll-robot-jobs'
+    | '/api/public/hooks/sync-claim-status'
     | '/$companySlug/_authenticated/payroll/'
     | '/$companySlug/dispatch/routes/'
     | '/$companySlug/_authenticated/trips_/$tripId/proof'
@@ -1041,6 +1054,7 @@ export interface RootRouteChildren {
   ApiPublicGetTripPdfRoute: typeof ApiPublicGetTripPdfRoute
   ApiPublicSmsInboundRoute: typeof ApiPublicSmsInboundRoute
   ApiPublicHooksPollRobotJobsRoute: typeof ApiPublicHooksPollRobotJobsRoute
+  ApiPublicHooksSyncClaimStatusRoute: typeof ApiPublicHooksSyncClaimStatusRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1549,6 +1563,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugAuthenticatedPayrollIndexRouteImport
       parentRoute: typeof CompanySlugAuthenticatedRouteRoute
     }
+    '/api/public/hooks/sync-claim-status': {
+      id: '/api/public/hooks/sync-claim-status'
+      path: '/api/public/hooks/sync-claim-status'
+      fullPath: '/api/public/hooks/sync-claim-status'
+      preLoaderRoute: typeof ApiPublicHooksSyncClaimStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/poll-robot-jobs': {
       id: '/api/public/hooks/poll-robot-jobs'
       path: '/api/public/hooks/poll-robot-jobs'
@@ -1851,6 +1872,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicGetTripPdfRoute: ApiPublicGetTripPdfRoute,
   ApiPublicSmsInboundRoute: ApiPublicSmsInboundRoute,
   ApiPublicHooksPollRobotJobsRoute: ApiPublicHooksPollRobotJobsRoute,
+  ApiPublicHooksSyncClaimStatusRoute: ApiPublicHooksSyncClaimStatusRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
