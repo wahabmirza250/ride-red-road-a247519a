@@ -93,24 +93,32 @@ function AuthenticatedLayout() {
 
   useDriverLocationPing();
 
-  // Never bounce straight back to the login screen on a transient read: a
-  // slow token refresh right after sign-in can briefly report "no user".
-  // Re-check the stored session once before giving up.
+  // Never bounce straight back to the login screen on a transient read. A
+  // newly created or refreshing session can take longer to hydrate on a slow
+  // device, so require several definitive empty reads before redirecting.
   useEffect(() => {
     if (loading || user) return;
     let cancelled = false;
-    const timer = window.setTimeout(async () => {
+    let timer: number | undefined;
+
+    const verifySession = async (attempt: number) => {
       const { data } = await supabase.auth.getSession();
       if (cancelled) return;
       if (data.session?.user) {
-        void refresh();
+        await refresh();
+        return;
+      }
+      if (attempt < 3) {
+        timer = window.setTimeout(() => void verifySession(attempt + 1), 1500);
         return;
       }
       window.location.replace(signInHref);
-    }, 1200);
+    };
+
+    timer = window.setTimeout(() => void verifySession(0), 1500);
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
+      if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [loading, user, signInHref, refresh]);
 
