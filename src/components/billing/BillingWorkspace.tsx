@@ -45,6 +45,7 @@ import {
   listBillingRecords,
   markPortalSubmitted,
   startRobotForRecord,
+  startRobotForRecords,
   sweepRobotJobsForCompany,
 
 } from "@/lib/billing.functions";
@@ -611,6 +612,7 @@ function ReadyToSubmitTab({
 }) {
   const qc = useQueryClient();
   const startFn = useServerFn(startRobotForRecord);
+  const startBatchFn = useServerFn(startRobotForRecords);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submittingIds, setSubmittingIds] = useState<Set<string>>(new Set());
   const [duplicate, setDuplicate] = useState<{ id: string; info: DuplicateClaimInfo } | null>(
@@ -683,25 +685,39 @@ function ReadyToSubmitTab({
     }
   }
 
+  /**
+   * Bulk submit goes through ONE server call: every selected record is parked
+   * in the shared queue and the dispatcher immediately fills all free
+   * concurrency slots in parallel. The rest start automatically as slots free.
+   */
   async function submitSelected() {
     const ids = Array.from(selected);
     if (!ids.length) return;
-    let ok = 0;
-    let failed = 0;
-    // Loop serially so we get an individual error per trip and don't flood
-    // the automation service with parallel logins.
-    for (const id of ids) {
-      const res = await submitOne(id);
-      if (res === "ok") ok += 1;
-      else if (res === "failed") failed += 1;
-      else {
-        // Stop the batch here; the warning dialog takes over for this trip.
-        break;
+    setSubmittingIds(new Set(ids));
+    try {
+      const res: any = await startBatchFn({ data: { ids, acknowledge_duplicate: false } });
+      setSelected(new Set());
+      if (res?.started) {
+        toast.success(
+          `Started ${res.started} robot job${res.started === 1 ? "" : "s"} in parallel` +
+            (res.queued > res.started
+              ? ` — ${res.queued - res.started} queued, starting automatically as slots free.`
+              : "."),
+        );
+      } else if (res?.queued) {
+        toast.info(`${res.queued} claim(s) queued — they start automatically as slots free.`);
       }
+      if (res?.skipped?.length) {
+        toast.message(`${res.skipped.length} skipped: ${res.skipped[0].reason}`);
+      }
+      if (!res?.queued && !res?.skipped?.length) toast.message("Nothing to submit.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Bulk submit failed");
+    } finally {
+      setSubmittingIds(new Set());
+      qc.invalidateQueries({ queryKey: ["billing_list"] });
+      qc.invalidateQueries({ queryKey: ["billing_counts"] });
     }
-    setSelected(new Set());
-    if (ok) toast.success(`Started ${ok} robot job${ok === 1 ? "" : "s"}`);
-    if (!failed && !ok) toast.message("Nothing to submit.");
   }
 
   if (!rows.length)
