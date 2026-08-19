@@ -1041,6 +1041,15 @@ function AwaitingPortalTab({
 
 /** Live queue position / progress for a claim the robot is working on. */
 function QueueBadge({ info }: { info?: any }) {
+  // Elapsed time is derived from the job's real start timestamp and re-rendered
+  // on a local clock, so it can never sit frozen on the number that happened to
+  // be true at the last fetch.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 10000);
+    return () => window.clearInterval(id);
+  }, []);
+
   if (!info) return null;
   const tone =
     info.queue_state === "queued"
@@ -1048,16 +1057,26 @@ function QueueBadge({ info }: { info?: any }) {
       : info.queue_state === "running"
         ? "bg-info/10 text-info"
         : "bg-muted text-muted-foreground";
+
+  const startedMs = info.started_at ? new Date(info.started_at).getTime() : null;
+  const elapsedMin = startedMs
+    ? Math.max(0, Math.round((now - startedMs) / 60000))
+    : (info.elapsed_minutes ?? null);
+  // The automation service hard-kills a job at 8 minutes.
+  const overdue = elapsedMin != null && elapsedMin >= 8 && info.queue_state === "running";
+
   return (
     <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${tone}`}>
       <Clock className="h-3.5 w-3.5" />
       {info.queue_label}
-      {info.elapsed_minutes != null && info.queue_state !== "awaiting_review" && (
-        <span className="opacity-70">· {info.elapsed_minutes}m elapsed</span>
+      {elapsedMin != null && info.queue_state !== "awaiting_review" && (
+        <span className="opacity-70">· {elapsedMin}m elapsed</span>
       )}
+      {overdue && <span className="opacity-70">· checking result…</span>}
     </div>
   );
 }
+
 
 /**
  * Cancelling is only ever allowed before the real Medicaid submit. The server
