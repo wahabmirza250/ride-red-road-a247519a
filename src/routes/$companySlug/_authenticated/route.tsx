@@ -24,6 +24,7 @@ import {
   Banknote,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabaseBrowser";
 import { useTheme } from "@/lib/theme";
 import { useDriverLocationPing } from "@/lib/useDriverLocationPing";
 import { cn } from "@/lib/utils";
@@ -85,7 +86,7 @@ const ADMIN_NAV = ADMIN_NAV_GROUPS.flat();
 function AuthenticatedLayout() {
   const { companySlug } = Route.useParams();
   const signInHref = `/${companySlug}/login`;
-  const { loading, user, isAdmin, signOut } = useAuth();
+  const { loading, user, isAdmin, signOut, refresh } = useAuth();
   const navigate = useAppNavigate();
   const location = useLocation();
   const { theme, toggle: toggleTheme } = useTheme();
