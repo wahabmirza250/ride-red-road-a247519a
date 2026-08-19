@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import { AddressField } from "@/components/AddressField";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseBrowser";
 import { friendlyErrorMessage } from "@/lib/errorMessage";
 import { ensureDispatchTripStatePdf, getTripReportDraft, saveTripReportDraft } from "@/lib/nemtTrip.functions";
 
