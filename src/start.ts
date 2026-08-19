@@ -2,7 +2,6 @@ import { createStart, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
 import { supabase } from "@/lib/supabaseBrowser";
-import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
@@ -22,8 +21,10 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 
 export const startInstance = createStart(() => ({
   functionMiddleware: [
-    attachSupabaseAuth,
-    // Attach auth with the same singleton client used by the sign-in screens.
+    // Exactly ONE auth client may own the stored session. The generated
+    // attachSupabaseAuth uses a second GoTrue client on the same localStorage
+    // key, which races refresh-token rotation (429s + revoked sessions), so it
+    // is intentionally NOT registered. Do not re-add it.
     createMiddleware({ type: "function" }).client(async ({ next }) => {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;

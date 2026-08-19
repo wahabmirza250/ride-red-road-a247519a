@@ -41,7 +41,7 @@ import {
 import { PORTALS, getPortal } from "@/lib/portals";
 import { formatDateTime } from "@/lib/format";
 import { friendlyErrorMessage } from "@/lib/errorMessage";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseBrowser";
 
 export function PortalCredentialsCard() {
   const list = useServerFn(listPortalCredentials);
