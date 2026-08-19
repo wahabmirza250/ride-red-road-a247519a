@@ -6,7 +6,14 @@ export type ClaimStatusSyncState = {
   paused: boolean;
   pause_reason: string | null;
   last_run_at: string | null;
-  last_result: Record<string, unknown>;
+  last_result: {
+    checked?: number;
+    changed?: number;
+    unchanged?: number;
+    skipped?: number;
+    companies?: number;
+    reason?: string | null;
+  };
   due_now: number;
 };
 
@@ -43,7 +50,7 @@ export const getClaimStatusSyncState = createServerFn({ method: "POST" })
       paused: Boolean(state?.paused),
       pause_reason: state?.pause_reason ?? null,
       last_run_at: state?.last_run_at ?? null,
-      last_result: (state?.last_result ?? {}) as Record<string, unknown>,
+      last_result: (state?.last_result ?? {}) as ClaimStatusSyncState["last_result"],
       due_now: count ?? 0,
     };
   });
