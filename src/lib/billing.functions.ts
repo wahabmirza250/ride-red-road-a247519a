@@ -950,6 +950,8 @@ export const listSubmissionQueue = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     await assertBilling(supabase, userId);
+    const { MAX_CONCURRENT_ROBOT_JOBS } = await import("@/lib/robotQueue.server");
+
 
     const { data: rows, error } = await supabase
       .from("billing_records")
