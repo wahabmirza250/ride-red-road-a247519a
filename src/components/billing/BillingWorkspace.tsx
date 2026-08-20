@@ -873,7 +873,7 @@ function ReadyToSubmitTab({
                         <span>{r.submission_error}</span>
                       </div>
                     )}
-                    {r.status === "needs_fix" && !isRunning && (
+                    {!isRunning && (
                       <Button
                         size="sm"
                         variant="outline"
