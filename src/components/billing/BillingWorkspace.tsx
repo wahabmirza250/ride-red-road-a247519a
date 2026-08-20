@@ -20,6 +20,7 @@ import {
   Clock,
   Ban,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatusPill } from "@/components/nemt/StatusPill";
@@ -54,6 +55,7 @@ import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
 import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
+import { FixBillDialog } from "@/components/billing/FixBillDialog";
 
 import {
   cancelSubmissionClient,
@@ -652,6 +654,7 @@ function ReadyToSubmitTab({
   const [duplicate, setDuplicate] = useState<{ id: string; info: DuplicateClaimInfo } | null>(
     null,
   );
+  const [fixId, setFixId] = useState<string | null>(null);
 
   const selectableIds = useMemo(
     () =>
@@ -870,7 +873,22 @@ function ReadyToSubmitTab({
                         <span>{r.submission_error}</span>
                       </div>
                     )}
+                    {r.status === "needs_fix" && !isRunning && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-2 h-7 rounded-full px-3 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFixId(r.id);
+                        }}
+                      >
+                        <Pencil className="mr-1 h-3 w-3" />
+                        Edit &amp; fix
+                      </Button>
+                    )}
                   </td>
+
                   <td
                     className="px-4 py-3"
                     onClick={(e) => e.stopPropagation()}
@@ -887,9 +905,12 @@ function ReadyToSubmitTab({
           </tbody>
         </table>
       </div>
+
+      <FixBillDialog id={fixId} onClose={() => setFixId(null)} />
     </div>
   );
 }
+
 
 /* ------------------------------- TAB 3: Awaiting Portal ------------------------------- */
 
