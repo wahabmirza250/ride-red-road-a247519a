@@ -973,10 +973,6 @@ export const listSubmissionQueue = createServerFn({ method: "GET" })
       const elapsedMin = startedAt
         ? Math.max(0, Math.round((Date.now() - new Date(startedAt).getTime()) / 60000))
         : null;
-      const position =
-        r.status === "submitting"
-          ? running.findIndex((x: any) => x.id === r.id) + 1
-          : null;
       const aheadInQueue =
         r.status === "queued" ? parked.findIndex((x: any) => x.id === r.id) : null;
 
@@ -989,13 +985,17 @@ export const listSubmissionQueue = createServerFn({ method: "GET" })
         queue_state = "awaiting_review";
         queue_label = "Captured — waiting for your review";
       } else if (r.status === "queued") {
-        const ahead = (aheadInQueue ?? 0) + running.length;
+        // Only work that actually occupies a concurrency slot blocks this row.
+        // With free slots left, the dispatcher releases it within seconds.
+        const blocking = Math.max(0, running.length - MAX_CONCURRENT_ROBOT_JOBS);
+        const ahead = (aheadInQueue ?? 0) + blocking;
         queue_state = "queued";
-        queue_label = `Queued — ${ahead} job${ahead === 1 ? "" : "s"} ahead on the portal account`;
-      } else if (position && position > 1) {
-        queue_state = "queued";
-        queue_label = `Queued — ${position - 1} job${position === 2 ? "" : "s"} ahead on the portal account`;
+        queue_label =
+          running.length >= MAX_CONCURRENT_ROBOT_JOBS
+            ? `Queued — ${ahead + running.length} job${ahead + running.length === 1 ? "" : "s"} ahead on the portal account`
+            : "Queued — starting shortly";
       } else {
+        // Every `submitting` record holds its own live portal session.
         queue_state = "running";
         queue_label = "Working at the portal now";
       }
