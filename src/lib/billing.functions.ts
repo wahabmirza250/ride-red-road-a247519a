@@ -940,15 +940,18 @@ export const setDefaultBillingPortal = createServerFn({ method: "POST" })
 
 /**
  * Queue visibility for the "Awaiting Portal Submission" / in-flight lists.
- * The automation service runs one portal session at a time per account, so
- * jobs behind the active one are genuinely waiting. We report position and
- * elapsed time — never a promised finish time.
+ * The automation service runs up to MAX_CONCURRENT_ROBOT_JOBS portal sessions
+ * per account at once, so EVERY `submitting` record is genuinely running —
+ * never label one of them "queued" just because another job started first.
+ * Only `queued` records are actually waiting.
  */
 export const listSubmissionQueue = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     await assertBilling(supabase, userId);
+    const { MAX_CONCURRENT_ROBOT_JOBS } = await import("@/lib/robotQueue.server");
+
 
     const { data: rows, error } = await supabase
       .from("billing_records")
@@ -972,10 +975,6 @@ export const listSubmissionQueue = createServerFn({ method: "GET" })
       const elapsedMin = startedAt
         ? Math.max(0, Math.round((Date.now() - new Date(startedAt).getTime()) / 60000))
         : null;
-      const position =
-        r.status === "submitting"
-          ? running.findIndex((x: any) => x.id === r.id) + 1
-          : null;
       const aheadInQueue =
         r.status === "queued" ? parked.findIndex((x: any) => x.id === r.id) : null;
 
@@ -988,13 +987,17 @@ export const listSubmissionQueue = createServerFn({ method: "GET" })
         queue_state = "awaiting_review";
         queue_label = "Captured — waiting for your review";
       } else if (r.status === "queued") {
-        const ahead = (aheadInQueue ?? 0) + running.length;
+        // Only work that actually occupies a concurrency slot blocks this row.
+        // With free slots left, the dispatcher releases it within seconds.
+        const blocking = Math.max(0, running.length - MAX_CONCURRENT_ROBOT_JOBS);
+        const ahead = (aheadInQueue ?? 0) + blocking;
         queue_state = "queued";
-        queue_label = `Queued — ${ahead} job${ahead === 1 ? "" : "s"} ahead on the portal account`;
-      } else if (position && position > 1) {
-        queue_state = "queued";
-        queue_label = `Queued — ${position - 1} job${position === 2 ? "" : "s"} ahead on the portal account`;
+        queue_label =
+          running.length >= MAX_CONCURRENT_ROBOT_JOBS
+            ? `Queued — ${ahead + running.length} job${ahead + running.length === 1 ? "" : "s"} ahead on the portal account`
+            : "Queued — starting shortly";
       } else {
+        // Every `submitting` record holds its own live portal session.
         queue_state = "running";
         queue_label = "Working at the portal now";
       }
