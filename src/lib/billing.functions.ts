@@ -940,9 +940,10 @@ export const setDefaultBillingPortal = createServerFn({ method: "POST" })
 
 /**
  * Queue visibility for the "Awaiting Portal Submission" / in-flight lists.
- * The automation service runs one portal session at a time per account, so
- * jobs behind the active one are genuinely waiting. We report position and
- * elapsed time — never a promised finish time.
+ * The automation service runs up to MAX_CONCURRENT_ROBOT_JOBS portal sessions
+ * per account at once, so EVERY `submitting` record is genuinely running —
+ * never label one of them "queued" just because another job started first.
+ * Only `queued` records are actually waiting.
  */
 export const listSubmissionQueue = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
