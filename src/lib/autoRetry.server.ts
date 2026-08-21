@@ -23,7 +23,7 @@ export async function maybeAutoRetryTimeout(
   recordId: string,
   tripId: string,
   errMsg: string,
-  actorId: string | null,
+  actorId: string,
 ): Promise<AutoRetryOutcome> {
   if (!looksLikeRetryableTimeout(errMsg)) {
     return { retried: false, exhausted: false, message: null };
