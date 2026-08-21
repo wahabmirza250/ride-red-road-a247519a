@@ -664,13 +664,21 @@ function ReadyToSubmitTab({
   );
   const [fixId, setFixId] = useState<string | null>(null);
 
+  // A bill that already carries a portal confirmation number is a real live
+  // claim, whatever its billing status says — never selectable for submit or
+  // delete here.
   const selectableIds = useMemo(
     () =>
       rows
-        .filter((r) => r.status === "approved" || r.status === "needs_fix")
+        .filter(
+          (r) =>
+            (r.status === "approved" || r.status === "needs_fix") &&
+            !r.state_confirmation_number,
+        )
         .map((r) => r.id as string),
     [rows],
   );
+
 
   // Prune stale selections when rows change
   useEffect(() => {
