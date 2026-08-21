@@ -115,7 +115,7 @@ async function attemptCount(supabase: any, recordId: string): Promise<number> {
 export async function resolveUnverifiedClaim(
   supabase: any,
   recordId: string,
-  actorId: string,
+  actorId: string | null,
 ): Promise<UnverifiedResolveResult> {
   const { data: rec, error } = await supabase
     .from("billing_records")
@@ -246,7 +246,7 @@ async function flagForHuman(
   supabase: any,
   recordId: string,
   tripId: string,
-  actorId: string,
+  actorId: string | null,
   msg: string,
   nowIso: string,
 ) {

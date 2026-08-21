@@ -70,7 +70,7 @@ export const ALL_STATUSES = [
 export async function logAudit(
   supabase: any,
   billing_record_id: string,
-  actor_id: string,
+  actor_id: string | null,
   action: string,
   notes?: string | null,
   actor_type: "admin" | "driver" | "system" = "admin",
