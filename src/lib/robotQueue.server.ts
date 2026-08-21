@@ -50,9 +50,49 @@ const TRIP_SELECT = `id, status, trip_id, company_id,
      id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
      state_pdf_path, identity_verified, robot_job_id, robot_job_started_at,
      robot_last_status, status, portal_status, robot_confirmation_number,
-     submitted_confirmation, vehicle_type, trip_kind, rider_id,
+     submitted_confirmation, vehicle_type, trip_kind, rider_id, created_by,
      riders(medicaid_id)
    )`;
+
+/**
+ * PROVIDER IDENTITY FOR BACKGROUND WORK.
+ *
+ * The robot needs a real provider user id on every payload — it looks the
+ * company's billing rates up with it. Interactive submissions pass the signed
+ * in biller, but the cron sweep has no session, and passing its null through
+ * made the robot fail every dispatched job with "No provider_id on this trip."
+ * So resolve a real human for the record: whoever created the trip, else a
+ * biller/admin of the owning company.
+ */
+export async function resolveProviderUserId(
+  supabase: any,
+  args: { actorId?: string | null; trip?: any; companyId?: string | null },
+): Promise<string> {
+  if (args.actorId) return args.actorId;
+
+  const creator = args.trip?.created_by ?? null;
+  if (creator) return creator as string;
+
+  const companyId = args.companyId ?? args.trip?.company_id ?? null;
+  if (companyId) {
+    const { data } = await supabase
+      .from("user_roles")
+      .select("user_id, role")
+      .eq("company_id", companyId)
+      .in("role", ["admin_biller", "billing", "admin"])
+      .limit(20);
+    const order = ["admin_biller", "billing", "admin"];
+    const pick = (data ?? []).sort(
+      (a: any, b: any) => order.indexOf(a.role) - order.indexOf(b.role),
+    )[0];
+    if (pick?.user_id) return pick.user_id as string;
+  }
+
+  throw new Error(
+    "No provider account could be resolved for this bill — the automation needs a billing user on the company.",
+  );
+}
+
 
 /** Billing records whose robot jobs currently hold a live portal session. */
 export async function listActiveRobotJobs(
@@ -198,7 +238,7 @@ export async function enqueueOrStartRobot(
  */
 export async function dispatchNextQueued(
   supabase: any,
-  actorId: string,
+  actorId: string | null,
   companyId?: string | null,
 ): Promise<{ started: string | null; startedIds: string[] }> {
   const active = await listActiveRobotJobs(supabase, { companyId });
@@ -258,16 +298,22 @@ export async function dispatchNextQueued(
   // Parallel dispatch — the robot runs these sessions concurrently.
   const results = await Promise.all(
     claimed.map(async (rec: any) => {
+      let provider: string | null = null;
       try {
+        provider = await resolveProviderUserId(supabase, {
+          actorId,
+          trip: rec.medicaid_trips,
+          companyId: rec.company_id,
+        });
         await startRobotSubmission(supabase, {
           billingRecordId: rec.id,
           trip: rec.medicaid_trips,
-          providerUserId: actorId,
+          providerUserId: provider,
           // Queued work is always a real one-shot submission; capture runs are
           // never queued (see enqueueOrStartRobot).
           mode: "full",
         });
-        await logAudit(supabase, rec.id, actorId, "robot_started_from_queue");
+        await logAudit(supabase, rec.id, provider, "robot_started_from_queue");
         return rec.id as string;
       } catch (e: any) {
         const msg = e?.message ?? "Failed to start the queued automation";
@@ -275,7 +321,7 @@ export async function dispatchNextQueued(
           .from("billing_records")
           .update({ status: "needs_fix", submission_error: msg, fix_notes: msg })
           .eq("id", rec.id);
-        await logAudit(supabase, rec.id, actorId, "robot_start_failed", msg);
+        await logAudit(supabase, rec.id, provider ?? actorId, "robot_start_failed", msg);
         return null;
       }
     }),
@@ -294,7 +340,7 @@ export async function dispatchNextQueued(
  */
 export async function sweepRobotJobs(
   supabase: any,
-  actorId: string,
+  actorId: string | null,
   companyId?: string | null,
 ): Promise<{ checked: number; settled: number; started: string | null; startedIds: string[] }> {
   const { reconcileRobotJob } = await import("@/lib/robotReconcile.server");

@@ -25,7 +25,7 @@ export type ReconcileResult = {
 export async function reconcileRobotJob(
   supabase: any,
   recordId: string,
-  actorId: string,
+  actorId: string | null,
 ): Promise<ReconcileResult> {
   const data = { id: recordId };
   const userId = actorId;

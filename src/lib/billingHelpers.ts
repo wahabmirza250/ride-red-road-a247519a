@@ -70,7 +70,7 @@ export const ALL_STATUSES = [
 export async function logAudit(
   supabase: any,
   billing_record_id: string,
-  actor_id: string,
+  actor_id: string | null,
   action: string,
   notes?: string | null,
   actor_type: "admin" | "driver" | "system" = "admin",
@@ -321,6 +321,15 @@ export async function startRobotSubmission(
   },
 ) {
   const { billingRecordId, trip, providerUserId } = args;
+  // FAIL CLOSED ON PROVIDER IDENTITY.
+  // The robot rejects a payload with no provider_id ("No provider_id on this
+  // trip.") and the rate endpoint resolves the company from it. Never start a
+  // job without one — background sweeps must resolve a real user first.
+  if (!providerUserId) {
+    throw new Error(
+      "Submission blocked: no provider account was resolved for this bill (missing provider_id).",
+    );
+  }
   // One-shot is the default everywhere; a capture-only run must be asked for.
   const mode = args.mode ?? "full";
   const rider = trip.riders;
@@ -328,6 +337,7 @@ export async function startRobotSubmission(
   if (!medicaidMemberId) {
     throw new Error("Rider has no Medicaid member ID");
   }
+
 
   // Unique job id per submission attempt. Server-side timestamp keeps it
   // monotonic even if two attempts race.

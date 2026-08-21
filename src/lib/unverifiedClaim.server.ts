@@ -115,7 +115,7 @@ async function attemptCount(supabase: any, recordId: string): Promise<number> {
 export async function resolveUnverifiedClaim(
   supabase: any,
   recordId: string,
-  actorId: string,
+  actorId: string | null,
 ): Promise<UnverifiedResolveResult> {
   const { data: rec, error } = await supabase
     .from("billing_records")
@@ -165,8 +165,13 @@ export async function resolveUnverifiedClaim(
     portalId = null;
   }
 
+  const { resolveProviderUserId } = await import("@/lib/robotQueue.server");
   const found = await searchPortalClaim({
-    providerUserId: actorId,
+    providerUserId: await resolveProviderUserId(supabase, {
+      actorId,
+      trip,
+      companyId: trip.company_id ?? rec.company_id ?? null,
+    }),
     companyId: trip.company_id ?? rec.company_id ?? null,
     portalId,
     memberId,
@@ -246,7 +251,7 @@ async function flagForHuman(
   supabase: any,
   recordId: string,
   tripId: string,
-  actorId: string,
+  actorId: string | null,
   msg: string,
   nowIso: string,
 ) {
