@@ -418,8 +418,16 @@ function DeleteControls({
         if (!looksLikeEdgeFailure(e)) throw e;
         res = await deleteBillingRecordsClient(confirmIds);
       }
-      toast.success(`Deleted ${res.deleted} bill${res.deleted === 1 ? "" : "s"}`);
-      if (res.skipped) toast.message(`${res.skipped} already submitted and were kept.`);
+      if (res.deleted) {
+        toast.success(`Deleted ${res.deleted} bill${res.deleted === 1 ? "" : "s"}`);
+      }
+      if (res.blocked?.length) {
+        toast.warning(
+          `${res.blocked.length} kept — ${res.blocked[0].reason}. Submitted claims can never be deleted.`,
+        );
+      } else if (res.skipped) {
+        toast.message(`${res.skipped} could not be removed and were kept.`);
+      }
       setConfirmIds(null);
       onDone();
       qc.invalidateQueries({ queryKey: ["billing_list"] });
