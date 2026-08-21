@@ -238,7 +238,7 @@ export async function enqueueOrStartRobot(
  */
 export async function dispatchNextQueued(
   supabase: any,
-  actorId: string,
+  actorId: string | null,
   companyId?: string | null,
 ): Promise<{ started: string | null; startedIds: string[] }> {
   const active = await listActiveRobotJobs(supabase, { companyId });
@@ -340,7 +340,7 @@ export async function dispatchNextQueued(
  */
 export async function sweepRobotJobs(
   supabase: any,
-  actorId: string,
+  actorId: string | null,
   companyId?: string | null,
 ): Promise<{ checked: number; settled: number; started: string | null; startedIds: string[] }> {
   const { reconcileRobotJob } = await import("@/lib/robotReconcile.server");
