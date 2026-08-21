@@ -165,8 +165,13 @@ export async function resolveUnverifiedClaim(
     portalId = null;
   }
 
+  const { resolveProviderUserId } = await import("@/lib/robotQueue.server");
   const found = await searchPortalClaim({
-    providerUserId: actorId,
+    providerUserId: await resolveProviderUserId(supabase, {
+      actorId,
+      trip,
+      companyId: trip.company_id ?? rec.company_id ?? null,
+    }),
     companyId: trip.company_id ?? rec.company_id ?? null,
     portalId,
     memberId,
