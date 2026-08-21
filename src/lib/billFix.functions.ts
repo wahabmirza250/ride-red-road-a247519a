@@ -161,6 +161,8 @@ export const updateBillForFix = createServerFn({ method: "POST" })
         status: "approved",
         submission_error: null,
         fix_notes: null,
+        // Corrected data = a fresh start for the automatic timeout retries.
+        auto_retry_count: 0,
         requires_human_step: false,
         reviewed_by: userId,
         reviewed_at: new Date().toISOString(),
