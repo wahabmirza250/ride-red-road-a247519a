@@ -18,7 +18,12 @@ export const Route = createFileRoute("/api/public/get-portal-credential")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const apiKey = request.headers.get("x-api-key");
+        // Tolerate stray whitespace/newlines or a "Bearer "/quote wrapper that
+        // often sneaks in when the key is pasted into a hosting dashboard.
+        const apiKey = (request.headers.get("x-api-key") ?? "")
+          .trim()
+          .replace(/^Bearer\s+/i, "")
+          .replace(/^["']|["']$/g, "");
         if (!apiKey) {
           return json({ error: "Missing X-API-Key header" }, 401);
         }
