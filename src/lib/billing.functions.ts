@@ -1116,33 +1116,14 @@ export const deleteBillingRecords = createServerFn({ method: "POST" })
       .in("id", data.ids);
     if (error) throw new Error(error.message);
 
-    const deletable = (recs ?? []).filter(
-      (r: any) =>
-        !r.state_confirmation_number &&
-        ["pending_review", "approved", "needs_fix"].includes(r.status),
-    );
-    if (!deletable.length) {
-      throw new Error(
-        "Nothing could be deleted — submitted or in-flight claims cannot be removed here.",
-      );
-    }
+    const { performBillDelete, PERMISSION_MESSAGE } = await import("@/lib/deleteBills");
+    // RLS hides bills entered by another biller, so an empty read is itself a
+    // permission problem — not "nothing to do".
+    if (!recs?.length) throw new Error(PERMISSION_MESSAGE);
 
-    const ids = deletable.map((r: any) => r.id);
-    const tripIds = deletable.map((r: any) => r.trip_id).filter(Boolean);
-
-    await supabase.from("billing_audit_log").delete().in("billing_record_id", ids);
-    const { error: delErr } = await supabase.from("billing_records").delete().in("id", ids);
-    if (delErr) throw new Error(delErr.message);
-
-    if (tripIds.length) {
-      await supabase
-        .from("medicaid_trips")
-        .update({ status: "rejected", review_notes: "Deleted from the billing workflow." })
-        .in("id", tripIds);
-    }
-
-    return { ok: true, deleted: ids.length, skipped: (recs ?? []).length - ids.length };
+    return await performBillDelete(supabase, recs as any);
   });
+
 
 /* ---------- BACKGROUND STATUS SWEEP ---------- */
 
