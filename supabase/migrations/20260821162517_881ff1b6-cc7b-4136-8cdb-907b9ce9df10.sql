@@ -1,0 +1,1 @@
+ALTER TABLE public.billing_records ADD COLUMN IF NOT EXISTS auto_retry_count integer NOT NULL DEFAULT 0;
