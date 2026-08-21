@@ -158,6 +158,7 @@ export type Database = {
       }
       billing_records: {
         Row: {
+          auto_retry_count: number
           company_id: string | null
           created_at: string
           fix_notes: string | null
@@ -177,6 +178,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_retry_count?: number
           company_id?: string | null
           created_at?: string
           fix_notes?: string | null
@@ -196,6 +198,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_retry_count?: number
           company_id?: string | null
           created_at?: string
           fix_notes?: string | null
