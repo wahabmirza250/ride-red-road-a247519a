@@ -298,16 +298,22 @@ export async function dispatchNextQueued(
   // Parallel dispatch — the robot runs these sessions concurrently.
   const results = await Promise.all(
     claimed.map(async (rec: any) => {
+      let provider: string | null = null;
       try {
+        provider = await resolveProviderUserId(supabase, {
+          actorId,
+          trip: rec.medicaid_trips,
+          companyId: rec.company_id,
+        });
         await startRobotSubmission(supabase, {
           billingRecordId: rec.id,
           trip: rec.medicaid_trips,
-          providerUserId: actorId,
+          providerUserId: provider,
           // Queued work is always a real one-shot submission; capture runs are
           // never queued (see enqueueOrStartRobot).
           mode: "full",
         });
-        await logAudit(supabase, rec.id, actorId, "robot_started_from_queue");
+        await logAudit(supabase, rec.id, provider, "robot_started_from_queue");
         return rec.id as string;
       } catch (e: any) {
         const msg = e?.message ?? "Failed to start the queued automation";
@@ -315,7 +321,7 @@ export async function dispatchNextQueued(
           .from("billing_records")
           .update({ status: "needs_fix", submission_error: msg, fix_notes: msg })
           .eq("id", rec.id);
-        await logAudit(supabase, rec.id, actorId, "robot_start_failed", msg);
+        await logAudit(supabase, rec.id, provider ?? actorId, "robot_start_failed", msg);
         return null;
       }
     }),
