@@ -371,6 +371,17 @@ export async function reconcileRobotJob(
     }
 
 
+    // TRANSIENT TIMEOUT: nothing was submitted and the data is fine, so put the
+    // bill straight back into the normal queue (same concurrency + same-passenger
+    // pacing rules) instead of parking it for a human. Capped, and audited.
+    const { maybeAutoRetryTimeout } = await import("@/lib/autoRetry.server");
+    const auto = await maybeAutoRetryTimeout(supabase, rec.id, trip.id, errMsg, userId);
+    if (auto.retried) {
+      return { pending: true, status: "AUTO_RETRY_QUEUED", message: auto.message };
+    }
+    if (auto.exhausted) {
+      return { pending: false, status: "TIMED_OUT_RETRIES_EXHAUSTED", message: auto.message };
+    }
 
     await supabase
       .from("medicaid_trips")
