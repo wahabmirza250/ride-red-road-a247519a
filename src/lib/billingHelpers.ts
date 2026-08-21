@@ -657,3 +657,35 @@ export function looksLikeNoServiceLinesFailure(raw: string | null | undefined): 
 
 /** Status parked on a trip whose claim may already exist at the portal. */
 export const UNVERIFIED_SUBMIT_STATUS = "SUBMITTED_UNVERIFIED";
+
+/** Max automatic retries the reconciler will fire for a timed-out bill. */
+export const MAX_AUTO_TIMEOUT_RETRIES = 2;
+
+/**
+ * TRANSIENT TIMEOUT (safe to retry automatically).
+ *
+ * Only pure timeouts qualify: the portal session died without the claim being
+ * submitted, so running it again with the SAME data can succeed. Data problems
+ * (required field, member/Medicaid ID lookup failures, validation errors) are
+ * explicitly excluded — retrying those with identical data only wastes a slot.
+ */
+export function looksLikeRetryableTimeout(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  const t = String(raw);
+  const dataProblem =
+    /required field/i.test(t) ||
+    /indicates a required/i.test(t) ||
+    /medicaid/i.test(t) ||
+    /member (?:id|not found|lookup)/i.test(t) ||
+    /invalid/i.test(t) ||
+    /not eligible|eligibility/i.test(t) ||
+    /duplicate/i.test(t) ||
+    /date .*future/i.test(t);
+  if (dataProblem) return false;
+  return (
+    /timed out/i.test(t) ||
+    /timeout \d+ms exceeded/i.test(t) ||
+    /navigation timeout/i.test(t) ||
+    /ETIMEDOUT/i.test(t)
+  );
+}
