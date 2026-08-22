@@ -16,7 +16,7 @@
  *   - Every real change is written to billing_audit_log with previous status,
  *     new status and the time it was observed.
  */
-import { ROBOT_BASE_URL, denverDateISO } from "@/lib/billingHelpers";
+import { denverDateISO } from "@/lib/billingHelpers";
 
 /** Never check more than this many claims in one scheduled run. */
 export const SYNC_BATCH_SIZE = 40;
