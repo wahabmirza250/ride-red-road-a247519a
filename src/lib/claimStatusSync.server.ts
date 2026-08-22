@@ -365,11 +365,13 @@ export async function runClaimStatusSync(
       // Manual override: check exactly these rows, whatever their status.
       q = q.in("id", opts.recordIds!);
     } else {
-      // Automatic pass: only claims enqueued for checking and actually due now.
+      // Automatic pass: only claims enqueued for checking, actually due now,
+      // and not already locked by another in-flight run.
       q = q
         .in("status", OPEN_STATUSES)
         .not("status_check_next_at", "is", null)
-        .lte("status_check_next_at", new Date().toISOString());
+        .lte("status_check_next_at", new Date().toISOString())
+        .or(`status_check_locked_until.is.null,status_check_locked_until.lt.${new Date().toISOString()}`);
     }
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
