@@ -370,7 +370,7 @@ async function processJob(
 }
 
 /** Run jobs with a global cap and a per-company cap; stop starting past `deadline`. */
-async function runPool(
+export async function runPool(
   jobs: LeasedJob[],
   caps: { perCompany: number; global: number; deadline: number },
   worker: (job: LeasedJob) => Promise<void>,
