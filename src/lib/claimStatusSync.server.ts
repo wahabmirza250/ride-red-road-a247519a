@@ -19,7 +19,11 @@
 
 /** Never check more than this many claims in one scheduled run.
  *  Each lookup drives a real browser session (~15s), so keep it modest. */
-export const SYNC_BATCH_SIZE = 8;
+export const SYNC_BATCH_SIZE = 6;
+/** Hard wall-clock ceiling for one background run (minutes, not tens of minutes). */
+export const RUN_BUDGET_MS = 4 * 60 * 1000;
+/** Much tighter ceiling for a manually kicked run so the UI never hangs. */
+export const MANUAL_RUN_BUDGET_MS = 60 * 1000;
 /** Fallback re-check age for rows that predate per-row scheduling. */
 export const RECHECK_AFTER_MS = 6 * 60 * 60 * 1000;
 /** First automatic re-check delay; doubles per attempt up to the ceiling. */
@@ -34,10 +38,14 @@ export const TERMINAL_STATUSES = ["paid", "denied", "rejected"];
 export function backoffMs(attempts: number): number {
   return Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * Math.pow(2, Math.max(0, attempts)));
 }
-/** How long one run may hold the single-flight lease. */
-export const LEASE_MS = 10 * 60 * 1000;
+/** How long one run may hold the single-flight lease. Kept just above the run
+ *  budget so a killed worker's lease self-heals within ~5 minutes. */
+export const LEASE_MS = 5 * 60 * 1000;
+/** How long a single claim stays locked while it is being checked. */
+export const CLAIM_LOCK_MS = 3 * 60 * 1000;
 /** Statuses worth re-checking. Terminal outcomes are left alone. */
 export const OPEN_STATUSES = ["submitted", "approved", "suspended"];
+
 
 export const SYNC_ACTION = "claim_status_sync";
 
