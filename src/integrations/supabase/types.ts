@@ -2935,12 +2935,17 @@ export type Database = {
       claim_status_queue_metrics: {
         Row: {
           avg_check_ms: number | null
+          checked_last_hour: number | null
           company_id: string | null
+          company_name: string | null
           due_now: number | null
+          errored: number | null
           last_checked_at: string | null
           leased_running: number | null
+          oldest_due_at: string | null
           retrying: number | null
           scheduled_total: number | null
+          stale_locks: number | null
           terminal: number | null
         }
         Relationships: [
@@ -3025,6 +3030,10 @@ export type Database = {
         }[]
       }
       owner_unscoped: { Args: never; Returns: boolean }
+      release_stale_claim_status_locks: {
+        Args: { _grace_seconds?: number }
+        Returns: number
+      }
       requests_on_route: {
         Args: { _ids: string[] }
         Returns: {
