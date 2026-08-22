@@ -129,8 +129,8 @@ export const CLAIM_STATUS_CHECKER_URL =
   "https://redart-claim-status-checker-production.up.railway.app";
 
 /** How long we wait for one claim lookup job before treating it as transient.
- *  The checker answers in ~15s; 2 minutes is a hard per-check ceiling. */
-const CHECK_POLL_TIMEOUT_MS = envInt("CLAIM_STATUS_CHECK_TIMEOUT_MS", 120_000);
+ *  The checker answers in ~15-30s; this stays inside one run budget. */
+export const CHECK_POLL_TIMEOUT_MS = envInt("CLAIM_STATUS_CHECK_TIMEOUT_MS", 75_000, 10_000, 180_000);
 const CHECK_POLL_INTERVAL_MS = 3_000;
 
 
