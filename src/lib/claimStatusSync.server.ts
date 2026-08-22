@@ -16,12 +16,24 @@
  *   - Every real change is written to billing_audit_log with previous status,
  *     new status and the time it was observed.
  */
-import { denverDateISO } from "@/lib/billingHelpers";
 
-/** Never check more than this many claims in one scheduled run. */
-export const SYNC_BATCH_SIZE = 40;
-/** Claims checked more recently than this are skipped. */
+/** Never check more than this many claims in one scheduled run.
+ *  Each lookup drives a real browser session (~15s), so keep it modest. */
+export const SYNC_BATCH_SIZE = 8;
+/** Fallback re-check age for rows that predate per-row scheduling. */
 export const RECHECK_AFTER_MS = 6 * 60 * 60 * 1000;
+/** First automatic re-check delay; doubles per attempt up to the ceiling. */
+export const BACKOFF_BASE_MS = 15 * 60 * 1000;
+export const BACKOFF_MAX_MS = 12 * 60 * 60 * 1000;
+/** Steady cadence for a claim still sitting in a non-terminal portal state. */
+export const OPEN_RECHECK_MS = 6 * 60 * 60 * 1000;
+/** Portal outcomes that end automatic polling. */
+export const TERMINAL_STATUSES = ["paid", "denied", "rejected"];
+
+/** Next due time after `attempts` consecutive inconclusive checks. */
+export function backoffMs(attempts: number): number {
+  return Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * Math.pow(2, Math.max(0, attempts)));
+}
 /** How long one run may hold the single-flight lease. */
 export const LEASE_MS = 10 * 60 * 1000;
 /** Statuses worth re-checking. Terminal outcomes are left alone. */
@@ -62,11 +74,6 @@ export function normalizePortalStatus(raw: unknown): string | null {
   if (/\bapproved\b|accepted/.test(s)) return "approved";
   if (/\bsubmitted\b|received/.test(s)) return "submitted";
   return null;
-}
-
-function portalDateMDY(iso: string | null | undefined): string {
-  const [y, m, d] = denverDateISO(iso ?? undefined).split("-");
-  return `${m}/${d}/${y}`;
 }
 
 type Candidate = {
