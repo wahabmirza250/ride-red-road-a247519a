@@ -17,13 +17,26 @@
  *     new status and the time it was observed.
  */
 
-/** Never check more than this many claims in one scheduled run.
- *  Each lookup drives a real browser session (~15s), so keep it modest. */
-export const SYNC_BATCH_SIZE = 6;
-/** Hard wall-clock ceiling for one background run (minutes, not tens of minutes). */
-export const RUN_BUDGET_MS = 4 * 60 * 1000;
+/** ---- Scaling configuration (env-backed, safe defaults) ----------------
+ *  Every knob below can be tuned per environment without a code change. */
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  const n = raw == null ? NaN : Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+/** Max concurrent read-only status checks for ONE company. Conservative. */
+export const maxPerCompany = () => envInt("CLAIM_STATUS_MAX_PER_COMPANY", 4);
+/** Max concurrent read-only status checks across ALL companies. */
+export const maxGlobal = () => envInt("CLAIM_STATUS_MAX_GLOBAL", 20);
+/** How long a leased claim stays locked before it becomes eligible again. */
+export const leaseSeconds = () => envInt("CLAIM_STATUS_LEASE_SECONDS", 180);
+
+/** Never lease more than this many claims in one scheduler tick. */
+export const SYNC_BATCH_SIZE = maxGlobal();
+/** Hard wall-clock ceiling for one background tick. */
+export const RUN_BUDGET_MS = envInt("CLAIM_STATUS_RUN_BUDGET_MS", 4 * 60 * 1000);
 /** Much tighter ceiling for a manually kicked run so the UI never hangs. */
-export const MANUAL_RUN_BUDGET_MS = 60 * 1000;
+export const MANUAL_RUN_BUDGET_MS = envInt("CLAIM_STATUS_MANUAL_BUDGET_MS", 90 * 1000);
 /** Fallback re-check age for rows that predate per-row scheduling. */
 export const RECHECK_AFTER_MS = 6 * 60 * 60 * 1000;
 /** First automatic re-check delay; doubles per attempt up to the ceiling. */
@@ -38,13 +51,9 @@ export const TERMINAL_STATUSES = ["paid", "denied", "rejected"];
 export function backoffMs(attempts: number): number {
   return Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * Math.pow(2, Math.max(0, attempts)));
 }
-/** How long one run may hold the single-flight lease. Kept just above the run
- *  budget so a killed worker's lease self-heals within ~5 minutes. */
-export const LEASE_MS = 5 * 60 * 1000;
-/** How long a single claim stays locked while it is being checked. */
-export const CLAIM_LOCK_MS = 3 * 60 * 1000;
 /** Statuses worth re-checking. Terminal outcomes are left alone. */
 export const OPEN_STATUSES = ["submitted", "approved", "suspended"];
+
 
 
 export const SYNC_ACTION = "claim_status_sync";
@@ -113,8 +122,8 @@ export const CLAIM_STATUS_CHECKER_URL =
   "https://redart-claim-status-checker-production.up.railway.app";
 
 /** How long we wait for one claim lookup job before treating it as transient.
- *  The checker answers in ~15s; 90s is already a generous ceiling. */
-const CHECK_POLL_TIMEOUT_MS = 90_000;
+ *  The checker answers in ~15s; 2 minutes is a hard per-check ceiling. */
+const CHECK_POLL_TIMEOUT_MS = envInt("CLAIM_STATUS_CHECK_TIMEOUT_MS", 120_000);
 const CHECK_POLL_INTERVAL_MS = 3_000;
 
 
@@ -187,71 +196,76 @@ async function checkOneClaim(
   return { ok: false, detail: "checker job timed out" };
 }
 
-/**
- * READ-ONLY portal status lookup for a group of claims from one company.
- * Runs strictly one claim at a time: the portal bounces a second concurrent
- * session on the same login, and the submission robot shares that login.
- */
-export async function lookupClaimStatuses(args: {
-  companyId: string | null;
-  portalId: string | null;
-  providerUserId: string | null;
-  claims: Candidate[];
-  /** Stop starting new lookups once this wall-clock deadline passes. */
-  deadline?: number;
-  fetchImpl?: typeof fetch;
-}): Promise<LookupResult> {
-  const doFetch = args.fetchImpl ?? fetch;
-  const rows: LookupRow[] = [];
-  const tried: string[] = [];
-  let anyOk = false;
-  let lastDetail = "claim status checker unavailable";
+/* ------------------------------------------------------------------ *
+ * DB-BACKED WORKER / LEASE MODEL
+ *
+ * A scheduler tick leases a bounded, per-company-fair batch of due claims
+ * through `lease_claim_status_jobs` (atomic, SECURITY DEFINER, service-role
+ * only), then checks them in parallel with two caps: at most
+ * `maxPerCompany()` in flight for one company and `maxGlobal()` overall.
+ * Every lease carries `status_check_locked_until`, so a crashed worker's
+ * rows become eligible again automatically once the lease expires.
+ * ------------------------------------------------------------------ */
 
-  for (const c of args.claims) {
-    if (args.deadline && Date.now() >= args.deadline) break;
-    tried.push(c.claim_number);
-    const out = await checkOneClaim(args.companyId, c.claim_number, doFetch);
-    if (out.ok) {
-      anyOk = true;
-      rows.push(out.row);
-    } else {
-      lastDetail = out.detail;
-    }
-  }
-  return anyOk ? { ok: true, rows, tried } : { ok: false, detail: lastDetail, tried };
-}
+export type LeasedJob = {
+  record_id: string;
+  trip_id: string;
+  company_id: string | null;
+  status: string | null;
+  attempts: number;
+  claim_number: string;
+};
 
-
-/** Single-flight lease. Returns false when another run already holds it. */
-async function acquireLease(supabase: any): Promise<boolean> {
-  const now = new Date();
-  const { data, error } = await supabase
-    .from("claim_status_sync_state")
-    .update({ lease_until: new Date(now.getTime() + LEASE_MS).toISOString(), updated_at: now.toISOString() })
-    .eq("id", true)
-    .or(`lease_until.is.null,lease_until.lt.${now.toISOString()}`)
-    .select("id");
+/** Atomically lease a fair, bounded batch of due status-check jobs. */
+export async function leaseClaimStatusJobs(
+  supabase: any,
+  opts: { globalLimit: number; perCompanyLimit: number; leaseSeconds: number; worker: string; recordIds?: string[] },
+): Promise<LeasedJob[]> {
+  const { data, error } = await supabase.rpc("lease_claim_status_jobs", {
+    _global_limit: opts.globalLimit,
+    _per_company_limit: opts.perCompanyLimit,
+    _lease_seconds: opts.leaseSeconds,
+    _worker: opts.worker,
+    _record_ids: opts.recordIds ?? null,
+  });
   if (error) throw new Error(error.message);
-  return (data ?? []).length > 0;
+  return (data ?? []).map((r: any) => ({
+    record_id: r.id,
+    trip_id: r.trip_id,
+    company_id: r.company_id ?? null,
+    status: r.status ?? null,
+    attempts: Number(r.status_check_attempts ?? 0),
+    claim_number: String(r.claim_number).trim(),
+  }));
 }
 
-async function releaseLease(supabase: any, result: SyncRunResult) {
+async function unlockClaim(supabase: any, recordId: string) {
   await supabase
-    .from("claim_status_sync_state")
+    .from("billing_records")
+    .update({ status_check_locked_until: null, status_check_worker: null })
+    .eq("id", recordId);
+}
+
+/** Inconclusive check: keep the billing status untouched, retry with backoff. */
+async function scheduleRetry(supabase: any, job: LeasedJob, detail: string, tookMs: number) {
+  const attempts = (job.attempts ?? 0) + 1;
+  await supabase
+    .from("billing_records")
     .update({
-      lease_until: null,
-      last_run_at: new Date().toISOString(),
-      last_result: {
-        checked: result.checked,
-        changed: result.changed,
-        unchanged: result.unchanged,
-        skipped: result.skipped,
-        companies: result.companies,
-        reason: result.reason ?? null,
-      },
-      updated_at: new Date().toISOString(),
+      status_check_attempts: attempts,
+      status_check_error: detail.slice(0, 500),
+      status_check_next_at: new Date(Date.now() + backoffMs(attempts)).toISOString(),
+      status_check_locked_until: null,
+      status_check_worker: null,
+      status_check_last_ms: tookMs,
     })
-    .eq("id", true);
+    .eq("id", job.record_id);
+}
+
+/** When should this claim be looked at again? null = terminal, stop polling. */
+export function nextDueFor(status: string | null): string | null {
+  if (status && TERMINAL_STATUSES.includes(status)) return null;
+  return new Date(Date.now() + OPEN_RECHECK_MS).toISOString();
 }
 
 async function pauseSync(supabase: any, reason: string) {
@@ -261,54 +275,139 @@ async function pauseSync(supabase: any, reason: string) {
     .eq("id", true);
 }
 
-/** When should this claim be looked at again? null = terminal, stop polling. */
-export function nextDueFor(status: string | null): string | null {
-  if (status && TERMINAL_STATUSES.includes(status)) return null;
-  return new Date(Date.now() + OPEN_RECHECK_MS).toISOString();
-}
+/** Check one leased claim and write the outcome. Never throws. */
+async function processJob(
+  supabase: any,
+  job: LeasedJob,
+  opts: { actorId?: string | null; fetchImpl?: typeof fetch },
+): Promise<SyncClaimOutcome & { ok: boolean }> {
+  const started = Date.now();
+  const base = {
+    record_id: job.record_id,
+    claim_number: job.claim_number,
+    previous: job.status,
+  };
+  try {
+    const out = await checkOneClaim(job.company_id, job.claim_number, opts.fetchImpl ?? fetch);
+    const tookMs = Date.now() - started;
 
-/**
- * Per-claim lock. Atomically marks one record as "being checked right now" so
- * two overlapping runs can never drive two portal sessions for one claim.
- * An abandoned lock self-heals after CLAIM_LOCK_MS.
- */
-async function lockClaim(supabase: any, recordId: string): Promise<boolean> {
-  const nowIso = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("billing_records")
-    .update({ status_check_locked_until: new Date(Date.now() + CLAIM_LOCK_MS).toISOString() })
-    .eq("id", recordId)
-    .or(`status_check_locked_until.is.null,status_check_locked_until.lt.${nowIso}`)
-    .select("id");
-  if (error) return false;
-  return (data ?? []).length > 0;
-}
+    if (!out.ok) {
+      await scheduleRetry(supabase, job, out.detail, tookMs);
+      return { ...base, current: null, changed: false, ok: false, note: `Left unchanged — ${out.detail}` };
+    }
+    const hit = out.row;
+    if (!hit.status) {
+      await scheduleRetry(
+        supabase,
+        job,
+        hit.result_state ? `portal returned ${hit.result_state}` : "portal status not recognised",
+        tookMs,
+      );
+      return {
+        ...base,
+        current: null,
+        changed: false,
+        ok: false,
+        note: "Left unchanged — the portal did not state a status we recognise.",
+      };
+    }
 
-async function unlockClaim(supabase: any, recordId: string) {
-  await supabase
-    .from("billing_records")
-    .update({ status_check_locked_until: null })
-    .eq("id", recordId);
-}
-
-/** Inconclusive check: keep the billing status untouched, retry with backoff. */
-async function scheduleRetry(supabase: any, c: Candidate, detail: string) {
-  const attempts = (c.attempts ?? 0) + 1;
-  await supabase
-    .from("billing_records")
-    .update({
-      status_check_attempts: attempts,
-      status_check_error: detail.slice(0, 500),
-      status_check_next_at: new Date(Date.now() + backoffMs(attempts)).toISOString(),
+    const nowIso = new Date().toISOString();
+    const patch = {
+      status_checked_at: nowIso,
+      portal_status_raw: hit.raw,
+      status_check_attempts: 0,
+      status_check_error: null,
+      status_check_next_at: nextDueFor(hit.status),
       status_check_locked_until: null,
-    })
-    .eq("id", c.record_id);
+      status_check_worker: null,
+      status_check_last_ms: tookMs,
+    };
+
+    if (hit.status === job.status) {
+      await supabase.from("billing_records").update(patch).eq("id", job.record_id);
+      return { ...base, current: hit.status, changed: false, ok: true, note: "Portal status matches our record." };
+    }
+
+    const { error: upErr } = await supabase
+      .from("billing_records")
+      .update({ ...patch, status: hit.status, updated_at: nowIso })
+      .eq("id", job.record_id);
+    if (upErr) {
+      await unlockClaim(supabase, job.record_id);
+      return {
+        ...base,
+        current: hit.status,
+        changed: false,
+        ok: false,
+        note: `Left unchanged — could not save: ${upErr.message}`,
+      };
+    }
+    await supabase.from("medicaid_trips").update({ portal_status: hit.status }).eq("id", job.trip_id);
+    await supabase.from("billing_audit_log").insert({
+      billing_record_id: job.record_id,
+      action: SYNC_ACTION,
+      actor_id: opts.actorId ?? null,
+      actor_type: "system",
+      notes:
+        `Automatic read-only portal status check on ${nowIso}: claim #${job.claim_number} ` +
+        `changed from "${job.status ?? "unknown"}" to "${hit.status}"` +
+        (hit.raw ? ` (portal wording: "${hit.raw}")` : "") +
+        (hit.paid_amount ? ` Medicaid paid amount: ${hit.paid_amount}.` : "") +
+        `. Check took ${tookMs}ms. Nothing was submitted or resubmitted.`,
+    });
+    return {
+      ...base,
+      current: hit.status,
+      changed: true,
+      ok: true,
+      note: `Updated from ${job.status ?? "unknown"} to ${hit.status}.`,
+    };
+  } catch (e: any) {
+    await scheduleRetry(supabase, job, e?.message ?? "status check crashed", Date.now() - started);
+    return { ...base, current: null, changed: false, ok: false, note: `Left unchanged — ${e?.message ?? "error"}` };
+  }
 }
 
+/** Run jobs with a global cap and a per-company cap; stop starting past `deadline`. */
+export async function runPool(
+  jobs: LeasedJob[],
+  caps: { perCompany: number; global: number; deadline: number },
+  worker: (job: LeasedJob) => Promise<void>,
+): Promise<LeasedJob[]> {
+  const pending = [...jobs];
+  const inflight = new Map<string, number>();
+  const running = new Set<Promise<void>>();
+  const skipped: LeasedJob[] = [];
+
+  const key = (j: LeasedJob) => j.company_id ?? "__none__";
+
+  while (pending.length || running.size) {
+    if (Date.now() >= caps.deadline) {
+      skipped.push(...pending.splice(0, pending.length));
+    }
+    while (running.size < caps.global && pending.length) {
+      const idx = pending.findIndex((j) => (inflight.get(key(j)) ?? 0) < caps.perCompany);
+      if (idx < 0) break;
+      const job = pending.splice(idx, 1)[0]!;
+      inflight.set(key(job), (inflight.get(key(job)) ?? 0) + 1);
+      const p: Promise<void> = worker(job).finally(() => {
+        inflight.set(key(job), Math.max(0, (inflight.get(key(job)) ?? 1) - 1));
+        running.delete(p);
+      });
+      running.add(p);
+    }
+    if (!running.size) break;
+    await Promise.race(running);
+  }
+  return skipped;
+}
 
 /**
- * One bounded, read-only status-sync pass over every company's open claims.
- * `supabase` must be the service-role client (the cron entry point has no user).
+ * ONE scheduler tick: lease a bounded batch and process it in parallel with
+ * per-company and global concurrency caps. Safe to run concurrently with
+ * itself — leasing is atomic, so two ticks never touch the same claim.
+ * `supabase` must be the service-role client (cron has no user).
  */
 export async function runClaimStatusSync(
   supabase: any,
@@ -316,13 +415,16 @@ export async function runClaimStatusSync(
     actorId?: string | null;
     recordIds?: string[];
     force?: boolean;
-    /** Hard wall-clock ceiling for this run. */
     budgetMs?: number;
-    /** Test seam only: lets a harness stand in for the portal call. */
+    perCompanyLimit?: number;
+    globalLimit?: number;
     fetchImpl?: typeof fetch;
   } = {},
 ): Promise<SyncRunResult> {
   const deadline = Date.now() + (opts.budgetMs ?? RUN_BUDGET_MS);
+  const perCompany = opts.perCompanyLimit ?? maxPerCompany();
+  const globalCap = opts.globalLimit ?? maxGlobal();
+  const workerId = `w-${Math.random().toString(36).slice(2, 8)}-${Date.now()}`;
 
   const empty: SyncRunResult = {
     ok: true,
@@ -340,263 +442,69 @@ export async function runClaimStatusSync(
     .select("paused, pause_reason")
     .eq("id", true)
     .maybeSingle();
-  if (state?.paused) {
-    return { ...empty, reason: state.pause_reason ?? "Claim status sync is paused." };
-  }
+  if (state?.paused) return { ...empty, reason: state.pause_reason ?? "Claim status sync is paused." };
 
-  if (!(await acquireLease(supabase))) {
-    return { ...empty, reason: "Another status sync run is already in progress." };
-  }
-
-  const result: SyncRunResult = { ...empty, ran: true };
+  const result: SyncRunResult = { ...empty };
+  const startedAt = Date.now();
   try {
-    // Candidate claims: real portal claim numbers whose outcome is still open.
-    const targeted = Boolean(opts.recordIds?.length);
-    let q = supabase
-      .from("billing_records")
-      .select(
-        `id, trip_id, company_id, status, state_confirmation_number, status_checked_at,
-         status_check_next_at, status_check_attempts,
-         medicaid_trips!inner(id, pickup_at, company_id, robot_confirmation_number, submitted_confirmation, riders(medicaid_id))`,
-      )
-      .order("status_check_next_at", { ascending: true, nullsFirst: true })
-      .limit(targeted ? opts.recordIds!.length : SYNC_BATCH_SIZE);
-    if (targeted) {
-      // Manual override: check exactly these rows, whatever their status.
-      q = q.in("id", opts.recordIds!);
-    } else {
-      // Automatic pass: only claims enqueued for checking, actually due now,
-      // and not already locked by another in-flight run.
-      q = q
-        .in("status", OPEN_STATUSES)
-        .not("status_check_next_at", "is", null)
-        .lte("status_check_next_at", new Date().toISOString())
-        .or(`status_check_locked_until.is.null,status_check_locked_until.lt.${new Date().toISOString()}`);
-    }
-    const { data: rows, error } = await q;
-    if (error) throw new Error(error.message);
+    const jobs = await leaseClaimStatusJobs(supabase, {
+      globalLimit: opts.recordIds?.length ? opts.recordIds.length : globalCap,
+      perCompanyLimit: opts.recordIds?.length ? opts.recordIds.length : perCompany,
+      leaseSeconds: leaseSeconds(),
+      worker: workerId,
+      ...(opts.recordIds?.length ? { recordIds: opts.recordIds } : {}),
+    });
 
-    const cutoff = Date.now() - RECHECK_AFTER_MS;
-    const candidates: Candidate[] = [];
-    for (const r of rows ?? []) {
-      const trip: any = (r as any).medicaid_trips;
-      const claim =
-        (r as any).state_confirmation_number ??
-        trip?.robot_confirmation_number ??
-        trip?.submitted_confirmation ??
-        null;
-      if (!claim) {
-        result.skipped++;
-        continue;
-      }
-      const checkedAt = (r as any).status_checked_at ? new Date((r as any).status_checked_at).getTime() : 0;
-      const dueAt = (r as any).status_check_next_at;
-      const notDue = dueAt ? new Date(dueAt).getTime() > Date.now() : checkedAt > cutoff;
-      if (!opts.force && !targeted && notDue) {
-        result.skipped++;
-        continue;
-      }
-      candidates.push({
-        record_id: (r as any).id,
-        trip_id: (r as any).trip_id,
-        company_id: (r as any).company_id ?? trip?.company_id ?? null,
-        status: (r as any).status ?? null,
-        attempts: Number((r as any).status_check_attempts ?? 0),
-        claim_number: String(claim).trim(),
-        member_id: trip?.riders?.medicaid_id ?? null,
-        service_date_iso: trip?.pickup_at ?? null,
-      });
-    }
-
-    if (!candidates.length) {
+    if (!jobs.length) {
       result.reason = "No open claims are due for a status check.";
       return result;
     }
+    result.ran = true;
+    result.companies = new Set(jobs.map((j) => j.company_id)).size;
 
-    // Never compete with live submissions: a company with a queued or running
-    // submission is left entirely for the next run.
-    const companyIds = [...new Set(candidates.map((c) => c.company_id))];
-    const { data: busyRows } = await supabase
-      .from("billing_records")
-      .select("company_id")
-      .in("status", ["queued", "submitting"]);
-    const busy = new Set((busyRows ?? []).map((b: any) => b.company_id));
-
-    for (const companyId of companyIds) {
-      if (Date.now() >= deadline) break;
-      const groupAll = candidates.filter((c) => c.company_id === companyId);
-      if (busy.has(companyId)) {
-        result.skipped += groupAll.length;
-        continue;
-      }
-
-      // Per-claim lock: only work on rows nobody else grabbed.
-      const group: Candidate[] = [];
-      for (const c of groupAll) {
-        if (await lockClaim(supabase, c.record_id)) group.push(c);
-        else result.skipped++;
-      }
-      if (!group.length) continue;
-      result.companies++;
-
-      let portalId: string | null = null;
-      let providerUserId: string | null = null;
-      try {
-        const { requireCompanyPortalCredential } = await import("@/lib/billingHelpers");
-        const cred = await requireCompanyPortalCredential(supabase, companyId ?? "");
-        portalId = cred.portal_id;
-      } catch {
-        portalId = null;
-      }
-      providerUserId = opts.actorId ?? null;
-
-      const lookup = await lookupClaimStatuses({
-        companyId,
-        portalId,
-        providerUserId,
-        claims: group,
-        deadline,
-        fetchImpl: opts.fetchImpl,
-      });
-
-      // Claims we ran out of time for: unlock and leave them due right away.
-      const triedSet = new Set(lookup.tried);
-      const untried = group.filter((c) => !triedSet.has(c.claim_number));
-      for (const c of untried) {
-        result.skipped++;
-        await unlockClaim(supabase, c.record_id);
-      }
-      const worked = group.filter((c) => triedSet.has(c.claim_number));
-
-      if (!lookup.ok) {
-        // Uncertain: change nothing, but back off so we retry later.
-        result.skipped += worked.length;
-        for (const c of worked) {
-          await scheduleRetry(supabase, c, lookup.detail);
-          result.outcomes.push({
-            record_id: c.record_id,
-            claim_number: c.claim_number,
-            previous: c.status,
-            current: null,
-            changed: false,
-            note: `Left unchanged — ${lookup.detail}`,
-          });
-        }
-        continue;
-      }
-
-      const byClaim = new Map(lookup.rows.map((r) => [r.claim_number, r]));
-
-      const nowIso = new Date().toISOString();
-      for (const c of worked) {
-        const hit = byClaim.get(c.claim_number);
-        if (!hit || !hit.status) {
-          result.skipped++;
-          await scheduleRetry(
-            supabase,
-            c,
-            hit?.result_state ? `portal returned ${hit.result_state}` : "portal status not recognised",
-          );
-          result.outcomes.push({
-            record_id: c.record_id,
-            claim_number: c.claim_number,
-            previous: c.status,
-            current: null,
-            changed: false,
-            note: "Left unchanged — the portal did not state a status we recognise.",
-          });
-          continue;
-        }
+    const leftover = await runPool(jobs, { perCompany, global: globalCap, deadline }, async (job) => {
+      const outcome = await processJob(supabase, job, { actorId: opts.actorId ?? null, fetchImpl: opts.fetchImpl });
+      result.outcomes.push(outcome);
+      if (!outcome.ok) result.skipped++;
+      else {
         result.checked++;
-
-        if (hit.status === c.status) {
-          result.unchanged++;
-          await supabase
-            .from("billing_records")
-            .update({
-              status_checked_at: nowIso,
-              portal_status_raw: hit.raw,
-              status_check_attempts: 0,
-              status_check_error: null,
-              status_check_next_at: nextDueFor(hit.status),
-              status_check_locked_until: null,
-            })
-            .eq("id", c.record_id);
-          result.outcomes.push({
-            record_id: c.record_id,
-            claim_number: c.claim_number,
-            previous: c.status,
-            current: hit.status,
-            changed: false,
-            note: "Portal status matches our record.",
-          });
-          continue;
-        }
-
-        const { error: upErr } = await supabase
-          .from("billing_records")
-          .update({
-            status: hit.status,
-            status_checked_at: nowIso,
-            portal_status_raw: hit.raw,
-            status_check_attempts: 0,
-            status_check_error: null,
-            status_check_next_at: nextDueFor(hit.status),
-            status_check_locked_until: null,
-            updated_at: nowIso,
-          })
-          .eq("id", c.record_id);
-        if (upErr) {
-          result.skipped++;
-          await unlockClaim(supabase, c.record_id);
-          result.outcomes.push({
-            record_id: c.record_id,
-            claim_number: c.claim_number,
-            previous: c.status,
-            current: hit.status,
-            changed: false,
-            note: `Left unchanged — could not save: ${upErr.message}`,
-          });
-          continue;
-        }
-        await supabase
-          .from("medicaid_trips")
-          .update({ portal_status: hit.status })
-          .eq("id", c.trip_id);
-        await supabase.from("billing_audit_log").insert({
-          billing_record_id: c.record_id,
-          action: SYNC_ACTION,
-          actor_id: opts.actorId ?? null,
-          actor_type: "system",
-          notes:
-            `Automatic read-only portal status check on ${nowIso}: claim #${c.claim_number} ` +
-            `changed from "${c.status ?? "unknown"}" to "${hit.status}"` +
-            (hit.raw ? ` (portal wording: "${hit.raw}")` : "") +
-            (hit.paid_amount ? ` Medicaid paid amount: ${hit.paid_amount}.` : "") +
-            ". Nothing was submitted or resubmitted.",
-        });
-        result.changed++;
-        result.outcomes.push({
-          record_id: c.record_id,
-          claim_number: c.claim_number,
-          previous: c.status,
-          current: hit.status,
-          changed: true,
-          note: `Updated from ${c.status ?? "unknown"} to ${hit.status}.`,
-        });
+        if (outcome.changed) result.changed++;
+        else result.unchanged++;
       }
-    }
+    });
 
+    // Ran out of budget: release those leases immediately so the next tick picks them up.
+    for (const job of leftover) {
+      result.skipped++;
+      await unlockClaim(supabase, job.record_id);
+    }
     return result;
   } catch (e: any) {
     const msg = e?.message ?? "Claim status sync failed";
-    if (/402|403|payment required|forbidden/i.test(msg)) {
-      await pauseSync(supabase, `Paused automatically: ${msg}`);
-    }
+    if (/402|403|payment required|forbidden/i.test(msg)) await pauseSync(supabase, `Paused automatically: ${msg}`);
     result.ok = false;
     result.reason = msg;
     return result;
   } finally {
-    await releaseLease(supabase, result);
+    await supabase
+      .from("claim_status_sync_state")
+      .update({
+        lease_until: null,
+        last_run_at: new Date().toISOString(),
+        last_result: {
+          checked: result.checked,
+          changed: result.changed,
+          unchanged: result.unchanged,
+          skipped: result.skipped,
+          companies: result.companies,
+          duration_ms: Date.now() - startedAt,
+          per_company_limit: perCompany,
+          global_limit: globalCap,
+          worker: workerId,
+          reason: result.reason ?? null,
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", true);
   }
 }

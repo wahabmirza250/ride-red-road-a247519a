@@ -15,6 +15,19 @@ export type ClaimStatusSyncState = {
     reason?: string | null;
   };
   due_now: number;
+  metrics: QueueMetricRow[];
+};
+
+export type QueueMetricRow = {
+  company_id: string | null;
+  company_name?: string | null;
+  due_now: number;
+  leased_running: number;
+  retrying: number;
+  terminal: number;
+  scheduled_total: number;
+  avg_check_ms: number | null;
+  last_checked_at: string | null;
 };
 
 async function assertBillingOrAdmin(supabase: any, userId: string) {
@@ -33,7 +46,7 @@ export const getClaimStatusSyncState = createServerFn({ method: "POST" })
     await assertBillingOrAdmin(supabase, userId);
     const { OPEN_STATUSES } = await import("@/lib/claimStatusSync.server");
 
-    const [{ data: state }, { count }] = await Promise.all([
+    const [{ data: state }, { count }, { data: metrics }] = await Promise.all([
       supabase
         .from("claim_status_sync_state")
         .select("paused, pause_reason, last_run_at, last_result")
@@ -44,6 +57,8 @@ export const getClaimStatusSyncState = createServerFn({ method: "POST" })
         .select("id", { count: "exact", head: true })
         .in("status", OPEN_STATUSES)
         .not("state_confirmation_number", "is", null),
+      // RLS-scoped view: a biller only ever sees their own company's rows.
+      supabase.from("claim_status_queue_metrics").select("*"),
     ]);
 
     return {
@@ -52,6 +67,7 @@ export const getClaimStatusSyncState = createServerFn({ method: "POST" })
       last_run_at: state?.last_run_at ?? null,
       last_result: (state?.last_result ?? {}) as ClaimStatusSyncState["last_result"],
       due_now: count ?? 0,
+      metrics: (metrics ?? []) as QueueMetricRow[],
     };
   });
 

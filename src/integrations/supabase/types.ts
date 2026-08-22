@@ -172,8 +172,11 @@ export type Database = {
           status: string
           status_check_attempts: number
           status_check_error: string | null
+          status_check_last_ms: number | null
           status_check_locked_until: string | null
           status_check_next_at: string | null
+          status_check_started_at: string | null
+          status_check_worker: string | null
           status_checked_at: string | null
           submission_error: string | null
           submitted_at: string | null
@@ -196,8 +199,11 @@ export type Database = {
           status?: string
           status_check_attempts?: number
           status_check_error?: string | null
+          status_check_last_ms?: number | null
           status_check_locked_until?: string | null
           status_check_next_at?: string | null
+          status_check_started_at?: string | null
+          status_check_worker?: string | null
           status_checked_at?: string | null
           submission_error?: string | null
           submitted_at?: string | null
@@ -220,8 +226,11 @@ export type Database = {
           status?: string
           status_check_attempts?: number
           status_check_error?: string | null
+          status_check_last_ms?: number | null
           status_check_locked_until?: string | null
           status_check_next_at?: string | null
+          status_check_started_at?: string | null
+          status_check_worker?: string | null
           status_checked_at?: string | null
           submission_error?: string | null
           submitted_at?: string | null
@@ -2923,7 +2932,27 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      claim_status_queue_metrics: {
+        Row: {
+          avg_check_ms: number | null
+          company_id: string | null
+          due_now: number | null
+          last_checked_at: string | null
+          leased_running: number | null
+          retrying: number | null
+          scheduled_total: number | null
+          terminal: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_records_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_view_driver_media: {
@@ -2977,6 +3006,23 @@ export type Database = {
       is_staff_conversation_member: {
         Args: { _conversation_id: string }
         Returns: boolean
+      }
+      lease_claim_status_jobs: {
+        Args: {
+          _global_limit?: number
+          _lease_seconds?: number
+          _per_company_limit?: number
+          _record_ids?: string[]
+          _worker?: string
+        }
+        Returns: {
+          claim_number: string
+          company_id: string
+          id: string
+          status: string
+          status_check_attempts: number
+          trip_id: string
+        }[]
       }
       owner_unscoped: { Args: never; Returns: boolean }
       requests_on_route: {
