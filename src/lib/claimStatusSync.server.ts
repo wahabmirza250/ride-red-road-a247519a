@@ -423,11 +423,20 @@ export async function runClaimStatusSync(
     const busy = new Set((busyRows ?? []).map((b: any) => b.company_id));
 
     for (const companyId of companyIds) {
-      const group = candidates.filter((c) => c.company_id === companyId);
+      if (Date.now() >= deadline) break;
+      const groupAll = candidates.filter((c) => c.company_id === companyId);
       if (busy.has(companyId)) {
-        result.skipped += group.length;
+        result.skipped += groupAll.length;
         continue;
       }
+
+      // Per-claim lock: only work on rows nobody else grabbed.
+      const group: Candidate[] = [];
+      for (const c of groupAll) {
+        if (await lockClaim(supabase, c.record_id)) group.push(c);
+        else result.skipped++;
+      }
+      if (!group.length) continue;
       result.companies++;
 
       let portalId: string | null = null;
@@ -446,13 +455,23 @@ export async function runClaimStatusSync(
         portalId,
         providerUserId,
         claims: group,
+        deadline,
         fetchImpl: opts.fetchImpl,
       });
 
+      // Claims we ran out of time for: unlock and leave them due right away.
+      const triedSet = new Set(lookup.tried);
+      const untried = group.filter((c) => !triedSet.has(c.claim_number));
+      for (const c of untried) {
+        result.skipped++;
+        await unlockClaim(supabase, c.record_id);
+      }
+      const worked = group.filter((c) => triedSet.has(c.claim_number));
+
       if (!lookup.ok) {
         // Uncertain: change nothing, but back off so we retry later.
-        result.skipped += group.length;
-        for (const c of group) {
+        result.skipped += worked.length;
+        for (const c of worked) {
           await scheduleRetry(supabase, c, lookup.detail);
           result.outcomes.push({
             record_id: c.record_id,
@@ -467,6 +486,7 @@ export async function runClaimStatusSync(
       }
 
       const byClaim = new Map(lookup.rows.map((r) => [r.claim_number, r]));
+
       const nowIso = new Date().toISOString();
       for (const c of group) {
         const hit = byClaim.get(c.claim_number);
