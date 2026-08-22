@@ -31,6 +31,8 @@ export function ClaimStatusSyncCard() {
     queryKey: ["claim_status_sync_state"],
     queryFn: () => stateFn() as Promise<ClaimStatusSyncState>,
     retry: false,
+    // Work happens in the background scheduler, so keep the card live.
+    refetchInterval: 15_000,
   });
 
   const run = useMutation({
