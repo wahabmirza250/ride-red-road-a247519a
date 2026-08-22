@@ -18,25 +18,32 @@
  */
 
 /** ---- Scaling configuration (env-backed, safe defaults) ----------------
- *  Every knob below can be tuned per environment without a code change. */
-function envInt(name: string, fallback: number): number {
+ *  Every knob below can be tuned per environment without a code change.
+ *  Every value is validated and clamped: a typo, a zero or a wild number in
+ *  the environment can never take the subsystem outside safe bounds. */
+export function envInt(name: string, fallback: number, min: number, max: number): number {
   const raw = process.env[name];
-  const n = raw == null ? NaN : Number(raw);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+  const n = raw == null || String(raw).trim() === "" ? NaN : Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(n)));
 }
 /** Max concurrent read-only status checks for ONE company. Conservative. */
-export const maxPerCompany = () => envInt("CLAIM_STATUS_MAX_PER_COMPANY", 4);
+export const maxPerCompany = () => envInt("CLAIM_STATUS_MAX_PER_COMPANY", 4, 1, 50);
 /** Max concurrent read-only status checks across ALL companies. */
-export const maxGlobal = () => envInt("CLAIM_STATUS_MAX_GLOBAL", 20);
+export const maxGlobal = () => envInt("CLAIM_STATUS_MAX_GLOBAL", 20, 1, 200);
 /** How long a leased claim stays locked before it becomes eligible again. */
-export const leaseSeconds = () => envInt("CLAIM_STATUS_LEASE_SECONDS", 180);
+export const leaseSeconds = () => envInt("CLAIM_STATUS_LEASE_SECONDS", 180, 30, 3600);
+/** Locks older than this past their expiry are swept as abandoned. */
+export const staleLockGraceSeconds = () => envInt("CLAIM_STATUS_STALE_GRACE_SECONDS", 300, 60, 3600);
 
 /** Never lease more than this many claims in one scheduler tick. */
 export const SYNC_BATCH_SIZE = maxGlobal();
-/** Hard wall-clock ceiling for one background tick. */
-export const RUN_BUDGET_MS = envInt("CLAIM_STATUS_RUN_BUDGET_MS", 4 * 60 * 1000);
-/** Much tighter ceiling for a manually kicked run so the UI never hangs. */
-export const MANUAL_RUN_BUDGET_MS = envInt("CLAIM_STATUS_MANUAL_BUDGET_MS", 90 * 1000);
+/** Hard wall-clock ceiling for one background tick. The cron fires every
+ *  minute, so a tick must finish well inside the platform request ceiling;
+ *  anything unfinished is released and picked up by the next tick. */
+export const RUN_BUDGET_MS = envInt("CLAIM_STATUS_RUN_BUDGET_MS", 100_000, 10_000, 240_000);
+/** Manual kicks only enqueue; this ceiling exists for direct/server callers. */
+export const MANUAL_RUN_BUDGET_MS = envInt("CLAIM_STATUS_MANUAL_BUDGET_MS", 60_000, 5_000, 180_000);
 /** Fallback re-check age for rows that predate per-row scheduling. */
 export const RECHECK_AFTER_MS = 6 * 60 * 60 * 1000;
 /** First automatic re-check delay; doubles per attempt up to the ceiling. */
