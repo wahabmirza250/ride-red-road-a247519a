@@ -488,7 +488,7 @@ export async function runClaimStatusSync(
       const byClaim = new Map(lookup.rows.map((r) => [r.claim_number, r]));
 
       const nowIso = new Date().toISOString();
-      for (const c of group) {
+      for (const c of worked) {
         const hit = byClaim.get(c.claim_number);
         if (!hit || !hit.status) {
           result.skipped++;
@@ -519,6 +519,7 @@ export async function runClaimStatusSync(
               status_check_attempts: 0,
               status_check_error: null,
               status_check_next_at: nextDueFor(hit.status),
+              status_check_locked_until: null,
             })
             .eq("id", c.record_id);
           result.outcomes.push({
@@ -541,11 +542,13 @@ export async function runClaimStatusSync(
             status_check_attempts: 0,
             status_check_error: null,
             status_check_next_at: nextDueFor(hit.status),
+            status_check_locked_until: null,
             updated_at: nowIso,
           })
           .eq("id", c.record_id);
         if (upErr) {
           result.skipped++;
+          await unlockClaim(supabase, c.record_id);
           result.outcomes.push({
             record_id: c.record_id,
             claim_number: c.claim_number,
