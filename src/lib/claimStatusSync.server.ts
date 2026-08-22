@@ -19,7 +19,11 @@
 
 /** Never check more than this many claims in one scheduled run.
  *  Each lookup drives a real browser session (~15s), so keep it modest. */
-export const SYNC_BATCH_SIZE = 8;
+export const SYNC_BATCH_SIZE = 6;
+/** Hard wall-clock ceiling for one background run (minutes, not tens of minutes). */
+export const RUN_BUDGET_MS = 4 * 60 * 1000;
+/** Much tighter ceiling for a manually kicked run so the UI never hangs. */
+export const MANUAL_RUN_BUDGET_MS = 60 * 1000;
 /** Fallback re-check age for rows that predate per-row scheduling. */
 export const RECHECK_AFTER_MS = 6 * 60 * 60 * 1000;
 /** First automatic re-check delay; doubles per attempt up to the ceiling. */
@@ -34,10 +38,14 @@ export const TERMINAL_STATUSES = ["paid", "denied", "rejected"];
 export function backoffMs(attempts: number): number {
   return Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * Math.pow(2, Math.max(0, attempts)));
 }
-/** How long one run may hold the single-flight lease. */
-export const LEASE_MS = 10 * 60 * 1000;
+/** How long one run may hold the single-flight lease. Kept just above the run
+ *  budget so a killed worker's lease self-heals within ~5 minutes. */
+export const LEASE_MS = 5 * 60 * 1000;
+/** How long a single claim stays locked while it is being checked. */
+export const CLAIM_LOCK_MS = 3 * 60 * 1000;
 /** Statuses worth re-checking. Terminal outcomes are left alone. */
 export const OPEN_STATUSES = ["submitted", "approved", "suspended"];
+
 
 export const SYNC_ACTION = "claim_status_sync";
 
@@ -96,17 +104,19 @@ type LookupRow = {
 };
 
 type LookupResult =
-  | { ok: true; rows: LookupRow[] }
-  | { ok: false; detail: string };
+  | { ok: true; rows: LookupRow[]; tried: string[] }
+  | { ok: false; detail: string; tried: string[] };
 
 /** Dedicated READ-ONLY claim-status checker service (separate from the robot). */
 export const CLAIM_STATUS_CHECKER_URL =
   process.env["CLAIM_STATUS_CHECKER_URL"] ??
   "https://redart-claim-status-checker-production.up.railway.app";
 
-/** How long we wait for one claim lookup job before treating it as transient. */
-const CHECK_POLL_TIMEOUT_MS = 120_000;
+/** How long we wait for one claim lookup job before treating it as transient.
+ *  The checker answers in ~15s; 90s is already a generous ceiling. */
+const CHECK_POLL_TIMEOUT_MS = 90_000;
 const CHECK_POLL_INTERVAL_MS = 3_000;
+
 
 /** Look up ONE claim through the checker service (start job, poll until done). */
 async function checkOneClaim(
@@ -187,14 +197,19 @@ export async function lookupClaimStatuses(args: {
   portalId: string | null;
   providerUserId: string | null;
   claims: Candidate[];
+  /** Stop starting new lookups once this wall-clock deadline passes. */
+  deadline?: number;
   fetchImpl?: typeof fetch;
 }): Promise<LookupResult> {
   const doFetch = args.fetchImpl ?? fetch;
   const rows: LookupRow[] = [];
+  const tried: string[] = [];
   let anyOk = false;
   let lastDetail = "claim status checker unavailable";
 
   for (const c of args.claims) {
+    if (args.deadline && Date.now() >= args.deadline) break;
+    tried.push(c.claim_number);
     const out = await checkOneClaim(args.companyId, c.claim_number, doFetch);
     if (out.ok) {
       anyOk = true;
@@ -203,7 +218,7 @@ export async function lookupClaimStatuses(args: {
       lastDetail = out.detail;
     }
   }
-  return anyOk ? { ok: true, rows } : { ok: false, detail: lastDetail };
+  return anyOk ? { ok: true, rows, tried } : { ok: false, detail: lastDetail, tried };
 }
 
 
@@ -252,6 +267,30 @@ export function nextDueFor(status: string | null): string | null {
   return new Date(Date.now() + OPEN_RECHECK_MS).toISOString();
 }
 
+/**
+ * Per-claim lock. Atomically marks one record as "being checked right now" so
+ * two overlapping runs can never drive two portal sessions for one claim.
+ * An abandoned lock self-heals after CLAIM_LOCK_MS.
+ */
+async function lockClaim(supabase: any, recordId: string): Promise<boolean> {
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("billing_records")
+    .update({ status_check_locked_until: new Date(Date.now() + CLAIM_LOCK_MS).toISOString() })
+    .eq("id", recordId)
+    .or(`status_check_locked_until.is.null,status_check_locked_until.lt.${nowIso}`)
+    .select("id");
+  if (error) return false;
+  return (data ?? []).length > 0;
+}
+
+async function unlockClaim(supabase: any, recordId: string) {
+  await supabase
+    .from("billing_records")
+    .update({ status_check_locked_until: null })
+    .eq("id", recordId);
+}
+
 /** Inconclusive check: keep the billing status untouched, retry with backoff. */
 async function scheduleRetry(supabase: any, c: Candidate, detail: string) {
   const attempts = (c.attempts ?? 0) + 1;
@@ -261,9 +300,11 @@ async function scheduleRetry(supabase: any, c: Candidate, detail: string) {
       status_check_attempts: attempts,
       status_check_error: detail.slice(0, 500),
       status_check_next_at: new Date(Date.now() + backoffMs(attempts)).toISOString(),
+      status_check_locked_until: null,
     })
     .eq("id", c.record_id);
 }
+
 
 /**
  * One bounded, read-only status-sync pass over every company's open claims.
@@ -275,10 +316,14 @@ export async function runClaimStatusSync(
     actorId?: string | null;
     recordIds?: string[];
     force?: boolean;
+    /** Hard wall-clock ceiling for this run. */
+    budgetMs?: number;
     /** Test seam only: lets a harness stand in for the portal call. */
     fetchImpl?: typeof fetch;
   } = {},
 ): Promise<SyncRunResult> {
+  const deadline = Date.now() + (opts.budgetMs ?? RUN_BUDGET_MS);
+
   const empty: SyncRunResult = {
     ok: true,
     ran: false,
@@ -320,11 +365,13 @@ export async function runClaimStatusSync(
       // Manual override: check exactly these rows, whatever their status.
       q = q.in("id", opts.recordIds!);
     } else {
-      // Automatic pass: only claims enqueued for checking and actually due now.
+      // Automatic pass: only claims enqueued for checking, actually due now,
+      // and not already locked by another in-flight run.
       q = q
         .in("status", OPEN_STATUSES)
         .not("status_check_next_at", "is", null)
-        .lte("status_check_next_at", new Date().toISOString());
+        .lte("status_check_next_at", new Date().toISOString())
+        .or(`status_check_locked_until.is.null,status_check_locked_until.lt.${new Date().toISOString()}`);
     }
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
@@ -376,11 +423,20 @@ export async function runClaimStatusSync(
     const busy = new Set((busyRows ?? []).map((b: any) => b.company_id));
 
     for (const companyId of companyIds) {
-      const group = candidates.filter((c) => c.company_id === companyId);
+      if (Date.now() >= deadline) break;
+      const groupAll = candidates.filter((c) => c.company_id === companyId);
       if (busy.has(companyId)) {
-        result.skipped += group.length;
+        result.skipped += groupAll.length;
         continue;
       }
+
+      // Per-claim lock: only work on rows nobody else grabbed.
+      const group: Candidate[] = [];
+      for (const c of groupAll) {
+        if (await lockClaim(supabase, c.record_id)) group.push(c);
+        else result.skipped++;
+      }
+      if (!group.length) continue;
       result.companies++;
 
       let portalId: string | null = null;
@@ -399,13 +455,23 @@ export async function runClaimStatusSync(
         portalId,
         providerUserId,
         claims: group,
+        deadline,
         fetchImpl: opts.fetchImpl,
       });
 
+      // Claims we ran out of time for: unlock and leave them due right away.
+      const triedSet = new Set(lookup.tried);
+      const untried = group.filter((c) => !triedSet.has(c.claim_number));
+      for (const c of untried) {
+        result.skipped++;
+        await unlockClaim(supabase, c.record_id);
+      }
+      const worked = group.filter((c) => triedSet.has(c.claim_number));
+
       if (!lookup.ok) {
         // Uncertain: change nothing, but back off so we retry later.
-        result.skipped += group.length;
-        for (const c of group) {
+        result.skipped += worked.length;
+        for (const c of worked) {
           await scheduleRetry(supabase, c, lookup.detail);
           result.outcomes.push({
             record_id: c.record_id,
@@ -420,8 +486,9 @@ export async function runClaimStatusSync(
       }
 
       const byClaim = new Map(lookup.rows.map((r) => [r.claim_number, r]));
+
       const nowIso = new Date().toISOString();
-      for (const c of group) {
+      for (const c of worked) {
         const hit = byClaim.get(c.claim_number);
         if (!hit || !hit.status) {
           result.skipped++;
@@ -452,6 +519,7 @@ export async function runClaimStatusSync(
               status_check_attempts: 0,
               status_check_error: null,
               status_check_next_at: nextDueFor(hit.status),
+              status_check_locked_until: null,
             })
             .eq("id", c.record_id);
           result.outcomes.push({
@@ -474,11 +542,13 @@ export async function runClaimStatusSync(
             status_check_attempts: 0,
             status_check_error: null,
             status_check_next_at: nextDueFor(hit.status),
+            status_check_locked_until: null,
             updated_at: nowIso,
           })
           .eq("id", c.record_id);
         if (upErr) {
           result.skipped++;
+          await unlockClaim(supabase, c.record_id);
           result.outcomes.push({
             record_id: c.record_id,
             claim_number: c.claim_number,

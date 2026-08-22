@@ -172,6 +172,7 @@ export type Database = {
           status: string
           status_check_attempts: number
           status_check_error: string | null
+          status_check_locked_until: string | null
           status_check_next_at: string | null
           status_checked_at: string | null
           submission_error: string | null
@@ -195,6 +196,7 @@ export type Database = {
           status?: string
           status_check_attempts?: number
           status_check_error?: string | null
+          status_check_locked_until?: string | null
           status_check_next_at?: string | null
           status_checked_at?: string | null
           submission_error?: string | null
@@ -218,6 +220,7 @@ export type Database = {
           status?: string
           status_check_attempts?: number
           status_check_error?: string | null
+          status_check_locked_until?: string | null
           status_check_next_at?: string | null
           status_checked_at?: string | null
           submission_error?: string | null
