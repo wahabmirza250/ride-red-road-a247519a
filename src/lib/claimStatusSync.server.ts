@@ -282,6 +282,118 @@ async function pauseSync(supabase: any, reason: string) {
     .eq("id", true);
 }
 
+/** Self-healing: free rows whose worker died mid-check. Never throws. */
+export async function releaseStaleLocks(supabase: any): Promise<number> {
+  try {
+    const { data, error } = await supabase.rpc("release_stale_claim_status_locks", {
+      _grace_seconds: staleLockGraceSeconds(),
+    });
+    if (error) return 0;
+    return Number(data ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Manual "Check now" = ENQUEUE ONLY.
+ * It makes claims due immediately and lets the one-minute scheduler do the
+ * portal work, so the UI returns instantly and can never create a second
+ * concurrent check for a claim that is already leased.
+ */
+export async function enqueueClaimStatusChecks(
+  supabase: any,
+  opts: { recordIds?: string[]; companyId?: string | null } = {},
+): Promise<{ ok: boolean; queued: number; alreadyRunning: number; reason?: string }> {
+  const { data: state } = await supabase
+    .from("claim_status_sync_state")
+    .select("paused, pause_reason")
+    .eq("id", true)
+    .maybeSingle();
+  if (state?.paused) {
+    return { ok: false, queued: 0, alreadyRunning: 0, reason: state.pause_reason ?? "Claim status sync is paused." };
+  }
+
+  const nowIso = new Date().toISOString();
+  let q = supabase
+    .from("billing_records")
+    .select("id, status_check_locked_until")
+    .in("status", OPEN_STATUSES)
+    .not("state_confirmation_number", "is", null);
+  if (opts.recordIds?.length) q = q.in("id", opts.recordIds);
+  if (opts.companyId) q = q.eq("company_id", opts.companyId);
+
+  const { data: rows, error } = await q.limit(1000);
+  if (error) return { ok: false, queued: 0, alreadyRunning: 0, reason: error.message };
+
+  const running = (rows ?? []).filter(
+    (r: any) => r.status_check_locked_until && new Date(r.status_check_locked_until).getTime() > Date.now(),
+  );
+  const idle = (rows ?? []).filter((r: any) => !running.includes(r)).map((r: any) => r.id);
+
+  if (idle.length) {
+    // Only nudges scheduling; leases stay the single source of truth.
+    await supabase.from("billing_records").update({ status_check_next_at: nowIso }).in("id", idle);
+  }
+  return { ok: true, queued: idle.length, alreadyRunning: running.length };
+}
+
+export type ClaimStatusHealth = {
+  healthy: boolean;
+  issues: string[];
+  stale_locks: number;
+  released_now: number;
+  last_run_at: string | null;
+  minutes_since_last_run: number | null;
+  scheduler_active: boolean;
+  due_now: number;
+  leased_now: number;
+};
+
+/** Cheap health probe: lock leaks + scheduler liveness. Never throws. */
+export async function claimStatusHealth(supabase: any): Promise<ClaimStatusHealth> {
+  const released = await releaseStaleLocks(supabase);
+  const nowIso = new Date().toISOString();
+  const staleCutoff = new Date(Date.now() - staleLockGraceSeconds() * 1000).toISOString();
+
+  const [{ data: state }, dueRes, leasedRes, staleRes] = await Promise.all([
+    supabase.from("claim_status_sync_state").select("last_run_at").eq("id", true).maybeSingle(),
+    supabase
+      .from("billing_records")
+      .select("id", { count: "exact", head: true })
+      .in("status", OPEN_STATUSES)
+      .lte("status_check_next_at", nowIso),
+    supabase
+      .from("billing_records")
+      .select("id", { count: "exact", head: true })
+      .gte("status_check_locked_until", nowIso),
+    supabase
+      .from("billing_records")
+      .select("id", { count: "exact", head: true })
+      .lt("status_check_locked_until", staleCutoff),
+  ]);
+
+  const lastRun = state?.last_run_at ?? null;
+  const mins = lastRun ? Math.round((Date.now() - new Date(lastRun).getTime()) / 60000) : null;
+  const schedulerActive = mins != null && mins <= 15;
+  const issues: string[] = [];
+  if (!lastRun) issues.push("The scheduler has never recorded a run.");
+  else if (!schedulerActive) issues.push(`No scheduler tick for ${mins} minutes.`);
+  if ((staleRes.count ?? 0) > 0) issues.push(`${staleRes.count} claim(s) were stuck locked and have been released.`);
+
+  return {
+    healthy: issues.length === 0,
+    issues,
+    stale_locks: staleRes.count ?? 0,
+    released_now: released,
+    last_run_at: lastRun,
+    minutes_since_last_run: mins,
+    scheduler_active: schedulerActive,
+    due_now: dueRes.count ?? 0,
+    leased_now: leasedRes.count ?? 0,
+  };
+}
+
 /** Check one leased claim and write the outcome. Never throws. */
 async function processJob(
   supabase: any,
