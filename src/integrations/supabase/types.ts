@@ -170,6 +170,9 @@ export type Database = {
           reviewed_by: string | null
           state_confirmation_number: string | null
           status: string
+          status_check_attempts: number
+          status_check_error: string | null
+          status_check_next_at: string | null
           status_checked_at: string | null
           submission_error: string | null
           submitted_at: string | null
@@ -190,6 +193,9 @@ export type Database = {
           reviewed_by?: string | null
           state_confirmation_number?: string | null
           status?: string
+          status_check_attempts?: number
+          status_check_error?: string | null
+          status_check_next_at?: string | null
           status_checked_at?: string | null
           submission_error?: string | null
           submitted_at?: string | null
@@ -210,6 +216,9 @@ export type Database = {
           reviewed_by?: string | null
           state_confirmation_number?: string | null
           status?: string
+          status_check_attempts?: number
+          status_check_error?: string | null
+          status_check_next_at?: string | null
           status_checked_at?: string | null
           submission_error?: string | null
           submitted_at?: string | null

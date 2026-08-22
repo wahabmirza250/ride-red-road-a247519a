@@ -16,12 +16,24 @@
  *   - Every real change is written to billing_audit_log with previous status,
  *     new status and the time it was observed.
  */
-import { ROBOT_BASE_URL, denverDateISO } from "@/lib/billingHelpers";
 
-/** Never check more than this many claims in one scheduled run. */
-export const SYNC_BATCH_SIZE = 40;
-/** Claims checked more recently than this are skipped. */
+/** Never check more than this many claims in one scheduled run.
+ *  Each lookup drives a real browser session (~15s), so keep it modest. */
+export const SYNC_BATCH_SIZE = 8;
+/** Fallback re-check age for rows that predate per-row scheduling. */
 export const RECHECK_AFTER_MS = 6 * 60 * 60 * 1000;
+/** First automatic re-check delay; doubles per attempt up to the ceiling. */
+export const BACKOFF_BASE_MS = 15 * 60 * 1000;
+export const BACKOFF_MAX_MS = 12 * 60 * 60 * 1000;
+/** Steady cadence for a claim still sitting in a non-terminal portal state. */
+export const OPEN_RECHECK_MS = 6 * 60 * 60 * 1000;
+/** Portal outcomes that end automatic polling. */
+export const TERMINAL_STATUSES = ["paid", "denied", "rejected"];
+
+/** Next due time after `attempts` consecutive inconclusive checks. */
+export function backoffMs(attempts: number): number {
+  return Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * Math.pow(2, Math.max(0, attempts)));
+}
 /** How long one run may hold the single-flight lease. */
 export const LEASE_MS = 10 * 60 * 1000;
 /** Statuses worth re-checking. Terminal outcomes are left alone. */
@@ -64,32 +76,111 @@ export function normalizePortalStatus(raw: unknown): string | null {
   return null;
 }
 
-function portalDateMDY(iso: string | null | undefined): string {
-  const [y, m, d] = denverDateISO(iso ?? undefined).split("-");
-  return `${m}/${d}/${y}`;
-}
-
 type Candidate = {
   record_id: string;
   trip_id: string;
   company_id: string | null;
   status: string | null;
+  attempts?: number;
   claim_number: string;
   member_id: string | null;
   service_date_iso: string | null;
 };
 
-type LookupRow = { claim_number: string; status: string | null; raw: string | null };
+type LookupRow = {
+  claim_number: string;
+  status: string | null;
+  raw: string | null;
+  paid_amount?: string | null;
+  result_state?: string | null;
+};
 
 type LookupResult =
   | { ok: true; rows: LookupRow[] }
   | { ok: false; detail: string };
 
+/** Dedicated READ-ONLY claim-status checker service (separate from the robot). */
+export const CLAIM_STATUS_CHECKER_URL =
+  process.env["CLAIM_STATUS_CHECKER_URL"] ??
+  "https://redart-claim-status-checker-production.up.railway.app";
+
+/** How long we wait for one claim lookup job before treating it as transient. */
+const CHECK_POLL_TIMEOUT_MS = 120_000;
+const CHECK_POLL_INTERVAL_MS = 3_000;
+
+/** Look up ONE claim through the checker service (start job, poll until done). */
+async function checkOneClaim(
+  companyId: string | null,
+  claimNumber: string,
+  doFetch: typeof fetch,
+): Promise<{ ok: true; row: LookupRow } | { ok: false; detail: string }> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const apiKey = process.env["ROBOT_API_KEY"] ?? process.env["CLAIM_STATUS_API_KEY"];
+  if (apiKey) headers["x-api-key"] = apiKey;
+
+  let jobId: string;
+  try {
+    const res = await doFetch(`${CLAIM_STATUS_CHECKER_URL}/check-claim-status`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ company_id: companyId, claim_id: claimNumber }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, detail: `checker HTTP ${res.status}: ${text.slice(0, 160)}` };
+    }
+    const body: any = await res.json().catch(() => ({}));
+    jobId = String(body?.jobId ?? body?.job_id ?? "");
+    if (!jobId) return { ok: false, detail: "checker did not return a job id" };
+  } catch (e: any) {
+    return { ok: false, detail: `checker unreachable: ${e?.message ?? e}` };
+  }
+
+  const deadline = Date.now() + CHECK_POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, CHECK_POLL_INTERVAL_MS));
+    let body: any;
+    try {
+      const res = await doFetch(`${CLAIM_STATUS_CHECKER_URL}/job-status/${jobId}`, { headers });
+      if (!res.ok) continue;
+      body = await res.json().catch(() => ({}));
+    } catch {
+      continue;
+    }
+    const jobStatus = String(body?.status ?? "").toLowerCase();
+    if (jobStatus === "running" || jobStatus === "started" || jobStatus === "pending") continue;
+
+    if (jobStatus !== "done") {
+      return { ok: false, detail: `checker job ${jobStatus || "unknown"}: ${String(body?.error ?? "").slice(0, 160)}` };
+    }
+    const result: any = body?.result ?? {};
+    const state = String(result?.result_state ?? "");
+    if (state !== "RESULTS_FOUND") {
+      // No result / login trouble / portal hiccup: certainty required, so no change.
+      return {
+        ok: true,
+        row: { claim_number: claimNumber, status: null, raw: null, result_state: state || "UNKNOWN" },
+      };
+    }
+    const raw = result?.detected_status ?? null;
+    return {
+      ok: true,
+      row: {
+        claim_number: claimNumber,
+        status: normalizePortalStatus(raw),
+        raw: typeof raw === "string" ? raw : null,
+        paid_amount: result?.paid_amount ?? null,
+        result_state: state,
+      },
+    };
+  }
+  return { ok: false, detail: "checker job timed out" };
+}
+
 /**
- * READ-ONLY portal status lookup for a batch of claims that share one portal
- * login. Preferred contract is the batch endpoint; the proven single-claim
- * Search Claims endpoint is used as a fallback, all inside one session
- * (`close_session` only on the final call).
+ * READ-ONLY portal status lookup for a group of claims from one company.
+ * Runs strictly one claim at a time: the portal bounces a second concurrent
+ * session on the same login, and the submission robot shares that login.
  */
 export async function lookupClaimStatuses(args: {
   companyId: string | null;
@@ -99,103 +190,22 @@ export async function lookupClaimStatuses(args: {
   fetchImpl?: typeof fetch;
 }): Promise<LookupResult> {
   const doFetch = args.fetchImpl ?? fetch;
-  const payloadClaims = args.claims.map((c) => ({
-    claim_number: c.claim_number,
-    member_id: c.member_id,
-    service_date: portalDateMDY(c.service_date_iso),
-  }));
-
-  // 1) Batch read-only endpoint: many claims, one portal login.
-  try {
-    const res = await doFetch(`${ROBOT_BASE_URL}/claim-status`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: "claim_status",
-        read_only: true,
-        company_id: args.companyId,
-        portal_id: args.portalId,
-        provider_id: args.providerUserId,
-        claims: payloadClaims,
-        close_session: true,
-      }),
-    });
-    if (res.ok) {
-      const body: any = await res.json().catch(() => ({}));
-      const list: any[] = Array.isArray(body?.claims)
-        ? body.claims
-        : Array.isArray(body?.results)
-          ? body.results
-          : [];
-      if (list.length) {
-        return {
-          ok: true,
-          rows: list.map((r) => {
-            const raw = r?.claim_status ?? r?.status ?? null;
-            return {
-              claim_number: String(r?.claim_number ?? r?.claim_id ?? r?.claim ?? "").trim(),
-              status: normalizePortalStatus(raw),
-              raw: typeof raw === "string" ? raw : null,
-            };
-          }),
-        };
-      }
-      return { ok: false, detail: "batch lookup returned no claim rows" };
-    }
-    if (res.status !== 404) {
-      const text = await res.text().catch(() => "");
-      return { ok: false, detail: `batch lookup HTTP ${res.status}: ${text.slice(0, 200)}` };
-    }
-  } catch (e: any) {
-    return { ok: false, detail: `batch lookup unreachable: ${e?.message ?? e}` };
-  }
-
-  // 2) Fallback: the existing single-claim Search Claims endpoint, reusing one
-  //    session for the whole group (session closed on the last claim only).
   const rows: LookupRow[] = [];
   let anyOk = false;
-  let lastDetail = "search lookup unavailable";
-  for (let i = 0; i < args.claims.length; i++) {
-    const c = args.claims[i]!;
-    const serviceDate = portalDateMDY(c.service_date_iso);
-    try {
-      const res = await doFetch(`${ROBOT_BASE_URL}/search-claims`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "search_claims",
-          read_only: true,
-          company_id: args.companyId,
-          portal_id: args.portalId,
-          provider_id: args.providerUserId,
-          claim_number: c.claim_number,
-          member_id: c.member_id,
-          medicaid_member_id: c.member_id,
-          service_date: serviceDate,
-          from_date: serviceDate,
-          to_date: serviceDate,
-          close_session: i === args.claims.length - 1,
-        }),
-      });
-      if (!res.ok) {
-        lastDetail = `search lookup HTTP ${res.status}`;
-        continue;
-      }
+  let lastDetail = "claim status checker unavailable";
+
+  for (const c of args.claims) {
+    const out = await checkOneClaim(args.companyId, c.claim_number, doFetch);
+    if (out.ok) {
       anyOk = true;
-      const body: any = await res.json().catch(() => ({}));
-      const first = Array.isArray(body?.claims) ? body.claims[0] : null;
-      const raw = body?.claim_status ?? first?.status ?? first?.claim_status ?? null;
-      rows.push({
-        claim_number: c.claim_number,
-        status: normalizePortalStatus(raw),
-        raw: typeof raw === "string" ? raw : null,
-      });
-    } catch (e: any) {
-      lastDetail = `search lookup unreachable: ${e?.message ?? e}`;
+      rows.push(out.row);
+    } else {
+      lastDetail = out.detail;
     }
   }
   return anyOk ? { ok: true, rows } : { ok: false, detail: lastDetail };
 }
+
 
 /** Single-flight lease. Returns false when another run already holds it. */
 async function acquireLease(supabase: any): Promise<boolean> {
@@ -234,6 +244,25 @@ async function pauseSync(supabase: any, reason: string) {
     .from("claim_status_sync_state")
     .update({ paused: true, pause_reason: reason, updated_at: new Date().toISOString() })
     .eq("id", true);
+}
+
+/** When should this claim be looked at again? null = terminal, stop polling. */
+export function nextDueFor(status: string | null): string | null {
+  if (status && TERMINAL_STATUSES.includes(status)) return null;
+  return new Date(Date.now() + OPEN_RECHECK_MS).toISOString();
+}
+
+/** Inconclusive check: keep the billing status untouched, retry with backoff. */
+async function scheduleRetry(supabase: any, c: Candidate, detail: string) {
+  const attempts = (c.attempts ?? 0) + 1;
+  await supabase
+    .from("billing_records")
+    .update({
+      status_check_attempts: attempts,
+      status_check_error: detail.slice(0, 500),
+      status_check_next_at: new Date(Date.now() + backoffMs(attempts)).toISOString(),
+    })
+    .eq("id", c.record_id);
 }
 
 /**
@@ -277,16 +306,26 @@ export async function runClaimStatusSync(
   const result: SyncRunResult = { ...empty, ran: true };
   try {
     // Candidate claims: real portal claim numbers whose outcome is still open.
+    const targeted = Boolean(opts.recordIds?.length);
     let q = supabase
       .from("billing_records")
       .select(
         `id, trip_id, company_id, status, state_confirmation_number, status_checked_at,
+         status_check_next_at, status_check_attempts,
          medicaid_trips!inner(id, pickup_at, company_id, robot_confirmation_number, submitted_confirmation, riders(medicaid_id))`,
       )
-      .in("status", OPEN_STATUSES)
-      .order("status_checked_at", { ascending: true, nullsFirst: true })
-      .limit(opts.recordIds?.length ? opts.recordIds.length : SYNC_BATCH_SIZE);
-    if (opts.recordIds?.length) q = q.in("id", opts.recordIds);
+      .order("status_check_next_at", { ascending: true, nullsFirst: true })
+      .limit(targeted ? opts.recordIds!.length : SYNC_BATCH_SIZE);
+    if (targeted) {
+      // Manual override: check exactly these rows, whatever their status.
+      q = q.in("id", opts.recordIds!);
+    } else {
+      // Automatic pass: only claims enqueued for checking and actually due now.
+      q = q
+        .in("status", OPEN_STATUSES)
+        .not("status_check_next_at", "is", null)
+        .lte("status_check_next_at", new Date().toISOString());
+    }
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
 
@@ -304,7 +343,9 @@ export async function runClaimStatusSync(
         continue;
       }
       const checkedAt = (r as any).status_checked_at ? new Date((r as any).status_checked_at).getTime() : 0;
-      if (!opts.force && !opts.recordIds?.length && checkedAt > cutoff) {
+      const dueAt = (r as any).status_check_next_at;
+      const notDue = dueAt ? new Date(dueAt).getTime() > Date.now() : checkedAt > cutoff;
+      if (!opts.force && !targeted && notDue) {
         result.skipped++;
         continue;
       }
@@ -313,6 +354,7 @@ export async function runClaimStatusSync(
         trip_id: (r as any).trip_id,
         company_id: (r as any).company_id ?? trip?.company_id ?? null,
         status: (r as any).status ?? null,
+        attempts: Number((r as any).status_check_attempts ?? 0),
         claim_number: String(claim).trim(),
         member_id: trip?.riders?.medicaid_id ?? null,
         service_date_iso: trip?.pickup_at ?? null,
@@ -361,9 +403,10 @@ export async function runClaimStatusSync(
       });
 
       if (!lookup.ok) {
-        // Uncertain: change nothing, record nothing as checked.
+        // Uncertain: change nothing, but back off so we retry later.
         result.skipped += group.length;
         for (const c of group) {
+          await scheduleRetry(supabase, c, lookup.detail);
           result.outcomes.push({
             record_id: c.record_id,
             claim_number: c.claim_number,
@@ -382,6 +425,11 @@ export async function runClaimStatusSync(
         const hit = byClaim.get(c.claim_number);
         if (!hit || !hit.status) {
           result.skipped++;
+          await scheduleRetry(
+            supabase,
+            c,
+            hit?.result_state ? `portal returned ${hit.result_state}` : "portal status not recognised",
+          );
           result.outcomes.push({
             record_id: c.record_id,
             claim_number: c.claim_number,
@@ -398,7 +446,13 @@ export async function runClaimStatusSync(
           result.unchanged++;
           await supabase
             .from("billing_records")
-            .update({ status_checked_at: nowIso, portal_status_raw: hit.raw })
+            .update({
+              status_checked_at: nowIso,
+              portal_status_raw: hit.raw,
+              status_check_attempts: 0,
+              status_check_error: null,
+              status_check_next_at: nextDueFor(hit.status),
+            })
             .eq("id", c.record_id);
           result.outcomes.push({
             record_id: c.record_id,
@@ -417,6 +471,9 @@ export async function runClaimStatusSync(
             status: hit.status,
             status_checked_at: nowIso,
             portal_status_raw: hit.raw,
+            status_check_attempts: 0,
+            status_check_error: null,
+            status_check_next_at: nextDueFor(hit.status),
             updated_at: nowIso,
           })
           .eq("id", c.record_id);
@@ -445,6 +502,7 @@ export async function runClaimStatusSync(
             `Automatic read-only portal status check on ${nowIso}: claim #${c.claim_number} ` +
             `changed from "${c.status ?? "unknown"}" to "${hit.status}"` +
             (hit.raw ? ` (portal wording: "${hit.raw}")` : "") +
+            (hit.paid_amount ? ` Medicaid paid amount: ${hit.paid_amount}.` : "") +
             ". Nothing was submitted or resubmitted.",
         });
         result.changed++;

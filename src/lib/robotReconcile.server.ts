@@ -159,6 +159,10 @@ export async function reconcileRobotJob(
             submitted_at: nowIso,
             submission_error: null,
             requires_human_step: false,
+            // Enqueue automatic read-only portal status checking right away.
+            status_check_next_at: confirmation ? nowIso : null,
+            status_check_attempts: 0,
+            status_check_error: null,
           })
           .eq("id", rec.id);
         await logAudit(
@@ -227,6 +231,10 @@ export async function reconcileRobotJob(
           submitted_at: nowIso,
           submission_error: null,
           requires_human_step: false,
+          // Enqueue automatic read-only portal status checking right away.
+          status_check_next_at: result.claim_id ? nowIso : null,
+          status_check_attempts: 0,
+          status_check_error: null,
         })
         .eq("id", rec.id);
       await logAudit(
