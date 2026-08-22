@@ -72,8 +72,12 @@ export const getClaimStatusSyncState = createServerFn({ method: "POST" })
   });
 
 /**
- * Manual kick of the same read-only sync the schedule runs.
- * Optionally limited to specific billing records.
+ * Manual "Check now" — ENQUEUE ONLY.
+ *
+ * It never talks to the portal itself: it just marks the claims due now and
+ * returns immediately. The one-minute scheduler picks them up under the same
+ * atomic per-claim lease, so a manual kick can never duplicate work that is
+ * already running and the UI never spins waiting on portal traffic.
  */
 export const runClaimStatusSyncNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -83,14 +87,24 @@ export const runClaimStatusSyncNow = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     await assertBillingOrAdmin(supabase, userId);
+    const { data: companyId } = await supabase.rpc("current_user_company_id");
+    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { runClaimStatusSync, MANUAL_RUN_BUDGET_MS } = await import("@/lib/claimStatusSync.server");
-    // Manual kicks are strictly time-boxed so the UI never sits spinning:
-    // whatever is not finished stays queued for the background schedule.
-    return await runClaimStatusSync(supabaseAdmin, {
-      actorId: userId,
+    const { enqueueClaimStatusChecks } = await import("@/lib/claimStatusSync.server");
+    // Company scoping is preserved: a biller can only enqueue their own company.
+    return await enqueueClaimStatusChecks(supabaseAdmin, {
       recordIds: data.recordIds,
-      force: Boolean(data.recordIds?.length),
-      budgetMs: MANUAL_RUN_BUDGET_MS,
+      companyId: isAdmin || companyId ? (companyId ?? null) : null,
     });
+  });
+
+/** Admin/billing-only health probe: lock leaks + scheduler liveness. */
+export const getClaimStatusHealth = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertBillingOrAdmin(supabase, userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { claimStatusHealth } = await import("@/lib/claimStatusSync.server");
+    return await claimStatusHealth(supabaseAdmin);
   });
