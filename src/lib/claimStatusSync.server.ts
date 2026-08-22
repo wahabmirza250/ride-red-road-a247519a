@@ -565,6 +565,8 @@ export async function runClaimStatusSync(
 
   const result: SyncRunResult = { ...empty };
   const startedAt = Date.now();
+  // Self-heal first: anything a crashed worker left locked becomes eligible.
+  await releaseStaleLocks(supabase);
   try {
     const jobs = await leaseClaimStatusJobs(supabase, {
       globalLimit: opts.recordIds?.length ? opts.recordIds.length : globalCap,
