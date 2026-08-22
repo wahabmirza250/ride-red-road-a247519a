@@ -262,6 +262,30 @@ export function nextDueFor(status: string | null): string | null {
   return new Date(Date.now() + OPEN_RECHECK_MS).toISOString();
 }
 
+/**
+ * Per-claim lock. Atomically marks one record as "being checked right now" so
+ * two overlapping runs can never drive two portal sessions for one claim.
+ * An abandoned lock self-heals after CLAIM_LOCK_MS.
+ */
+async function lockClaim(supabase: any, recordId: string): Promise<boolean> {
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("billing_records")
+    .update({ status_check_locked_until: new Date(Date.now() + CLAIM_LOCK_MS).toISOString() })
+    .eq("id", recordId)
+    .or(`status_check_locked_until.is.null,status_check_locked_until.lt.${nowIso}`)
+    .select("id");
+  if (error) return false;
+  return (data ?? []).length > 0;
+}
+
+async function unlockClaim(supabase: any, recordId: string) {
+  await supabase
+    .from("billing_records")
+    .update({ status_check_locked_until: null })
+    .eq("id", recordId);
+}
+
 /** Inconclusive check: keep the billing status untouched, retry with backoff. */
 async function scheduleRetry(supabase: any, c: Candidate, detail: string) {
   const attempts = (c.attempts ?? 0) + 1;
@@ -271,9 +295,11 @@ async function scheduleRetry(supabase: any, c: Candidate, detail: string) {
       status_check_attempts: attempts,
       status_check_error: detail.slice(0, 500),
       status_check_next_at: new Date(Date.now() + backoffMs(attempts)).toISOString(),
+      status_check_locked_until: null,
     })
     .eq("id", c.record_id);
 }
+
 
 /**
  * One bounded, read-only status-sync pass over every company's open claims.
