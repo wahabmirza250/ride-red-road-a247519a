@@ -79,17 +79,100 @@ type Candidate = {
   service_date_iso: string | null;
 };
 
-type LookupRow = { claim_number: string; status: string | null; raw: string | null };
+type LookupRow = {
+  claim_number: string;
+  status: string | null;
+  raw: string | null;
+  paid_amount?: string | null;
+  result_state?: string | null;
+};
 
 type LookupResult =
   | { ok: true; rows: LookupRow[] }
   | { ok: false; detail: string };
 
+/** Dedicated READ-ONLY claim-status checker service (separate from the robot). */
+export const CLAIM_STATUS_CHECKER_URL =
+  process.env["CLAIM_STATUS_CHECKER_URL"] ??
+  "https://redart-claim-status-checker-production.up.railway.app";
+
+/** How long we wait for one claim lookup job before treating it as transient. */
+const CHECK_POLL_TIMEOUT_MS = 120_000;
+const CHECK_POLL_INTERVAL_MS = 3_000;
+
+/** Look up ONE claim through the checker service (start job, poll until done). */
+async function checkOneClaim(
+  companyId: string | null,
+  claimNumber: string,
+  doFetch: typeof fetch,
+): Promise<{ ok: true; row: LookupRow } | { ok: false; detail: string }> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const apiKey = process.env["ROBOT_API_KEY"] ?? process.env["CLAIM_STATUS_API_KEY"];
+  if (apiKey) headers["x-api-key"] = apiKey;
+
+  let jobId: string;
+  try {
+    const res = await doFetch(`${CLAIM_STATUS_CHECKER_URL}/check-claim-status`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ company_id: companyId, claim_id: claimNumber }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, detail: `checker HTTP ${res.status}: ${text.slice(0, 160)}` };
+    }
+    const body: any = await res.json().catch(() => ({}));
+    jobId = String(body?.jobId ?? body?.job_id ?? "");
+    if (!jobId) return { ok: false, detail: "checker did not return a job id" };
+  } catch (e: any) {
+    return { ok: false, detail: `checker unreachable: ${e?.message ?? e}` };
+  }
+
+  const deadline = Date.now() + CHECK_POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, CHECK_POLL_INTERVAL_MS));
+    let body: any;
+    try {
+      const res = await doFetch(`${CLAIM_STATUS_CHECKER_URL}/job-status/${jobId}`, { headers });
+      if (!res.ok) continue;
+      body = await res.json().catch(() => ({}));
+    } catch {
+      continue;
+    }
+    const jobStatus = String(body?.status ?? "").toLowerCase();
+    if (jobStatus === "running" || jobStatus === "started" || jobStatus === "pending") continue;
+
+    if (jobStatus !== "done") {
+      return { ok: false, detail: `checker job ${jobStatus || "unknown"}: ${String(body?.error ?? "").slice(0, 160)}` };
+    }
+    const result: any = body?.result ?? {};
+    const state = String(result?.result_state ?? "");
+    if (state !== "RESULTS_FOUND") {
+      // No result / login trouble / portal hiccup: certainty required, so no change.
+      return {
+        ok: true,
+        row: { claim_number: claimNumber, status: null, raw: null, result_state: state || "UNKNOWN" },
+      };
+    }
+    const raw = result?.detected_status ?? null;
+    return {
+      ok: true,
+      row: {
+        claim_number: claimNumber,
+        status: normalizePortalStatus(raw),
+        raw: typeof raw === "string" ? raw : null,
+        paid_amount: result?.paid_amount ?? null,
+        result_state: state,
+      },
+    };
+  }
+  return { ok: false, detail: "checker job timed out" };
+}
+
 /**
- * READ-ONLY portal status lookup for a batch of claims that share one portal
- * login. Preferred contract is the batch endpoint; the proven single-claim
- * Search Claims endpoint is used as a fallback, all inside one session
- * (`close_session` only on the final call).
+ * READ-ONLY portal status lookup for a group of claims from one company.
+ * Runs strictly one claim at a time: the portal bounces a second concurrent
+ * session on the same login, and the submission robot shares that login.
  */
 export async function lookupClaimStatuses(args: {
   companyId: string | null;
@@ -99,103 +182,22 @@ export async function lookupClaimStatuses(args: {
   fetchImpl?: typeof fetch;
 }): Promise<LookupResult> {
   const doFetch = args.fetchImpl ?? fetch;
-  const payloadClaims = args.claims.map((c) => ({
-    claim_number: c.claim_number,
-    member_id: c.member_id,
-    service_date: portalDateMDY(c.service_date_iso),
-  }));
-
-  // 1) Batch read-only endpoint: many claims, one portal login.
-  try {
-    const res = await doFetch(`${ROBOT_BASE_URL}/claim-status`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: "claim_status",
-        read_only: true,
-        company_id: args.companyId,
-        portal_id: args.portalId,
-        provider_id: args.providerUserId,
-        claims: payloadClaims,
-        close_session: true,
-      }),
-    });
-    if (res.ok) {
-      const body: any = await res.json().catch(() => ({}));
-      const list: any[] = Array.isArray(body?.claims)
-        ? body.claims
-        : Array.isArray(body?.results)
-          ? body.results
-          : [];
-      if (list.length) {
-        return {
-          ok: true,
-          rows: list.map((r) => {
-            const raw = r?.claim_status ?? r?.status ?? null;
-            return {
-              claim_number: String(r?.claim_number ?? r?.claim_id ?? r?.claim ?? "").trim(),
-              status: normalizePortalStatus(raw),
-              raw: typeof raw === "string" ? raw : null,
-            };
-          }),
-        };
-      }
-      return { ok: false, detail: "batch lookup returned no claim rows" };
-    }
-    if (res.status !== 404) {
-      const text = await res.text().catch(() => "");
-      return { ok: false, detail: `batch lookup HTTP ${res.status}: ${text.slice(0, 200)}` };
-    }
-  } catch (e: any) {
-    return { ok: false, detail: `batch lookup unreachable: ${e?.message ?? e}` };
-  }
-
-  // 2) Fallback: the existing single-claim Search Claims endpoint, reusing one
-  //    session for the whole group (session closed on the last claim only).
   const rows: LookupRow[] = [];
   let anyOk = false;
-  let lastDetail = "search lookup unavailable";
-  for (let i = 0; i < args.claims.length; i++) {
-    const c = args.claims[i]!;
-    const serviceDate = portalDateMDY(c.service_date_iso);
-    try {
-      const res = await doFetch(`${ROBOT_BASE_URL}/search-claims`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "search_claims",
-          read_only: true,
-          company_id: args.companyId,
-          portal_id: args.portalId,
-          provider_id: args.providerUserId,
-          claim_number: c.claim_number,
-          member_id: c.member_id,
-          medicaid_member_id: c.member_id,
-          service_date: serviceDate,
-          from_date: serviceDate,
-          to_date: serviceDate,
-          close_session: i === args.claims.length - 1,
-        }),
-      });
-      if (!res.ok) {
-        lastDetail = `search lookup HTTP ${res.status}`;
-        continue;
-      }
+  let lastDetail = "claim status checker unavailable";
+
+  for (const c of args.claims) {
+    const out = await checkOneClaim(args.companyId, c.claim_number, doFetch);
+    if (out.ok) {
       anyOk = true;
-      const body: any = await res.json().catch(() => ({}));
-      const first = Array.isArray(body?.claims) ? body.claims[0] : null;
-      const raw = body?.claim_status ?? first?.status ?? first?.claim_status ?? null;
-      rows.push({
-        claim_number: c.claim_number,
-        status: normalizePortalStatus(raw),
-        raw: typeof raw === "string" ? raw : null,
-      });
-    } catch (e: any) {
-      lastDetail = `search lookup unreachable: ${e?.message ?? e}`;
+      rows.push(out.row);
+    } else {
+      lastDetail = out.detail;
     }
   }
   return anyOk ? { ok: true, rows } : { ok: false, detail: lastDetail };
 }
+
 
 /** Single-flight lease. Returns false when another run already holds it. */
 async function acquireLease(supabase: any): Promise<boolean> {
