@@ -17,13 +17,26 @@
  *     new status and the time it was observed.
  */
 
-/** Never check more than this many claims in one scheduled run.
- *  Each lookup drives a real browser session (~15s), so keep it modest. */
-export const SYNC_BATCH_SIZE = 6;
-/** Hard wall-clock ceiling for one background run (minutes, not tens of minutes). */
-export const RUN_BUDGET_MS = 4 * 60 * 1000;
+/** ---- Scaling configuration (env-backed, safe defaults) ----------------
+ *  Every knob below can be tuned per environment without a code change. */
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  const n = raw == null ? NaN : Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+/** Max concurrent read-only status checks for ONE company. Conservative. */
+export const maxPerCompany = () => envInt("CLAIM_STATUS_MAX_PER_COMPANY", 4);
+/** Max concurrent read-only status checks across ALL companies. */
+export const maxGlobal = () => envInt("CLAIM_STATUS_MAX_GLOBAL", 20);
+/** How long a leased claim stays locked before it becomes eligible again. */
+export const leaseSeconds = () => envInt("CLAIM_STATUS_LEASE_SECONDS", 180);
+
+/** Never lease more than this many claims in one scheduler tick. */
+export const SYNC_BATCH_SIZE = maxGlobal();
+/** Hard wall-clock ceiling for one background tick. */
+export const RUN_BUDGET_MS = envInt("CLAIM_STATUS_RUN_BUDGET_MS", 4 * 60 * 1000);
 /** Much tighter ceiling for a manually kicked run so the UI never hangs. */
-export const MANUAL_RUN_BUDGET_MS = 60 * 1000;
+export const MANUAL_RUN_BUDGET_MS = envInt("CLAIM_STATUS_MANUAL_BUDGET_MS", 90 * 1000);
 /** Fallback re-check age for rows that predate per-row scheduling. */
 export const RECHECK_AFTER_MS = 6 * 60 * 60 * 1000;
 /** First automatic re-check delay; doubles per attempt up to the ceiling. */
@@ -38,13 +51,9 @@ export const TERMINAL_STATUSES = ["paid", "denied", "rejected"];
 export function backoffMs(attempts: number): number {
   return Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * Math.pow(2, Math.max(0, attempts)));
 }
-/** How long one run may hold the single-flight lease. Kept just above the run
- *  budget so a killed worker's lease self-heals within ~5 minutes. */
-export const LEASE_MS = 5 * 60 * 1000;
-/** How long a single claim stays locked while it is being checked. */
-export const CLAIM_LOCK_MS = 3 * 60 * 1000;
 /** Statuses worth re-checking. Terminal outcomes are left alone. */
 export const OPEN_STATUSES = ["submitted", "approved", "suspended"];
+
 
 
 export const SYNC_ACTION = "claim_status_sync";
