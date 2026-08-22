@@ -311,10 +311,14 @@ export async function runClaimStatusSync(
     actorId?: string | null;
     recordIds?: string[];
     force?: boolean;
+    /** Hard wall-clock ceiling for this run. */
+    budgetMs?: number;
     /** Test seam only: lets a harness stand in for the portal call. */
     fetchImpl?: typeof fetch;
   } = {},
 ): Promise<SyncRunResult> {
+  const deadline = Date.now() + (opts.budgetMs ?? RUN_BUDGET_MS);
+
   const empty: SyncRunResult = {
     ok: true,
     ran: false,
