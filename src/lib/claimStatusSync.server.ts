@@ -81,6 +81,7 @@ type Candidate = {
   trip_id: string;
   company_id: string | null;
   status: string | null;
+  attempts?: number;
   claim_number: string;
   member_id: string | null;
   service_date_iso: string | null;
@@ -286,16 +287,26 @@ export async function runClaimStatusSync(
   const result: SyncRunResult = { ...empty, ran: true };
   try {
     // Candidate claims: real portal claim numbers whose outcome is still open.
+    const targeted = Boolean(opts.recordIds?.length);
     let q = supabase
       .from("billing_records")
       .select(
         `id, trip_id, company_id, status, state_confirmation_number, status_checked_at,
+         status_check_next_at, status_check_attempts,
          medicaid_trips!inner(id, pickup_at, company_id, robot_confirmation_number, submitted_confirmation, riders(medicaid_id))`,
       )
-      .in("status", OPEN_STATUSES)
-      .order("status_checked_at", { ascending: true, nullsFirst: true })
-      .limit(opts.recordIds?.length ? opts.recordIds.length : SYNC_BATCH_SIZE);
-    if (opts.recordIds?.length) q = q.in("id", opts.recordIds);
+      .order("status_check_next_at", { ascending: true, nullsFirst: true })
+      .limit(targeted ? opts.recordIds!.length : SYNC_BATCH_SIZE);
+    if (targeted) {
+      // Manual override: check exactly these rows, whatever their status.
+      q = q.in("id", opts.recordIds!);
+    } else {
+      // Automatic pass: only claims enqueued for checking and actually due now.
+      q = q
+        .in("status", OPEN_STATUSES)
+        .not("status_check_next_at", "is", null)
+        .lte("status_check_next_at", new Date().toISOString());
+    }
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
 
@@ -313,7 +324,9 @@ export async function runClaimStatusSync(
         continue;
       }
       const checkedAt = (r as any).status_checked_at ? new Date((r as any).status_checked_at).getTime() : 0;
-      if (!opts.force && !opts.recordIds?.length && checkedAt > cutoff) {
+      const dueAt = (r as any).status_check_next_at;
+      const notDue = dueAt ? new Date(dueAt).getTime() > Date.now() : checkedAt > cutoff;
+      if (!opts.force && !targeted && notDue) {
         result.skipped++;
         continue;
       }
@@ -322,6 +335,7 @@ export async function runClaimStatusSync(
         trip_id: (r as any).trip_id,
         company_id: (r as any).company_id ?? trip?.company_id ?? null,
         status: (r as any).status ?? null,
+        attempts: Number((r as any).status_check_attempts ?? 0),
         claim_number: String(claim).trim(),
         member_id: trip?.riders?.medicaid_id ?? null,
         service_date_iso: trip?.pickup_at ?? null,
