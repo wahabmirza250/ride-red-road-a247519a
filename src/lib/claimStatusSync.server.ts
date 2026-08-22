@@ -104,8 +104,8 @@ type LookupRow = {
 };
 
 type LookupResult =
-  | { ok: true; rows: LookupRow[] }
-  | { ok: false; detail: string };
+  | { ok: true; rows: LookupRow[]; tried: string[] }
+  | { ok: false; detail: string; tried: string[] };
 
 /** Dedicated READ-ONLY claim-status checker service (separate from the robot). */
 export const CLAIM_STATUS_CHECKER_URL =
