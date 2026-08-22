@@ -10,14 +10,11 @@ import {
   type ClaimStatusSyncState,
 } from "@/lib/claimStatusSync.functions";
 
-type SyncRun = {
+type EnqueueResult = {
   ok: boolean;
-  ran: boolean;
+  queued: number;
+  alreadyRunning: number;
   reason?: string;
-  checked: number;
-  changed: number;
-  unchanged: number;
-  skipped: number;
 };
 
 /**
@@ -34,22 +31,27 @@ export function ClaimStatusSyncCard() {
     queryKey: ["claim_status_sync_state"],
     queryFn: () => stateFn() as Promise<ClaimStatusSyncState>,
     retry: false,
+    // Work happens in the background scheduler, so keep the card live.
+    refetchInterval: 15_000,
   });
 
   const run = useMutation({
-    mutationFn: () => runFn({ data: {} as never }) as Promise<SyncRun>,
+    mutationFn: () => runFn({ data: {} as never }) as Promise<EnqueueResult>,
     onSuccess: (r) => {
-      if (!r.ran) toast.info(r.reason ?? "Nothing to check right now.");
-      else if (r.changed > 0)
-        toast.success(`${r.changed} claim status${r.changed === 1 ? "" : "es"} updated from the portal.`);
-      else if (r.checked > 0) toast.success(`${r.checked} claim(s) checked — all already up to date.`);
-      else toast.warning(r.reason ?? "No status could be read; nothing was changed.");
+      if (!r.ok) toast.warning(r.reason ?? "Could not queue the status checks.");
+      else if (r.queued > 0)
+        toast.success(
+          `${r.queued} claim(s) queued — results appear here as the checker works through them.` +
+            (r.alreadyRunning ? ` ${r.alreadyRunning} already running.` : ""),
+        );
+      else if (r.alreadyRunning > 0) toast.info(`${r.alreadyRunning} claim(s) are already being checked.`);
+      else toast.info("No open claims to check right now.");
       void qc.invalidateQueries({ queryKey: ["claim_status_sync_state"] });
       void qc.invalidateQueries({ queryKey: ["claims_history"] });
       void qc.invalidateQueries({ queryKey: ["billing_list"] });
       void qc.invalidateQueries({ queryKey: ["company-earnings"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Status check failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not queue status checks"),
   });
 
   const last = state.data?.last_result;
