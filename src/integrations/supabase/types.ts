@@ -3009,9 +3009,9 @@ export type Database = {
       }
       lease_claim_status_jobs: {
         Args: {
-          _global_limit: number
-          _lease_seconds: number
-          _per_company_limit: number
+          _global_limit?: number
+          _lease_seconds?: number
+          _per_company_limit?: number
           _record_ids?: string[]
           _worker?: string
         }
