@@ -24,9 +24,13 @@ export type QueueMetricRow = {
   due_now: number;
   leased_running: number;
   retrying: number;
+  errored: number;
   terminal: number;
   scheduled_total: number;
+  checked_last_hour: number;
+  stale_locks: number;
   avg_check_ms: number | null;
+  oldest_due_at: string | null;
   last_checked_at: string | null;
 };
 
