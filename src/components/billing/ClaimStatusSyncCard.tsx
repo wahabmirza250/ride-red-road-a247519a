@@ -10,14 +10,11 @@ import {
   type ClaimStatusSyncState,
 } from "@/lib/claimStatusSync.functions";
 
-type SyncRun = {
+type EnqueueResult = {
   ok: boolean;
-  ran: boolean;
+  queued: number;
+  alreadyRunning: number;
   reason?: string;
-  checked: number;
-  changed: number;
-  unchanged: number;
-  skipped: number;
 };
 
 /**
