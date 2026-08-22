@@ -68,10 +68,13 @@ export const runClaimStatusSyncNow = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertBillingOrAdmin(supabase, userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { runClaimStatusSync } = await import("@/lib/claimStatusSync.server");
+    const { runClaimStatusSync, MANUAL_RUN_BUDGET_MS } = await import("@/lib/claimStatusSync.server");
+    // Manual kicks are strictly time-boxed so the UI never sits spinning:
+    // whatever is not finished stays queued for the background schedule.
     return await runClaimStatusSync(supabaseAdmin, {
       actorId: userId,
       recordIds: data.recordIds,
       force: Boolean(data.recordIds?.length),
+      budgetMs: MANUAL_RUN_BUDGET_MS,
     });
   });
