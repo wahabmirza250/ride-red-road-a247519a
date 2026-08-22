@@ -246,6 +246,25 @@ async function pauseSync(supabase: any, reason: string) {
     .eq("id", true);
 }
 
+/** When should this claim be looked at again? null = terminal, stop polling. */
+export function nextDueFor(status: string | null): string | null {
+  if (status && TERMINAL_STATUSES.includes(status)) return null;
+  return new Date(Date.now() + OPEN_RECHECK_MS).toISOString();
+}
+
+/** Inconclusive check: keep the billing status untouched, retry with backoff. */
+async function scheduleRetry(supabase: any, c: Candidate, detail: string) {
+  const attempts = (c.attempts ?? 0) + 1;
+  await supabase
+    .from("billing_records")
+    .update({
+      status_check_attempts: attempts,
+      status_check_error: detail.slice(0, 500),
+      status_check_next_at: new Date(Date.now() + backoffMs(attempts)).toISOString(),
+    })
+    .eq("id", c.record_id);
+}
+
 /**
  * One bounded, read-only status-sync pass over every company's open claims.
  * `supabase` must be the service-role client (the cron entry point has no user).
@@ -384,9 +403,10 @@ export async function runClaimStatusSync(
       });
 
       if (!lookup.ok) {
-        // Uncertain: change nothing, record nothing as checked.
+        // Uncertain: change nothing, but back off so we retry later.
         result.skipped += group.length;
         for (const c of group) {
+          await scheduleRetry(supabase, c, lookup.detail);
           result.outcomes.push({
             record_id: c.record_id,
             claim_number: c.claim_number,
@@ -405,6 +425,11 @@ export async function runClaimStatusSync(
         const hit = byClaim.get(c.claim_number);
         if (!hit || !hit.status) {
           result.skipped++;
+          await scheduleRetry(
+            supabase,
+            c,
+            hit?.result_state ? `portal returned ${hit.result_state}` : "portal status not recognised",
+          );
           result.outcomes.push({
             record_id: c.record_id,
             claim_number: c.claim_number,
@@ -421,7 +446,13 @@ export async function runClaimStatusSync(
           result.unchanged++;
           await supabase
             .from("billing_records")
-            .update({ status_checked_at: nowIso, portal_status_raw: hit.raw })
+            .update({
+              status_checked_at: nowIso,
+              portal_status_raw: hit.raw,
+              status_check_attempts: 0,
+              status_check_error: null,
+              status_check_next_at: nextDueFor(hit.status),
+            })
             .eq("id", c.record_id);
           result.outcomes.push({
             record_id: c.record_id,
@@ -440,6 +471,9 @@ export async function runClaimStatusSync(
             status: hit.status,
             status_checked_at: nowIso,
             portal_status_raw: hit.raw,
+            status_check_attempts: 0,
+            status_check_error: null,
+            status_check_next_at: nextDueFor(hit.status),
             updated_at: nowIso,
           })
           .eq("id", c.record_id);
@@ -468,6 +502,7 @@ export async function runClaimStatusSync(
             `Automatic read-only portal status check on ${nowIso}: claim #${c.claim_number} ` +
             `changed from "${c.status ?? "unknown"}" to "${hit.status}"` +
             (hit.raw ? ` (portal wording: "${hit.raw}")` : "") +
+            (hit.paid_amount ? ` Medicaid paid amount: ${hit.paid_amount}.` : "") +
             ". Nothing was submitted or resubmitted.",
         });
         result.changed++;
