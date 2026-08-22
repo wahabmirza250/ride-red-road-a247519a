@@ -197,14 +197,19 @@ export async function lookupClaimStatuses(args: {
   portalId: string | null;
   providerUserId: string | null;
   claims: Candidate[];
+  /** Stop starting new lookups once this wall-clock deadline passes. */
+  deadline?: number;
   fetchImpl?: typeof fetch;
 }): Promise<LookupResult> {
   const doFetch = args.fetchImpl ?? fetch;
   const rows: LookupRow[] = [];
+  const tried: string[] = [];
   let anyOk = false;
   let lastDetail = "claim status checker unavailable";
 
   for (const c of args.claims) {
+    if (args.deadline && Date.now() >= args.deadline) break;
+    tried.push(c.claim_number);
     const out = await checkOneClaim(args.companyId, c.claim_number, doFetch);
     if (out.ok) {
       anyOk = true;
@@ -213,7 +218,7 @@ export async function lookupClaimStatuses(args: {
       lastDetail = out.detail;
     }
   }
-  return anyOk ? { ok: true, rows } : { ok: false, detail: lastDetail };
+  return anyOk ? { ok: true, rows, tried } : { ok: false, detail: lastDetail, tried };
 }
 
 
