@@ -642,7 +642,10 @@ function DriverHome() {
         speedMph={online ? speedMph : null} onShift={online}
       />
 
+      <InProgressTrips />
+
       {/* Manual trip entry — driver records and completes a trip themselves */}
+
       <AppLink
         to="/driver/trip/new"
         className="flex items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-primary/10 p-4 shadow-soft"
