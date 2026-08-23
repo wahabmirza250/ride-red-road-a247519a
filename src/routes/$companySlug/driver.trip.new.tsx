@@ -725,6 +725,10 @@ function NewNemtTripWizard() {
       }
 
       if (typeof window !== "undefined") clearDraft(window.localStorage, storageKey);
+      if (draft.server_draft_id) {
+        await closeDraft({ data: { id: draft.server_draft_id, status: "submitted" } }).catch(() => {});
+      }
+
       toast.success(
         draft.rider_slots.length === 1
           ? "Trip sent to billing"
