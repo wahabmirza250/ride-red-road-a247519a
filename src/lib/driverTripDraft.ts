@@ -100,6 +100,8 @@ export function createEmptyDraft(): DriverTripDraft {
     rider_slots: [],
     legs: [emptyLeg(1)],
     assigned_trip_id: null,
+    server_draft_id: null,
+
   };
 }
 
