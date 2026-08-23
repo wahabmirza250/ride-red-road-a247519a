@@ -233,116 +233,31 @@ export async function enqueueOrStartRobot(
 }
 
 /**
- * Called after a job reaches a terminal state: fill every free concurrency
- * slot with the oldest queued records, dispatching them in parallel.
+ * Called after a job reaches a terminal state: lease and dispatch the oldest
+ * queued records through the persistent, crash-safe queue layer
+ * (`submissionQueue.server.ts`). Kept as the stable entry point used by the
+ * reconciler, the billing app and the cron sweep.
  */
 export async function dispatchNextQueued(
   supabase: any,
   actorId: string | null,
   companyId?: string | null,
 ): Promise<{ started: string | null; startedIds: string[] }> {
-  const active = await listActiveRobotJobs(supabase, { companyId });
-  const slots = Math.max(0, MAX_CONCURRENT_ROBOT_JOBS - active.length);
-  if (slots <= 0) return { started: null, startedIds: [] };
-
-  // Per-passenger live counts, so a batch of bills for one member can't fill
-  // every free slot at once.
-  const riderLive = new Map<string, number>();
-  for (const a of active) {
-    if (!a.riderKey) continue;
-    riderLive.set(a.riderKey, (riderLive.get(a.riderKey) ?? 0) + 1);
-  }
-
-  let q = supabase
-    .from("billing_records")
-    .select(TRIP_SELECT)
-    .eq("status", "queued")
-    .order("updated_at", { ascending: true })
-    // Read deeper than the free slots: same-passenger rows get skipped over so
-    // different-passenger work behind them still runs at full speed.
-    .limit(Math.max(slots * 5, 40));
-  if (companyId) q = q.eq("company_id", companyId);
-  const { data: rows, error } = await q;
-  if (error) throw new Error(error.message);
-  const recs: any[] = rows ?? [];
-  if (recs.length === 0) return { started: null, startedIds: [] };
-
-  // Pick oldest-first, honouring both the global cap and the per-rider cap.
-  const picked: any[] = [];
-  for (const rec of recs) {
-    if (picked.length >= slots) break;
-    const key = riderKeyOf(rec.medicaid_trips);
-    if (key) {
-      const live = riderLive.get(key) ?? 0;
-      if (live >= MAX_CONCURRENT_JOBS_PER_RIDER) continue; // paced; stays queued
-      riderLive.set(key, live + 1);
-    }
-    picked.push(rec);
-  }
-  if (picked.length === 0) return { started: null, startedIds: [] };
-
-  // Claim the rows first so a concurrent sweep cannot pick the same records.
-  const claimed: any[] = [];
-  for (const rec of picked) {
-    const { data: upd } = await supabase
-      .from("billing_records")
-      .update({ status: "submitting" })
-      .eq("id", rec.id)
-      .eq("status", "queued")
-      .select("id");
-    if ((upd ?? []).length > 0) claimed.push(rec);
-  }
-  if (claimed.length === 0) return { started: null, startedIds: [] };
-
-
-  // Parallel dispatch — the robot runs these sessions concurrently.
-  const results = await Promise.all(
-    claimed.map(async (rec: any) => {
-      let provider: string | null = null;
-      try {
-        provider = await resolveProviderUserId(supabase, {
-          actorId,
-          trip: rec.medicaid_trips,
-          companyId: rec.company_id,
-        });
-        await startRobotSubmission(supabase, {
-          billingRecordId: rec.id,
-          trip: rec.medicaid_trips,
-          providerUserId: provider,
-          // Queued work is always a real one-shot submission; capture runs are
-          // never queued (see enqueueOrStartRobot).
-          mode: "full",
-        });
-        await logAudit(supabase, rec.id, provider, "robot_started_from_queue");
-        return rec.id as string;
-      } catch (e: any) {
-        const msg = e?.message ?? "Failed to start the queued automation";
-        await supabase
-          .from("billing_records")
-          .update({ status: "needs_fix", submission_error: msg, fix_notes: msg })
-          .eq("id", rec.id);
-        await logAudit(supabase, rec.id, provider ?? actorId, "robot_start_failed", msg);
-        return null;
-      }
-    }),
-  );
-
-  const startedIds = results.filter((x): x is string => Boolean(x));
+  const { dispatchLeasedSubmissions } = await import("@/lib/submissionQueue.server");
+  const { startedIds } = await dispatchLeasedSubmissions(supabase, actorId, { companyId });
   return { started: startedIds[0] ?? null, startedIds };
 }
 
 /**
- * BACKGROUND SWEEP.
- *
- * Reconciles every in-flight job, then releases the queue. Runs from the
- * billing app on a timer AND from the cron endpoint, so a finished job lands
- * within seconds no matter which screen (if any) is open.
+ * Reconcile every in-flight robot job for a company. Unchanged behaviour —
+ * this is the proven path that writes confirmation numbers and hands claims to
+ * the read-only status checker.
  */
-export async function sweepRobotJobs(
+export async function reconcileInFlight(
   supabase: any,
   actorId: string | null,
   companyId?: string | null,
-): Promise<{ checked: number; settled: number; started: string | null; startedIds: string[] }> {
+): Promise<{ checked: number; settled: number }> {
   const { reconcileRobotJob } = await import("@/lib/robotReconcile.server");
   const { resolveUnverifiedClaim } = await import("@/lib/unverifiedClaim.server");
 
@@ -356,9 +271,8 @@ export async function sweepRobotJobs(
   if (error) throw new Error(error.message);
 
   const targets = (rows ?? []).filter((r: any) => r.medicaid_trips?.robot_job_id);
-  // Reconcile every in-flight job in parallel: with up to
-  // MAX_CONCURRENT_ROBOT_JOBS live jobs, sequential polling delayed each
-  // freed slot by the sum of all the polls before it.
+  // Reconcile every in-flight job in parallel: with many live jobs, sequential
+  // polling delayed each freed slot by the sum of all the polls before it.
   const outcomes = await Promise.all(
     targets.map(async (r: any) => {
       const robotStatus = String(r.medicaid_trips?.robot_last_status ?? "");
@@ -378,9 +292,28 @@ export async function sweepRobotJobs(
       }
     }),
   );
-  const settled = outcomes.filter(Boolean).length;
-
-
-  const { started, startedIds } = await dispatchNextQueued(supabase, actorId, companyId);
-  return { checked: targets.length, settled, started, startedIds };
+  return { checked: targets.length, settled: outcomes.filter(Boolean).length };
 }
+
+/**
+ * BACKGROUND SWEEP.
+ *
+ * Reconciles every in-flight job, then releases the queue. Runs from the
+ * billing app on a timer AND from the cron endpoint, so a finished job lands
+ * within seconds no matter which screen (if any) is open.
+ */
+export async function sweepRobotJobs(
+  supabase: any,
+  actorId: string | null,
+  companyId?: string | null,
+): Promise<{ checked: number; settled: number; started: string | null; startedIds: string[] }> {
+  const { runSubmissionQueueTick } = await import("@/lib/submissionQueue.server");
+  const tick = await runSubmissionQueueTick(supabase, { actorId, companyId });
+  return {
+    checked: tick.checked,
+    settled: tick.settled,
+    started: tick.startedIds[0] ?? null,
+    startedIds: tick.startedIds,
+  };
+}
+
