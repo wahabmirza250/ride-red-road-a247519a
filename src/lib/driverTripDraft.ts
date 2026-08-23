@@ -281,19 +281,19 @@ export function validateTripStep(d: DriverTripDraft): FieldIssues {
     if (!l.pickup_address.trim()) issues[`${p}.pickup_address`] = "Pickup address is required";
     if (!l.dropoff_address.trim()) issues[`${p}.dropoff_address`] = "Drop-off address is required";
     for (const field of ["pickup_odometer", "dropoff_odometer"] as const) {
-      const v = l[field];
       const label = field === "pickup_odometer" ? "Pickup" : "Drop-off";
-      if (v === "") issues[`${p}.${field}`] = `${label} odometer is required`;
-      else if (!Number.isFinite(Number(v)) || Number(v) < 0)
-        issues[`${p}.${field}`] = `${label} odometer must be a positive number`;
+      const raw = String(l[field] ?? "").trim();
+      if (!raw) issues[`${p}.${field}`] = `${label} odometer is required`;
+      else if (parseOdometer(raw) === null)
+        issues[`${p}.${field}`] = `${label} odometer must be a whole number of miles`;
     }
-    if (
-      l.pickup_odometer !== "" &&
-      l.dropoff_odometer !== "" &&
-      Number(l.dropoff_odometer) < Number(l.pickup_odometer)
-    ) {
-      issues[`${p}.dropoff_odometer`] = "Drop-off odometer is lower than pickup";
+    const pk = parseOdometer(l.pickup_odometer);
+    const dp = parseOdometer(l.dropoff_odometer);
+    if (pk !== null && dp !== null && dp < pk) {
+      issues[`${p}.dropoff_odometer`] =
+        "Drop-off odometer must be greater than or equal to pickup (mileage cannot be negative)";
     }
+
   });
   return issues;
 }
