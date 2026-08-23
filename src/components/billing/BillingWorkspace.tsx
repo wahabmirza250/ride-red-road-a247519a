@@ -322,6 +322,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
 
       {isAdmin && !embedded && <BillingRatesCard />}
 
+      <SubmissionQueuePanel />
+
+
+
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap sm:flex-wrap">
