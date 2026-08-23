@@ -56,6 +56,8 @@ import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
 import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
 import { FixBillDialog } from "@/components/billing/FixBillDialog";
+import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
+
 
 import {
   cancelSubmissionClient,
@@ -319,6 +321,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       )}
 
       {isAdmin && !embedded && <BillingRatesCard />}
+
+      <SubmissionQueuePanel />
+
+
 
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
@@ -752,14 +758,16 @@ function ReadyToSubmitTab({
       setSelected(new Set());
       if (res?.started) {
         toast.success(
-          `Started ${res.started} robot job${res.started === 1 ? "" : "s"} in parallel` +
-            (res.queued > res.started
-              ? ` — ${res.queued - res.started} queued, starting automatically as slots free.`
-              : "."),
+          `${res.queued ?? res.started} bill${(res.queued ?? res.started) === 1 ? "" : "s"} queued — ` +
+            `${res.started} sending now, the rest start automatically. You can keep working; ` +
+            "counts refresh on their own.",
         );
       } else if (res?.queued) {
-        toast.info(`${res.queued} claim(s) queued — they start automatically as slots free.`);
+        toast.info(
+          `${res.queued} bill(s) queued — they process in the background and the counts above refresh automatically.`,
+        );
       }
+
       if (res?.skipped?.length) {
         toast.message(`${res.skipped.length} skipped: ${res.skipped[0].reason}`);
       }
@@ -770,6 +778,9 @@ function ReadyToSubmitTab({
       setSubmittingIds(new Set());
       qc.invalidateQueries({ queryKey: ["billing_list"] });
       qc.invalidateQueries({ queryKey: ["billing_counts"] });
+      qc.invalidateQueries({ queryKey: ["submission_queue"] });
+      qc.invalidateQueries({ queryKey: ["submission_queue_state"] });
+
     }
   }
 

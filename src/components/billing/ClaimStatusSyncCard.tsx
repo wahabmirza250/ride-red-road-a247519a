@@ -59,16 +59,20 @@ export function ClaimStatusSyncCard() {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface/60 p-3">
       <div className="min-w-[220px] space-y-0.5">
-        <div className="flex items-center gap-2 text-sm font-medium">
+        <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
           <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-          Automatic claim status check
+          Claim status checking
           <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-            read-only
+            read-only · never submits
           </span>
         </div>
         <p className="text-xs text-muted-foreground">
+          Looks up already-submitted claims and records Paid / Denied. Separate from submission
+          automation — this keeps running even when new submissions are paused.
+        </p>
+        <p className="text-xs text-muted-foreground">
           {state.data?.paused
-            ? `Paused — ${state.data.pause_reason ?? "resume it to continue checking."}`
+            ? `Status checking paused — ${state.data.pause_reason ?? "resume it to continue checking."}`
             : `Runs on its own schedule. ${state.data?.due_now ?? 0} open claim(s) tracked.`}
         </p>
         <p className="text-xs text-muted-foreground">
@@ -78,6 +82,7 @@ export function ClaimStatusSyncCard() {
               }`
             : "Not run yet."}
         </p>
+
       </div>
       <Button
         variant="outline"
