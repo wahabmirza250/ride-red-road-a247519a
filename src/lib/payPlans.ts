@@ -245,5 +245,6 @@ export function computePlanPay(plan: ResolvedPayPlan, input: PayInputs): PayBrea
     bonus,
     earnings,
     total: round2(earnings + fuel + bonus),
+    lines,
   };
 }
