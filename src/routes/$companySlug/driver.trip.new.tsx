@@ -1281,8 +1281,12 @@ function NewNemtTripWizard() {
           <div className="space-y-3">
             <SummaryCard title="Passengers" onEdit={() => setStep("passenger")}>
               {draft.rider_slots.map((s) => (
-                <Row key={s.rider.id} label={s.rider.full_name} value={s.rider.medicaid_id} />
+                <div key={s.rider.id} className="space-y-0.5">
+                  <Row label={s.rider.full_name} value={s.rider.medicaid_id} />
+                  <Row label="Medicaid check" value={verificationLabel(verify[s.rider.id])} />
+                </div>
               ))}
+
               <Row label="Trip type" value={TRIP_KINDS.find((k) => k.value === draft.trip_kind)?.label ?? ""} />
             </SummaryCard>
 
