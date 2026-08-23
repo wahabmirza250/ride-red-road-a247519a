@@ -456,9 +456,7 @@ function NewNemtTripWizard() {
   const runRateCheck = useServerFn(checkVehicleRates);
   const runRiderVerify = useServerFn(verifyRiderIdentity);
   const [rateCheck, setRateCheck] = useState<{ ok: boolean; missing: string[] } | null>(null);
-  const [verify, setVerify] = useState<
-    Record<string, { state: "running" | "done"; result?: RiderVerifyResult }>
-  >({});
+  const [verify, setVerify] = useState<VerifyMap>({});
 
   useEffect(() => {
     if (!draft.vehicle_type) {
@@ -474,47 +472,50 @@ function NewNemtTripWizard() {
     };
   }, [runRateCheck, draft.vehicle_type]);
 
+  /* Medicaid verification is OPTIONAL and MANUAL here — selecting a passenger
+     never starts a portal lookup; we only drop state for removed riders. */
   const riderSlotIds = draft.rider_slots.map((s) => s.rider.id).join(",");
-  const verifyRef = useRef(verify);
-  verifyRef.current = verify;
   useEffect(() => {
     const ids = riderSlotIds ? riderSlotIds.split(",") : [];
-    for (const id of ids) {
-      if (verifyRef.current[id]) continue;
-      setVerify((p) => ({ ...p, [id]: { state: "running" } }));
-      runRiderVerify({ data: { rider_id: id } })
-        .then((result) => setVerify((p) => ({ ...p, [id]: { state: "done", result } })))
-        .catch((e) =>
-          setVerify((p) => ({
-            ...p,
-            [id]: {
-              state: "done",
-              result: {
-                status: "unavailable",
-                message: e instanceof Error ? e.message : "Verification failed",
-                portal_name: null,
-              },
-            },
-          })),
-        );
-    }
-  }, [riderSlotIds, runRiderVerify]);
+    setVerify((prev) => {
+      const next = syncVerifyMapToRiders(prev, ids);
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+    });
+  }, [riderSlotIds]);
 
+  function verifyRider(riderId: string) {
+    let fire = false;
+    setVerify((prev) => {
+      const { next, shouldRequest } = beginVerify(prev, riderId);
+      fire = shouldRequest;
+      return next;
+    });
+    if (!fire) return;
+    runRiderVerify({ data: { rider_id: riderId } })
+      .then((result) => setVerify((p) => completeVerify(p, riderId, result)))
+      .catch((e) =>
+        setVerify((p) =>
+          failVerify(p, riderId, e instanceof Error ? e.message : "Verification failed"),
+        ),
+      );
+  }
+
+  /** Only real blockers live here — verification never blocks the driver. */
   const safetyIssue = useMemo(() => {
     if (draft.vehicle_type && rateCheck && !rateCheck.ok) {
       return `No billing rate configured for this vehicle type (missing: ${rateCheck.missing.join(", ")}). Ask billing to add it.`;
     }
-    for (const s of draft.rider_slots) {
-      const v = verify[s.rider.id];
-      if (!v || v.state === "running") {
-        return `Still verifying ${s.rider.full_name}'s Medicaid ID against the portal…`;
-      }
-      if (v.result?.status === "mismatch" || v.result?.status === "unavailable") {
-        return v.result.message;
-      }
-    }
     return null;
-  }, [draft.rider_slots, draft.vehicle_type, rateCheck, verify]);
+  }, [draft.vehicle_type, rateCheck]);
+
+  const verifyWarnings = useMemo(
+    () =>
+      verificationWarnings(
+        verify,
+        draft.rider_slots.map((s) => ({ id: s.rider.id, name: s.rider.full_name })),
+      ),
+    [verify, draft.rider_slots],
+  );
 
   /* --------------------------------- submit ------------------------------ */
   const submitGroup = useServerFn(createNemtTripGroup);
