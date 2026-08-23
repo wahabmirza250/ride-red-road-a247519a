@@ -308,8 +308,12 @@ export async function sweepRobotJobs(
   companyId?: string | null,
 ): Promise<{ checked: number; settled: number; started: string | null; startedIds: string[] }> {
   const { runSubmissionQueueTick } = await import("@/lib/submissionQueue.server");
-  const { checked, settled } = await reconcileInFlight(supabase, actorId, companyId);
   const tick = await runSubmissionQueueTick(supabase, { actorId, companyId });
-  return { checked, settled, started: tick.startedIds[0] ?? null, startedIds: tick.startedIds };
+  return {
+    checked: tick.checked,
+    settled: tick.settled,
+    started: tick.startedIds[0] ?? null,
+    startedIds: tick.startedIds,
+  };
 }
 

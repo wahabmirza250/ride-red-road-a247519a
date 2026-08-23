@@ -94,6 +94,8 @@ export type QueueTickResult = {
   failed: number;
   recovered: number;
   staleLocksReleased: number;
+  checked: number;
+  settled: number;
   startedIds: string[];
   ms: number;
 };
@@ -447,6 +449,8 @@ export async function runSubmissionQueueTick(
     failed: 0,
     recovered: 0,
     staleLocksReleased: 0,
+    checked: 0,
+    settled: 0,
     startedIds: [],
     ms: 0,
   };
@@ -485,7 +489,8 @@ export async function runSubmissionQueueTick(
     ...dispatch,
     recovered,
     staleLocksReleased,
-    reason: `reconciled ${reconciled.settled}/${reconciled.checked}`,
+    checked: reconciled.checked,
+    settled: reconciled.settled,
     ms: Date.now() - t0,
   };
   await recordRun(supabase, out);
