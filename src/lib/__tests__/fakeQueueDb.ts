@@ -61,7 +61,31 @@ type QueueState = {
   last_result: any;
 };
 
-export function makeFakeDb(records: FakeRecord[], state?: Partial<QueueState>) {
+export type FakeWorker = {
+  id: string;
+  base_url: string;
+  enabled?: boolean;
+  max_active_jobs?: number;
+  failure_streak?: number;
+  unhealthy_until?: string | null;
+  last_health_ok_at?: string | null;
+  last_health_error?: string | null;
+};
+
+export function makeFakeDb(
+  records: FakeRecord[],
+  state?: Partial<QueueState>,
+  workers: FakeWorker[] = [],
+) {
+  const robotWorkers: FakeWorker[] = workers.map((w) => ({
+    enabled: true,
+    max_active_jobs: 20,
+    failure_streak: 0,
+    unhealthy_until: null,
+    last_health_ok_at: null,
+    last_health_error: null,
+    ...w,
+  }));
   const queueState: QueueState = {
     paused: false,
     pause_reason: null,
@@ -130,7 +154,26 @@ export function makeFakeDb(records: FakeRecord[], state?: Partial<QueueState>) {
         });
         return { data: null, error: null };
       }
-      if (name === "medicaid_trips") return { data: null, error: null };
+      if (name === "robot_workers") {
+        if (st.op === "update" || st.op === "insert") {
+          const rows = Array.isArray(st.updates) ? st.updates : [st.updates];
+          for (const row of rows) {
+            const existing = robotWorkers.find((w) => w.id === row.id);
+            if (existing) Object.assign(existing, row);
+            else robotWorkers.push({ enabled: true, max_active_jobs: 20, ...row });
+          }
+          return { data: null, error: null };
+        }
+        return { data: robotWorkers.filter(matches), error: null };
+      }
+      if (name === "medicaid_trips") {
+        if (st.op === "update") {
+          const id = st.filters["id"];
+          const rec = records.find((r) => r.medicaid_trips?.id === id);
+          if (rec) Object.assign(rec.medicaid_trips, st.updates);
+        }
+        return { data: null, error: null };
+      }
 
       const hits = records.filter(matches);
       if (st.op === "update") {
@@ -163,7 +206,7 @@ export function makeFakeDb(records: FakeRecord[], state?: Partial<QueueState>) {
       return { data: n, error: null };
     }
     if (fn === "lease_submission_jobs") {
-      const g = Math.min(Math.max(args._global_limit ?? 20, 1), 200);
+      const g = Math.min(Math.max(args._global_limit ?? 20, 1), 5000);
       const pc = Math.min(Math.max(args._per_company_limit ?? 4, 1), 50);
       const ls = Math.min(Math.max(args._lease_seconds ?? 300, 30), 3600);
       const scope = args._company_id ?? null;
@@ -226,8 +269,32 @@ export function makeFakeDb(records: FakeRecord[], state?: Partial<QueueState>) {
       }
       return { data: leased, error: null };
     }
+    if (fn === "record_robot_worker_health") {
+      let w = robotWorkers.find((x) => x.id === args._id);
+      if (!w) {
+        w = { id: args._id, base_url: args._base_url, enabled: true, max_active_jobs: 20 };
+        robotWorkers.push(w);
+      }
+      if (args._ok) {
+        w.failure_streak = 0;
+        w.unhealthy_until = null;
+        w.last_health_error = null;
+        w.last_health_ok_at = new Date().toISOString();
+      } else {
+        w.failure_streak = (w.failure_streak ?? 0) + 1;
+        w.last_health_error = args._error ?? "error";
+        w.unhealthy_until = new Date(Date.now() + (args._cooldown_seconds ?? 120) * 1000).toISOString();
+      }
+      return { data: null, error: null };
+    }
     return { data: null, error: null };
   };
 
-  return { supabase: { from: table, rpc } as any, records, audits, queueState };
+  return {
+    supabase: { from: table, rpc } as any,
+    records,
+    audits,
+    queueState,
+    robotWorkers,
+  };
 }

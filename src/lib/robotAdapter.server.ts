@@ -21,7 +21,9 @@ export type MockOutcome =
   | "slow_success"
   | "transient_timeout"
   | "validation_failure"
-  | "ambiguous";
+  | "ambiguous"
+  /** Provable pre-accept failure — the worker never took the job. */
+  | "worker_down";
 
 /** Deterministic outcome plan used by the load harness (test mode only). */
 let mockPlan: ((jobId: string, payload: any) => MockOutcome) | null = null;
@@ -37,13 +39,18 @@ export function mockRobotStats() {
 }
 
 /**
- * Start a submission job. In test mode this NEVER touches the network.
- * Returns the job id the caller should persist.
+ * Start a submission job on a SPECIFIC worker. In test mode this NEVER touches
+ * the network. Returns the job id the caller must persist together with the
+ * worker id — reconciliation has to poll the same worker.
  */
-export async function postSubmitClaim(payload: any, jobId: string): Promise<string> {
+export async function postSubmitClaimTo(
+  payload: any,
+  jobId: string,
+  worker: { id: string; url: string },
+): Promise<string> {
   if (isSubmissionTestMode()) {
     mockCalls++;
-    const outcome = mockPlan ? mockPlan(jobId, payload) : "fast_success";
+    const outcome = mockPlan ? mockPlan(jobId, { ...payload, __worker: worker.id }) : "fast_success";
     switch (outcome) {
       case "slow_success":
         await new Promise((r) => setTimeout(r, 5));
@@ -54,14 +61,15 @@ export async function postSubmitClaim(payload: any, jobId: string): Promise<stri
         throw new Error("Indicates a required field. (mock)");
       case "ambiguous":
         throw new Error("Confirm was clicked but the page timed out (mock)");
+      case "worker_down":
+        throw new Error("fetch failed: connect ECONNREFUSED (mock worker down)");
       default:
         return `mock-${jobId}`;
     }
   }
 
   realCallAttempts++;
-  const { ROBOT_BASE_URL } = await import("@/lib/billingHelpers");
-  const res = await fetch(`${ROBOT_BASE_URL}/submit-claim`, {
+  const res = await fetch(`${worker.url}/submit-claim`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
@@ -80,3 +88,14 @@ export async function postSubmitClaim(payload: any, jobId: string): Promise<stri
   }
   return typeof parsed?.jobId === "string" && parsed.jobId ? parsed.jobId : jobId;
 }
+
+/**
+ * Legacy single-service entry point. Kept so any caller that predates the
+ * fleet keeps working against the original `ROBOT_BASE_URL`.
+ */
+export async function postSubmitClaim(payload: any, jobId: string): Promise<string> {
+  if (isSubmissionTestMode()) return await postSubmitClaimTo(payload, jobId, { id: "mock", url: "" });
+  const { ROBOT_BASE_URL } = await import("@/lib/billingHelpers");
+  return await postSubmitClaimTo(payload, jobId, { id: "legacy", url: ROBOT_BASE_URL });
+}
+
