@@ -411,7 +411,24 @@ export function validateStep(step: Step, d: DriverTripDraft): FieldIssues {
   }
 }
 
+/**
+ * Wizard navigation rules. Only data that exists at that moment in the field is
+ * required to move forward; completion data (drop-off odometer/time,
+ * signatures) is enforced by `validateStep("review", …)` at final submit.
+ */
+export function validateStepForNavigation(step: Step, d: DriverTripDraft): FieldIssues {
+  switch (step) {
+    case "trip":
+      return validateTripStartStep(d);
+    case "sign":
+      return {};
+    default:
+      return validateStep(step, d);
+  }
+}
+
 export function firstIssue(issues: FieldIssues): string | null {
+
   const values = Object.values(issues);
   return values.length > 0 ? values[0] : null;
 }
