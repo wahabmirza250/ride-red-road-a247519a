@@ -737,19 +737,30 @@
 }
 
 @layer components {
-  /* Fixed CTA bar inside the driver app: always clears the floating bottom nav
-     and the iOS home indicator. */
+  /* Driver app bottom chrome. Only TWO layers exist: the fixed floating nav and
+     this CTA bar, which is STICKY inside the normal document flow so it can
+     never overlap the content it belongs to. It parks exactly on top of the
+     nav pill (and the iOS home indicator) while scrolling. */
   .driver-cta-bar {
-    position: fixed;
-    inset-inline: 0;
+    position: sticky;
     bottom: var(--driver-nav-offset);
+    z-index: 20;
+    margin-top: 1rem;
     padding-bottom: 0.75rem;
   }
-  /* Scroll padding so the last card is never hidden behind CTA + nav. */
+  /* Small trailing gap under the sticky CTA; the nav clearance itself lives on
+     .driver-nav-pad at the shell level, so we never stack two offsets. */
   .driver-cta-content-pad {
-    padding-bottom: calc(var(--driver-nav-offset) + 6.5rem);
+    padding-bottom: 1rem;
   }
   .driver-nav-pad {
     padding-bottom: calc(var(--driver-nav-offset) + 1rem);
   }
+  /* Wizard step header parks under the fixed app top bar (h-14), never over it. */
+  .driver-step-header {
+    position: sticky;
+    top: 3.5rem;
+    z-index: 15;
+  }
 }
+
