@@ -131,8 +131,7 @@ export function normalizeTripLegs(trip: any): Leg[] {
   ];
 }
 
-export const ROBOT_BASE_URL =
-  "https://redart-hcpf-automation-production.up.railway.app";
+export { ROBOT_BASE_URL } from "@/lib/robotConfig";
 
 /**
  * PORTAL TIME ZONE: America/Denver.
