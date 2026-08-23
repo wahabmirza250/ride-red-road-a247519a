@@ -75,7 +75,7 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
 
   const periodFn = useServerFn(getPayrollPeriod);
   const payoutsFn = useServerFn(listPayouts);
-  const delFn = useServerFn(deletePayout);
+  const delFn = useServerFn(voidPayout);
 
   const from = startOfDay(range.from);
   const to = endOfDay(range.to);
