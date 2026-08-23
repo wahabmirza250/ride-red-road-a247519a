@@ -331,7 +331,21 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
                   {formatCurrency(Number(p.total_paid))}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <Button size="sm" variant="ghost" onClick={() => undo.mutate(p.id)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={undo.isPending}
+                    title="Void this payment and release its hours"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Void the ${formatCurrency(Number(p.total_paid))} payment to ${p.driver_name}? The hours and receipts it covered become payable again.`,
+                        )
+                      ) {
+                        undo.mutate(p.id);
+                      }
+                    }}
+                  >
                     <Undo2 className="h-4 w-4" />
                   </Button>
                 </td>
