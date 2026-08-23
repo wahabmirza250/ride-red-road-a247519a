@@ -758,14 +758,16 @@ function ReadyToSubmitTab({
       setSelected(new Set());
       if (res?.started) {
         toast.success(
-          `Started ${res.started} robot job${res.started === 1 ? "" : "s"} in parallel` +
-            (res.queued > res.started
-              ? ` — ${res.queued - res.started} queued, starting automatically as slots free.`
-              : "."),
+          `${res.queued ?? res.started} bill${(res.queued ?? res.started) === 1 ? "" : "s"} queued — ` +
+            `${res.started} sending now, the rest start automatically. You can keep working; ` +
+            "counts refresh on their own.",
         );
       } else if (res?.queued) {
-        toast.info(`${res.queued} claim(s) queued — they start automatically as slots free.`);
+        toast.info(
+          `${res.queued} bill(s) queued — they process in the background and the counts above refresh automatically.`,
+        );
       }
+
       if (res?.skipped?.length) {
         toast.message(`${res.skipped.length} skipped: ${res.skipped[0].reason}`);
       }
