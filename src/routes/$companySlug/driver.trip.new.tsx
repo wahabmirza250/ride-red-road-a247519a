@@ -868,7 +868,11 @@ function NewNemtTripWizard() {
                         <X className="h-4 w-4" />
                       </button>
                     </div>
-                    <VerifyBadge entry={verify[s.rider.id]} />
+                    <VerifyBadge
+                      entry={verify[s.rider.id]}
+                      onVerify={() => verifyRider(s.rider.id)}
+                    />
+
                   </div>
                 ))}
               </div>
