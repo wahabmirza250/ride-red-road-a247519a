@@ -50,7 +50,10 @@ export type DriverTripDraft = {
   rider_slots: DraftRiderSlot[];
   legs: DraftLeg[];
   assigned_trip_id: string | null;
+  /** Server-side in-progress trip row id, once the driver taps "Save trip". */
+  server_draft_id: string | null;
 };
+
 
 export const DRAFT_VERSION = 2 as const;
 export const DRAFT_TTL_MS = 1000 * 60 * 60 * 24 * 3; // 3 days
