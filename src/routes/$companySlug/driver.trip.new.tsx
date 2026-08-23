@@ -580,9 +580,53 @@ function NewNemtTripWizard() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
 
-  const issues = useMemo(() => validateStep(step, draft), [draft, step]);
+  /* Navigation only asks for data that exists at this point in the trip. The
+     completion data (drop-off odometer/time, signatures) is enforced by the
+     final submit validation. */
+  const issues = useMemo(() => validateStepForNavigation(step, draft), [draft, step]);
   const done = useMemo(() => completedSteps(draft), [draft]);
   const stepIndex = STEPS.indexOf(step);
+  const missing = useMemo(() => missingForCompletion(draft), [draft]);
+  const canSave = useMemo(() => isDraftSavable(draft), [draft]);
+
+  /* ------------------------ save & finish later -------------------------- */
+  const persistDraft = useServerFn(saveDriverTripDraft);
+  const closeDraft = useServerFn(closeDriverTripDraft);
+
+  async function handleSaveForLater(opts: { leave?: boolean } = {}) {
+    const saveIssues = validateSaveStage(draft);
+    if (Object.keys(saveIssues).length > 0) {
+      setShowErrors(true);
+      return toast.error(firstIssue(saveIssues)!);
+    }
+    if (!online) return toast.error("You're offline — the trip is kept on this phone until you reconnect");
+    setSavingServerDraft(true);
+    try {
+      // Signatures are large; keep them local and out of the server draft.
+      const payload: DriverTripDraft = {
+        ...draft,
+        rider_slots: draft.rider_slots.map((s) => ({ ...s, signature_data_url: null })),
+      };
+      const res: any = await persistDraft({
+        data: {
+          id: draft.server_draft_id,
+          label: draftLabel(draft),
+          rider_id: draft.rider_slots[0]?.rider.id ?? null,
+          assigned_trip_id: draft.assigned_trip_id,
+          payload: payload as any,
+        },
+      });
+      setDraft((d) => ({ ...d, server_draft_id: res.id }));
+      setServerSavedAt(new Date().toISOString());
+      toast.success("Trip saved — finish it later from your dashboard");
+      if (opts.leave) navigate({ to: "/driver" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save the trip");
+    } finally {
+      setSavingServerDraft(false);
+    }
+  }
+
 
   function goNext() {
     if (Object.keys(issues).length > 0) {
