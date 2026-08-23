@@ -1473,25 +1473,46 @@ function NewNemtTripWizard() {
         )}
       </div>
 
-      {/* Sticky primary CTA */}
-      <div className="driver-cta-bar z-20 border-t bg-background/95 px-3 pt-3 backdrop-blur">
-        <div className="mx-auto max-w-lg">
+      {/* Sticky primary CTA — sits inside the scroll flow, above the nav pill */}
+      <div className="driver-cta-bar -mx-4 border-t bg-background/95 px-4 pt-3 backdrop-blur">
+        <div className="mx-auto max-w-lg space-y-2">
           {submitStage && (
-            <div className="mb-2 text-center text-xs text-muted-foreground">{submitStage}</div>
+            <div className="text-center text-xs text-muted-foreground">{submitStage}</div>
           )}
           {step === "review" ? (
-            <Button className="h-14 w-full text-base" onClick={handleSubmit} disabled={submitting || !online}>
-              {submitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-              {submitting ? "Sending…" : "Submit to billing"}
-            </Button>
+            <>
+              {missing.length > 0 && (
+                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+                  Still needed before billing: {missing.join(", ")}
+                </div>
+              )}
+              <Button
+                className="h-14 w-full text-base"
+                onClick={handleSubmit}
+                disabled={submitting || !online || missing.length > 0}
+              >
+                {submitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                {submitting ? "Sending…" : "Submit to billing"}
+              </Button>
+            </>
           ) : (
             <Button className="h-14 w-full text-base" onClick={goNext}>
               Continue
               <ChevronRight className="ml-1 h-5 w-5" />
             </Button>
           )}
+          <Button
+            variant="outline"
+            className="h-12 w-full text-sm"
+            onClick={() => handleSaveForLater({ leave: true })}
+            disabled={savingServerDraft || !canSave}
+          >
+            {savingServerDraft && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {draft.server_draft_id ? "Save & finish later" : "Save trip & finish later"}
+          </Button>
         </div>
       </div>
+
 
       <PdfPreviewDialog
         url={pdfPreview?.url ?? null}
