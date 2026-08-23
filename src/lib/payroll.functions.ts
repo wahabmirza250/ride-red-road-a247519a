@@ -474,8 +474,6 @@ export const voidPayout = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Back-compat alias for older callers. Voids rather than destroys. */
-export const deletePayout = voidPayout;
 
 /**
  * Manual time / overtime entry. Hourly drivers sometimes work time the app
