@@ -1372,24 +1372,59 @@ function NewNemtTripWizard() {
 
 /* --------------------------------- pieces --------------------------------- */
 
-function VerifyBadge({ entry }: { entry?: { state: "running" | "done"; result?: RiderVerifyResult } }) {
-  if (!entry || entry.state === "running") {
-    return (
-      <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1.5 text-[11px] text-muted-foreground">
-        <Loader2 className="h-3 w-3 animate-spin" /> Verifying Medicaid ID…
-      </div>
-    );
-  }
-  const r = entry.result;
-  if (!r) return null;
+function VerifyBadge({ entry, onVerify }: { entry?: VerifyEntry; onVerify: () => void }) {
+  const label = verificationLabel(entry);
+  const running = label === "Checking…";
   const tone =
-    r.status === "matched"
+    label === "Verified"
       ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-      : r.status === "skipped"
-        ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-        : "bg-red-500/10 text-red-700 dark:text-red-300";
-  return <div className={`mt-2 rounded-lg px-2 py-1.5 text-[11px] ${tone}`}>{r.message}</div>;
+      : label === "Not checked" || label === "Checking…"
+        ? "bg-muted text-muted-foreground"
+        : label === "Unavailable"
+          ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+          : "bg-red-500/10 text-red-700 dark:text-red-300";
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium ${tone}`}
+        >
+          {running ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : label === "Verified" ? (
+            <Check className="h-3 w-3" />
+          ) : null}
+          Medicaid: {label}
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 rounded-full text-xs"
+          disabled={running}
+          onClick={onVerify}
+        >
+          {running ? "Verifying…" : label === "Not checked" ? "Verify Medicaid" : "Re-check"}
+        </Button>
+      </div>
+      {running && (
+        <p className="text-[11px] text-muted-foreground">
+          Portal check runs in the background (1–3 min) — keep filling out the trip.
+        </p>
+      )}
+      {!running && entry?.result?.message && (
+        <p className="text-[11px] text-muted-foreground">{entry.result.message}</p>
+      )}
+      {label !== "Verified" && !running && (
+        <p className="text-[11px] text-muted-foreground">
+          Optional — you can submit without checking; billing staff will review.
+        </p>
+      )}
+    </div>
+  );
 }
+
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
