@@ -223,9 +223,46 @@ export function pushRecentAddress(storage: MinimalStorage, address: string): str
   return next;
 }
 
+/* ------------------------------ odometers --------------------------------- */
+
+/**
+ * Odometer readings are MANDATORY on every leg of every NEMT trip: they drive
+ * the billed mileage on the state form. Accepts plain digits with an optional
+ * single decimal (e.g. "123456" or "123456.4"). Returns null when invalid.
+ */
+export function parseOdometer(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim().replace(/,/g, "");
+  if (!raw) return null;
+  if (!/^\d+(\.\d+)?$/.test(raw)) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0 || n > 9_999_999) return null;
+  return n;
+}
+
+/** Mileage for one leg, or null when either reading is missing/invalid/backwards. */
+export function legMiles(leg: Pick<DraftLeg, "pickup_odometer" | "dropoff_odometer">): number | null {
+  const p = parseOdometer(leg.pickup_odometer);
+  const dOff = parseOdometer(leg.dropoff_odometer);
+  if (p === null || dOff === null || dOff < p) return null;
+  return Number((dOff - p).toFixed(1));
+}
+
+/** Total billable miles across legs, or null if any leg is invalid. */
+export function totalMiles(d: DriverTripDraft): number | null {
+  let sum = 0;
+  for (const l of d.legs) {
+    const m = legMiles(l);
+    if (m === null) return null;
+    sum += m;
+  }
+  return Number(sum.toFixed(1));
+}
+
 /* ------------------------------ validation -------------------------------- */
 
 export type FieldIssues = Record<string, string>;
+
 
 export function validatePassengerStep(d: DriverTripDraft): FieldIssues {
   const issues: FieldIssues = {};
@@ -244,19 +281,19 @@ export function validateTripStep(d: DriverTripDraft): FieldIssues {
     if (!l.pickup_address.trim()) issues[`${p}.pickup_address`] = "Pickup address is required";
     if (!l.dropoff_address.trim()) issues[`${p}.dropoff_address`] = "Drop-off address is required";
     for (const field of ["pickup_odometer", "dropoff_odometer"] as const) {
-      const v = l[field];
       const label = field === "pickup_odometer" ? "Pickup" : "Drop-off";
-      if (v === "") issues[`${p}.${field}`] = `${label} odometer is required`;
-      else if (!Number.isFinite(Number(v)) || Number(v) < 0)
-        issues[`${p}.${field}`] = `${label} odometer must be a positive number`;
+      const raw = String(l[field] ?? "").trim();
+      if (!raw) issues[`${p}.${field}`] = `${label} odometer is required`;
+      else if (parseOdometer(raw) === null)
+        issues[`${p}.${field}`] = `${label} odometer must be a whole number of miles`;
     }
-    if (
-      l.pickup_odometer !== "" &&
-      l.dropoff_odometer !== "" &&
-      Number(l.dropoff_odometer) < Number(l.pickup_odometer)
-    ) {
-      issues[`${p}.dropoff_odometer`] = "Drop-off odometer is lower than pickup";
+    const pk = parseOdometer(l.pickup_odometer);
+    const dp = parseOdometer(l.dropoff_odometer);
+    if (pk !== null && dp !== null && dp < pk) {
+      issues[`${p}.dropoff_odometer`] =
+        "Drop-off odometer must be greater than or equal to pickup (mileage cannot be negative)";
     }
+
   });
   return issues;
 }
@@ -332,17 +369,28 @@ export type LegPayload = {
 };
 
 export function buildLegsPayload(d: DriverTripDraft): LegPayload[] {
-  return d.legs.map((l) => ({
-    leg_index: l.leg_index,
-    leg_date: l.leg_date,
-    pickup_time: l.pickup_time || null,
-    pickup_odometer: Number(l.pickup_odometer),
-    pickup_address: l.pickup_address,
-    dropoff_time: l.dropoff_time || null,
-    dropoff_odometer: Number(l.dropoff_odometer),
-    dropoff_address: l.dropoff_address,
-  }));
+  return d.legs.map((l, i) => {
+    const pickup = parseOdometer(l.pickup_odometer);
+    const dropoff = parseOdometer(l.dropoff_odometer);
+    // Hard guard: odometers are a mandatory part of the state billing record.
+    if (pickup === null || dropoff === null || dropoff < pickup) {
+      throw new Error(
+        `Leg ${i + 1}: pickup and drop-off odometer readings are required and drop-off cannot be lower than pickup.`,
+      );
+    }
+    return {
+      leg_index: l.leg_index,
+      leg_date: l.leg_date,
+      pickup_time: l.pickup_time || null,
+      pickup_odometer: pickup,
+      pickup_address: l.pickup_address,
+      dropoff_time: l.dropoff_time || null,
+      dropoff_odometer: dropoff,
+      dropoff_address: l.dropoff_address,
+    };
+  });
 }
+
 
 /** Exact input for `createNemtTripGroup`. */
 export function buildCreateTripPayload(d: DriverTripDraft) {

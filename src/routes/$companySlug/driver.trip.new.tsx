@@ -65,7 +65,9 @@ import {
   firstIssue,
   isDraftEmpty,
   loadDraft,
+  legMiles,
   nowHM,
+
   pushRecentAddress,
   readRecentAddresses,
   removeRiderSlot,
@@ -1080,29 +1082,40 @@ function NewNemtTripWizard() {
                 )}
                 {err(`leg${i}.dropoff_address`) && <InlineError message={err(`leg${i}.dropoff_address`)!} />}
 
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Pickup odometer">
-                    <OdometerInput
-                      value={leg.pickup_odometer}
-                      onChange={(v) => patch((d) => updateLegIn(d, i, { pickup_odometer: v }))}
-                      onPhoto={(f) => handleOdometerPhoto(i, "pickup_odometer", f)}
-                      detecting={!!detecting[`${i}-pickup_odometer`]}
-                    />
-                  </Field>
-                  <Field label="Drop-off odometer">
-                    <OdometerInput
-                      value={leg.dropoff_odometer}
-                      onChange={(v) => patch((d) => updateLegIn(d, i, { dropoff_odometer: v }))}
-                      onPhoto={(f) => handleOdometerPhoto(i, "dropoff_odometer", f)}
-                      detecting={!!detecting[`${i}-dropoff_odometer`]}
-                    />
-                  </Field>
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-primary">
+                    Odometer readings — required for billing
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Pickup odometer *">
+                      <OdometerInput
+                        value={leg.pickup_odometer}
+                        onChange={(v) => patch((d) => updateLegIn(d, i, { pickup_odometer: v }))}
+                        onPhoto={(f) => handleOdometerPhoto(i, "pickup_odometer", f)}
+                        detecting={!!detecting[`${i}-pickup_odometer`]}
+                      />
+                    </Field>
+                    <Field label="Drop-off odometer *">
+                      <OdometerInput
+                        value={leg.dropoff_odometer}
+                        onChange={(v) => patch((d) => updateLegIn(d, i, { dropoff_odometer: v }))}
+                        onPhoto={(f) => handleOdometerPhoto(i, "dropoff_odometer", f)}
+                        detecting={!!detecting[`${i}-dropoff_odometer`]}
+                      />
+                    </Field>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {legMiles(leg) === null
+                      ? "Type both readings (or snap a photo). Drop-off must be ≥ pickup."
+                      : `Billable mileage: ${legMiles(leg)!.toFixed(1)} mi`}
+                  </div>
                 </div>
                 {(err(`leg${i}.pickup_odometer`) || err(`leg${i}.dropoff_odometer`)) && (
                   <InlineError
                     message={(err(`leg${i}.pickup_odometer`) || err(`leg${i}.dropoff_odometer`))!}
                   />
                 )}
+
 
                 <Field label="Drop-off time">
                   <div className="flex gap-2">
@@ -1267,10 +1280,13 @@ function NewNemtTripWizard() {
                   <Row label="Date" value={`${l.leg_date} ${l.pickup_time}`} />
                   <Row label="From" value={l.pickup_address} />
                   <Row label="To" value={l.dropoff_address} />
+                  <Row label="Pickup odometer" value={l.pickup_odometer || "— missing"} />
+                  <Row label="Drop-off odometer" value={l.dropoff_odometer || "— missing"} />
                   <Row
                     label="Miles"
-                    value={`${Math.max(0, Number(l.dropoff_odometer) - Number(l.pickup_odometer)).toFixed(1)} (${l.pickup_odometer} → ${l.dropoff_odometer})`}
+                    value={legMiles(l) === null ? "Check odometer readings" : `${legMiles(l)!.toFixed(1)} mi`}
                   />
+
                 </div>
               ))}
             </SummaryCard>
