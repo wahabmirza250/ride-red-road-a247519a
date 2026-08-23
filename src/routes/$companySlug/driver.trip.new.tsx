@@ -62,6 +62,11 @@ import {
 } from "@/lib/driverTripVerify";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import {
+  saveDriverTripDraft,
+  getDriverTripDraft,
+  closeDriverTripDraft,
+} from "@/lib/driverTripDrafts.functions";
+import {
   STEPS,
   STEP_LABELS,
   addRiderSlot as addSlot,
@@ -70,11 +75,14 @@ import {
   clearDraft,
   completedSteps,
   createEmptyDraft,
+  draftLabel,
   draftStorageKey,
   firstIssue,
   isDraftEmpty,
+  isDraftSavable,
   loadDraft,
   legMiles,
+  missingForCompletion,
   nowHM,
 
   pushRecentAddress,
@@ -84,7 +92,9 @@ import {
   today,
   updateLeg as updateLegIn,
   updateSlot as updateSlotIn,
+  validateSaveStage,
   validateStep,
+  validateStepForNavigation,
   withTripKind,
   type DraftRider,
   type DriverTripDraft,
@@ -94,9 +104,11 @@ import {
 export const Route = createFileRoute("/$companySlug/driver/trip/new")({
   validateSearch: (search) => ({
     tripId: typeof search.tripId === "string" ? search.tripId : undefined,
+    draftId: typeof (search as any).draftId === "string" ? ((search as any).draftId as string) : undefined,
   }),
   component: NewNemtTripWizard,
 });
+
 
 type SearchHit = DraftRider & { __source?: "passenger"; last_4_ssn?: string | null };
 
@@ -115,7 +127,7 @@ const TRIP_KINDS = [
 ] as const;
 
 function NewNemtTripWizard() {
-  const { tripId } = Route.useSearch();
+  const { tripId, draftId } = Route.useSearch();
   const { user, isDriver } = useAuth();
   const companySlug = useCompanySlug();
   const navigate = useAppNavigate();
@@ -126,6 +138,8 @@ function NewNemtTripWizard() {
   const [draftRestored, setDraftRestored] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [online, setOnline] = useState(true);
+  const [savingServerDraft, setSavingServerDraft] = useState(false);
+  const [serverSavedAt, setServerSavedAt] = useState<string | null>(null);
 
   const storageKey = useMemo(
     () => draftStorageKey(companySlug, user?.id ?? null),
@@ -135,13 +149,51 @@ function NewNemtTripWizard() {
   /* -------------------------- draft restore + autosave ------------------- */
   useEffect(() => {
     if (typeof window === "undefined" || !user?.id) return;
+    if (draftId) {
+      // Server draft is the source of truth when resuming a saved trip.
+      setHydrated(true);
+      return;
+    }
     const existing = loadDraft(window.localStorage, storageKey);
     if (existing && !isDraftEmpty(existing)) {
       setDraft(existing);
       setDraftRestored(true);
     }
     setHydrated(true);
-  }, [storageKey, user?.id]);
+  }, [storageKey, user?.id, draftId]);
+
+  /* ------------------------ resume a saved server draft ------------------ */
+  const fetchServerDraft = useServerFn(getDriverTripDraft);
+  const [resumeLoaded, setResumeLoaded] = useState(false);
+  useEffect(() => {
+    if (!draftId || resumeLoaded || !user?.id) return;
+    let cancelled = false;
+    fetchServerDraft({ data: { id: draftId } })
+      .then((row: any) => {
+        if (cancelled) return;
+        setResumeLoaded(true);
+        if (!row?.payload) return toast.error("That saved trip is no longer available");
+        const base = createEmptyDraft();
+        const restored: DriverTripDraft = {
+          ...base,
+          ...(row.payload as DriverTripDraft),
+          version: base.version,
+          server_draft_id: row.id,
+        };
+        setDraft(restored);
+        setServerSavedAt(row.updated_at ?? null);
+        setStep("trip");
+        toast.success("Saved trip loaded — finish the missing details");
+      })
+      .catch((e) => {
+        setResumeLoaded(true);
+        toast.error(e instanceof Error ? e.message : "Could not load the saved trip");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [draftId, fetchServerDraft, resumeLoaded, user?.id]);
+
 
   useEffect(() => {
     if (!hydrated || typeof window === "undefined") return;
@@ -528,9 +580,53 @@ function NewNemtTripWizard() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
 
-  const issues = useMemo(() => validateStep(step, draft), [draft, step]);
+  /* Navigation only asks for data that exists at this point in the trip. The
+     completion data (drop-off odometer/time, signatures) is enforced by the
+     final submit validation. */
+  const issues = useMemo(() => validateStepForNavigation(step, draft), [draft, step]);
   const done = useMemo(() => completedSteps(draft), [draft]);
   const stepIndex = STEPS.indexOf(step);
+  const missing = useMemo(() => missingForCompletion(draft), [draft]);
+  const canSave = useMemo(() => isDraftSavable(draft), [draft]);
+
+  /* ------------------------ save & finish later -------------------------- */
+  const persistDraft = useServerFn(saveDriverTripDraft);
+  const closeDraft = useServerFn(closeDriverTripDraft);
+
+  async function handleSaveForLater(opts: { leave?: boolean } = {}) {
+    const saveIssues = validateSaveStage(draft);
+    if (Object.keys(saveIssues).length > 0) {
+      setShowErrors(true);
+      return toast.error(firstIssue(saveIssues)!);
+    }
+    if (!online) return toast.error("You're offline — the trip is kept on this phone until you reconnect");
+    setSavingServerDraft(true);
+    try {
+      // Signatures are large; keep them local and out of the server draft.
+      const payload: DriverTripDraft = {
+        ...draft,
+        rider_slots: draft.rider_slots.map((s) => ({ ...s, signature_data_url: null })),
+      };
+      const res: any = await persistDraft({
+        data: {
+          id: draft.server_draft_id,
+          label: draftLabel(draft),
+          rider_id: draft.rider_slots[0]?.rider.id ?? null,
+          assigned_trip_id: draft.assigned_trip_id,
+          payload: payload as any,
+        },
+      });
+      setDraft((d) => ({ ...d, server_draft_id: res.id }));
+      setServerSavedAt(new Date().toISOString());
+      toast.success("Trip saved — finish it later from your dashboard");
+      if (opts.leave) navigate({ to: "/driver" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save the trip");
+    } finally {
+      setSavingServerDraft(false);
+    }
+  }
+
 
   function goNext() {
     if (Object.keys(issues).length > 0) {
@@ -629,6 +725,10 @@ function NewNemtTripWizard() {
       }
 
       if (typeof window !== "undefined") clearDraft(window.localStorage, storageKey);
+      if (draft.server_draft_id) {
+        await closeDraft({ data: { id: draft.server_draft_id, status: "submitted" } }).catch(() => {});
+      }
+
       toast.success(
         draft.rider_slots.length === 1
           ? "Trip sent to billing"
@@ -764,9 +864,10 @@ function NewNemtTripWizard() {
   const err = (key: string) => (showErrors ? issues[key] : undefined);
 
   return (
-    <div className="driver-cta-content-pad mx-auto max-w-lg">
-      {/* Sticky header + progress */}
-      <div className="sticky top-0 z-20 border-b bg-background/95 px-4 pb-3 pt-4 backdrop-blur">
+    <div className="driver-cta-content-pad mx-auto flex max-w-lg flex-col">
+      {/* Sticky step header + progress — parks under the app top bar */}
+      <div className="driver-step-header -mx-4 border-b bg-background/95 px-4 pb-3 pt-3 backdrop-blur">
+
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -803,8 +904,22 @@ function NewNemtTripWizard() {
         </div>
       </div>
 
-      <div className="space-y-4 p-4">
+      <div className="flex-1 space-y-4 py-4">
+        {(draft.server_draft_id || serverSavedAt) && (
+          <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="min-w-0 flex-1">
+              <div className="font-medium text-foreground">Saved trip — in progress</div>
+              <div className="text-muted-foreground">
+                {missing.length === 0
+                  ? "Everything is filled in. You can submit to billing."
+                  : `Still needed: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? "…" : ""}`}
+              </div>
+            </div>
+          </div>
+        )}
         {draftRestored && (
+
           <div className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-3">
             <History className="h-4 w-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1 text-xs">
@@ -1100,6 +1215,10 @@ function NewNemtTripWizard() {
                   <div className="text-xs font-semibold uppercase tracking-wide text-primary">
                     Odometer readings — required for billing
                   </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Enter the pickup reading now; add the drop-off reading when the trip ends.
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <Field label="Pickup odometer *">
                       <OdometerInput
@@ -1358,25 +1477,46 @@ function NewNemtTripWizard() {
         )}
       </div>
 
-      {/* Sticky primary CTA */}
-      <div className="driver-cta-bar z-20 border-t bg-background/95 px-3 pt-3 backdrop-blur">
-        <div className="mx-auto max-w-lg">
+      {/* Sticky primary CTA — sits inside the scroll flow, above the nav pill */}
+      <div className="driver-cta-bar -mx-4 border-t bg-background/95 px-4 pt-3 backdrop-blur">
+        <div className="mx-auto max-w-lg space-y-2">
           {submitStage && (
-            <div className="mb-2 text-center text-xs text-muted-foreground">{submitStage}</div>
+            <div className="text-center text-xs text-muted-foreground">{submitStage}</div>
           )}
           {step === "review" ? (
-            <Button className="h-14 w-full text-base" onClick={handleSubmit} disabled={submitting || !online}>
-              {submitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-              {submitting ? "Sending…" : "Submit to billing"}
-            </Button>
+            <>
+              {missing.length > 0 && (
+                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+                  Still needed before billing: {missing.join(", ")}
+                </div>
+              )}
+              <Button
+                className="h-14 w-full text-base"
+                onClick={handleSubmit}
+                disabled={submitting || !online || missing.length > 0}
+              >
+                {submitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                {submitting ? "Sending…" : "Submit to billing"}
+              </Button>
+            </>
           ) : (
             <Button className="h-14 w-full text-base" onClick={goNext}>
               Continue
               <ChevronRight className="ml-1 h-5 w-5" />
             </Button>
           )}
+          <Button
+            variant="outline"
+            className="h-12 w-full text-sm"
+            onClick={() => handleSaveForLater({ leave: true })}
+            disabled={savingServerDraft || !canSave}
+          >
+            {savingServerDraft && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {draft.server_draft_id ? "Save & finish later" : "Save trip & finish later"}
+          </Button>
         </div>
       </div>
+
 
       <PdfPreviewDialog
         url={pdfPreview?.url ?? null}

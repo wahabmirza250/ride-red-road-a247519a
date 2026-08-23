@@ -1235,6 +1235,53 @@ export type Database = {
           },
         ]
       }
+      driver_trip_drafts: {
+        Row: {
+          assigned_trip_id: string | null
+          company_id: string | null
+          created_at: string
+          driver_id: string
+          id: string
+          label: string | null
+          payload: Json
+          rider_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_trip_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          label?: string | null
+          payload?: Json
+          rider_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_trip_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          label?: string | null
+          payload?: Json
+          rider_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_trip_drafts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           company_id: string | null

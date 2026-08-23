@@ -50,7 +50,10 @@ export type DriverTripDraft = {
   rider_slots: DraftRiderSlot[];
   legs: DraftLeg[];
   assigned_trip_id: string | null;
+  /** Server-side in-progress trip row id, once the driver taps "Save trip". */
+  server_draft_id: string | null;
 };
+
 
 export const DRAFT_VERSION = 2 as const;
 export const DRAFT_TTL_MS = 1000 * 60 * 60 * 24 * 3; // 3 days
@@ -97,6 +100,8 @@ export function createEmptyDraft(): DriverTripDraft {
     rider_slots: [],
     legs: [emptyLeg(1)],
     assigned_trip_id: null,
+    server_draft_id: null,
+
   };
 }
 
@@ -315,6 +320,77 @@ export function validateSignStep(d: DriverTripDraft): FieldIssues {
   return issues;
 }
 
+/* ------------------- stage 1: start / save an in-progress trip ------------- */
+
+/**
+ * Fields that genuinely exist when the driver STARTS the trip. Drop-off
+ * odometer/time and signatures are deliberately NOT required here — that data
+ * does not exist yet in the field.
+ */
+export function validateTripStartStep(d: DriverTripDraft): FieldIssues {
+  const issues: FieldIssues = {};
+  const l = d.legs[0];
+  if (!l) return { "leg0.pickup_address": "Pickup address is required" };
+  if (!l.leg_date) issues["leg0.leg_date"] = "Pick the trip date";
+  if (!l.pickup_time.trim()) issues["leg0.pickup_time"] = "Pickup time is required";
+  if (!l.pickup_address.trim()) issues["leg0.pickup_address"] = "Pickup address is required";
+  if (!l.dropoff_address.trim()) issues["leg0.dropoff_address"] = "Destination is required";
+  const raw = String(l.pickup_odometer ?? "").trim();
+  if (!raw) issues["leg0.pickup_odometer"] = "Pickup odometer is required at trip start";
+  else if (parseOdometer(raw) === null)
+    issues["leg0.pickup_odometer"] = "Pickup odometer must be a whole number of miles";
+  return issues;
+}
+
+/** Everything needed before an in-progress trip may be saved to the server. */
+export function validateSaveStage(d: DriverTripDraft): FieldIssues {
+  return {
+    ...validatePassengerStep(d),
+    ...validateTripStartStep(d),
+    ...validateDetailsStep(d),
+  };
+}
+
+export function isDraftSavable(d: DriverTripDraft): boolean {
+  return Object.keys(validateSaveStage(d)).length === 0;
+}
+
+/** Human-readable list of what still blocks final submission to billing. */
+export function missingForCompletion(d: DriverTripDraft): string[] {
+  const missing: string[] = [];
+  d.legs.forEach((l, i) => {
+    const legName = d.legs.length > 1 ? (i === 0 ? "Outbound" : "Return") : "Trip";
+    if (!l.pickup_address.trim()) missing.push(`${legName}: pickup address`);
+    if (!l.dropoff_address.trim()) missing.push(`${legName}: drop-off address`);
+    if (parseOdometer(l.pickup_odometer) === null) missing.push(`${legName}: pickup odometer`);
+    if (parseOdometer(l.dropoff_odometer) === null) missing.push(`${legName}: drop-off odometer`);
+    else if (legMiles(l) === null) missing.push(`${legName}: drop-off odometer is lower than pickup`);
+    if (!l.dropoff_time.trim()) missing.push(`${legName}: drop-off time`);
+  });
+  if (!d.vehicle_type) missing.push("Vehicle type");
+  if (!d.plate.trim()) missing.push("License plate");
+  if (d.rider_slots.length === 0) missing.push("Passenger");
+  d.rider_slots.forEach((s) => {
+    if (!s.signature_data_url) missing.push(`Signature from ${s.rider.full_name}`);
+    else if (!s.signer_name.trim()) missing.push(`Signer name for ${s.rider.full_name}`);
+  });
+  return missing;
+}
+
+/** Label for the resume list on the driver dashboard/history. */
+export function draftStatusLabel(d: DriverTripDraft): "Ready to submit" | "Needs completion" {
+  return isDraftSubmittable(d) ? "Ready to submit" : "Needs completion";
+}
+
+/** Short summary used as the saved-trip title. */
+export function draftLabel(d: DriverTripDraft): string {
+  const who = d.rider_slots[0]?.rider.full_name ?? "Unnamed passenger";
+  const l = d.legs[0];
+  const where = l?.dropoff_address ? ` → ${l.dropoff_address}` : "";
+  return `${who}${where}`.slice(0, 160);
+}
+
+
 export function validateStep(step: Step, d: DriverTripDraft): FieldIssues {
   switch (step) {
     case "passenger":
@@ -335,7 +411,24 @@ export function validateStep(step: Step, d: DriverTripDraft): FieldIssues {
   }
 }
 
+/**
+ * Wizard navigation rules. Only data that exists at that moment in the field is
+ * required to move forward; completion data (drop-off odometer/time,
+ * signatures) is enforced by `validateStep("review", …)` at final submit.
+ */
+export function validateStepForNavigation(step: Step, d: DriverTripDraft): FieldIssues {
+  switch (step) {
+    case "trip":
+      return validateTripStartStep(d);
+    case "sign":
+      return {};
+    default:
+      return validateStep(step, d);
+  }
+}
+
 export function firstIssue(issues: FieldIssues): string | null {
+
   const values = Object.values(issues);
   return values.length > 0 ? values[0] : null;
 }

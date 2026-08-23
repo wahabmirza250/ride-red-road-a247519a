@@ -18,12 +18,11 @@ describe("driver bottom chrome offsets", () => {
     expect(css).toMatch(/--driver-nav-offset:[\s\S]*var\(--driver-safe-bottom\)/);
   });
 
-  it("positions the CTA bar above the nav and pads content below both", () => {
+  it("keeps the CTA sticky above the nav and pads the shell below it", () => {
+    expect(css).toMatch(/\.driver-cta-bar\s*{[\s\S]*position:\s*sticky/);
     expect(css).toMatch(/\.driver-cta-bar\s*{[\s\S]*bottom:\s*var\(--driver-nav-offset\)/);
-    expect(css).toMatch(
-      /\.driver-cta-content-pad\s*{[\s\S]*calc\(var\(--driver-nav-offset\) \+ 6\.5rem\)/,
-    );
     expect(css).toMatch(/\.driver-nav-pad\s*{[\s\S]*calc\(var\(--driver-nav-offset\) \+ 1rem\)/);
+    expect(css).toMatch(/\.driver-step-header\s*{[\s\S]*position:\s*sticky/);
   });
 
   it("driver layout uses the safe-area nav position, not a raw bottom-3", () => {
@@ -36,7 +35,8 @@ describe("driver bottom chrome offsets", () => {
   it("trip wizard uses shared CTA classes instead of bottom-0 fixed bars", () => {
     const wizard = read("src/routes/$companySlug/driver.trip.new.tsx");
     expect(wizard.match(/driver-cta-bar/g)?.length).toBe(2);
-    expect(wizard.match(/driver-cta-content-pad/g)?.length).toBe(2);
+    expect(wizard).toContain("driver-step-header");
     expect(wizard).not.toMatch(/fixed inset-x-0 bottom-0/);
   });
 });
+
