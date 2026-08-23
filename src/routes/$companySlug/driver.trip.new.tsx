@@ -1267,10 +1267,13 @@ function NewNemtTripWizard() {
                   <Row label="Date" value={`${l.leg_date} ${l.pickup_time}`} />
                   <Row label="From" value={l.pickup_address} />
                   <Row label="To" value={l.dropoff_address} />
+                  <Row label="Pickup odometer" value={l.pickup_odometer || "— missing"} />
+                  <Row label="Drop-off odometer" value={l.dropoff_odometer || "— missing"} />
                   <Row
                     label="Miles"
-                    value={`${Math.max(0, Number(l.dropoff_odometer) - Number(l.pickup_odometer)).toFixed(1)} (${l.pickup_odometer} → ${l.dropoff_odometer})`}
+                    value={legMiles(l) === null ? "Check odometer readings" : `${legMiles(l)!.toFixed(1)} mi`}
                   />
+
                 </div>
               ))}
             </SummaryCard>
