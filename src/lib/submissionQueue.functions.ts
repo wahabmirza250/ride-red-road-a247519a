@@ -21,7 +21,7 @@ export type SubmissionQueueState = {
   paused: boolean;
   pause_reason: string | null;
   last_run_at: string | null;
-  last_result: Record<string, unknown>;
+  last_result: Record<string, string | number | boolean | null>;
   limits: {
     per_company: number;
     global: number;
@@ -73,7 +73,7 @@ export const getSubmissionQueueState = createServerFn({ method: "POST" })
       paused: Boolean(state?.paused),
       pause_reason: state?.pause_reason ?? null,
       last_run_at: state?.last_run_at ?? null,
-      last_result: (state?.last_result ?? {}) as Record<string, unknown>,
+      last_result: (state?.last_result ?? {}) as Record<string, string | number | boolean | null>,
       limits: {
         per_company: mod.maxSubmitPerCompany(),
         global: mod.maxSubmitGlobal(),
