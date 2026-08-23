@@ -55,7 +55,7 @@ function DriverLayout() {
 
 
   return (
-    <div className="fleet-shell surface-yellow min-h-screen pb-24">
+    <div className="fleet-shell surface-yellow driver-nav-pad min-h-screen">
       <header className="fleet-topbar sticky top-0 z-30 flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
