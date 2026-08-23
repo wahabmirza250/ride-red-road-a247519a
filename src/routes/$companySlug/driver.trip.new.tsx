@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useAppNavigate, useCompanySlug } from "@/lib/appLink";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseBrowser";
@@ -49,7 +49,6 @@ import { getRiderIdentifierForPdf } from "@/lib/rider.functions";
 import {
   checkVehicleRates,
   verifyRiderIdentity,
-
 } from "@/lib/manualTripSafety.functions";
 import {
   beginVerify,
