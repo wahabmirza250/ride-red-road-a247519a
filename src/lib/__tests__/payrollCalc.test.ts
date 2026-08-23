@@ -14,11 +14,12 @@ const FROM = "2026-01-01T00:00:00.000Z";
 const TO = "2026-01-14T23:59:59.999Z";
 
 const shift = (o: Partial<Parameters<typeof payableHours>[0][number]> = {}) => ({
-  id: o.id ?? crypto.randomUUID(),
+  id: crypto.randomUUID(),
   driver_id: "d1",
-  clock_in_at: o.clock_in_at ?? "2026-01-05T09:00:00.000Z",
-  clock_out_at: o.clock_out_at ?? "2026-01-05T17:00:00.000Z",
-  payout_id: o.payout_id ?? null,
+  clock_in_at: "2026-01-05T09:00:00.000Z",
+  clock_out_at: "2026-01-05T17:00:00.000Z" as string | null,
+  payout_id: null as string | null,
+  ...o,
 });
 
 describe("shift hours", () => {
