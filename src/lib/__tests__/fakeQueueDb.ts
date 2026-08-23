@@ -170,7 +170,12 @@ export function makeFakeDb(records: FakeRecord[], state?: Partial<QueueState>) {
 
       const active = new Map<string, number>();
       for (const r of records) {
-        if (r.status !== "submitting" || !r.medicaid_trips?.robot_job_id) continue;
+        const live = r.status === "submitting" && r.medicaid_trips?.robot_job_id;
+        const leasedElsewhere =
+          r.status === "queued" &&
+          r.submit_locked_until &&
+          new Date(r.submit_locked_until).getTime() > now;
+        if (!live && !leasedElsewhere) continue;
         const k = String(r.company_id);
         active.set(k, (active.get(k) ?? 0) + 1);
       }
