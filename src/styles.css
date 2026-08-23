@@ -94,6 +94,17 @@
 :root {
   --radius: 0.875rem;
 
+  /* Driver app bottom chrome — shared by the floating nav and any fixed CTA bar */
+  --driver-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --driver-nav-height: 3.5rem; /* pill nav content height */
+  --driver-nav-gap: 0.75rem; /* nav float distance from the screen edge */
+  /* Distance from viewport bottom to the top of the nav pill */
+  --driver-nav-offset: calc(
+    var(--driver-safe-bottom) + var(--driver-nav-gap) + var(--driver-nav-height)
+  );
+
+
+
   /* Surfaces — warm off-white, premium editorial */
   --background: oklch(0.985 0.004 60);
   --foreground: oklch(0.16 0.02 260);
