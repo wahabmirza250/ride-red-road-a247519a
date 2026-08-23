@@ -62,6 +62,11 @@ import {
 } from "@/lib/driverTripVerify";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import {
+  saveDriverTripDraft,
+  getDriverTripDraft,
+  closeDriverTripDraft,
+} from "@/lib/driverTripDrafts.functions";
+import {
   STEPS,
   STEP_LABELS,
   addRiderSlot as addSlot,
@@ -70,11 +75,14 @@ import {
   clearDraft,
   completedSteps,
   createEmptyDraft,
+  draftLabel,
   draftStorageKey,
   firstIssue,
   isDraftEmpty,
+  isDraftSavable,
   loadDraft,
   legMiles,
+  missingForCompletion,
   nowHM,
 
   pushRecentAddress,
@@ -84,7 +92,9 @@ import {
   today,
   updateLeg as updateLegIn,
   updateSlot as updateSlotIn,
+  validateSaveStage,
   validateStep,
+  validateStepForNavigation,
   withTripKind,
   type DraftRider,
   type DriverTripDraft,
@@ -94,9 +104,11 @@ import {
 export const Route = createFileRoute("/$companySlug/driver/trip/new")({
   validateSearch: (search) => ({
     tripId: typeof search.tripId === "string" ? search.tripId : undefined,
+    draftId: typeof (search as any).draftId === "string" ? ((search as any).draftId as string) : undefined,
   }),
   component: NewNemtTripWizard,
 });
+
 
 type SearchHit = DraftRider & { __source?: "passenger"; last_4_ssn?: string | null };
 
