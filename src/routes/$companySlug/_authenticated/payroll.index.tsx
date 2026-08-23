@@ -28,7 +28,7 @@ import {
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { PayPlanSettingsDialog } from "@/components/payroll/PayPlanSettingsDialog";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
-import { setDriverHourlyRate, setDriverPayType } from "@/lib/driverPay.functions";
+import { saveDriverPayPlan } from "@/lib/payPlanAdmin.functions";
 import {
   addManualHours,
   clearDriverPay,
@@ -789,8 +789,9 @@ function DriverDetailDialog({
   onAddHours: (r: PayrollRow) => void;
   onChanged: () => void;
 }) {
-  const rateFn = useServerFn(setDriverHourlyRate);
-  const typeFn = useServerFn(setDriverPayType);
+  // Rate edits go through the pay-plan model so the driver's effective plan
+  // and the legacy driver_pay row always agree.
+  const planFn = useServerFn(saveDriverPayPlan);
   const [rate, setRate] = useState("");
 
   useEffect(() => {
@@ -799,7 +800,7 @@ function DriverDetailDialog({
 
   const saveRate = useMutation({
     mutationFn: () =>
-      rateFn({ data: { driver_id: row!.driver_id, hourly_rate: Number(rate) } }),
+      planFn({ data: { driver_id: row!.driver_id, hourly_rate: Number(rate) } }),
     onSuccess: () => {
       toast.success("Hourly rate updated");
       onChanged();
@@ -809,7 +810,7 @@ function DriverDetailDialog({
 
   const switchType = useMutation({
     mutationFn: () =>
-      typeFn({ data: { driver_id: row!.driver_id, pay_type: "commission" } }),
+      planFn({ data: { driver_id: row!.driver_id, plan: "commission" } }),
     onSuccess: () => {
       toast.success("Moved to % of paid claims");
       onChanged();
