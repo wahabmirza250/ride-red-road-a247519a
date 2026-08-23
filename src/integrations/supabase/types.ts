@@ -1504,6 +1504,8 @@ export type Database = {
           robot_last_message: string | null
           robot_last_status: string | null
           robot_pass: string | null
+          robot_worker_id: string | null
+          robot_worker_url: string | null
           signature_name: string | null
           signature_path: string | null
           signed_by_escort: boolean | null
@@ -1564,6 +1566,8 @@ export type Database = {
           robot_last_message?: string | null
           robot_last_status?: string | null
           robot_pass?: string | null
+          robot_worker_id?: string | null
+          robot_worker_url?: string | null
           signature_name?: string | null
           signature_path?: string | null
           signed_by_escort?: boolean | null
@@ -1624,6 +1628,8 @@ export type Database = {
           robot_last_message?: string | null
           robot_last_status?: string | null
           robot_pass?: string | null
+          robot_worker_id?: string | null
+          robot_worker_url?: string | null
           signature_name?: string | null
           signature_path?: string | null
           signed_by_escort?: boolean | null
@@ -2229,6 +2235,48 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_active?: boolean
+        }
+        Relationships: []
+      }
+      robot_workers: {
+        Row: {
+          base_url: string
+          created_at: string
+          enabled: boolean
+          failure_streak: number
+          id: string
+          last_health_error: string | null
+          last_health_ok_at: string | null
+          max_active_jobs: number
+          notes: string | null
+          unhealthy_until: string | null
+          updated_at: string
+        }
+        Insert: {
+          base_url: string
+          created_at?: string
+          enabled?: boolean
+          failure_streak?: number
+          id: string
+          last_health_error?: string | null
+          last_health_ok_at?: string | null
+          max_active_jobs?: number
+          notes?: string | null
+          unhealthy_until?: string | null
+          updated_at?: string
+        }
+        Update: {
+          base_url?: string
+          created_at?: string
+          enabled?: boolean
+          failure_streak?: number
+          id?: string
+          last_health_error?: string | null
+          last_health_ok_at?: string | null
+          max_active_jobs?: number
+          notes?: string | null
+          unhealthy_until?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -3123,6 +3171,16 @@ export type Database = {
         }[]
       }
       owner_unscoped: { Args: never; Returns: boolean }
+      record_robot_worker_health: {
+        Args: {
+          _base_url: string
+          _cooldown_seconds?: number
+          _error?: string
+          _id: string
+          _ok: boolean
+        }
+        Returns: undefined
+      }
       release_stale_claim_status_locks: {
         Args: { _grace_seconds?: number }
         Returns: number

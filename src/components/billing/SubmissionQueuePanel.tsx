@@ -11,6 +11,7 @@ import {
   PauseCircle,
   PlayCircle,
   Send,
+  Server,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,7 @@ export function SubmissionQueuePanel() {
   const health = deriveQueueHealth(state.data);
   const t = totalsFromState(state.data);
   const limits = state.data?.limits;
+  const fleet = state.data?.fleet;
 
   const tone =
     health.level === "paused"
@@ -175,7 +177,44 @@ export function SubmissionQueuePanel() {
                   : "—"
               }
             />
+            {fleet && (
+              <>
+                <Detail
+                  label="Robot workers"
+                  value={`${fleet.healthy}/${fleet.total} healthy${fleet.disabled ? " · kill switch on" : ""}`}
+                />
+                <Detail
+                  label="Fleet capacity"
+                  value={`${fleet.active_jobs} active · ${fleet.capacity} max (limit ${fleet.effective_global_limit})`}
+                />
+                <Detail label="Degraded workers" value={String(fleet.degraded)} />
+              </>
+            )}
           </div>
+
+          {fleet && fleet.workers.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {fleet.workers.map((w) => (
+                <span
+                  key={w.id}
+                  title={w.last_health_error ?? (w.healthy ? "Healthy" : "Disabled")}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                    w.healthy
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+                  )}
+                >
+                  <Server className="h-3 w-3" />
+                  {w.id}
+                  <span className="tabular-nums opacity-80">
+                    {w.active_jobs}/{w.max_active_jobs}
+                  </span>
+                  {!w.enabled && <span className="opacity-80">off</span>}
+                </span>
+              ))}
+            </div>
+          )}
 
           {health.issues.length > 0 && (
             <ul className="space-y-1 rounded-xl bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">

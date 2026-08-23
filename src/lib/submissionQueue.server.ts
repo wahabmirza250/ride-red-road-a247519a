@@ -33,14 +33,12 @@ import {
   ROBOT_JOB_STALE_MS,
 } from "@/lib/robotQueue.server";
 
+import { loadFleet, effectiveGlobalLimit } from "@/lib/robotFleet.server";
+
 /* ---------------- Env-backed, clamped scaling limits ---------------- */
 
-export function envInt(name: string, fallback: number, min: number, max: number): number {
-  const raw = process.env[name];
-  const n = raw == null || String(raw).trim() === "" ? NaN : Number(raw);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(max, Math.max(min, Math.floor(n)));
-}
+export { envInt } from "@/lib/submissionQueueEnv";
+import { envInt } from "@/lib/submissionQueueEnv";
 
 /** Max concurrent real portal submissions for ONE company. Default keeps the
  *  proven production throughput of 8 live portal sessions per provider. */
@@ -213,12 +211,18 @@ export type SubmissionLease = {
 
 export async function leaseSubmissionJobs(
   supabase: any,
-  opts: { worker: string; companyId?: string | null; recordIds?: string[] | null } = {
+  opts: {
+    worker: string;
+    companyId?: string | null;
+    recordIds?: string[] | null;
+    /** Fleet-aware override of the global cap (aggregate worker capacity). */
+    globalLimit?: number | null;
+  } = {
     worker: "worker",
   },
 ): Promise<SubmissionLease[]> {
   const { data, error } = await supabase.rpc("lease_submission_jobs", {
-    _global_limit: maxSubmitGlobal(),
+    _global_limit: Math.max(1, Math.floor(opts.globalLimit ?? maxSubmitGlobal())),
     _per_company_limit: maxSubmitPerCompany(),
     _lease_seconds: submitLeaseSeconds(),
     _worker: opts.worker,
@@ -308,15 +312,42 @@ export async function dispatchLeasedSubmissions(
   supabase: any,
   actorId: string | null,
   opts: { companyId?: string | null; worker?: string; recordIds?: string[] | null } = {},
-): Promise<{ leased: number; started: number; paced: number; retried: number; failed: number; startedIds: string[] }> {
+): Promise<{
+  leased: number;
+  started: number;
+  paced: number;
+  retried: number;
+  failed: number;
+  startedIds: string[];
+  globalLimit?: number;
+}> {
   const worker = opts.worker ?? `w-${Math.random().toString(36).slice(2, 10)}`;
+
+  // FLEET-AWARE GLOBAL CAP. With one worker this is exactly today's
+  // SUBMIT_MAX_GLOBAL; with several healthy workers it grows to the aggregate
+  // capacity, under a hard ceiling. A dead/disabled fleet leases nothing.
+  const fleet = await loadFleet(supabase);
+  const globalLimit = effectiveGlobalLimit(fleet, maxSubmitGlobal());
+  if (globalLimit <= 0) {
+    return {
+      leased: 0,
+      started: 0,
+      paced: 0,
+      retried: 0,
+      failed: 0,
+      startedIds: [],
+      globalLimit: 0,
+    };
+  }
+
   const leases = await leaseSubmissionJobs(supabase, {
     worker,
     companyId: opts.companyId ?? null,
     recordIds: opts.recordIds ?? null,
+    globalLimit,
   });
   if (leases.length === 0) {
-    return { leased: 0, started: 0, paced: 0, retried: 0, failed: 0, startedIds: [] };
+    return { leased: 0, started: 0, paced: 0, retried: 0, failed: 0, startedIds: [], globalLimit };
   }
 
   // Same-passenger pacing: the portal chokes when several sessions touch one
@@ -327,6 +358,10 @@ export async function dispatchLeasedSubmissions(
     if (!a.riderKey) continue;
     riderLive.set(a.riderKey, (riderLive.get(a.riderKey) ?? 0) + 1);
   }
+
+  // One fleet/load snapshot for the whole batch — routing is then O(1)/bill.
+  const { loadWorkerActiveCounts } = await import("@/lib/robotFleet.server");
+  const fleetContext = { fleet, load: await loadWorkerActiveCounts(supabase) };
 
   const { data: rows, error } = await supabase
     .from("billing_records")
@@ -388,6 +423,9 @@ export async function dispatchLeasedSubmissions(
           providerUserId: provider,
           // Queued work is always a real one-shot submission — unchanged.
           mode: "full",
+          // Tenant used only to pick a robot worker; payload is untouched.
+          companyId: rec.company_id ?? rec.medicaid_trips?.company_id ?? null,
+          fleetContext,
         });
         await supabase
           .from("billing_records")
@@ -425,6 +463,7 @@ export async function dispatchLeasedSubmissions(
     retried,
     failed,
     startedIds,
+    globalLimit,
   };
 }
 
@@ -465,6 +504,18 @@ export async function runSubmissionQueueTick(
 
   const staleLocksReleased = await releaseStaleSubmissionLocks(supabase);
   const recovered = await recoverOrphanedSubmissions(supabase, opts.companyId ?? null);
+
+  // Read-only fleet liveness. Only meaningful with a real multi-worker fleet,
+  // and it never touches HCPF — just the automation service's own /health.
+  try {
+    const declared = await loadFleet(supabase);
+    if (declared.length > 1) {
+      const { probeFleet } = await import("@/lib/robotFleet.server");
+      await probeFleet(supabase);
+    }
+  } catch {
+    /* health probing must never break a tick */
+  }
 
   // Reconciliation stays on the proven path so claim ids/statuses populate
   // exactly as today and feed the read-only status-check queue.

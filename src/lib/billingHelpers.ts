@@ -317,7 +317,10 @@ export async function startRobotSubmission(
      * "debug_confirm_page" = diagnostic: fill + screenshot, never submits.
      */
     mode?: "capture" | "submit" | "full" | "debug_confirm_page";
-
+    /** Tenant used for deterministic robot-worker affinity. */
+    companyId?: string | null;
+    /** Batch-level fleet snapshot (avoids one registry read per bill). */
+    fleetContext?: import("@/lib/robotFleet.server").FleetContext | null;
   },
 ) {
   const { billingRecordId, trip, providerUserId } = args;
@@ -572,15 +575,24 @@ export async function startRobotSubmission(
 
   // SINGLE NETWORK BOUNDARY. In SUBMISSION_TEST_MODE the adapter answers from
   // an in-process mock and no request can reach the real portal automation.
-  const { postSubmitClaim } = await import("@/lib/robotAdapter.server");
-  const returnedJobId: string = await postSubmitClaim(payload, jobId);
-
+  // The fleet layer only chooses WHICH copy of the automation service gets the
+  // payload; the payload and the contract are untouched.
+  const { dispatchToFleet } = await import("@/lib/robotFleet.server");
+  const dispatched = await dispatchToFleet(supabase, {
+    payload,
+    jobId,
+    companyId: args.companyId ?? trip.company_id ?? null,
+    context: args.fleetContext ?? null,
+  });
 
   const nowIso = new Date().toISOString();
   await supabase
     .from("medicaid_trips")
     .update({
-      robot_job_id: returnedJobId,
+      robot_job_id: dispatched.jobId,
+      // STICKY: reconciliation must always poll the worker that accepted it.
+      robot_worker_id: dispatched.workerId,
+      robot_worker_url: dispatched.workerUrl,
       robot_job_started_at: nowIso,
       robot_last_status: "started",
       robot_last_message: null,
