@@ -9,7 +9,6 @@
  * The production path is byte-for-byte unchanged when the flag is off, and the
  * robot repo itself is never touched.
  */
-import { ROBOT_BASE_URL } from "@/lib/billingHelpers";
 
 /** Truthy values that enable the non-network test/benchmark mode. */
 export function isSubmissionTestMode(): boolean {
@@ -61,6 +60,7 @@ export async function postSubmitClaim(payload: any, jobId: string): Promise<stri
   }
 
   realCallAttempts++;
+  const { ROBOT_BASE_URL } = await import("@/lib/billingHelpers");
   const res = await fetch(`${ROBOT_BASE_URL}/submit-claim`, {
     method: "POST",
     headers: { "content-type": "application/json" },
