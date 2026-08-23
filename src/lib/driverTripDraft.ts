@@ -223,9 +223,46 @@ export function pushRecentAddress(storage: MinimalStorage, address: string): str
   return next;
 }
 
+/* ------------------------------ odometers --------------------------------- */
+
+/**
+ * Odometer readings are MANDATORY on every leg of every NEMT trip: they drive
+ * the billed mileage on the state form. Accepts plain digits with an optional
+ * single decimal (e.g. "123456" or "123456.4"). Returns null when invalid.
+ */
+export function parseOdometer(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim().replace(/,/g, "");
+  if (!raw) return null;
+  if (!/^\d+(\.\d+)?$/.test(raw)) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0 || n > 9_999_999) return null;
+  return n;
+}
+
+/** Mileage for one leg, or null when either reading is missing/invalid/backwards. */
+export function legMiles(leg: Pick<DraftLeg, "pickup_odometer" | "dropoff_odometer">): number | null {
+  const p = parseOdometer(leg.pickup_odometer);
+  const dOff = parseOdometer(leg.dropoff_odometer);
+  if (p === null || dOff === null || dOff < p) return null;
+  return Number((dOff - p).toFixed(1));
+}
+
+/** Total billable miles across legs, or null if any leg is invalid. */
+export function totalMiles(d: DriverTripDraft): number | null {
+  let sum = 0;
+  for (const l of d.legs) {
+    const m = legMiles(l);
+    if (m === null) return null;
+    sum += m;
+  }
+  return Number(sum.toFixed(1));
+}
+
 /* ------------------------------ validation -------------------------------- */
 
 export type FieldIssues = Record<string, string>;
+
 
 export function validatePassengerStep(d: DriverTripDraft): FieldIssues {
   const issues: FieldIssues = {};
