@@ -362,6 +362,18 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertBilling(supabase, userId);
 
+    // Operator pause switch (database-backed, applies to every worker and
+    // every entry point). Capture-only runs stay allowed.
+    if (data.mode === "full") {
+      const { isSubmissionQueuePaused } = await import("@/lib/submissionQueue.server");
+      const { paused, reason } = await isSubmissionQueuePaused(supabase);
+      if (paused) {
+        throw new Error(
+          reason ?? "Automatic portal submissions are paused. Resume them in Billing settings.",
+        );
+      }
+    }
+
     // REAL SUBMISSIONS PAUSED — enforced on the server, not just hidden in the
     // UI, so no path (queue release, retry, direct call) can start a real
     // portal submission while the pause is on. Capture-only runs stay allowed.
@@ -504,6 +516,16 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
       );
     }
 
+    const { isSubmissionQueuePaused, dispatchLeasedSubmissions } = await import(
+      "@/lib/submissionQueue.server"
+    );
+    const { paused, reason } = await isSubmissionQueuePaused(supabase);
+    if (paused) {
+      throw new Error(
+        reason ?? "Automatic portal submissions are paused. Resume them in Billing settings.",
+      );
+    }
+
     const { data: recs, error: recErr } = await supabase
       .from("billing_records")
       .select(
@@ -546,24 +568,41 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
       return { queued: 0, started: 0, startedIds: [] as string[], skipped, duplicates };
     }
 
+    // ENQUEUE ONLY. The click never waits on portal work: every selected bill
+    // is persisted as `queued` with a fresh attempt budget, and the leasing
+    // workers (in-app sweep + one-minute cron) dispatch them within the
+    // per-company and global concurrency caps. Crash-safe by construction.
     const { error: qErr } = await supabase
       .from("billing_records")
-      .update({ status: "queued", submission_error: null, requires_human_step: false })
+      .update({
+        status: "queued",
+        submission_error: null,
+        requires_human_step: false,
+        submit_attempt_count: 0,
+        submit_next_attempt_at: null,
+        submit_locked_until: null,
+        submit_worker: null,
+        submit_last_error: null,
+      })
       .in("id", toQueue);
     if (qErr) throw new Error(qErr.message);
     for (const id of toQueue) {
       await logAudit(supabase, id, userId, "queued_for_bulk_submit");
     }
 
-    // One dispatcher pass per company fills every free slot in parallel.
-    const { dispatchNextQueued } = await import("@/lib/robotQueue.server");
+    // Best-effort immediate kick so the first batch starts without waiting for
+    // the next tick. Bounded by the same leases: it can never exceed the caps,
+    // and anything not started simply stays queued.
     const startedIds: string[] = [];
     for (const companyId of companies) {
       try {
-        const res = await dispatchNextQueued(supabase, userId, companyId);
+        const res = await dispatchLeasedSubmissions(supabase, userId, {
+          companyId: companyId ?? null,
+          worker: `bulk-${userId.slice(0, 8)}`,
+        });
         startedIds.push(...res.startedIds);
       } catch {
-        // Anything not started stays `queued`; the sweep retries it.
+        // Anything not started stays `queued`; the workers retry it.
       }
     }
 
