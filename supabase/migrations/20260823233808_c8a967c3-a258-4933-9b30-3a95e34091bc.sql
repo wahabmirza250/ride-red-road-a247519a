@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.stamp_driver_trip_draft() FROM PUBLIC, anon, authenticated;
