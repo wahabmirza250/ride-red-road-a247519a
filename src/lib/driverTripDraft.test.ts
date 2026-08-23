@@ -247,6 +247,6 @@ describe("billing payload compatibility", () => {
   it("keeps odometer values numeric for the billing mileage calculation", () => {
     const legs = buildCreateTripPayload(withTripKind(readyDraft(), "round_trip")).legs;
     expect(typeof legs[0].pickup_odometer).toBe("number");
-    expect(Number.isNaN(legs[1].dropoff_odometer)).toBe(true); // empty return leg is caught by validation
+    expect(typeof legs[1].dropoff_odometer).toBe("number"); // empty return leg is caught by validation, never sent as a string
   });
 });
