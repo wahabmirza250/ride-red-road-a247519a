@@ -51,6 +51,16 @@ import {
   verifyRiderIdentity,
   type RiderVerifyResult,
 } from "@/lib/manualTripSafety.functions";
+import {
+  beginVerify,
+  completeVerify,
+  failVerify,
+  syncVerifyMapToRiders,
+  verificationLabel,
+  verificationWarnings,
+  type VerifyEntry,
+  type VerifyMap,
+} from "@/lib/driverTripVerify";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import {
   STEPS,
