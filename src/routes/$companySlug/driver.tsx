@@ -82,7 +82,11 @@ function DriverLayout() {
       <main className="mx-auto max-w-2xl p-4">
         <Outlet />
       </main>
-      <nav className="fleet-bottom-nav fixed bottom-3 left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center justify-around p-1.5">
+      <nav
+        className="fleet-bottom-nav fixed left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center justify-around p-1.5"
+        style={{ bottom: "calc(var(--driver-safe-bottom) + var(--driver-nav-gap))" }}
+      >
+
         {NAV.map((item) => {
           const active = item.exact ? loc.pathname === item.to : loc.pathname.startsWith(item.to);
           const Icon = item.icon;
