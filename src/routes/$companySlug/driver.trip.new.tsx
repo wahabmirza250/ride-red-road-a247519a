@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useAppNavigate, useCompanySlug } from "@/lib/appLink";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseBrowser";
@@ -49,8 +49,17 @@ import { getRiderIdentifierForPdf } from "@/lib/rider.functions";
 import {
   checkVehicleRates,
   verifyRiderIdentity,
-  type RiderVerifyResult,
 } from "@/lib/manualTripSafety.functions";
+import {
+  beginVerify,
+  completeVerify,
+  failVerify,
+  syncVerifyMapToRiders,
+  verificationLabel,
+  verificationWarnings,
+  type VerifyEntry,
+  type VerifyMap,
+} from "@/lib/driverTripVerify";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import {
   STEPS,
@@ -446,9 +455,7 @@ function NewNemtTripWizard() {
   const runRateCheck = useServerFn(checkVehicleRates);
   const runRiderVerify = useServerFn(verifyRiderIdentity);
   const [rateCheck, setRateCheck] = useState<{ ok: boolean; missing: string[] } | null>(null);
-  const [verify, setVerify] = useState<
-    Record<string, { state: "running" | "done"; result?: RiderVerifyResult }>
-  >({});
+  const [verify, setVerify] = useState<VerifyMap>({});
 
   useEffect(() => {
     if (!draft.vehicle_type) {
@@ -464,47 +471,50 @@ function NewNemtTripWizard() {
     };
   }, [runRateCheck, draft.vehicle_type]);
 
+  /* Medicaid verification is OPTIONAL and MANUAL here — selecting a passenger
+     never starts a portal lookup; we only drop state for removed riders. */
   const riderSlotIds = draft.rider_slots.map((s) => s.rider.id).join(",");
-  const verifyRef = useRef(verify);
-  verifyRef.current = verify;
   useEffect(() => {
     const ids = riderSlotIds ? riderSlotIds.split(",") : [];
-    for (const id of ids) {
-      if (verifyRef.current[id]) continue;
-      setVerify((p) => ({ ...p, [id]: { state: "running" } }));
-      runRiderVerify({ data: { rider_id: id } })
-        .then((result) => setVerify((p) => ({ ...p, [id]: { state: "done", result } })))
-        .catch((e) =>
-          setVerify((p) => ({
-            ...p,
-            [id]: {
-              state: "done",
-              result: {
-                status: "unavailable",
-                message: e instanceof Error ? e.message : "Verification failed",
-                portal_name: null,
-              },
-            },
-          })),
-        );
-    }
-  }, [riderSlotIds, runRiderVerify]);
+    setVerify((prev) => {
+      const next = syncVerifyMapToRiders(prev, ids);
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+    });
+  }, [riderSlotIds]);
 
+  function verifyRider(riderId: string) {
+    let fire = false;
+    setVerify((prev) => {
+      const { next, shouldRequest } = beginVerify(prev, riderId);
+      fire = shouldRequest;
+      return next;
+    });
+    if (!fire) return;
+    runRiderVerify({ data: { rider_id: riderId } })
+      .then((result) => setVerify((p) => completeVerify(p, riderId, result)))
+      .catch((e) =>
+        setVerify((p) =>
+          failVerify(p, riderId, e instanceof Error ? e.message : "Verification failed"),
+        ),
+      );
+  }
+
+  /** Only real blockers live here — verification never blocks the driver. */
   const safetyIssue = useMemo(() => {
     if (draft.vehicle_type && rateCheck && !rateCheck.ok) {
       return `No billing rate configured for this vehicle type (missing: ${rateCheck.missing.join(", ")}). Ask billing to add it.`;
     }
-    for (const s of draft.rider_slots) {
-      const v = verify[s.rider.id];
-      if (!v || v.state === "running") {
-        return `Still verifying ${s.rider.full_name}'s Medicaid ID against the portal…`;
-      }
-      if (v.result?.status === "mismatch" || v.result?.status === "unavailable") {
-        return v.result.message;
-      }
-    }
     return null;
-  }, [draft.rider_slots, draft.vehicle_type, rateCheck, verify]);
+  }, [draft.vehicle_type, rateCheck]);
+
+  const verifyWarnings = useMemo(
+    () =>
+      verificationWarnings(
+        verify,
+        draft.rider_slots.map((s) => ({ id: s.rider.id, name: s.rider.full_name })),
+      ),
+    [verify, draft.rider_slots],
+  );
 
   /* --------------------------------- submit ------------------------------ */
   const submitGroup = useServerFn(createNemtTripGroup);
@@ -857,7 +867,11 @@ function NewNemtTripWizard() {
                         <X className="h-4 w-4" />
                       </button>
                     </div>
-                    <VerifyBadge entry={verify[s.rider.id]} />
+                    <VerifyBadge
+                      entry={verify[s.rider.id]}
+                      onVerify={() => verifyRider(s.rider.id)}
+                    />
+
                   </div>
                 ))}
               </div>
@@ -1266,8 +1280,12 @@ function NewNemtTripWizard() {
           <div className="space-y-3">
             <SummaryCard title="Passengers" onEdit={() => setStep("passenger")}>
               {draft.rider_slots.map((s) => (
-                <Row key={s.rider.id} label={s.rider.full_name} value={s.rider.medicaid_id} />
+                <div key={s.rider.id} className="space-y-0.5">
+                  <Row label={s.rider.full_name} value={s.rider.medicaid_id} />
+                  <Row label="Medicaid check" value={verificationLabel(verify[s.rider.id])} />
+                </div>
               ))}
+
               <Row label="Trip type" value={TRIP_KINDS.find((k) => k.value === draft.trip_kind)?.label ?? ""} />
             </SummaryCard>
 
@@ -1322,6 +1340,20 @@ function NewNemtTripWizard() {
                 <span>{safetyIssue}</span>
               </div>
             )}
+
+            {verifyWarnings.length > 0 && (
+              <div className="space-y-1 rounded-2xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+                {verifyWarnings.map((w) => (
+                  <div key={w} className="flex gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span>{w}</span>
+                  </div>
+                ))}
+                <p className="pl-6 text-[11px] opacity-80">
+                  You can still submit — billing staff will review this trip.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1357,24 +1389,59 @@ function NewNemtTripWizard() {
 
 /* --------------------------------- pieces --------------------------------- */
 
-function VerifyBadge({ entry }: { entry?: { state: "running" | "done"; result?: RiderVerifyResult } }) {
-  if (!entry || entry.state === "running") {
-    return (
-      <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1.5 text-[11px] text-muted-foreground">
-        <Loader2 className="h-3 w-3 animate-spin" /> Verifying Medicaid ID…
-      </div>
-    );
-  }
-  const r = entry.result;
-  if (!r) return null;
+function VerifyBadge({ entry, onVerify }: { entry?: VerifyEntry; onVerify: () => void }) {
+  const label = verificationLabel(entry);
+  const running = label === "Checking…";
   const tone =
-    r.status === "matched"
+    label === "Verified"
       ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-      : r.status === "skipped"
-        ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-        : "bg-red-500/10 text-red-700 dark:text-red-300";
-  return <div className={`mt-2 rounded-lg px-2 py-1.5 text-[11px] ${tone}`}>{r.message}</div>;
+      : label === "Not checked" || label === "Checking…"
+        ? "bg-muted text-muted-foreground"
+        : label === "Unavailable"
+          ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+          : "bg-red-500/10 text-red-700 dark:text-red-300";
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium ${tone}`}
+        >
+          {running ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : label === "Verified" ? (
+            <Check className="h-3 w-3" />
+          ) : null}
+          Medicaid: {label}
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 rounded-full text-xs"
+          disabled={running}
+          onClick={onVerify}
+        >
+          {running ? "Verifying…" : label === "Not checked" ? "Verify Medicaid" : "Re-check"}
+        </Button>
+      </div>
+      {running && (
+        <p className="text-[11px] text-muted-foreground">
+          Portal check runs in the background (1–3 min) — keep filling out the trip.
+        </p>
+      )}
+      {!running && entry?.result?.message && (
+        <p className="text-[11px] text-muted-foreground">{entry.result.message}</p>
+      )}
+      {label !== "Verified" && !running && (
+        <p className="text-[11px] text-muted-foreground">
+          Optional — you can submit without checking; billing staff will review.
+        </p>
+      )}
+    </div>
+  );
 }
+
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
