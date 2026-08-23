@@ -56,6 +56,8 @@ import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
 import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
 import { FixBillDialog } from "@/components/billing/FixBillDialog";
+import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
+
 
 import {
   cancelSubmissionClient,
