@@ -778,6 +778,9 @@ function ReadyToSubmitTab({
       setSubmittingIds(new Set());
       qc.invalidateQueries({ queryKey: ["billing_list"] });
       qc.invalidateQueries({ queryKey: ["billing_counts"] });
+      qc.invalidateQueries({ queryKey: ["submission_queue"] });
+      qc.invalidateQueries({ queryKey: ["submission_queue_state"] });
+
     }
   }
 
