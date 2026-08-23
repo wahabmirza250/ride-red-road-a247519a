@@ -50,7 +50,8 @@ type Sb = import("@supabase/supabase-js").SupabaseClient;
 
 /** Drivers of the caller's company with display names, in one query pair. */
 async function loadDrivers(s: Sb, companyId: string | null, driverId?: string) {
-  let q = scoped(s.from("drivers").select("id, user_id, status"), companyId);
+  let q: any = s.from("drivers").select("id, user_id, status");
+  if (companyId) q = q.eq("company_id", companyId);
   if (driverId) q = q.eq("id", driverId);
   const { data: drivers } = await q;
   const rows = (drivers ?? []) as { id: string; user_id: string | null; status: string }[];
