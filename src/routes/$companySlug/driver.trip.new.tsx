@@ -1215,6 +1215,10 @@ function NewNemtTripWizard() {
                   <div className="text-xs font-semibold uppercase tracking-wide text-primary">
                     Odometer readings — required for billing
                   </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Enter the pickup reading now; add the drop-off reading when the trip ends.
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <Field label="Pickup odometer *">
                       <OdometerInput
