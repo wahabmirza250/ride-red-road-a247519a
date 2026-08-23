@@ -38,8 +38,8 @@ export type CompanyPaySettings = {
   hourly_rate: number | null;
   commission_percentage: number | null;
   per_trip_amount: number | null;
-  commission_base: string;
-  per_trip_source: string;
+  commission_base: import("@/lib/payPlans").CommissionBase;
+  per_trip_source: import("@/lib/payPlans").PerTripSource;
 };
 
 export async function loadCompanyPaySettings(
