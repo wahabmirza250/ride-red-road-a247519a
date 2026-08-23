@@ -904,8 +904,22 @@ function NewNemtTripWizard() {
         </div>
       </div>
 
-      <div className="space-y-4 p-4">
+      <div className="flex-1 space-y-4 py-4">
+        {(draft.server_draft_id || serverSavedAt) && (
+          <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="min-w-0 flex-1">
+              <div className="font-medium text-foreground">Saved trip — in progress</div>
+              <div className="text-muted-foreground">
+                {missing.length === 0
+                  ? "Everything is filled in. You can submit to billing."
+                  : `Still needed: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? "…" : ""}`}
+              </div>
+            </div>
+          </div>
+        )}
         {draftRestored && (
+
           <div className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-3">
             <History className="h-4 w-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1 text-xs">
