@@ -864,9 +864,10 @@ function NewNemtTripWizard() {
   const err = (key: string) => (showErrors ? issues[key] : undefined);
 
   return (
-    <div className="driver-cta-content-pad mx-auto max-w-lg">
-      {/* Sticky header + progress */}
-      <div className="sticky top-0 z-20 border-b bg-background/95 px-4 pb-3 pt-4 backdrop-blur">
+    <div className="driver-cta-content-pad mx-auto flex max-w-lg flex-col">
+      {/* Sticky step header + progress — parks under the app top bar */}
+      <div className="driver-step-header -mx-4 border-b bg-background/95 px-4 pb-3 pt-3 backdrop-blur">
+
         <div className="flex items-center gap-3">
           <button
             type="button"
