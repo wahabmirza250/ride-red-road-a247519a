@@ -419,7 +419,7 @@ function ClearPayDialog({
   onDone: () => void;
 }) {
   const clearFn = useServerFn(clearDriverPay);
-  const [amount, setAmount] = useState<string | null>(null);
+  const previewFn = useServerFn(previewDriverPay);
   const [includeFuel, setIncludeFuel] = useState(true);
   const [method, setMethod] = useState("manual");
   const [reference, setReference] = useState("");
@@ -427,29 +427,29 @@ function ClearPayDialog({
   const [bonus, setBonus] = useState("");
   const [bonusNote, setBonusNote] = useState("");
 
+  const preview = useQuery({
+    enabled: !!row,
+    queryKey: ["payroll-preview", row?.driver_id, from, to],
+    queryFn: () => previewFn({ data: { driver_id: row!.driver_id, from, to } }),
+  });
+
   const bonusAmount = Number(bonus) || 0;
-  const earned = useMemo(() => {
-    if (!row) return 0;
-    const gross = (row.gross_earnings ?? 0) - row.paid_in_period;
-    return Math.max(0, Math.round((gross + (includeFuel ? row.fuel_pending : 0)) * 100) / 100);
-  }, [row, includeFuel]);
-  const suggested = Math.round((earned + bonusAmount) * 100) / 100;
+  const p = preview.data;
+  const total =
+    p?.gross_earnings == null
+      ? null
+      : Math.round((p.gross_earnings + (includeFuel ? p.fuel : 0) + bonusAmount) * 100) / 100;
+  const blocked = (p?.already_paid?.length ?? 0) > 0;
 
   const save = useMutation({
     mutationFn: async () => {
       if (!row) return;
-      const total = amount === null || amount.trim() === "" ? suggested : Number(amount);
-      if (!Number.isFinite(total) || total < 0) throw new Error("Enter a valid amount");
       return clearFn({
         data: {
           driver_id: row.driver_id,
           from,
           to,
-          hours: row.hours,
-          hourly_rate: row.hourly_rate,
-          gross_earnings: row.gross_earnings ?? 0,
-          fuel_reimbursed: includeFuel ? row.fuel_pending : 0,
-          total_paid: total,
+          include_fuel: includeFuel,
           bonus_amount: bonusAmount,
           bonus_note: bonusNote.trim() || null,
           method,
@@ -459,8 +459,7 @@ function ClearPayDialog({
       });
     },
     onSuccess: () => {
-      toast.success("Payment cleared");
-      setAmount(null);
+      toast.success("Payment recorded — these hours can't be paid again");
       setReference("");
       setNotes("");
       setBonus("");
@@ -478,101 +477,124 @@ function ClearPayDialog({
         </DialogHeader>
         {row && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-border bg-surface-muted p-3 text-sm">
-              <Line label="Period" value={`${formatDate(from)} – ${formatDate(to)}`} />
-              <Line label="Hours" value={`${row.hours.toFixed(2)}h`} />
-              <Line
-                label="Rate"
-                value={row.hourly_rate == null ? "not set" : `${formatCurrency(row.hourly_rate)}/hr`}
-              />
-              <Line
-                label="Gross"
-                value={row.gross_earnings == null ? "—" : formatCurrency(row.gross_earnings)}
-              />
-              <Line label="Already paid" value={formatCurrency(row.paid_in_period)} />
-              <Line label="Fuel receipts pending" value={formatCurrency(row.fuel_pending)} />
-            </div>
-
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={includeFuel}
-                onChange={(e) => setIncludeFuel(e.target.checked)}
-              />
-              Include fuel reimbursement (marks those receipts reimbursed)
-            </label>
-
-            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
-              <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-                <Gift className="h-4 w-4 text-primary" /> Extra amount (bonus / adjustment)
+            {preview.isLoading && (
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-muted p-4 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Calculating this driver's pay…
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Amount (USD)</Label>
-                  <Input
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={bonus}
-                    onChange={(e) => {
-                      setBonus(e.target.value);
-                      setAmount(null);
-                    }}
+            )}
+            {preview.error && (
+              <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                {(preview.error as Error).message}
+              </div>
+            )}
+            {p && (
+              <>
+                <div className="rounded-xl border border-border bg-surface-muted p-3 text-sm">
+                  <Line label="Period" value={`${formatDate(from)} – ${formatDate(to)}`} />
+                  <Line label="Unpaid hours" value={`${p.hours.toFixed(2)}h (${p.shift_count} shifts)`} />
+                  <Line
+                    label="Rate"
+                    value={p.hourly_rate == null ? "not set" : `${formatCurrency(p.hourly_rate)}/hr`}
+                  />
+                  <Line label="Gross" value={p.gross_earnings == null ? "—" : formatCurrency(p.gross_earnings)} />
+                  <Line
+                    label="Fuel receipts pending"
+                    value={`${formatCurrency(p.fuel)} (${p.receipt_count})`}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Reason (optional)</Label>
-                  <Input
-                    value={bonusNote}
-                    onChange={(e) => setBonusNote(e.target.value)}
-                    placeholder="e.g. holiday bonus"
+
+                {p.open_shifts > 0 && (
+                  <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs">
+                    {p.open_shifts} shift{p.open_shifts > 1 ? "s are" : " is"} still running and will be paid
+                    in a later period.
+                  </p>
+                )}
+                {blocked && (
+                  <p className="rounded-lg border border-destructive/40 bg-destructive/5 p-2.5 text-xs text-destructive">
+                    This driver already has a payment covering this period. Void it first to pay again.
+                  </p>
+                )}
+
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={includeFuel}
+                    onChange={(e) => setIncludeFuel(e.target.checked)}
                   />
+                  Include fuel reimbursement (marks those receipts reimbursed)
+                </label>
+
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                    <Gift className="h-4 w-4 text-primary" /> Adjustment (bonus, or negative to deduct)
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Amount (USD)</Label>
+                      <Input
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        value={bonus}
+                        onChange={(e) => setBonus(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Reason (optional)</Label>
+                      <Input
+                        value={bonusNote}
+                        onChange={(e) => setBonusNote(e.target.value)}
+                        placeholder="e.g. holiday bonus"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Earned {formatCurrency(earned)} + extra {formatCurrency(bonusAmount)} ={" "}
-                <span className="font-semibold text-foreground">{formatCurrency(suggested)}</span>
-              </p>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Total to pay (USD)</Label>
-                <Input
-                  inputMode="decimal"
-                  value={amount ?? String(suggested)}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Method</Label>
-                <select
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={method}
-                  onChange={(e) => setMethod(e.target.value)}
-                >
-                  <option value="manual">Cash / manual</option>
-                  <option value="zelle">Zelle</option>
-                  <option value="ach">ACH / direct deposit</option>
-                  <option value="check">Check</option>
-                </select>
-              </div>
-            </div>
+                <div className="flex items-center justify-between rounded-xl border border-border bg-surface p-3">
+                  <span className="text-sm text-muted-foreground">Total to pay</span>
+                  <span className="text-xl font-semibold tabular-nums">
+                    {total == null ? "Set an hourly rate first" : formatCurrency(total)}
+                  </span>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label>Reference (optional)</Label>
-              <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="check # / confirmation" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Notes (optional)</Label>
-              <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
-            </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Method</Label>
+                    <select
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      value={method}
+                      onChange={(e) => setMethod(e.target.value)}
+                    >
+                      <option value="manual">Cash / manual</option>
+                      <option value="zelle">Zelle</option>
+                      <option value="ach">ACH / direct deposit</option>
+                      <option value="check">Check</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Reference (optional)</Label>
+                    <Input
+                      value={reference}
+                      onChange={(e) => setReference(e.target.value)}
+                      placeholder="check # / confirmation"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Notes (optional)</Label>
+                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+                </div>
+              </>
+            )}
           </div>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          <Button
+            onClick={() => save.mutate()}
+            disabled={save.isPending || preview.isLoading || blocked || total == null || total <= 0}
+          >
             {save.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -585,6 +607,7 @@ function ClearPayDialog({
     </Dialog>
   );
 }
+
 
 function Line({ label, value }: { label: string; value: string }) {
   return (
