@@ -735,3 +735,21 @@
     box-shadow: 0 10px 24px -14px rgba(229, 57, 88, 0.75);
   }
 }
+
+@layer components {
+  /* Fixed CTA bar inside the driver app: always clears the floating bottom nav
+     and the iOS home indicator. */
+  .driver-cta-bar {
+    position: fixed;
+    inset-inline: 0;
+    bottom: var(--driver-nav-offset);
+    padding-bottom: 0.75rem;
+  }
+  /* Scroll padding so the last card is never hidden behind CTA + nav. */
+  .driver-cta-content-pad {
+    padding-bottom: calc(var(--driver-nav-offset) + 6.5rem);
+  }
+  .driver-nav-pad {
+    padding-bottom: calc(var(--driver-nav-offset) + 1rem);
+  }
+}
