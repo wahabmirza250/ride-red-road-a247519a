@@ -15,7 +15,7 @@ export type SavedDriverTripDraft = {
   status: string;
   rider_id: string | null;
   assigned_trip_id: string | null;
-  payload: unknown;
+  payload: Record<string, unknown>;
   updated_at: string;
   created_at: string;
 };
@@ -27,7 +27,7 @@ export const saveDriverTripDraft = createServerFn({ method: "POST" })
     label?: string | null;
     rider_id?: string | null;
     assigned_trip_id?: string | null;
-    payload: unknown;
+    payload: Record<string, unknown>;
   }) => {
     if (!data || typeof data !== "object" || !data.payload) {
       throw new Error("A trip payload is required");
