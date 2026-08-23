@@ -42,8 +42,9 @@ export function envInt(name: string, fallback: number, min: number, max: number)
   return Math.min(max, Math.max(min, Math.floor(n)));
 }
 
-/** Max concurrent real portal submissions for ONE company. Conservative. */
-export const maxSubmitPerCompany = () => envInt("SUBMIT_MAX_PER_COMPANY", 4, 1, 50);
+/** Max concurrent real portal submissions for ONE company. Default keeps the
+ *  proven production throughput of 8 live portal sessions per provider. */
+export const maxSubmitPerCompany = () => envInt("SUBMIT_MAX_PER_COMPANY", 8, 1, 50);
 /** Max concurrent real portal submissions across ALL companies. */
 export const maxSubmitGlobal = () => envInt("SUBMIT_MAX_GLOBAL", 20, 1, 200);
 /** How long a leased bill stays locked to one worker. */

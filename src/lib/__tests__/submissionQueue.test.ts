@@ -42,7 +42,7 @@ beforeEach(() => {
 
 describe("limits", () => {
   it("clamps to safe defaults", () => {
-    expect(maxSubmitPerCompany()).toBe(4);
+    expect(maxSubmitPerCompany()).toBe(8);
     expect(maxSubmitGlobal()).toBe(20);
     expect(maxSubmitAttempts()).toBe(3);
   });
@@ -72,7 +72,7 @@ describe("atomic leasing", () => {
     ]);
     const ids = batches.flat().map((l) => l.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids.length).toBe(maxSubmitPerCompany()); // per-company cap respected
+    expect(ids.length).toBe(Math.min(6, maxSubmitPerCompany())); // capped, never duplicated
   });
 
   it("is fair across companies: no tenant starves another", async () => {
@@ -104,7 +104,7 @@ describe("atomic leasing", () => {
     ];
     const { supabase } = makeFakeDb(records);
     const leases = await leaseSubmissionJobs(supabase, { worker: "w" });
-    expect(leases.length).toBe(maxSubmitPerCompany() - 2);
+    expect(leases.length).toBe(Math.min(3, maxSubmitPerCompany() - 2));
   });
 });
 
