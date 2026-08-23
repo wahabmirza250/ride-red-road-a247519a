@@ -570,25 +570,11 @@ export async function startRobotSubmission(
     throw new Error(`Could not record the robot payload audit: ${payloadAuditError.message}`);
   }
 
-  const res = await fetch(`${ROBOT_BASE_URL}/submit-claim`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(
-      `Automation service rejected the request (${res.status}): ${text.slice(0, 300)}`,
-    );
-  }
-  let parsed: any = {};
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    /* tolerate non-JSON */
-  }
-  const returnedJobId: string =
-    typeof parsed?.jobId === "string" && parsed.jobId ? parsed.jobId : jobId;
+  // SINGLE NETWORK BOUNDARY. In SUBMISSION_TEST_MODE the adapter answers from
+  // an in-process mock and no request can reach the real portal automation.
+  const { postSubmitClaim } = await import("@/lib/robotAdapter.server");
+  const returnedJobId: string = await postSubmitClaim(payload, jobId);
+
 
   const nowIso = new Date().toISOString();
   await supabase
