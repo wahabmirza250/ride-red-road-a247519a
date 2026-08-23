@@ -457,6 +457,50 @@ export type Database = {
         }
         Relationships: []
       }
+      company_pay_settings: {
+        Row: {
+          commission_base: string
+          commission_percentage: number | null
+          company_id: string
+          created_at: string
+          default_plan: string
+          hourly_rate: number | null
+          per_trip_amount: number | null
+          per_trip_source: string
+          updated_at: string
+        }
+        Insert: {
+          commission_base?: string
+          commission_percentage?: number | null
+          company_id: string
+          created_at?: string
+          default_plan?: string
+          hourly_rate?: number | null
+          per_trip_amount?: number | null
+          per_trip_source?: string
+          updated_at?: string
+        }
+        Update: {
+          commission_base?: string
+          commission_percentage?: number | null
+          company_id?: string
+          created_at?: string
+          default_plan?: string
+          hourly_rate?: number | null
+          per_trip_amount?: number | null
+          per_trip_source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_pay_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_subscriptions: {
         Row: {
           company_id: string
@@ -888,15 +932,122 @@ export type Database = {
           },
         ]
       }
+      driver_pay_plans: {
+        Row: {
+          commission_base: string | null
+          commission_percentage: number | null
+          company_id: string | null
+          created_at: string
+          driver_id: string
+          hourly_rate: number | null
+          per_trip_amount: number | null
+          per_trip_source: string | null
+          plan: string | null
+          updated_at: string
+        }
+        Insert: {
+          commission_base?: string | null
+          commission_percentage?: number | null
+          company_id?: string | null
+          created_at?: string
+          driver_id: string
+          hourly_rate?: number | null
+          per_trip_amount?: number | null
+          per_trip_source?: string | null
+          plan?: string | null
+          updated_at?: string
+        }
+        Update: {
+          commission_base?: string | null
+          commission_percentage?: number | null
+          company_id?: string | null
+          created_at?: string
+          driver_id?: string
+          hourly_rate?: number | null
+          per_trip_amount?: number | null
+          per_trip_source?: string | null
+          plan?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_pay_plans_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_pay_plans_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: true
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_payout_items: {
+        Row: {
+          amount: number
+          company_id: string | null
+          created_at: string
+          driver_id: string
+          id: string
+          kind: string
+          occurred_at: string | null
+          payout_id: string
+          quantity: number | null
+          ref_id: string
+        }
+        Insert: {
+          amount?: number
+          company_id?: string | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          kind: string
+          occurred_at?: string | null
+          payout_id: string
+          quantity?: number | null
+          ref_id: string
+        }
+        Update: {
+          amount?: number
+          company_id?: string | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          kind?: string
+          occurred_at?: string | null
+          payout_id?: string
+          quantity?: number | null
+          ref_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_payout_items_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "driver_payouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_payouts: {
         Row: {
           bonus_amount: number
           bonus_note: string | null
+          breakdown: Json | null
+          claim_count: number
+          commission_amount: number
+          commission_base: string | null
+          commission_percentage: number | null
           company_id: string | null
           created_at: string
           driver_id: string
           fuel_reimbursed: number
           gross_earnings: number
+          hourly_pay: number
           hourly_rate: number | null
           hours: number
           id: string
@@ -904,11 +1055,16 @@ export type Database = {
           notes: string | null
           paid_at: string
           paid_by: string | null
+          per_trip_amount: number | null
           period_end: string
           period_start: string
+          plan: string | null
           reference: string | null
+          revenue_base: number
           shift_count: number
           total_paid: number
+          trip_count: number
+          trip_pay: number
           updated_at: string
           void_reason: string | null
           voided_at: string | null
@@ -917,11 +1073,17 @@ export type Database = {
         Insert: {
           bonus_amount?: number
           bonus_note?: string | null
+          breakdown?: Json | null
+          claim_count?: number
+          commission_amount?: number
+          commission_base?: string | null
+          commission_percentage?: number | null
           company_id?: string | null
           created_at?: string
           driver_id: string
           fuel_reimbursed?: number
           gross_earnings?: number
+          hourly_pay?: number
           hourly_rate?: number | null
           hours?: number
           id?: string
@@ -929,11 +1091,16 @@ export type Database = {
           notes?: string | null
           paid_at?: string
           paid_by?: string | null
+          per_trip_amount?: number | null
           period_end: string
           period_start: string
+          plan?: string | null
           reference?: string | null
+          revenue_base?: number
           shift_count?: number
           total_paid?: number
+          trip_count?: number
+          trip_pay?: number
           updated_at?: string
           void_reason?: string | null
           voided_at?: string | null
@@ -942,11 +1109,17 @@ export type Database = {
         Update: {
           bonus_amount?: number
           bonus_note?: string | null
+          breakdown?: Json | null
+          claim_count?: number
+          commission_amount?: number
+          commission_base?: string | null
+          commission_percentage?: number | null
           company_id?: string | null
           created_at?: string
           driver_id?: string
           fuel_reimbursed?: number
           gross_earnings?: number
+          hourly_pay?: number
           hourly_rate?: number | null
           hours?: number
           id?: string
@@ -954,11 +1127,16 @@ export type Database = {
           notes?: string | null
           paid_at?: string
           paid_by?: string | null
+          per_trip_amount?: number | null
           period_end?: string
           period_start?: string
+          plan?: string | null
           reference?: string | null
+          revenue_base?: number
           shift_count?: number
           total_paid?: number
+          trip_count?: number
+          trip_pay?: number
           updated_at?: string
           void_reason?: string | null
           voided_at?: string | null
@@ -2926,6 +3104,7 @@ export type Database = {
           passenger_rating_note: string | null
           patient_confirmed: boolean
           patient_confirmed_at: string | null
+          payout_id: string | null
           pickup_address: string
           pickup_lat: number | null
           pickup_lng: number | null
@@ -2973,6 +3152,7 @@ export type Database = {
           passenger_rating_note?: string | null
           patient_confirmed?: boolean
           patient_confirmed_at?: string | null
+          payout_id?: string | null
           pickup_address: string
           pickup_lat?: number | null
           pickup_lng?: number | null
@@ -3020,6 +3200,7 @@ export type Database = {
           passenger_rating_note?: string | null
           patient_confirmed?: boolean
           patient_confirmed_at?: string | null
+          payout_id?: string | null
           pickup_address?: string
           pickup_lat?: number | null
           pickup_lng?: number | null
@@ -3055,6 +3236,13 @@ export type Database = {
             columns: ["passenger_id"]
             isOneToOne: false
             referencedRelation: "passengers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "driver_payouts"
             referencedColumns: ["id"]
           },
         ]
