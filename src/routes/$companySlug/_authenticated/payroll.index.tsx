@@ -92,9 +92,10 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
   const undo = useMutation({
     mutationFn: (id: string) => delFn({ data: { id } }),
     onSuccess: () => {
-      toast.success("Payment entry removed");
+      toast.success("Payment voided — its hours are payable again");
       qc.invalidateQueries({ queryKey: ["payouts"] });
       qc.invalidateQueries({ queryKey: ["payroll-period"] });
+      qc.invalidateQueries({ queryKey: ["payroll-preview"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
