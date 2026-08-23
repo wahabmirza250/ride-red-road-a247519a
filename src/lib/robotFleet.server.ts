@@ -269,7 +269,11 @@ export async function probeWorker(
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(`${worker.url}/health`, { method: "GET", signal: ctrl.signal });
+    let res = await fetch(`${worker.url}/health`, { method: "GET", signal: ctrl.signal });
+    // Some robot builds expose liveness on `/` only; `/health` then 404s.
+    if (res.status === 404) {
+      res = await fetch(`${worker.url}/`, { method: "GET", signal: ctrl.signal });
+    }
     // Any HTTP answer proves the process is up; only 5xx counts as unhealthy.
     const ok = res.status < 500;
     return { ok, ms: Date.now() - t0, error: ok ? null : `health ${res.status}` };
