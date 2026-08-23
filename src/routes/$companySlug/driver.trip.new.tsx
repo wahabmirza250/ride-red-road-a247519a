@@ -49,7 +49,7 @@ import { getRiderIdentifierForPdf } from "@/lib/rider.functions";
 import {
   checkVehicleRates,
   verifyRiderIdentity,
-  type RiderVerifyResult,
+
 } from "@/lib/manualTripSafety.functions";
 import {
   beginVerify,
