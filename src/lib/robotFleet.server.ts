@@ -117,7 +117,16 @@ export function mergeFleet(envWorkers: FleetWorker[], dbRows: any[]): FleetWorke
       source: base ? "env" : "db",
     });
   }
-  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  // One physical robot process must appear exactly once, even when it is both
+  // the implicit legacy ROBOT_BASE_URL and a named registry row — otherwise it
+  // would double-count capacity and split company affinity.
+  const byUrl = new Map<string, FleetWorker>();
+  for (const w of byId.values()) {
+    const prev = byUrl.get(w.url);
+    if (!prev) byUrl.set(w.url, w);
+    else if (prev.source === "env" && w.source !== "env") byUrl.set(w.url, w);
+  }
+  return [...byUrl.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
 export async function loadFleet(supabase: any): Promise<FleetWorker[]> {
