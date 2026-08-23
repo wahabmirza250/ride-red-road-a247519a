@@ -1,15 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  computePay,
-  payableHours,
-  pendingFuel,
   payoutsInPeriod,
   periodsOverlap,
   round2,
   shiftHours,
   type PayoutLike,
 } from "@/lib/payrollCalc";
+import {
+  computePlanPay,
+  payPlanIssues,
+  planUsesCommission,
+  planUsesTrips,
+  PLAN_LABEL,
+  type PayBreakdown,
+  type PayPlan,
+} from "@/lib/payPlans";
+import { collectWork, loadPayPlans, type DriverWork } from "@/lib/payrollSources.server";
 
 /** ADMIN ONLY — payout / "clear pay" system. Never expose to dispatch.
  *  Returns the caller's company so every query can be scoped to it: the
@@ -39,13 +46,43 @@ function validPeriod(from: string, to: string) {
   return { from: new Date(a).toISOString(), to: new Date(b).toISOString() };
 }
 
+type Sb = import("@supabase/supabase-js").SupabaseClient;
+
+/** Drivers of the caller's company with display names, in one query pair. */
+async function loadDrivers(s: Sb, companyId: string | null, driverId?: string) {
+  let q = scoped(s.from("drivers").select("id, user_id, status"), companyId);
+  if (driverId) q = q.eq("id", driverId);
+  const { data: drivers } = await q;
+  const rows = (drivers ?? []) as { id: string; user_id: string | null; status: string }[];
+  const userIds = rows.map((d) => d.user_id).filter(Boolean) as string[];
+  const { data: profiles } = userIds.length
+    ? await s.from("profiles").select("id, first_name, last_name, email").in("id", userIds)
+    : { data: [] as any[] };
+  const pOf = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+  return rows.map((d) => {
+    const p = d.user_id ? pOf.get(d.user_id) : null;
+    return {
+      ...d,
+      name: `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim() || (p?.email ?? "Driver"),
+      email: (p?.email as string | null) ?? null,
+    };
+  });
+}
+
 export type PayrollRow = {
   driver_id: string;
   name: string;
   email: string | null;
   status: string;
+  plan: PayPlan;
+  plan_label: string;
   hourly_rate: number | null;
+  commission_percentage: number | null;
+  per_trip_amount: number | null;
   hours: number;
+  claim_count: number;
+  revenue_base: number;
+  trip_count: number;
   gross_earnings: number | null;
   fuel_pending: number;
   paid_in_period: number;
@@ -53,6 +90,8 @@ export type PayrollRow = {
   last_paid_at: string | null;
   open_shift: boolean;
   already_paid: boolean;
+  issues: string[];
+  /** Legacy field kept for older UI code. */
   pay_type: "per_hour" | "commission";
 };
 
@@ -67,8 +106,8 @@ export const getPayrollPeriod = createServerFn({ method: "POST" })
     const { from, to } = validPeriod(data.from, data.to);
     const s = context.supabase;
 
-    const { data: drivers } = await scoped(s.from("drivers").select("id, user_id, status"), companyId);
-    const driverIds = (drivers ?? []).map((d) => d.id);
+    const drivers = await loadDrivers(s, companyId);
+    const driverIds = drivers.map((d) => d.id);
     if (!driverIds.length) {
       return {
         period: { from, to },
@@ -77,65 +116,24 @@ export const getPayrollPeriod = createServerFn({ method: "POST" })
       };
     }
 
-    const [{ data: pays }, { data: shifts }, { data: overlapping }, { data: lastPaid }, { data: receipts }] =
-      await Promise.all([
-        s.from("driver_pay").select("driver_id, hourly_rate, pay_type").in("driver_id", driverIds),
-        s
-          .from("driver_shifts")
-          .select("id, driver_id, clock_in_at, clock_out_at, payout_id")
-          .in("driver_id", driverIds)
-          .is("payout_id", null)
-          .gte("clock_in_at", from)
-          .lte("clock_in_at", to),
-        s
-          .from("driver_payouts")
-          .select("driver_id, total_paid, paid_at, period_start, period_end, voided_at")
-          .in("driver_id", driverIds)
-          .is("voided_at", null)
-          .lte("period_start", to)
-          .gte("period_end", from),
-        s
-          .from("driver_payouts")
-          .select("driver_id, paid_at")
-          .in("driver_id", driverIds)
-          .is("voided_at", null)
-          .order("paid_at", { ascending: false })
-          .limit(500),
-        s
-          .from("gas_receipts")
-          .select("id, driver_id, amount, submitted_at, reimbursed_at, payout_id")
-          .in("driver_id", driverIds)
-          .is("reimbursed_at", null)
-          .is("payout_id", null)
-          .gte("submitted_at", from)
-          .lte("submitted_at", to),
-      ]);
-
-    const userIds = (drivers ?? []).map((d) => d.user_id).filter(Boolean);
-    const { data: profiles } = userIds.length
-      ? await s.from("profiles").select("id, first_name, last_name, email").in("id", userIds)
-      : { data: [] as { id: string; first_name: string | null; last_name: string | null; email: string | null }[] };
-
-    const profileOf = new Map((profiles ?? []).map((p) => [p.id, p]));
-    const rateOf = new Map(
-      (pays ?? []).map((p) => [p.driver_id, p.hourly_rate == null ? null : Number(p.hourly_rate)]),
-    );
-    const payTypeOf = new Map(
-      (pays ?? []).map((p) => [p.driver_id, (p as { pay_type?: string }).pay_type ?? "per_hour"]),
-    );
-
-    const shiftsOf = new Map<string, typeof shifts>();
-    for (const r of shifts ?? []) {
-      const list = shiftsOf.get(r.driver_id) ?? [];
-      list.push(r);
-      shiftsOf.set(r.driver_id, list as typeof shifts);
-    }
-    const receiptsOf = new Map<string, typeof receipts>();
-    for (const r of receipts ?? []) {
-      const list = receiptsOf.get(r.driver_id) ?? [];
-      list.push(r);
-      receiptsOf.set(r.driver_id, list as typeof receipts);
-    }
+    const plans = await loadPayPlans(s, companyId, driverIds);
+    const [work, { data: overlapping }, { data: lastPaid }] = await Promise.all([
+      collectWork(s, { companyId, drivers, plans, from, to }),
+      s
+        .from("driver_payouts")
+        .select("driver_id, total_paid, paid_at, period_start, period_end, voided_at")
+        .in("driver_id", driverIds)
+        .is("voided_at", null)
+        .lte("period_start", to)
+        .gte("period_end", from),
+      s
+        .from("driver_payouts")
+        .select("driver_id, paid_at")
+        .in("driver_id", driverIds)
+        .is("voided_at", null)
+        .order("paid_at", { ascending: false })
+        .limit(500),
+    ]);
 
     const paidOf = new Map<string, number>();
     for (const p of payoutsInPeriod((overlapping ?? []) as PayoutLike[], from, to)) {
@@ -144,28 +142,42 @@ export const getPayrollPeriod = createServerFn({ method: "POST" })
     const lastPaidOf = new Map<string, string>();
     for (const p of lastPaid ?? []) if (!lastPaidOf.has(p.driver_id)) lastPaidOf.set(p.driver_id, p.paid_at);
 
-    const rows: PayrollRow[] = (drivers ?? []).map((d) => {
-      const p = profileOf.get(d.user_id);
-      const rate = rateOf.get(d.id) ?? null;
-      const { hours, openCount } = payableHours((shiftsOf.get(d.id) ?? []) as never, from, to);
-      const fuel = pendingFuel((receiptsOf.get(d.id) ?? []) as never, from, to).amount;
+    const rows: PayrollRow[] = drivers.map((d) => {
+      const plan = plans.get(d.id)!;
+      const w = work.get(d.id)!;
+      const issues = payPlanIssues(plan);
+      const calc = computePlanPay(plan, {
+        hours: w.hours,
+        revenue_base: w.revenue_base,
+        claim_count: w.claims.length,
+        trip_count: w.trip_count,
+        fuel: w.fuel,
+      });
       const paid = paidOf.get(d.id) ?? 0;
-      const calc = computePay({ hours, hourly_rate: rate, fuel });
+      const payable = issues.length ? null : calc.total;
       return {
         driver_id: d.id,
-        name: `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim() || (p?.email ?? "Driver"),
-        email: p?.email ?? null,
+        name: d.name,
+        email: d.email,
         status: String(d.status),
-        hourly_rate: rate,
-        hours,
-        gross_earnings: calc.gross_earnings,
-        fuel_pending: fuel,
+        plan: plan.plan,
+        plan_label: PLAN_LABEL[plan.plan],
+        hourly_rate: plan.hourly_rate,
+        commission_percentage: plan.commission_percentage,
+        per_trip_amount: plan.per_trip_amount,
+        hours: calc.hours,
+        claim_count: calc.claim_count,
+        revenue_base: calc.revenue_base,
+        trip_count: calc.trip_count,
+        gross_earnings: issues.length ? null : calc.earnings,
+        fuel_pending: w.fuel,
         paid_in_period: paid,
-        outstanding: calc.total == null ? null : round2(Math.max(0, calc.total - paid)),
+        outstanding: payable == null ? null : round2(Math.max(0, payable - paid)),
         last_paid_at: lastPaidOf.get(d.id) ?? null,
-        open_shift: openCount > 0,
+        open_shift: w.open_shifts > 0,
         already_paid: paid > 0,
-        pay_type: (payTypeOf.get(d.id) ?? "per_hour") as "per_hour" | "commission",
+        issues,
+        pay_type: planUsesCommission(plan.plan) ? "commission" : "per_hour",
       };
     });
 
@@ -184,13 +196,94 @@ export const getPayrollPeriod = createServerFn({ method: "POST" })
     };
   });
 
+/** Shared preview: resolves the plan, gathers the work, prices it. */
+async function buildPreview(
+  s: Sb,
+  companyId: string | null,
+  driverId: string,
+  from: string,
+  to: string,
+  extra: { bonus?: number; include_fuel?: boolean } = {},
+) {
+  const drivers = await loadDrivers(s, companyId, driverId);
+  const driver = drivers[0];
+  if (!driver) throw new Error("Driver not found in your company");
+
+  const plans = await loadPayPlans(s, companyId, [driverId]);
+  const plan = plans.get(driverId)!;
+  const work = (await collectWork(s, { companyId, drivers, plans, from, to })).get(driverId) as DriverWork;
+
+  const calc = computePlanPay(plan, {
+    hours: work.hours,
+    revenue_base: work.revenue_base,
+    claim_count: work.claims.length,
+    trip_count: work.trip_count,
+    fuel: work.fuel,
+    bonus: extra.bonus ?? 0,
+    include_fuel: extra.include_fuel,
+  });
+  return { driver, plan, work, calc, issues: payPlanIssues(plan) };
+}
+
+/** What a driver would be paid right now for a period — used by the UI so the
+ *  confirmation dialog shows exactly what the server will write. */
+export const previewDriverPay = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: { driver_id: string; from: string; to: string; bonus_amount?: number; include_fuel?: boolean }) =>
+      input,
+  )
+  .handler(async ({ data, context }) => {
+    const { companyId } = await assertPayrollAdmin(context.supabase, context.userId);
+    const { from, to } = validPeriod(data.from, data.to);
+    const s = context.supabase;
+
+    const { driver, plan, work, calc, issues } = await buildPreview(s, companyId, data.driver_id, from, to, {
+      bonus: data.bonus_amount ?? 0,
+      include_fuel: data.include_fuel,
+    });
+
+    const { data: existing } = await s
+      .from("driver_payouts")
+      .select("id, period_start, period_end, paid_at, total_paid")
+      .eq("driver_id", data.driver_id)
+      .is("voided_at", null)
+      .lte("period_start", to)
+      .gte("period_end", from)
+      .limit(5);
+
+    return {
+      period: { from, to },
+      driver_name: driver.name,
+      plan: plan.plan,
+      plan_label: PLAN_LABEL[plan.plan],
+      issues,
+      breakdown: calc satisfies PayBreakdown,
+      // Flat fields kept so existing UI bindings keep working.
+      hours: calc.hours,
+      hourly_rate: calc.hourly_rate,
+      gross_earnings: issues.length ? null : calc.earnings,
+      fuel: calc.fuel,
+      bonus: calc.bonus,
+      total: issues.length ? null : calc.total,
+      shift_count: work.shift_ids.length,
+      receipt_count: work.fuel_receipt_ids.length,
+      claim_count: work.claims.length,
+      trip_count: work.trip_count,
+      revenue_base: work.revenue_base,
+      claims: work.claims,
+      open_shifts: work.open_shifts,
+      already_paid: existing ?? [],
+    };
+  });
+
 /**
  * Clear (pay out) a driver for a period.
  *
  * The server recomputes every number from the database — client totals are
- * never trusted. The exact shifts and fuel receipts paid are stamped with the
- * payout id, so the same work can never be paid twice, and the payout row
- * keeps its own snapshot so history survives later edits to shifts or rates.
+ * never trusted. Every shift, fuel receipt, trip and claim included is written
+ * as a payout line, and the unique index on those lines makes paying the same
+ * work twice impossible, whatever the pay plan.
  */
 export const clearDriverPay = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -202,7 +295,7 @@ export const clearDriverPay = createServerFn({ method: "POST" })
       /** Optional bonus / adjustment added on top of the computed pay. */
       bonus_amount?: number;
       bonus_note?: string | null;
-      /** Set false to pay hours only and leave fuel receipts pending. */
+      /** Set false to pay earnings only and leave fuel receipts pending. */
       include_fuel?: boolean;
       method?: string;
       reference?: string | null;
@@ -218,12 +311,13 @@ export const clearDriverPay = createServerFn({ method: "POST" })
     const { companyId } = await assertPayrollAdmin(context.supabase, context.userId);
     const { from, to } = validPeriod(data.from, data.to);
     const s = context.supabase;
+    const includeFuel = data.include_fuel !== false;
 
-    const { data: driver } = await scoped(
-      s.from("drivers").select("id, company_id").eq("id", data.driver_id),
-      companyId,
-    ).maybeSingle();
-    if (!driver) throw new Error("Driver not found in your company");
+    const { driver, plan, work, calc, issues } = await buildPreview(s, companyId, data.driver_id, from, to, {
+      bonus: data.bonus_amount ?? 0,
+      include_fuel: includeFuel,
+    });
+    if (issues.length) throw new Error(issues.join(" "));
 
     // Duplicate / double-pay guard: any live payout overlapping this window.
     const { data: existing } = await s
@@ -233,66 +327,46 @@ export const clearDriverPay = createServerFn({ method: "POST" })
       .is("voided_at", null)
       .lte("period_start", to)
       .gte("period_end", from);
-    const clash = (existing ?? []).find((p) => periodsOverlap(p.period_start, p.period_end, from, to));
-    if (clash) {
+    if ((existing ?? []).some((p) => periodsOverlap(p.period_start, p.period_end, from, to))) {
       throw new Error(
         "This driver was already paid for an overlapping period. Void that payment first if it was a mistake.",
       );
     }
 
-    const [{ data: pay }, { data: shifts }, { data: receipts }] = await Promise.all([
-      s.from("driver_pay").select("hourly_rate").eq("driver_id", data.driver_id).maybeSingle(),
-      s
-        .from("driver_shifts")
-        .select("id, driver_id, clock_in_at, clock_out_at, payout_id")
-        .eq("driver_id", data.driver_id)
-        .is("payout_id", null)
-        .gte("clock_in_at", from)
-        .lte("clock_in_at", to),
-      s
-        .from("gas_receipts")
-        .select("id, driver_id, amount, submitted_at, reimbursed_at, payout_id")
-        .eq("driver_id", data.driver_id)
-        .is("reimbursed_at", null)
-        .is("payout_id", null)
-        .gte("submitted_at", from)
-        .lte("submitted_at", to),
-    ]);
+    if (calc.total <= 0) throw new Error("Nothing to pay for this period.");
 
-    const rate = pay?.hourly_rate == null ? null : Number(pay.hourly_rate);
-    const { hours, shiftIds } = payableHours((shifts ?? []) as never, from, to);
-    const fuel = pendingFuel((receipts ?? []) as never, from, to);
-    const includeFuel = data.include_fuel !== false;
-    const calc = computePay({
-      hours,
-      hourly_rate: rate,
-      fuel: fuel.amount,
-      bonus: data.bonus_amount ?? 0,
-      include_fuel: includeFuel,
-    });
-
-    if (calc.total == null) {
-      throw new Error("Set an hourly rate for this driver before clearing pay.");
-    }
-    if (calc.total <= 0) {
-      throw new Error("Nothing to pay for this period.");
-    }
+    const { data: driverRow } = await s
+      .from("drivers")
+      .select("company_id")
+      .eq("id", data.driver_id)
+      .maybeSingle();
 
     const { data: row, error } = await s
       .from("driver_payouts")
       .insert({
         driver_id: data.driver_id,
-        company_id: driver.company_id ?? companyId,
+        company_id: driverRow?.company_id ?? companyId,
         period_start: from,
         period_end: to,
+        plan: plan.plan,
         hours: calc.hours,
         hourly_rate: calc.hourly_rate,
-        gross_earnings: calc.gross_earnings ?? 0,
+        hourly_pay: calc.hourly_pay,
+        commission_percentage: calc.commission_percentage,
+        commission_base: calc.commission_base,
+        revenue_base: calc.revenue_base,
+        commission_amount: calc.commission_amount,
+        claim_count: calc.claim_count,
+        per_trip_amount: calc.per_trip_amount,
+        trip_count: calc.trip_count,
+        trip_pay: calc.trip_pay,
+        gross_earnings: calc.earnings,
         fuel_reimbursed: calc.fuel,
         total_paid: calc.total,
-        shift_count: shiftIds.length,
+        shift_count: work.shift_ids.length,
         bonus_amount: calc.bonus,
         bonus_note: data.bonus_note?.trim() || null,
+        breakdown: calc,
         method: data.method ?? "manual",
         reference: data.reference ?? null,
         notes: data.notes ?? null,
@@ -305,32 +379,73 @@ export const clearDriverPay = createServerFn({ method: "POST" })
       throw new Error(error.message);
     }
 
-    // Stamp the exact work this payment covers. If either stamp fails the
-    // payout is voided again so nothing is silently paid without a link.
+    // Stamp the exact work this payment covers. If any stamp fails the payout
+    // is voided again so nothing is silently paid without a link.
+    const nowIso = new Date().toISOString();
+    const company = driverRow?.company_id ?? companyId;
+    const lines = [
+      ...work.shift_ids.map((id) => ({ kind: "shift", ref_id: id, amount: 0, quantity: null as number | null })),
+      ...(planUsesTrips(plan.plan)
+        ? work.trip_ids.map((id) => ({
+            kind: "trip",
+            ref_id: id,
+            amount: plan.per_trip_amount ?? 0,
+            quantity: 1 as number | null,
+          }))
+        : []),
+      ...(planUsesCommission(plan.plan)
+        ? work.claims.map((c) => ({
+            kind: "claim",
+            ref_id: c.trip_id,
+            amount: round2((c.amount * (plan.commission_percentage ?? 0)) / 100),
+            quantity: null as number | null,
+          }))
+        : []),
+      ...(includeFuel
+        ? work.fuel_receipt_ids.map((id) => ({
+            kind: "fuel",
+            ref_id: id,
+            amount: 0,
+            quantity: null as number | null,
+          }))
+        : []),
+    ].map((l) => ({ ...l, payout_id: row.id, driver_id: data.driver_id, company_id: company, occurred_at: nowIso }));
+
     try {
-      if (shiftIds.length) {
+      if (lines.length) {
+        const { error: e } = await s.from("driver_payout_items").insert(lines);
+        if (e) {
+          throw new Error(
+            e.code === "23505"
+              ? "Some of this work was just paid by someone else. Reload and try again."
+              : e.message,
+          );
+        }
+      }
+      if (work.shift_ids.length) {
         const { error: e } = await s
           .from("driver_shifts")
-          .update({ payout_id: row.id, cleared_at: new Date().toISOString() })
-          .in("id", shiftIds);
+          .update({ payout_id: row.id, cleared_at: nowIso })
+          .in("id", work.shift_ids);
         if (e) throw new Error(e.message);
       }
-      if (includeFuel && fuel.receiptIds.length) {
+      if (planUsesTrips(plan.plan) && work.trip_ids.length) {
+        const { error: e } = await s.from("trips").update({ payout_id: row.id }).in("id", work.trip_ids);
+        if (e) throw new Error(e.message);
+      }
+      if (includeFuel && work.fuel_receipt_ids.length) {
         const { error: e } = await s
           .from("gas_receipts")
-          .update({
-            payout_id: row.id,
-            reimbursed_at: new Date().toISOString(),
-            reimbursed_by: context.userId,
-          })
-          .in("id", fuel.receiptIds);
+          .update({ payout_id: row.id, reimbursed_at: nowIso, reimbursed_by: context.userId })
+          .in("id", work.fuel_receipt_ids);
         if (e) throw new Error(e.message);
       }
     } catch (e) {
+      await releasePayout(s, row.id);
       await s
         .from("driver_payouts")
         .update({
-          voided_at: new Date().toISOString(),
+          voided_at: nowIso,
           voided_by: context.userId,
           void_reason: "Rolled back: could not link paid work",
         })
@@ -338,66 +453,28 @@ export const clearDriverPay = createServerFn({ method: "POST" })
       throw e instanceof Error ? e : new Error("Could not finalize payment");
     }
 
-    return { ...row, shifts_paid: shiftIds.length, receipts_paid: includeFuel ? fuel.receiptIds.length : 0 };
-  });
-
-/** What a driver would be paid right now for a period — used by the UI so the
- *  confirmation dialog shows exactly what the server will write. */
-export const previewDriverPay = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: { driver_id: string; from: string; to: string }) => input)
-  .handler(async ({ data, context }) => {
-    const { companyId } = await assertPayrollAdmin(context.supabase, context.userId);
-    const { from, to } = validPeriod(data.from, data.to);
-    const s = context.supabase;
-
-    const { data: driver } = await scoped(
-      s.from("drivers").select("id").eq("id", data.driver_id),
-      companyId,
-    ).maybeSingle();
-    if (!driver) throw new Error("Driver not found in your company");
-
-    const [{ data: pay }, { data: shifts }, { data: receipts }, { data: existing }] = await Promise.all([
-      s.from("driver_pay").select("hourly_rate").eq("driver_id", data.driver_id).maybeSingle(),
-      s
-        .from("driver_shifts")
-        .select("id, driver_id, clock_in_at, clock_out_at, payout_id")
-        .eq("driver_id", data.driver_id)
-        .is("payout_id", null)
-        .gte("clock_in_at", from)
-        .lte("clock_in_at", to),
-      s
-        .from("gas_receipts")
-        .select("id, driver_id, amount, submitted_at, reimbursed_at, payout_id")
-        .eq("driver_id", data.driver_id)
-        .is("reimbursed_at", null)
-        .is("payout_id", null)
-        .gte("submitted_at", from)
-        .lte("submitted_at", to),
-      s
-        .from("driver_payouts")
-        .select("id, period_start, period_end, paid_at, total_paid")
-        .eq("driver_id", data.driver_id)
-        .is("voided_at", null)
-        .lte("period_start", to)
-        .gte("period_end", from)
-        .limit(5),
-    ]);
-
-    const rate = pay?.hourly_rate == null ? null : Number(pay.hourly_rate);
-    const { hours, shiftIds, openCount } = payableHours((shifts ?? []) as never, from, to);
-    const fuel = pendingFuel((receipts ?? []) as never, from, to);
-    const calc = computePay({ hours, hourly_rate: rate, fuel: fuel.amount });
-
     return {
-      period: { from, to },
-      ...calc,
-      shift_count: shiftIds.length,
-      receipt_count: fuel.receiptIds.length,
-      open_shifts: openCount,
-      already_paid: existing ?? [],
+      ...row,
+      plan: plan.plan,
+      shifts_paid: work.shift_ids.length,
+      trips_paid: planUsesTrips(plan.plan) ? work.trip_ids.length : 0,
+      claims_paid: planUsesCommission(plan.plan) ? work.claims.length : 0,
+      receipts_paid: includeFuel ? work.fuel_receipt_ids.length : 0,
     };
   });
+
+/** Release every piece of work a payout locked, so it can be paid correctly. */
+async function releasePayout(s: Sb, payoutId: string) {
+  await Promise.all([
+    s.from("driver_shifts").update({ payout_id: null, cleared_at: null }).eq("payout_id", payoutId),
+    s.from("trips").update({ payout_id: null }).eq("payout_id", payoutId),
+    s
+      .from("gas_receipts")
+      .update({ payout_id: null, reimbursed_at: null, reimbursed_by: null })
+      .eq("payout_id", payoutId),
+    s.from("driver_payout_items").delete().eq("payout_id", payoutId),
+  ]);
+}
 
 /** Payment history, newest first. Optionally for one driver. */
 export const listPayouts = createServerFn({ method: "POST" })
@@ -463,17 +540,9 @@ export const voidPayout = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
 
-    await Promise.all([
-      s.from("driver_shifts").update({ payout_id: null, cleared_at: null }).eq("payout_id", data.id),
-      s
-        .from("gas_receipts")
-        .update({ payout_id: null, reimbursed_at: null, reimbursed_by: null })
-        .eq("payout_id", data.id),
-    ]);
-
+    await releasePayout(s, data.id);
     return { ok: true };
   });
-
 
 /**
  * Manual time / overtime entry. Hourly drivers sometimes work time the app
@@ -503,12 +572,8 @@ export const addManualHours = createServerFn({ method: "POST" })
     ).maybeSingle();
     if (!driver) throw new Error("Driver not found in your company");
 
-    const { data: pay } = await s
-      .from("driver_pay")
-      .select("hourly_rate")
-      .eq("driver_id", data.driver_id)
-      .maybeSingle();
-    const rate = pay?.hourly_rate == null ? 0 : Number(pay.hourly_rate);
+    const plans = await loadPayPlans(s, companyId, [data.driver_id]);
+    const rate = plans.get(data.driver_id)?.hourly_rate ?? 0;
 
     // Anchor the entry at 09:00 on the chosen day so it lands inside any
     // pay period that contains that date.
