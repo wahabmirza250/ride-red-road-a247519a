@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.stamp_company_from_driver() FROM PUBLIC, anon, authenticated;

@@ -781,6 +781,7 @@ export type Database = {
         Row: {
           cleared_at: string
           cleared_by: string | null
+          company_id: string | null
           created_at: string
           driver_id: string
           earnings: number | null
@@ -796,6 +797,7 @@ export type Database = {
         Insert: {
           cleared_at?: string
           cleared_by?: string | null
+          company_id?: string | null
           created_at?: string
           driver_id: string
           earnings?: number | null
@@ -811,6 +813,7 @@ export type Database = {
         Update: {
           cleared_at?: string
           cleared_by?: string | null
+          company_id?: string | null
           created_at?: string
           driver_id?: string
           earnings?: number | null
@@ -825,6 +828,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "driver_hour_clearings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "driver_hour_clearings_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
@@ -835,6 +845,7 @@ export type Database = {
       }
       driver_pay: {
         Row: {
+          company_id: string | null
           created_at: string
           driver_id: string
           hourly_rate: number | null
@@ -843,6 +854,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           driver_id: string
           hourly_rate?: number | null
@@ -851,6 +863,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           driver_id?: string
           hourly_rate?: number | null
@@ -859,6 +872,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "driver_pay_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "driver_pay_driver_id_fkey"
             columns: ["driver_id"]
@@ -872,6 +892,7 @@ export type Database = {
         Row: {
           bonus_amount: number
           bonus_note: string | null
+          company_id: string | null
           created_at: string
           driver_id: string
           fuel_reimbursed: number
@@ -886,12 +907,17 @@ export type Database = {
           period_end: string
           period_start: string
           reference: string | null
+          shift_count: number
           total_paid: number
           updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           bonus_amount?: number
           bonus_note?: string | null
+          company_id?: string | null
           created_at?: string
           driver_id: string
           fuel_reimbursed?: number
@@ -906,12 +932,17 @@ export type Database = {
           period_end: string
           period_start: string
           reference?: string | null
+          shift_count?: number
           total_paid?: number
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           bonus_amount?: number
           bonus_note?: string | null
+          company_id?: string | null
           created_at?: string
           driver_id?: string
           fuel_reimbursed?: number
@@ -926,10 +957,21 @@ export type Database = {
           period_end?: string
           period_start?: string
           reference?: string | null
+          shift_count?: number
           total_paid?: number
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "driver_payouts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "driver_payouts_driver_id_fkey"
             columns: ["driver_id"]
@@ -953,6 +995,7 @@ export type Database = {
           gps_miles: number
           hourly_rate_snapshot: number
           id: string
+          payout_id: string | null
           start_odometer: number | null
           updated_at: string
         }
@@ -969,6 +1012,7 @@ export type Database = {
           gps_miles?: number
           hourly_rate_snapshot?: number
           id?: string
+          payout_id?: string | null
           start_odometer?: number | null
           updated_at?: string
         }
@@ -985,6 +1029,7 @@ export type Database = {
           gps_miles?: number
           hourly_rate_snapshot?: number
           id?: string
+          payout_id?: string | null
           start_odometer?: number | null
           updated_at?: string
         }
@@ -1001,6 +1046,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_shifts_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "driver_payouts"
             referencedColumns: ["id"]
           },
         ]
@@ -1249,6 +1301,7 @@ export type Database = {
           gallons: number | null
           id: string
           notes: string | null
+          payout_id: string | null
           photo_path: string
           reimbursed_at: string | null
           reimbursed_by: string | null
@@ -1263,6 +1316,7 @@ export type Database = {
           gallons?: number | null
           id?: string
           notes?: string | null
+          payout_id?: string | null
           photo_path: string
           reimbursed_at?: string | null
           reimbursed_by?: string | null
@@ -1277,6 +1331,7 @@ export type Database = {
           gallons?: number | null
           id?: string
           notes?: string | null
+          payout_id?: string | null
           photo_path?: string
           reimbursed_at?: string | null
           reimbursed_by?: string | null
@@ -1296,6 +1351,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gas_receipts_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "driver_payouts"
             referencedColumns: ["id"]
           },
           {
