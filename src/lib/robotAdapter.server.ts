@@ -95,7 +95,7 @@ export async function postSubmitClaimTo(
  */
 export async function postSubmitClaim(payload: any, jobId: string): Promise<string> {
   if (isSubmissionTestMode()) return await postSubmitClaimTo(payload, jobId, { id: "mock", url: "" });
-  const { ROBOT_BASE_URL } = await import("@/lib/billingHelpers");
+  const { ROBOT_BASE_URL } = await import("@/lib/robotConfig");
   return await postSubmitClaimTo(payload, jobId, { id: "legacy", url: ROBOT_BASE_URL });
 }
 

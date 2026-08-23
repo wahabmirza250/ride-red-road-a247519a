@@ -15,7 +15,7 @@
  *   - Health probing is read-only and never touches the HCPF portal.
  *   - No URL or secret ever reaches browser code — this file is server-only.
  */
-import { ROBOT_BASE_URL } from "@/lib/billingHelpers";
+import { ROBOT_BASE_URL } from "@/lib/robotConfig";
 import { envInt } from "@/lib/submissionQueueEnv";
 
 export type FleetWorker = {
