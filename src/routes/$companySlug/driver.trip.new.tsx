@@ -1,23 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useAppNavigate } from "@/lib/appLink";
-import { useEffect, useMemo, useState } from "react";
+import { useAppNavigate, useCompanySlug } from "@/lib/appLink";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
-import { PageHeader } from "@/components/nemt/PageHeader";
 import { SignaturePad } from "@/components/driver/SignaturePad";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectTrigger,
@@ -25,8 +18,24 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Search, UserPlus, X, Loader2, Check, Camera } from "lucide-react";
+import {
+  Search,
+  UserPlus,
+  X,
+  Loader2,
+  Check,
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  Clock,
+  History,
+  FileText,
+  AlertTriangle,
+  WifiOff,
+  Trash2,
+  CheckCircle2,
+} from "lucide-react";
 import {
   createNemtTripGroup,
   attachRiderSignature,
@@ -43,7 +52,33 @@ import {
   type RiderVerifyResult,
 } from "@/lib/manualTripSafety.functions";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
-
+import {
+  STEPS,
+  STEP_LABELS,
+  addRiderSlot as addSlot,
+  buildCreateTripPayload,
+  buildPdfArgs,
+  clearDraft,
+  completedSteps,
+  createEmptyDraft,
+  draftStorageKey,
+  firstIssue,
+  isDraftEmpty,
+  loadDraft,
+  nowHM,
+  pushRecentAddress,
+  readRecentAddresses,
+  removeRiderSlot,
+  saveDraft,
+  today,
+  updateLeg as updateLegIn,
+  updateSlot as updateSlotIn,
+  validateStep,
+  withTripKind,
+  type DraftRider,
+  type DriverTripDraft,
+  type Step,
+} from "@/lib/driverTripDraft";
 
 export const Route = createFileRoute("/$companySlug/driver/trip/new")({
   validateSearch: (search) => ({
@@ -52,112 +87,180 @@ export const Route = createFileRoute("/$companySlug/driver/trip/new")({
   component: NewNemtTripWizard,
 });
 
-type Rider = {
-  id: string;
-  full_name: string;
-  medicaid_id: string;
-  dob: string | null;
-  phone: string | null;
-  address: string | null;
-};
-
-type LegForm = {
-  leg_index: 1 | 2;
-  leg_date: string;
-  pickup_time: string;
-  pickup_odometer: string;
-  pickup_address: string;
-  dropoff_time: string;
-  dropoff_odometer: string;
-  dropoff_address: string;
-};
-
-type RiderSlot = {
-  rider: Rider;
-  identity_verified: boolean;
-  signed_by_escort: boolean;
-  signature_data_url: string | null;
-  signer_name: string;
-};
-
-type AssignedTrip = {
-  id: string;
-  pickup_address: string;
-  dropoff_address: string;
-  scheduled_pickup_time: string;
-  status: string;
-};
+type SearchHit = DraftRider & { __source?: "passenger"; last_4_ssn?: string | null };
 
 const VEHICLE_TYPES = [
-  { value: "ground_ambulance", label: "Ground Ambulance" },
+  { value: "ambulatory", label: "Mobility / Ambulatory" },
   { value: "wheelchair_van", label: "Wheelchair Van" },
   { value: "stretcher_van", label: "Stretcher Van" },
   { value: "taxi", label: "Taxi" },
-  { value: "ambulatory", label: "Mobility / Ambulatory" },
+  { value: "ground_ambulance", label: "Ground Ambulance" },
 ];
 
-const today = () => new Date().toISOString().slice(0, 10);
-const nowHM = () => new Date().toTimeString().slice(0, 5);
-
-function emptyLeg(index: 1 | 2): LegForm {
-  return {
-    leg_index: index,
-    leg_date: today(),
-    pickup_time: index === 1 ? nowHM() : "",
-    pickup_odometer: "",
-    pickup_address: "",
-    dropoff_time: "",
-    dropoff_odometer: "",
-    dropoff_address: "",
-  };
-}
+const TRIP_KINDS = [
+  { value: "one_way", label: "One way" },
+  { value: "round_trip", label: "Round trip" },
+  { value: "group_tour", label: "Group" },
+] as const;
 
 function NewNemtTripWizard() {
   const { tripId } = Route.useSearch();
   const { user, isDriver } = useAuth();
+  const companySlug = useCompanySlug();
   const navigate = useAppNavigate();
-  const [tab, setTab] = useState("vehicle");
-  const [assignedTrip, setAssignedTrip] = useState<AssignedTrip | null>(null);
-  const [assignedPassengerName, setAssignedPassengerName] = useState<string | null>(null);
 
-  // Vehicle / trip meta
-  const [tripKind, setTripKind] = useState<"one_way" | "round_trip" | "group_tour">("one_way");
-  const [vehicleType, setVehicleType] = useState<string>("");
-  const [plate, setPlate] = useState("");
-  const [vin, setVin] = useState("");
-  const [escortName, setEscortName] = useState("");
-  const [driverFullName, setDriverFullName] = useState("");
+  const [draft, setDraft] = useState<DriverTripDraft>(createEmptyDraft);
+  const [step, setStep] = useState<Step>("passenger");
+  const [showErrors, setShowErrors] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [online, setOnline] = useState(true);
 
-  // Load driver defaults once
+  const storageKey = useMemo(
+    () => draftStorageKey(companySlug, user?.id ?? null),
+    [companySlug, user?.id],
+  );
+
+  /* -------------------------- draft restore + autosave ------------------- */
+  useEffect(() => {
+    if (typeof window === "undefined" || !user?.id) return;
+    const existing = loadDraft(window.localStorage, storageKey);
+    if (existing && !isDraftEmpty(existing)) {
+      setDraft(existing);
+      setDraftRestored(true);
+    }
+    setHydrated(true);
+  }, [storageKey, user?.id]);
+
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    const t = setTimeout(() => saveDraft(window.localStorage, storageKey, draft), 400);
+    return () => clearTimeout(t);
+  }, [draft, hydrated, storageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sync = () => setOnline(window.navigator.onLine);
+    sync();
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+    };
+  }, []);
+
+  const patch = useCallback(
+    (fn: (d: DriverTripDraft) => DriverTripDraft) => setDraft((d) => fn(d)),
+    [],
+  );
+
+  /* ------------------------------ driver defaults ------------------------ */
   const loadDefaults = useServerFn(getMyDriverDefaults);
   useEffect(() => {
     loadDefaults()
       .then((d: any) => {
         if (!d) return;
-        if (d.default_vehicle_type) setVehicleType(d.default_vehicle_type);
-        if (d.default_plate) setPlate(d.default_plate);
-        if (d.default_vin) setVin(d.default_vin);
-        if (d.driver_full_name) setDriverFullName(d.driver_full_name);
+        patch((prev) => ({
+          ...prev,
+          vehicle_type: prev.vehicle_type || d.default_vehicle_type || "",
+          plate: prev.plate || d.default_plate || "",
+          vin: prev.vin || d.default_vin || "",
+          driver_full_name: d.driver_full_name || prev.driver_full_name,
+        }));
       })
       .catch(() => {});
-  }, [loadDefaults]);
+  }, [loadDefaults, patch]);
 
-  // Riders
-  const [riderSlots, setRiderSlots] = useState<RiderSlot[]>([]);
-  const [riderQuery, setRiderQuery] = useState("");
-  const [riderResults, setRiderResults] = useState<Rider[]>([]);
-  const [addingRider, setAddingRider] = useState(false);
-  const [newRider, setNewRider] = useState({ full_name: "", medicaid_id: "", dob: "", phone: "", last_4_ssn: "" });
+  /* ------------------------------ assigned trip -------------------------- */
   const loadAssignedTrip = useServerFn(getAssignedTripForNemt);
+  const [assignedLoaded, setAssignedLoaded] = useState(false);
+  useEffect(() => {
+    if (!tripId || assignedLoaded || !hydrated) return;
+    let cancelled = false;
+    loadAssignedTrip({ data: { trip_id: tripId } })
+      .then((prefill: any) => {
+        if (cancelled) return;
+        setAssignedLoaded(true);
+        const scheduled = prefill.trip?.scheduled_pickup_time
+          ? new Date(prefill.trip.scheduled_pickup_time)
+          : new Date();
+        const valid = !Number.isNaN(scheduled.getTime());
+        const baseDate = valid ? scheduled.toISOString().slice(0, 10) : today();
+        const baseTime = valid ? scheduled.toTimeString().slice(0, 5) : nowHM();
+        patch((prev) => {
+          let next: DriverTripDraft = { ...prev, assigned_trip_id: tripId };
+          next = updateLegIn(next, 0, {
+            leg_date: next.legs[0].leg_date || baseDate,
+            pickup_time: next.legs[0].pickup_time || baseTime,
+            pickup_address: next.legs[0].pickup_address || prefill.trip.pickup_address,
+            dropoff_address: next.legs[0].dropoff_address || prefill.trip.dropoff_address,
+          });
+          if (prefill.rider) next = addSlot(next, prefill.rider as DraftRider);
+          return next;
+        });
+        if (!prefill.rider && prefill.passenger?.full_name) {
+          setRiderQuery(prefill.passenger.full_name);
+          toast.info("Assigned address loaded — pick the passenger to continue.");
+        }
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not load assigned trip"));
+    return () => {
+      cancelled = true;
+    };
+  }, [assignedLoaded, hydrated, loadAssignedTrip, patch, tripId]);
+
+  /* --------------------------- passenger search -------------------------- */
+  const [riderQuery, setRiderQuery] = useState("");
+  const [riderResults, setRiderResults] = useState<SearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [recent, setRecent] = useState<DraftRider[]>([]);
+  const [addingRider, setAddingRider] = useState(false);
+  const [savingRider, setSavingRider] = useState(false);
+  const [newRider, setNewRider] = useState({
+    full_name: "",
+    medicaid_id: "",
+    dob: "",
+    phone: "",
+    last_4_ssn: "",
+  });
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data: trips } = await supabase
+        .from("medicaid_trips")
+        .select("rider_id, created_at")
+        .eq("driver_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      const ids = Array.from(new Set(((trips as any[]) ?? []).map((t) => t.rider_id).filter(Boolean)));
+      if (ids.length === 0) return;
+      const { data: riders } = await supabase.from("riders").select("*").in("id", ids.slice(0, 8));
+      if (cancelled) return;
+      const order = new Map(ids.map((id, i) => [id, i]));
+      setRecent(
+        (((riders as DraftRider[]) ?? []) as DraftRider[]).sort(
+          (a, b) => (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99),
+        ),
+      );
+    })().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     let cancelled = false;
-    if (!riderQuery.trim()) {
+    const raw = riderQuery.trim();
+    if (raw.length < 2) {
       setRiderResults([]);
+      setSearching(false);
       return;
     }
+    setSearching(true);
     const t = setTimeout(async () => {
-      const raw = riderQuery.trim();
       const q = `%${raw}%`;
       const [ridersRes, passengersRes] = await Promise.all([
         supabase
@@ -173,257 +276,171 @@ function NewNemtTripWizard() {
           )
           .limit(6),
       ]);
-      const fromRiders = (ridersRes.data as Rider[]) ?? [];
-      const fromPassengers: (Rider & { __source: "passenger"; last_4_ssn?: string | null })[] =
-        ((passengersRes.data as any[]) ?? []).map((p) => ({
-          id: `passenger:${p.id}`,
-          full_name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Unnamed passenger",
-          medicaid_id: p.medicaid_id ?? "",
-          dob: p.date_of_birth ?? null,
-          phone: p.phone ?? null,
-          address: null,
-          last_4_ssn: p.ssn_last4 ?? null,
-          __source: "passenger" as const,
-        }));
-      // De-dupe passengers already present in riders (by medicaid_id)
+      const fromRiders = ((ridersRes.data as DraftRider[]) ?? []) as SearchHit[];
+      const fromPassengers: SearchHit[] = (((passengersRes.data as any[]) ?? []) as any[]).map((p) => ({
+        id: `passenger:${p.id}`,
+        full_name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Unnamed passenger",
+        medicaid_id: p.medicaid_id ?? "",
+        dob: p.date_of_birth ?? null,
+        phone: p.phone ?? null,
+        address: null,
+        last_4_ssn: p.ssn_last4 ?? null,
+        __source: "passenger" as const,
+      }));
       const knownMedicaid = new Set(fromRiders.map((r) => r.medicaid_id).filter(Boolean));
       const merged = [
         ...fromRiders,
         ...fromPassengers.filter((p) => !p.medicaid_id || !knownMedicaid.has(p.medicaid_id)),
       ].slice(0, 8);
-      if (!cancelled) setRiderResults(merged);
-    }, 200);
+      if (!cancelled) {
+        setRiderResults(merged);
+        setSearching(false);
+      }
+    }, 220);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
   }, [riderQuery]);
 
-  async function selectSearchResult(r: Rider & { __source?: "passenger"; last_4_ssn?: string | null }) {
-    // Passengers-table hits aren't real rider rows yet — materialize one.
-    if (r.__source === "passenger") {
-      const medicaid = r.medicaid_id?.trim();
-      if (medicaid) {
-        const { data: existing } = await supabase
-          .from("riders")
-          .select("*")
-          .eq("medicaid_id", medicaid)
-          .maybeSingle();
-        if (existing) {
-          addRiderSlot(existing as Rider);
-          return;
-        }
+  function attachRider(r: DraftRider) {
+    setDraft((prev) => {
+      if (prev.rider_slots.some((s) => s.rider.id === r.id)) return prev;
+      if (prev.trip_kind !== "group_tour" && prev.rider_slots.length >= 1) {
+        toast.info("Switch to Group to add more than one passenger");
+        return prev;
       }
-      const { data, error } = await supabase
-        .from("riders")
-        .insert({
-          full_name: r.full_name,
-          medicaid_id: medicaid || `SSN-${r.last_4_ssn ?? "0000"}`,
-          dob: r.dob || null,
-          phone: r.phone || null,
-          last_4_ssn: medicaid ? null : r.last_4_ssn ?? null,
-        })
-        .select()
-        .single();
-      if (error) return toast.error(error.message);
-      // If the source passenger has an encrypted full SSN on file, copy it
-      // over so the state PDF can fill the ID field with the full SSN.
-      if (!medicaid) {
-        await supabase.rpc("copy_passenger_ssn_to_rider", {
-          _passenger_id: r.id,
-          _rider_id: data.id,
-        });
-      }
-      addRiderSlot(data as Rider);
-      return;
-    }
-
-    addRiderSlot(r);
-  }
-
-  function addRiderSlot(r: Rider) {
-    if (riderSlots.some((s) => s.rider.id === r.id)) return;
-    if (tripKind !== "group_tour" && riderSlots.length >= 1) {
-      toast.info("Switch to Group Tour to add more than one passenger");
-      return;
-    }
-    setRiderSlots((prev) => [
-      ...prev,
-      {
-        rider: r,
-        identity_verified: true,
-        signed_by_escort: false,
-        signature_data_url: null,
-        signer_name: r.full_name,
-      },
-    ]);
+      return addSlot(prev, r);
+    });
     setRiderQuery("");
     setRiderResults([]);
   }
 
-  useEffect(() => {
-    if (!tripId) return;
-    let cancelled = false;
-    loadAssignedTrip({ data: { trip_id: tripId } })
-      .then((prefill) => {
-        if (cancelled) return;
-        setAssignedTrip(prefill.trip as AssignedTrip);
-        setAssignedPassengerName(prefill.passenger?.full_name ?? null);
-
-        const scheduled = prefill.trip.scheduled_pickup_time
-          ? new Date(prefill.trip.scheduled_pickup_time)
-          : new Date();
-        const isValidDate = !Number.isNaN(scheduled.getTime());
-        const baseDate = isValidDate ? scheduled.toISOString().slice(0, 10) : today();
-        const baseTime = isValidDate ? scheduled.toTimeString().slice(0, 5) : nowHM();
-
-        setLegs((prev) => {
-          const first = prev[0] ?? emptyLeg(1);
-          const nextFirst: LegForm = {
-            ...first,
-            leg_date: first.leg_date || baseDate,
-            pickup_time: first.pickup_time || baseTime,
-            pickup_address: first.pickup_address || prefill.trip.pickup_address,
-            dropoff_address: first.dropoff_address || prefill.trip.dropoff_address,
-          };
-          if (tripKind === "round_trip") {
-            const second = prev[1] ?? emptyLeg(2);
-            return [
-              nextFirst,
-              {
-                ...second,
-                leg_date: second.leg_date || baseDate,
-                pickup_address: second.pickup_address || prefill.trip.dropoff_address,
-                dropoff_address: second.dropoff_address || prefill.trip.pickup_address,
-              },
-            ];
-          }
-          return [nextFirst];
-        });
-
-        if (prefill.rider) {
-          const rider = prefill.rider as Rider;
-          setRiderSlots((prev) => {
-            if (prev.some((slot) => slot.rider.id === rider.id)) return prev;
-            if (tripKind !== "group_tour" && prev.length >= 1) return prev;
-            return [
-              ...prev,
-              {
-                rider,
-                identity_verified: true,
-                signed_by_escort: false,
-                signature_data_url: null,
-                signer_name: rider.full_name,
-              },
-            ];
-          });
-        } else if (prefill.passenger) {
-          setRiderQuery(prefill.passenger.full_name ?? "");
-          toast.info("Assigned address loaded. Select or create the passenger to continue.");
-        }
-      })
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not load assigned trip"));
-    return () => {
-      cancelled = true;
-    };
-  }, [loadAssignedTrip, tripId, tripKind]);
-
-  async function createNewRider() {
-    if (!newRider.full_name.trim()) return toast.error("Full name required");
-    const hasMedicaid = !!newRider.medicaid_id.trim();
-    const hasSsn = /^\d{4}$/.test(newRider.last_4_ssn);
-    if (!hasMedicaid && !hasSsn) {
-      return toast.error("Enter a Medicaid ID or last 4 digits of SSN");
+  async function selectSearchResult(r: SearchHit) {
+    if (r.__source !== "passenger") return attachRider(r);
+    // Passenger-table hit — reuse or materialize the matching rider row.
+    const medicaid = r.medicaid_id?.trim();
+    if (medicaid) {
+      const { data: existing } = await supabase
+        .from("riders")
+        .select("*")
+        .eq("medicaid_id", medicaid)
+        .maybeSingle();
+      if (existing) return attachRider(existing as DraftRider);
     }
     const { data, error } = await supabase
       .from("riders")
       .insert({
-        full_name: newRider.full_name.trim(),
-        medicaid_id: newRider.medicaid_id.trim() || `SSN-${newRider.last_4_ssn}`,
-        dob: newRider.dob || null,
-        phone: newRider.phone || null,
-        last_4_ssn: hasMedicaid ? null : newRider.last_4_ssn || null,
+        full_name: r.full_name,
+        medicaid_id: medicaid || `SSN-${r.last_4_ssn ?? "0000"}`,
+        dob: r.dob || null,
+        phone: r.phone || null,
+        last_4_ssn: medicaid ? null : (r.last_4_ssn ?? null),
       })
       .select()
       .single();
     if (error) return toast.error(error.message);
-    addRiderSlot(data as Rider);
-    setAddingRider(false);
-    setNewRider({ full_name: "", medicaid_id: "", dob: "", phone: "", last_4_ssn: "" });
+    if (!medicaid) {
+      await supabase.rpc("copy_passenger_ssn_to_rider", {
+        _passenger_id: r.id.replace("passenger:", ""),
+        _rider_id: data.id,
+      });
+    }
+    attachRider(data as DraftRider);
   }
 
-  // Legs
-  const [legs, setLegs] = useState<LegForm[]>([emptyLeg(1)]);
-  useEffect(() => {
-    if (tripKind === "round_trip") {
-      setLegs((prev) => {
-        if (prev.length === 2) return prev;
-        const first = prev[0] ?? emptyLeg(1);
-        const second = emptyLeg(2);
-        return [
-          first,
-          {
-            ...second,
-            leg_date: first.leg_date || second.leg_date,
-            pickup_address: assignedTrip?.dropoff_address || first.dropoff_address,
-            dropoff_address: assignedTrip?.pickup_address || first.pickup_address,
-          },
-        ];
-      });
-    } else {
-      setLegs((prev) => (prev.length === 1 ? prev : [prev[0]]));
+  async function createNewRider() {
+    if (!newRider.full_name.trim()) return toast.error("Full name is required");
+    const hasMedicaid = !!newRider.medicaid_id.trim();
+    const hasSsn = /^\d{4}$/.test(newRider.last_4_ssn);
+    if (!hasMedicaid && !hasSsn) return toast.error("Enter a Medicaid ID or last 4 of SSN");
+    setSavingRider(true);
+    try {
+      const { data, error } = await supabase
+        .from("riders")
+        .insert({
+          full_name: newRider.full_name.trim(),
+          medicaid_id: newRider.medicaid_id.trim() || `SSN-${newRider.last_4_ssn}`,
+          dob: newRider.dob || null,
+          phone: newRider.phone || null,
+          last_4_ssn: hasMedicaid ? null : newRider.last_4_ssn || null,
+        })
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      attachRider(data as DraftRider);
+      setAddingRider(false);
+      setNewRider({ full_name: "", medicaid_id: "", dob: "", phone: "", last_4_ssn: "" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save passenger");
+    } finally {
+      setSavingRider(false);
     }
-  }, [assignedTrip, tripKind]);
+  }
 
-  const updateLeg = (idx: number, patch: Partial<LegForm>) =>
-    setLegs((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  /* ------------------------------- addresses ----------------------------- */
+  const [recentAddresses, setRecentAddresses] = useState<string[]>([]);
+  useEffect(() => {
+    if (typeof window !== "undefined") setRecentAddresses(readRecentAddresses(window.localStorage));
+  }, []);
 
+  function rememberAddress(a: string) {
+    if (typeof window === "undefined") return;
+    setRecentAddresses(pushRecentAddress(window.localStorage, a));
+  }
+
+  const [locating, setLocating] = useState(false);
+  async function useCurrentLocation(legIdx: number) {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      return toast.error("Location is not available on this device");
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        patch((d) =>
+          updateLegIn(d, legIdx, {
+            pickup_address: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+          }),
+        );
+        setLocating(false);
+        toast.success("Current location added — edit it if you need a street address");
+      },
+      () => {
+        setLocating(false);
+        toast.error("Could not read your location");
+      },
+      { enableHighAccuracy: true, timeout: 10_000 },
+    );
+  }
+
+  /* ------------------------------- odometer OCR -------------------------- */
   const detectOdometer = useServerFn(detectOdometerFromImage);
-  const [detectingOdometer, setDetectingOdometer] = useState<Record<string, boolean>>({});
-
+  const [detecting, setDetecting] = useState<Record<string, boolean>>({});
   async function handleOdometerPhoto(
     legIndex: number,
     field: "pickup_odometer" | "dropoff_odometer",
     file: File | null,
   ) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Choose an odometer photo");
-      return;
-    }
-    if (file.size > 6 * 1024 * 1024) {
-      toast.error("Photo is too large. Use a smaller image.");
-      return;
-    }
-
+    if (!file.type.startsWith("image/")) return toast.error("Choose an odometer photo");
+    if (file.size > 6 * 1024 * 1024) return toast.error("Photo is too large — use a smaller image");
     const key = `${legIndex}-${field}`;
-    setDetectingOdometer((prev) => ({ ...prev, [key]: true }));
+    setDetecting((p) => ({ ...p, [key]: true }));
     try {
       const imageDataUrl = await readFileAsDataUrl(file);
       const result = await detectOdometer({ data: { image_data_url: imageDataUrl } });
-      if (!result.odometer) {
-        toast.error("Could not read the odometer. Type the number manually.");
-        return;
-      }
-      updateLeg(legIndex, { [field]: result.odometer });
+      if (!result.odometer) return toast.error("Could not read the odometer — type it in");
+      patch((d) => updateLegIn(d, legIndex, { [field]: result.odometer } as any));
       toast.success(`Odometer detected: ${result.odometer}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not detect odometer");
     } finally {
-      setDetectingOdometer((prev) => ({ ...prev, [key]: false }));
+      setDetecting((p) => ({ ...p, [key]: false }));
     }
   }
 
-  function saveSignature(riderId: string, url: string | null) {
-    setRiderSlots((prev) =>
-      prev.map((s) => (s.rider.id === riderId ? { ...s, signature_data_url: url } : s)),
-    );
-  }
-
-  // Submit
-  const submitGroup = useServerFn(createNemtTripGroup);
-
-  // ---- Safety pre-flight (same rules as the paper-bill / billing pipeline) ----
+  /* --------------------------- safety pre-flight ------------------------- */
   const runRateCheck = useServerFn(checkVehicleRates);
   const runRiderVerify = useServerFn(verifyRiderIdentity);
   const [rateCheck, setRateCheck] = useState<{ ok: boolean; missing: string[] } | null>(null);
@@ -432,28 +449,26 @@ function NewNemtTripWizard() {
   >({});
 
   useEffect(() => {
-    if (!vehicleType) {
+    if (!draft.vehicle_type) {
       setRateCheck(null);
       return;
     }
     let cancelled = false;
-    runRateCheck({ data: { vehicle_type: vehicleType } })
-      .then((r) => {
-        if (!cancelled) setRateCheck({ ok: r.ok, missing: r.missing });
-      })
-      .catch(() => {
-        if (!cancelled) setRateCheck({ ok: false, missing: ["trip", "mile"] });
-      });
+    runRateCheck({ data: { vehicle_type: draft.vehicle_type } })
+      .then((r) => !cancelled && setRateCheck({ ok: r.ok, missing: r.missing }))
+      .catch(() => !cancelled && setRateCheck({ ok: false, missing: ["trip", "mile"] }));
     return () => {
       cancelled = true;
     };
-  }, [runRateCheck, vehicleType]);
+  }, [runRateCheck, draft.vehicle_type]);
 
-  const riderSlotIds = riderSlots.map((s) => s.rider.id).join(",");
+  const riderSlotIds = draft.rider_slots.map((s) => s.rider.id).join(",");
+  const verifyRef = useRef(verify);
+  verifyRef.current = verify;
   useEffect(() => {
     const ids = riderSlotIds ? riderSlotIds.split(",") : [];
     for (const id of ids) {
-      if (verify[id]) continue;
+      if (verifyRef.current[id]) continue;
       setVerify((p) => ({ ...p, [id]: { state: "running" } }));
       runRiderVerify({ data: { rider_id: id } })
         .then((result) => setVerify((p) => ({ ...p, [id]: { state: "done", result } })))
@@ -471,180 +486,123 @@ function NewNemtTripWizard() {
           })),
         );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [riderSlotIds]);
+  }, [riderSlotIds, runRiderVerify]);
 
   const safetyIssue = useMemo(() => {
-    if (vehicleType && rateCheck && !rateCheck.ok) {
-      return `No billing rate configured for this vehicle type (missing: ${rateCheck.missing.join(", ")}). Ask billing to add it before completing this trip.`;
+    if (draft.vehicle_type && rateCheck && !rateCheck.ok) {
+      return `No billing rate configured for this vehicle type (missing: ${rateCheck.missing.join(", ")}). Ask billing to add it.`;
     }
-    for (const s of riderSlots) {
+    for (const s of draft.rider_slots) {
       const v = verify[s.rider.id];
       if (!v || v.state === "running") {
-        return `Still verifying ${s.rider.full_name}'s Medicaid ID against the portal — this takes a minute.`;
+        return `Still verifying ${s.rider.full_name}'s Medicaid ID against the portal…`;
       }
       if (v.result?.status === "mismatch" || v.result?.status === "unavailable") {
         return v.result.message;
       }
     }
     return null;
-  }, [rateCheck, riderSlots, vehicleType, verify]);
+  }, [draft.rider_slots, draft.vehicle_type, rateCheck, verify]);
 
+  /* --------------------------------- submit ------------------------------ */
+  const submitGroup = useServerFn(createNemtTripGroup);
   const attachSig = useServerFn(attachRiderSignature);
   const attachPdf = useServerFn(attachStatePdf);
   const [submitting, setSubmitting] = useState(false);
+  const [submitStage, setSubmitStage] = useState("");
   const [completedPdfs, setCompletedPdfs] = useState<
-    { rider_name: string; url: string; filename: string }[] | null
+    { rider_name: string; url: string; filename: string; trip_id: string }[] | null
   >(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
 
-  const vehicleIssue = useMemo(() => {
-    if (!vehicleType) return "Select vehicle type";
-    if (!plate.trim()) return "Enter license plate";
-    return null;
-  }, [plate, vehicleType]);
+  const issues = useMemo(() => validateStep(step, draft), [draft, step]);
+  const done = useMemo(() => completedSteps(draft), [draft]);
+  const stepIndex = STEPS.indexOf(step);
 
-  const riderIssue = useMemo(() => {
-    if (riderSlots.length === 0) return "Add at least one passenger";
-    return null;
-  }, [riderSlots.length]);
-
-  const legsIssue = useMemo(() => {
-    for (const l of legs) {
-      const legName = l.leg_index === 1 ? "outbound leg" : "return leg";
-      if (!l.leg_date) return `Enter date for ${legName}`;
-      if (!l.pickup_address.trim()) return `Enter pickup address for ${legName}`;
-      if (!l.dropoff_address.trim()) return `Enter drop-off address for ${legName}`;
-      if (l.pickup_odometer === "") return `Enter pickup odometer for ${legName}`;
-      if (l.dropoff_odometer === "") return `Enter drop-off odometer for ${legName}`;
-      if (!Number.isFinite(Number(l.pickup_odometer)) || Number(l.pickup_odometer) < 0) {
-        return `Check pickup odometer for ${legName}`;
-      }
-      if (!Number.isFinite(Number(l.dropoff_odometer)) || Number(l.dropoff_odometer) < 0) {
-        return `Check drop-off odometer for ${legName}`;
-      }
-    }
-    return null;
-  }, [legs]);
-
-  const signatureIssue = useMemo(() => {
-    const missingSignature = riderSlots.find((s) => !s.signature_data_url);
-    if (missingSignature) return `${missingSignature.rider.full_name} still needs a signature`;
-    const missingName = riderSlots.find((s) => !s.signer_name.trim());
-    if (missingName) return `Enter signer name for ${missingName.rider.full_name}`;
-    return null;
-  }, [riderSlots]);
-
-  function goNext(nextTab: string, issue: string | null) {
-    if (issue) {
-      toast.error(issue);
+  function goNext() {
+    if (Object.keys(issues).length > 0) {
+      setShowErrors(true);
+      toast.error(firstIssue(issues) ?? "Fill in the highlighted fields");
       return;
     }
-    setTab(nextTab);
+    setShowErrors(false);
+    if (step === "trip") {
+      draft.legs.forEach((l) => {
+        rememberAddress(l.pickup_address);
+        rememberAddress(l.dropoff_address);
+      });
+    }
+    const next = STEPS[Math.min(stepIndex + 1, STEPS.length - 1)];
+    setStep(next);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function goBack() {
+    setShowErrors(false);
+    setStep(STEPS[Math.max(stepIndex - 1, 0)]);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function handleSubmit() {
     if (!user) return;
-    const issue =
-      vehicleIssue || riderIssue || legsIssue || signatureIssue || safetyIssue;
-    if (issue) return toast.error(issue);
+    const allIssues = validateStep("review", draft);
+    if (Object.keys(allIssues).length > 0) {
+      setShowErrors(true);
+      return toast.error(firstIssue(allIssues)!);
+    }
+    if (safetyIssue) return toast.error(safetyIssue);
+    if (!online) return toast.error("You're offline — your draft is saved, try again on signal");
     setSubmitting(true);
     try {
-      const res = await submitGroup({
-        data: {
-          trip_kind: tripKind,
-          vehicle_type: vehicleType as any,
-          vehicle_plate: plate,
-          vehicle_vin: vin || null,
-          escort_name: escortName || null,
-          riders: riderSlots.map((s) => ({
-            rider_id: s.rider.id,
-            identity_verified: s.identity_verified,
-            signed_by_escort: s.signed_by_escort,
-          })),
-          legs: legs.map((l) => ({
-            leg_index: l.leg_index,
-            leg_date: l.leg_date,
-            pickup_time: l.pickup_time || null,
-            pickup_odometer: Number(l.pickup_odometer),
-            pickup_address: l.pickup_address,
-            dropoff_time: l.dropoff_time || null,
-            dropoff_odometer: Number(l.dropoff_odometer),
-            dropoff_address: l.dropoff_address,
-          })),
-        },
-      });
+      setSubmitStage("Creating trip…");
+      const res = await submitGroup({ data: buildCreateTripPayload(draft) as any });
 
-      // For each rider: upload signature, generate the filled state PDF,
-      // upload it to state-pdfs, and attach both to the trip row.
-      const generated: { rider_name: string; url: string; filename: string }[] = [];
-      const legsPayload = legs.map((l) => ({
-        leg_index: l.leg_index,
-        leg_date: l.leg_date,
-        pickup_time: l.pickup_time || null,
-        pickup_odometer: Number(l.pickup_odometer),
-        pickup_address: l.pickup_address,
-        dropoff_time: l.dropoff_time || null,
-        dropoff_odometer: Number(l.dropoff_odometer),
-        dropoff_address: l.dropoff_address,
-      }));
+      const generated: { rider_name: string; url: string; filename: string; trip_id: string }[] = [];
+      for (let i = 0; i < draft.rider_slots.length; i++) {
+        const slot = draft.rider_slots[i];
+        const newTripId = res.trip_ids[i];
+        setSubmitStage(`Saving signature for ${slot.rider.full_name}…`);
 
-      for (let i = 0; i < riderSlots.length; i++) {
-        const slot = riderSlots[i];
-        const tripId = res.trip_ids[i];
-
-        // 1. Signature upload
         const png = await (await fetch(slot.signature_data_url!)).blob();
-        const sigPath = `${user.id}/${tripId}.png`;
+        const sigPath = `${user.id}/${newTripId}.png`;
         const sigUp = await supabase.storage
           .from("signatures")
           .upload(sigPath, png, { upsert: true, contentType: "image/png" });
         if (sigUp.error) throw sigUp.error;
         await attachSig({
           data: {
-            trip_id: tripId,
+            trip_id: newTripId,
             signature_path: sigPath,
             signature_name: slot.signer_name,
           },
         });
 
-        // 2. Generate the filled Colorado NEMT Trip Log PDF.
-        //    Resolve the ID field server-side: uses real Medicaid ID if
-        //    present, else decrypts the passenger's full SSN from Vault.
-        let riderForPdf = slot.rider;
+        setSubmitStage(`Generating state form for ${slot.rider.full_name}…`);
+        let riderOverride: DraftRider | undefined;
         try {
           const { identifier } = await getRiderIdentifierForPdf({
-            data: { rider_id: slot.rider.id, trip_id: tripId },
+            data: { rider_id: slot.rider.id, trip_id: newTripId },
           });
-          if (identifier) riderForPdf = { ...slot.rider, medicaid_id: identifier };
+          if (identifier) riderOverride = { ...slot.rider, medicaid_id: identifier };
         } catch {
-          // Fall back to whatever's on the rider row (last-4 placeholder).
+          /* fall back to the rider row identifier */
         }
-        const pdfBytes = await generateStateFormPdf({
-          rider: riderForPdf,
-          driverName: driverFullName || user.email || "",
-          vehiclePlate: plate,
-          vehicleVin: vin || null,
-          vehicleType,
-          escortName: escortName || null,
-          identityVerified: slot.identity_verified,
-          tripKind,
-          legs: legsPayload,
-          signatureName: slot.signer_name,
-          signatureUrl: slot.signature_data_url,
-          signedByEscort: slot.signed_by_escort,
-        });
+        const pdfBytes = await generateStateFormPdf(
+          buildPdfArgs(draft, slot, {
+            driverName: draft.driver_full_name || user.email || "",
+            riderOverride,
+          }) as any,
+        );
 
-
-        // 3. Upload PDF to state-pdfs bucket
-        const pdfPath = `${user.id}/${tripId}.pdf`;
+        const pdfPath = `${user.id}/${newTripId}.pdf`;
         const pdfBlob = new Blob([pdfBytes as BlobPart], { type: "application/pdf" });
         const pdfUp = await supabase.storage
           .from("state-pdfs")
           .upload(pdfPath, pdfBlob, { upsert: true, contentType: "application/pdf" });
         if (pdfUp.error) throw pdfUp.error;
-        await attachPdf({ data: { trip_id: tripId, state_pdf_path: pdfPath } });
+        await attachPdf({ data: { trip_id: newTripId, state_pdf_path: pdfPath } });
 
-        // 4. Signed URL for driver confirmation view
         const { data: signed } = await supabase.storage
           .from("state-pdfs")
           .createSignedUrl(pdfPath, 60 * 15);
@@ -652,145 +610,112 @@ function NewNemtTripWizard() {
           generated.push({
             rider_name: slot.rider.full_name,
             url: signed.signedUrl,
-            filename: `nemt-${slot.rider.full_name.replace(/\s+/g, "_")}-${tripId.slice(0, 8)}.pdf`,
+            trip_id: newTripId,
+            filename: `nemt-${slot.rider.full_name.replace(/\s+/g, "_")}-${newTripId.slice(0, 8)}.pdf`,
           });
         }
       }
 
+      if (typeof window !== "undefined") clearDraft(window.localStorage, storageKey);
       toast.success(
-        riderSlots.length === 1
-          ? "Trip submitted for review"
-          : `${riderSlots.length} passenger forms submitted for review`,
+        draft.rider_slots.length === 1
+          ? "Trip sent to billing"
+          : `${draft.rider_slots.length} trips sent to billing`,
       );
       setCompletedPdfs(generated);
     } catch (e: any) {
-      toast.error(e.message ?? "Submission failed");
+      toast.error(e?.message ?? "Submission failed — your draft is still saved");
     } finally {
       setSubmitting(false);
+      setSubmitStage("");
     }
   }
 
-  // Live preview PDF for first rider
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
-  async function buildPreview(slot: RiderSlot) {
+  async function buildPreview() {
+    const slot = draft.rider_slots[0];
+    if (!slot) return;
     try {
-      const bytes = await generateStateFormPdf({
-        rider: slot.rider,
-        driverName: user?.email ?? "",
-        vehiclePlate: plate,
-        vehicleVin: vin,
-        vehicleType,
-        escortName,
-        identityVerified: slot.identity_verified,
-        tripKind,
-        legs: legs.map((l) => ({
-          leg_index: l.leg_index,
-          leg_date: l.leg_date,
-          pickup_time: l.pickup_time || null,
-          pickup_odometer: Number(l.pickup_odometer || 0),
-          pickup_address: l.pickup_address,
-          dropoff_time: l.dropoff_time || null,
-          dropoff_odometer: Number(l.dropoff_odometer || 0),
-          dropoff_address: l.dropoff_address,
-        })),
-        signatureName: slot.signer_name,
-        signatureUrl: slot.signature_data_url,
-        signedByEscort: slot.signed_by_escort,
-      });
+      const bytes = await generateStateFormPdf(
+        buildPdfArgs(draft, slot, {
+          driverName: draft.driver_full_name || user?.email || "",
+        }) as any,
+      );
       const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
       if (previewUrl) URL.revokeObjectURL(previewUrl);
-      const nextPreviewUrl = URL.createObjectURL(blob);
-      setPreviewUrl(nextPreviewUrl);
-      setPdfPreview({ url: nextPreviewUrl, filename: "trip-preview.pdf" });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      setPdfPreview({ url, filename: "trip-preview.pdf" });
     } catch (e: any) {
-      toast.error(e.message ?? "Preview failed");
+      toast.error(e?.message ?? "Preview failed");
     }
   }
-
-  if (!isDriver) {
-    return (
-      <div className="mx-auto max-w-lg p-6 text-sm text-muted-foreground">
-        This wizard is for drivers.
-      </div>
-    );
-  }
-
-  async function fetchPdfBlob(url: string): Promise<string> {
-    // Fetch as blob so ad-blockers that filter direct storage host URLs
-    // (ERR_BLOCKED_BY_CLIENT on *.supabase.co) don't intercept the navigation.
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Download failed (${res.status})`);
-    const blob = await res.blob();
-    return URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
-  }
-
-
-
 
   async function downloadPdf(url: string, filename: string) {
     try {
-      const blobUrl = await fetchPdfBlob(url);
-      downloadFromBlobUrl(blobUrl, filename);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Download failed (${res.status})`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not download PDF");
     }
   }
 
-  function downloadFromBlobUrl(blobUrl: string, filename: string) {
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  if (!isDriver) {
+    return (
+      <div className="mx-auto max-w-lg p-6 text-sm text-muted-foreground">
+        This flow is for drivers.
+      </div>
+    );
   }
 
+  /* ------------------------------ success screen ------------------------- */
   if (completedPdfs) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4 p-4 pb-24">
-        <PageHeader
-          title="Trip submitted"
-          description="Your filled state trip log is stored and queued for billing review."
-        />
-        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-            <Check className="h-4 w-4" /> One PDF per passenger generated
+      <div className="mx-auto max-w-lg space-y-4 p-4 pb-28">
+        <div className="flex flex-col items-center gap-3 rounded-3xl border border-emerald-500/40 bg-emerald-500/5 px-4 py-8 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15">
+            <CheckCircle2 className="h-9 w-9 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Billing will review and then auto-submit to the Colorado provider portal.
-          </p>
+          <div>
+            <div className="text-lg font-semibold">Sent to billing</div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Signed state trip log stored. Billing will review and submit it to the state portal.
+            </p>
+          </div>
+          <div className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+            Status: pending billing review
+          </div>
         </div>
 
         <div className="space-y-2">
-          {completedPdfs.length === 0 && (
-            <div className="text-sm text-muted-foreground">No PDFs generated.</div>
-          )}
           {completedPdfs.map((p) => (
-            <div
-              key={p.url}
-              className="flex items-center justify-between gap-3 rounded-xl border bg-surface p-3"
-            >
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium">{p.rider_name}</div>
-                <div className="truncate text-xs text-muted-foreground">{p.filename}</div>
+            <div key={p.url} className="rounded-2xl border bg-surface p-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="truncate">{p.rider_name}</span>
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                Trip #{p.trip_id.slice(0, 8).toUpperCase()}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  className="h-11"
                   onClick={() => setPdfPreview({ url: p.url, filename: p.filename })}
-                  className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent"
                 >
                   View PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={() => downloadPdf(p.url, p.filename)}
-                  className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-                >
+                </Button>
+                <Button variant="outline" className="h-11" onClick={() => downloadPdf(p.url, p.filename)}>
                   Download
-                </button>
+                </Button>
               </div>
             </div>
           ))}
@@ -802,367 +727,609 @@ function NewNemtTripWizard() {
           onClose={() => setPdfPreview(null)}
         />
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => navigate({ to: "/driver/history" })}>
-            History
-          </Button>
-          <Button onClick={() => navigate({ to: "/driver" })}>Done</Button>
+        <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 p-3 backdrop-blur">
+          <div className="mx-auto flex max-w-lg gap-2">
+            <Button
+              variant="outline"
+              className="h-12 flex-1"
+              onClick={() => {
+                setCompletedPdfs(null);
+                setDraft(createEmptyDraft());
+                setStep("passenger");
+              }}
+            >
+              New trip
+            </Button>
+            <Button className="h-12 flex-1" onClick={() => navigate({ to: "/driver" })}>
+              Done
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
+  const err = (key: string) => (showErrors ? issues[key] : undefined);
+
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4 pb-24">
-      <PageHeader
-        title="Complete NEMT trip"
-        description="Digital version of the Colorado NEMT Trip Report — one form per passenger is generated automatically."
-      />
-
-      {assignedTrip && (
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
-          <div className="font-semibold text-foreground">Assigned ride loaded</div>
-          <div className="mt-1">Pickup and drop-off match the admin assignment{assignedPassengerName ? ` for ${assignedPassengerName}` : ""}.</div>
-        </div>
-      )}
-
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid w-full grid-cols-5 text-xs">
-          <TabsTrigger value="vehicle">1. Vehicle</TabsTrigger>
-          <TabsTrigger value="riders">2. Passengers</TabsTrigger>
-          <TabsTrigger value="legs">3. Legs</TabsTrigger>
-          <TabsTrigger value="sign">4. Signatures</TabsTrigger>
-          <TabsTrigger value="review">5. Review</TabsTrigger>
-        </TabsList>
-
-        {/* ---------- STEP 1 ---------- */}
-        <TabsContent value="vehicle" className="space-y-4 pt-4">
-          <Field label="Trip type">
-            <Select value={tripKind} onValueChange={(v) => setTripKind(v as any)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="one_way">One way</SelectItem>
-                <SelectItem value="round_trip">Round trip</SelectItem>
-                <SelectItem value="group_tour">Group tour (multiple passengers)</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Vehicle type">
-            <Select value={vehicleType} onValueChange={setVehicleType}>
-              <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
-              <SelectContent>
-                {VEHICLE_TYPES.map((v) => (
-                  <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="License plate">
-            <Input value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="ABC-1234" />
-          </Field>
-          <Field label="VIN (optional)">
-            <Input value={vin} onChange={(e) => setVin(e.target.value)} />
-          </Field>
-          <Field label="Escort name (optional)">
-            <Input value={escortName} onChange={(e) => setEscortName(e.target.value)} />
-          </Field>
-          {vehicleType && rateCheck && !rateCheck.ok && (
-            <div className="rounded-xl border border-red-500/40 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-300">
-              <div className="font-semibold">No billing rate for this vehicle type</div>
-              <div className="mt-1">
-                Missing {rateCheck.missing.join(" and ")} rate. Billing has to add it before this
-                trip can be completed — nothing will be submitted without a rate on file.
-              </div>
+    <div className="mx-auto max-w-lg pb-32">
+      {/* Sticky header + progress */}
+      <div className="sticky top-0 z-20 border-b bg-background/95 px-4 pb-3 pt-4 backdrop-blur">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => (stepIndex === 0 ? navigate({ to: "/driver" }) : goBack())}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border"
+            aria-label="Back"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs text-muted-foreground">
+              Step {stepIndex + 1} of {STEPS.length}
             </div>
-          )}
-          <div className="flex justify-end">
-            <Button onClick={() => goNext("riders", vehicleIssue)}>Next</Button>
+            <div className="truncate text-base font-semibold">{STEP_LABELS[step]}</div>
           </div>
+          {!online && (
+            <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+              <WifiOff className="h-3 w-3" /> Offline
+            </span>
+          )}
+        </div>
+        <div className="mt-3 flex gap-1.5">
+          {STEPS.map((s, i) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => i <= stepIndex && setStep(s)}
+              className={`h-1.5 flex-1 rounded-full transition-colors ${
+                i < stepIndex ? (done[s] ? "bg-emerald-500" : "bg-primary/50") : i === stepIndex ? "bg-primary" : "bg-muted"
+              }`}
+              aria-label={STEP_LABELS[s]}
+            />
+          ))}
+        </div>
+      </div>
 
-        </TabsContent>
-
-        {/* ---------- STEP 2 ---------- */}
-        <TabsContent value="riders" className="space-y-4 pt-4">
-          <div className="rounded-xl border p-3">
-            <Label className="text-sm font-semibold">Add passenger</Label>
-            <div className="mt-2 flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="pl-8"
-                  placeholder="Search passenger by name, Medicaid ID or phone"
-                  value={riderQuery}
-                  onChange={(e) => setRiderQuery(e.target.value)}
-                />
-              </div>
-              <Button variant="outline" onClick={() => setAddingRider((v) => !v)}>
-                <UserPlus className="mr-1 h-4 w-4" /> New
-              </Button>
+      <div className="space-y-4 p-4">
+        {draftRestored && (
+          <div className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-3">
+            <History className="h-4 w-4 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1 text-xs">
+              <div className="font-medium text-foreground">Draft restored</div>
+              <div className="text-muted-foreground">We kept everything you had entered.</div>
             </div>
-            {riderResults.length > 0 && (
-              <div className="mt-2 rounded-lg border">
-                {riderResults.map((r) => {
-                  const source = (r as Rider & { __source?: "passenger" }).__source;
-                  return (
-                    <button
-                      key={r.id}
-                      onClick={() => selectSearchResult(r as Rider & { __source?: "passenger"; last_4_ssn?: string | null })}
-                      className="flex w-full items-center justify-between border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-accent"
-                    >
-                      <span className="flex items-center gap-2">
-                        {r.full_name}
-                        {source === "passenger" && (
-                          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                            From passengers
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{r.medicaid_id || "—"}</span>
-                    </button>
-                  );
-                })}
+            <button
+              type="button"
+              className="flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs"
+              onClick={() => {
+                if (typeof window !== "undefined") clearDraft(window.localStorage, storageKey);
+                setDraft(createEmptyDraft());
+                setDraftRestored(false);
+                setStep("passenger");
+              }}
+            >
+              <Trash2 className="h-3 w-3" /> Discard
+            </button>
+          </div>
+        )}
+
+        {/* ------------------------------ PASSENGER ------------------------ */}
+        {step === "passenger" && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-2">
+              {TRIP_KINDS.map((k) => (
+                <button
+                  key={k.value}
+                  type="button"
+                  onClick={() => patch((d) => withTripKind(d, k.value))}
+                  className={`h-11 rounded-xl border text-sm font-medium transition-colors ${
+                    draft.trip_kind === k.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "bg-surface"
+                  }`}
+                >
+                  {k.label}
+                </button>
+              ))}
+            </div>
+
+            {draft.rider_slots.length > 0 && (
+              <div className="space-y-2">
+                {draft.rider_slots.map((s) => (
+                  <div key={s.rider.id} className="rounded-2xl border bg-surface p-3">
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium">{s.rider.full_name}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {s.rider.medicaid_id}
+                          {s.rider.dob ? ` · DOB ${s.rider.dob}` : ""}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Remove passenger"
+                        className="flex h-9 w-9 items-center justify-center rounded-full border"
+                        onClick={() => patch((d) => removeRiderSlot(d, s.rider.id))}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <VerifyBadge entry={verify[s.rider.id]} />
+                  </div>
+                ))}
               </div>
             )}
-            {addingRider && (
-              <div className="mt-3 space-y-2">
-                <Input placeholder="Full legal name" value={newRider.full_name}
-                  onChange={(e) => setNewRider({ ...newRider, full_name: e.target.value })} />
-                <Input placeholder="Health First Colorado ID (preferred)" value={newRider.medicaid_id}
-                  onChange={(e) => setNewRider({ ...newRider, medicaid_id: e.target.value })} />
-                {!newRider.medicaid_id.trim() && (
-                  <div className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 p-2 text-xs">
-                    <div className="mb-2 font-medium text-amber-700 dark:text-amber-400">
-                      No Medicaid ID? Enter last 4 of SSN (DOB optional).
+
+            {(draft.trip_kind === "group_tour" || draft.rider_slots.length === 0) && (
+              <>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="h-12 pl-9 text-base"
+                    inputMode="search"
+                    enterKeyHint="search"
+                    placeholder="Search name or Medicaid ID"
+                    value={riderQuery}
+                    onChange={(e) => setRiderQuery(e.target.value)}
+                  />
+                  {searching && (
+                    <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+
+                {riderResults.length > 0 && (
+                  <div className="overflow-hidden rounded-2xl border bg-surface">
+                    {riderResults.map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => selectSearchResult(r)}
+                        className="flex w-full items-center gap-3 border-b px-3 py-3 text-left last:border-b-0 active:bg-accent"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">{r.full_name}</div>
+                          <div className="truncate text-xs text-muted-foreground">
+                            {r.medicaid_id || `SSN ••••${r.last_4_ssn ?? ""}`}
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {riderQuery.trim().length >= 2 && !searching && riderResults.length === 0 && (
+                  <div className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+                    No passenger found for “{riderQuery.trim()}”.
+                  </div>
+                )}
+
+                {recent.length > 0 && riderQuery.trim().length < 2 && (
+                  <div>
+                    <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <History className="h-3.5 w-3.5" /> Recent passengers
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input type="date" placeholder="DOB" value={newRider.dob}
-                        onChange={(e) => setNewRider({ ...newRider, dob: e.target.value })} />
+                    <div className="flex flex-wrap gap-2">
+                      {recent.map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => attachRider(r)}
+                          className="rounded-full border bg-surface px-3 py-2 text-sm active:bg-accent"
+                        >
+                          {r.full_name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!addingRider ? (
+                  <Button variant="outline" className="h-12 w-full" onClick={() => setAddingRider(true)}>
+                    <UserPlus className="mr-2 h-4 w-4" /> Add new passenger
+                  </Button>
+                ) : (
+                  <div className="space-y-3 rounded-2xl border bg-surface p-3">
+                    <Field label="Full name">
                       <Input
+                        className="h-12 text-base"
+                        autoFocus
+                        value={newRider.full_name}
+                        onChange={(e) => setNewRider({ ...newRider, full_name: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Medicaid ID">
+                      <Input
+                        className="h-12 text-base"
+                        autoCapitalize="characters"
+                        value={newRider.medicaid_id}
+                        onChange={(e) => setNewRider({ ...newRider, medicaid_id: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="or last 4 of SSN">
+                      <Input
+                        className="h-12 text-base"
                         inputMode="numeric"
                         maxLength={4}
-                        placeholder="Last 4 SSN"
                         value={newRider.last_4_ssn}
-                        onChange={(e) =>
-                          setNewRider({ ...newRider, last_4_ssn: e.target.value.replace(/\D/g, "").slice(0, 4) })
-                        }
+                        onChange={(e) => setNewRider({ ...newRider, last_4_ssn: e.target.value })}
                       />
+                    </Field>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label="Date of birth">
+                        <Input
+                          type="date"
+                          className="h-12 text-base"
+                          value={newRider.dob}
+                          onChange={(e) => setNewRider({ ...newRider, dob: e.target.value })}
+                        />
+                      </Field>
+                      <Field label="Phone">
+                        <Input
+                          type="tel"
+                          inputMode="tel"
+                          className="h-12 text-base"
+                          value={newRider.phone}
+                          onChange={(e) => setNewRider({ ...newRider, phone: e.target.value })}
+                        />
+                      </Field>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" className="h-11 flex-1" onClick={() => setAddingRider(false)}>
+                        Cancel
+                      </Button>
+                      <Button className="h-11 flex-1" onClick={createNewRider} disabled={savingRider}>
+                        {savingRider && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save
+                      </Button>
                     </div>
                   </div>
                 )}
-                {newRider.medicaid_id.trim() && (
-                  <Input type="date" placeholder="DOB" value={newRider.dob}
-                    onChange={(e) => setNewRider({ ...newRider, dob: e.target.value })} />
-                )}
-                <Input placeholder="Phone" value={newRider.phone}
-                  onChange={(e) => setNewRider({ ...newRider, phone: e.target.value })} />
-                <Button size="sm" onClick={createNewRider}>Save passenger</Button>
-              </div>
+              </>
             )}
-          </div>
 
-          <div className="space-y-2">
-            {riderSlots.map((s) => (
-              <div key={s.rider.id} className="rounded-xl border p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="font-semibold text-sm">{s.rider.full_name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {s.rider.medicaid_id}
+            {err("riders") && <InlineError message={err("riders")!} />}
+          </div>
+        )}
+
+        {/* --------------------------------- TRIP -------------------------- */}
+        {step === "trip" && (
+          <div className="space-y-4">
+            {draft.legs.map((leg, i) => (
+              <div key={leg.leg_index} className="space-y-3 rounded-2xl border bg-surface p-3">
+                <div className="text-sm font-semibold">
+                  {draft.legs.length > 1 ? (i === 0 ? "Outbound leg" : "Return leg") : "Trip details"}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Date">
+                    <Input
+                      type="date"
+                      className="h-12 text-base"
+                      value={leg.leg_date}
+                      onChange={(e) => patch((d) => updateLegIn(d, i, { leg_date: e.target.value }))}
+                    />
+                  </Field>
+                  <Field label="Pickup time">
+                    <div className="flex gap-2">
+                      <Input
+                        type="time"
+                        className="h-12 text-base"
+                        value={leg.pickup_time}
+                        onChange={(e) => patch((d) => updateLegIn(d, i, { pickup_time: e.target.value }))}
+                      />
+                      <button
+                        type="button"
+                        aria-label="Set pickup time to now"
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border"
+                        onClick={() => patch((d) => updateLegIn(d, i, { pickup_time: nowHM() }))}
+                      >
+                        <Clock className="h-4 w-4" />
+                      </button>
                     </div>
-                  </div>
-                  <Button size="icon" variant="ghost"
-                    onClick={() => setRiderSlots((p) => p.filter((x) => x.rider.id !== s.rider.id))}>
-                    <X className="h-4 w-4" />
-                  </Button>
+                  </Field>
                 </div>
-                <VerifyBadge entry={verify[s.rider.id]} />
+                {err(`leg${i}.leg_date`) && <InlineError message={err(`leg${i}.leg_date`)!} />}
 
-                <div className="mt-2 flex flex-wrap gap-3 text-xs">
-                  <label className="flex items-center gap-1.5">
-                    <Checkbox
-                      checked={s.identity_verified}
-                      onCheckedChange={(v) =>
-                        setRiderSlots((p) => p.map((x) =>
-                          x.rider.id === s.rider.id ? { ...x, identity_verified: !!v } : x))}
-                    />
-                    Identity verified
-                  </label>
-                  <label className="flex items-center gap-1.5">
-                    <Checkbox
-                      checked={s.signed_by_escort}
-                      onCheckedChange={(v) =>
-                        setRiderSlots((p) => p.map((x) =>
-                          x.rider.id === s.rider.id ? { ...x, signed_by_escort: !!v } : x))}
-                    />
-                    Escort will sign
-                  </label>
-                </div>
-              </div>
-            ))}
-            {riderSlots.length === 0 && (
-              <div className="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
-                Add at least one passenger.
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setTab("vehicle")}>Back</Button>
-            <Button onClick={() => goNext("legs", riderIssue)}>Next</Button>
-          </div>
-        </TabsContent>
-
-        {/* ---------- STEP 3 ---------- */}
-        <TabsContent value="legs" className="space-y-4 pt-4">
-          {legs.map((l, i) => (
-            <div key={l.leg_index} className="rounded-xl border p-3 space-y-3">
-              <div className="text-sm font-semibold">
-                Leg {l.leg_index} {l.leg_index === 1 ? "(Outbound)" : "(Return)"}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="Date">
-                  <Input type="date" value={l.leg_date}
-                    onChange={(e) => updateLeg(i, { leg_date: e.target.value })} />
-                </Field>
-                <div />
-                <Field label="Pickup time">
-                  <Input type="time" value={l.pickup_time}
-                    onChange={(e) => updateLeg(i, { pickup_time: e.target.value })} />
-                </Field>
-                <Field label="Pickup odometer">
-                  <OdometerInput
-                    value={l.pickup_odometer}
-                    onChange={(value) => updateLeg(i, { pickup_odometer: value })}
-                    detecting={!!detectingOdometer[`${i}-pickup_odometer`]}
-                    onPhoto={(file) => handleOdometerPhoto(i, "pickup_odometer", file)}
+                <Field label="Pickup address">
+                  <AddressAutocomplete
+                    value={leg.pickup_address}
+                    onChange={(v) => patch((d) => updateLegIn(d, i, { pickup_address: v }))}
+                    onResolve={(p: any) =>
+                      patch((d) => updateLegIn(d, i, { pickup_address: p.address ?? p.description ?? "" }))
+                    }
+                    placeholder="Where you picked them up"
                   />
                 </Field>
-              </div>
-              <Field label="Pickup address">
-                <AddressAutocomplete value={l.pickup_address}
-                  onChange={(v) => updateLeg(i, { pickup_address: v })}
-                  onResolve={(p) => updateLeg(i, { pickup_address: p.address })} />
-              </Field>
-              <div className="grid grid-cols-2 gap-2">
+                {i === 0 && (
+                  <button
+                    type="button"
+                    onClick={() => useCurrentLocation(i)}
+                    className="flex items-center gap-1.5 text-xs font-medium text-primary"
+                  >
+                    {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MapPin className="h-3.5 w-3.5" />}
+                    Use my current location
+                  </button>
+                )}
+                {err(`leg${i}.pickup_address`) && <InlineError message={err(`leg${i}.pickup_address`)!} />}
+
+                <Field label="Drop-off address">
+                  <AddressAutocomplete
+                    value={leg.dropoff_address}
+                    onChange={(v) => patch((d) => updateLegIn(d, i, { dropoff_address: v }))}
+                    onResolve={(p: any) =>
+                      patch((d) => updateLegIn(d, i, { dropoff_address: p.address ?? p.description ?? "" }))
+                    }
+                    placeholder="Where you dropped them off"
+                  />
+                </Field>
+                {recentAddresses.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {recentAddresses.slice(0, 4).map((a) => (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => patch((d) => updateLegIn(d, i, { dropoff_address: a }))}
+                        className="max-w-full truncate rounded-full border px-2.5 py-1.5 text-xs text-muted-foreground active:bg-accent"
+                      >
+                        {a}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {err(`leg${i}.dropoff_address`) && <InlineError message={err(`leg${i}.dropoff_address`)!} />}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Pickup odometer">
+                    <OdometerInput
+                      value={leg.pickup_odometer}
+                      onChange={(v) => patch((d) => updateLegIn(d, i, { pickup_odometer: v }))}
+                      onPhoto={(f) => handleOdometerPhoto(i, "pickup_odometer", f)}
+                      detecting={!!detecting[`${i}-pickup_odometer`]}
+                    />
+                  </Field>
+                  <Field label="Drop-off odometer">
+                    <OdometerInput
+                      value={leg.dropoff_odometer}
+                      onChange={(v) => patch((d) => updateLegIn(d, i, { dropoff_odometer: v }))}
+                      onPhoto={(f) => handleOdometerPhoto(i, "dropoff_odometer", f)}
+                      detecting={!!detecting[`${i}-dropoff_odometer`]}
+                    />
+                  </Field>
+                </div>
+                {(err(`leg${i}.pickup_odometer`) || err(`leg${i}.dropoff_odometer`)) && (
+                  <InlineError
+                    message={(err(`leg${i}.pickup_odometer`) || err(`leg${i}.dropoff_odometer`))!}
+                  />
+                )}
+
                 <Field label="Drop-off time">
-                  <Input type="time" value={l.dropoff_time}
-                    onChange={(e) => updateLeg(i, { dropoff_time: e.target.value })} />
+                  <div className="flex gap-2">
+                    <Input
+                      type="time"
+                      className="h-12 text-base"
+                      value={leg.dropoff_time}
+                      onChange={(e) => patch((d) => updateLegIn(d, i, { dropoff_time: e.target.value }))}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Set drop-off time to now"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border"
+                      onClick={() => patch((d) => updateLegIn(d, i, { dropoff_time: nowHM() }))}
+                    >
+                      <Clock className="h-4 w-4" />
+                    </button>
+                  </div>
                 </Field>
-                <Field label="Drop-off odometer">
-                  <OdometerInput
-                    value={l.dropoff_odometer}
-                    onChange={(value) => updateLeg(i, { dropoff_odometer: value })}
-                    detecting={!!detectingOdometer[`${i}-dropoff_odometer`]}
-                    onPhoto={(file) => handleOdometerPhoto(i, "dropoff_odometer", file)}
-                  />
-                </Field>
-              </div>
-              <Field label="Drop-off address">
-                <AddressAutocomplete value={l.dropoff_address}
-                  onChange={(v) => updateLeg(i, { dropoff_address: v })}
-                  onResolve={(p) => updateLeg(i, { dropoff_address: p.address })} />
-              </Field>
-            </div>
-          ))}
-          <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setTab("riders")}>Back</Button>
-            <Button onClick={() => goNext("sign", legsIssue)}>Next</Button>
-          </div>
-        </TabsContent>
-
-        {/* ---------- STEP 4 ---------- */}
-        <TabsContent value="sign" className="space-y-4 pt-4">
-          {riderSlots.map((s) => (
-            <div key={s.rider.id} className="rounded-xl border p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-semibold">{s.rider.full_name}</div>
-                  <div className="text-xs text-muted-foreground">{s.rider.medicaid_id}</div>
-                </div>
-                {s.signature_data_url && <Check className="h-5 w-5 text-primary" />}
-              </div>
-              <Input placeholder="Printed signer name" value={s.signer_name}
-                onChange={(e) => setRiderSlots((p) => p.map((x) =>
-                  x.rider.id === s.rider.id ? { ...x, signer_name: e.target.value } : x))} />
-              <SignaturePad onChange={(url) => saveSignature(s.rider.id, url)} />
-            </div>
-          ))}
-          {signatureIssue && (
-            <div className="rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
-              {signatureIssue}
-            </div>
-          )}
-          <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setTab("legs")}>Back</Button>
-            <Button onClick={() => goNext("review", signatureIssue)}>Next</Button>
-          </div>
-        </TabsContent>
-
-        {/* ---------- STEP 5 ---------- */}
-        <TabsContent value="review" className="space-y-4 pt-4">
-          <div className="rounded-xl border p-3 text-sm">
-            <div className="font-semibold">Summary</div>
-            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-              <li>Trip: <b>{tripKind.replace("_", " ")}</b> · Vehicle: <b>{vehicleType}</b> · Plate: <b>{plate}</b></li>
-              <li>Riders: {riderSlots.length}</li>
-              <li>Legs: {legs.length}</li>
-            </ul>
-          </div>
-          <div className="space-y-2">
-            {riderSlots.map((s) => (
-              <div key={s.rider.id} className="flex items-center justify-between rounded-xl border p-3">
-                <div>
-                  <div className="text-sm font-semibold">{s.rider.full_name}</div>
-                  <div className="text-xs text-muted-foreground">{s.rider.medicaid_id}</div>
-                </div>
-                <Button size="sm" variant="outline" onClick={() => buildPreview(s)}>
-                  Preview PDF
-                </Button>
               </div>
             ))}
           </div>
-          {previewUrl && (
-            <div className="rounded-xl border bg-surface p-3">
-              <div className="mb-2 text-sm font-medium">PDF preview is ready</div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPdfPreview({ url: previewUrl, filename: "trip-preview.pdf" })}
+        )}
+
+        {/* -------------------------------- DETAILS ------------------------ */}
+        {step === "details" && (
+          <div className="space-y-4">
+            <div className="space-y-3 rounded-2xl border bg-surface p-3">
+              <Field label="Vehicle type">
+                <Select
+                  value={draft.vehicle_type}
+                  onValueChange={(v) => patch((d) => ({ ...d, vehicle_type: v }))}
                 >
-                  View PDF
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const a = document.createElement("a");
-                    a.href = previewUrl;
-                    a.download = "trip-preview.pdf";
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                  }}
-                >
-                  Download PDF
-                </Button>
+                  <SelectTrigger className="h-12 text-base">
+                    <SelectValue placeholder="Select vehicle type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VEHICLE_TYPES.map((v) => (
+                      <SelectItem key={v.value} value={v.value}>
+                        {v.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              {err("vehicle_type") && <InlineError message={err("vehicle_type")!} />}
+
+              <Field label="License plate">
+                <Input
+                  className="h-12 text-base uppercase"
+                  autoCapitalize="characters"
+                  value={draft.plate}
+                  onChange={(e) => patch((d) => ({ ...d, plate: e.target.value }))}
+                  placeholder="ABC-1234"
+                />
+              </Field>
+              {err("plate") && <InlineError message={err("plate")!} />}
+
+              {rateCheck && !rateCheck.ok && (
+                <div className="flex gap-2 rounded-xl bg-amber-500/10 p-2.5 text-[11px] text-amber-700 dark:text-amber-300">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>No billing rate for this vehicle type (missing: {rateCheck.missing.join(", ")}).</span>
+                </div>
+              )}
+            </div>
+
+            <details className="rounded-2xl border bg-surface p-3">
+              <summary className="cursor-pointer text-sm font-medium">Optional details</summary>
+              <div className="mt-3 space-y-3">
+                <Field label="VIN">
+                  <Input
+                    className="h-12 text-base"
+                    value={draft.vin}
+                    onChange={(e) => patch((d) => ({ ...d, vin: e.target.value }))}
+                  />
+                </Field>
+                <Field label="Escort / attendant name">
+                  <Input
+                    className="h-12 text-base"
+                    value={draft.escort_name}
+                    onChange={(e) => patch((d) => ({ ...d, escort_name: e.target.value }))}
+                  />
+                </Field>
+                <Field label="Driver name on the form">
+                  <Input
+                    className="h-12 text-base"
+                    value={draft.driver_full_name}
+                    onChange={(e) => patch((d) => ({ ...d, driver_full_name: e.target.value }))}
+                  />
+                </Field>
               </div>
-            </div>
-          )}
-          {(vehicleIssue || riderIssue || legsIssue || signatureIssue) && (
-            <div className="rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
-              {vehicleIssue || riderIssue || legsIssue || signatureIssue}
-            </div>
-          )}
-          <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setTab("sign")}>Back</Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              Submit for billing review
-            </Button>
+            </details>
           </div>
-        </TabsContent>
-      </Tabs>
+        )}
+
+        {/* ------------------------------- SIGNATURE ----------------------- */}
+        {step === "sign" && (
+          <div className="space-y-4">
+            {draft.rider_slots.map((s) => (
+              <div key={s.rider.id} className="space-y-3 rounded-2xl border bg-surface p-3">
+                <div>
+                  <div className="text-sm font-semibold">{s.rider.full_name}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Hand the phone to the passenger and ask them to sign in the box.
+                  </p>
+                </div>
+                <SignaturePad
+                  onChange={(url) => patch((d) => updateSlotIn(d, s.rider.id, { signature_data_url: url }))}
+                />
+                <div className="flex items-center justify-between rounded-xl border px-3 py-2.5">
+                  <span className="text-sm">Signed by escort instead</span>
+                  <Switch
+                    checked={s.signed_by_escort}
+                    onCheckedChange={(v) =>
+                      patch((d) =>
+                        updateSlotIn(d, s.rider.id, {
+                          signed_by_escort: v,
+                          signer_name: v ? d.escort_name || s.signer_name : s.rider.full_name,
+                        }),
+                      )
+                    }
+                  />
+                </div>
+                <Field label="Signed by">
+                  <Input
+                    className="h-12 text-base"
+                    value={s.signer_name}
+                    onChange={(e) => patch((d) => updateSlotIn(d, s.rider.id, { signer_name: e.target.value }))}
+                  />
+                </Field>
+                <div className="flex items-center justify-between rounded-xl border px-3 py-2.5">
+                  <span className="text-sm">I verified their identity</span>
+                  <Switch
+                    checked={s.identity_verified}
+                    onCheckedChange={(v) => patch((d) => updateSlotIn(d, s.rider.id, { identity_verified: v }))}
+                  />
+                </div>
+                {(err(`sig.${s.rider.id}`) || err(`name.${s.rider.id}`)) && (
+                  <InlineError message={(err(`sig.${s.rider.id}`) || err(`name.${s.rider.id}`))!} />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* -------------------------------- REVIEW ------------------------- */}
+        {step === "review" && (
+          <div className="space-y-3">
+            <SummaryCard title="Passengers" onEdit={() => setStep("passenger")}>
+              {draft.rider_slots.map((s) => (
+                <Row key={s.rider.id} label={s.rider.full_name} value={s.rider.medicaid_id} />
+              ))}
+              <Row label="Trip type" value={TRIP_KINDS.find((k) => k.value === draft.trip_kind)?.label ?? ""} />
+            </SummaryCard>
+
+            <SummaryCard title="Trip" onEdit={() => setStep("trip")}>
+              {draft.legs.map((l, i) => (
+                <div key={l.leg_index} className="space-y-1">
+                  {draft.legs.length > 1 && (
+                    <div className="text-xs font-semibold">{i === 0 ? "Outbound" : "Return"}</div>
+                  )}
+                  <Row label="Date" value={`${l.leg_date} ${l.pickup_time}`} />
+                  <Row label="From" value={l.pickup_address} />
+                  <Row label="To" value={l.dropoff_address} />
+                  <Row
+                    label="Miles"
+                    value={`${Math.max(0, Number(l.dropoff_odometer) - Number(l.pickup_odometer)).toFixed(1)} (${l.pickup_odometer} → ${l.dropoff_odometer})`}
+                  />
+                </div>
+              ))}
+            </SummaryCard>
+
+            <SummaryCard title="Vehicle" onEdit={() => setStep("details")}>
+              <Row
+                label="Type"
+                value={VEHICLE_TYPES.find((v) => v.value === draft.vehicle_type)?.label ?? ""}
+              />
+              <Row label="Plate" value={draft.plate} />
+              {draft.escort_name && <Row label="Escort" value={draft.escort_name} />}
+            </SummaryCard>
+
+            <SummaryCard title="Signature" onEdit={() => setStep("sign")}>
+              {draft.rider_slots.map((s) => (
+                <div key={s.rider.id} className="flex items-center gap-2 text-xs">
+                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                  <span className="truncate">
+                    Signed by {s.signer_name}
+                    {s.signed_by_escort ? " (escort)" : ""}
+                  </span>
+                </div>
+              ))}
+            </SummaryCard>
+
+            <Button variant="outline" className="h-12 w-full" onClick={buildPreview}>
+              <FileText className="mr-2 h-4 w-4" /> Preview state form
+            </Button>
+
+            {safetyIssue && (
+              <div className="flex gap-2 rounded-2xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>{safetyIssue}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Sticky primary CTA */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 p-3 backdrop-blur">
+        <div className="mx-auto max-w-lg">
+          {submitStage && (
+            <div className="mb-2 text-center text-xs text-muted-foreground">{submitStage}</div>
+          )}
+          {step === "review" ? (
+            <Button className="h-14 w-full text-base" onClick={handleSubmit} disabled={submitting || !online}>
+              {submitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+              {submitting ? "Sending…" : "Submit to billing"}
+            </Button>
+          ) : (
+            <Button className="h-14 w-full text-base" onClick={goNext}>
+              Continue
+              <ChevronRight className="ml-1 h-5 w-5" />
+            </Button>
+          )}
+        </div>
+      </div>
+
       <PdfPreviewDialog
         url={pdfPreview?.url ?? null}
         filename={pdfPreview?.filename ?? "trip.pdf"}
@@ -1172,16 +1339,13 @@ function NewNemtTripWizard() {
   );
 }
 
-function VerifyBadge({
-  entry,
-}: {
-  entry?: { state: "running" | "done"; result?: RiderVerifyResult };
-}) {
+/* --------------------------------- pieces --------------------------------- */
+
+function VerifyBadge({ entry }: { entry?: { state: "running" | "done"; result?: RiderVerifyResult } }) {
   if (!entry || entry.state === "running") {
     return (
       <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1.5 text-[11px] text-muted-foreground">
-        <Loader2 className="h-3 w-3 animate-spin" /> Verifying Medicaid ID against the state
-        portal…
+        <Loader2 className="h-3 w-3 animate-spin" /> Verifying Medicaid ID…
       </div>
     );
   }
@@ -1193,17 +1357,54 @@ function VerifyBadge({
       : r.status === "skipped"
         ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
         : "bg-red-500/10 text-red-700 dark:text-red-300";
-  return (
-    <div className={`mt-2 rounded-lg px-2 py-1.5 text-[11px] ${tone}`}>{r.message}</div>
-  );
+  return <div className={`mt-2 rounded-lg px-2 py-1.5 text-[11px] ${tone}`}>{r.message}</div>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-
   return (
     <div>
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <div className="mt-1">{children}</div>
+    </div>
+  );
+}
+
+function InlineError({ message }: { message: string }) {
+  return (
+    <div className="flex items-center gap-1.5 text-xs font-medium text-destructive">
+      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+      {message}
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 text-xs">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-right font-medium">{value}</span>
+    </div>
+  );
+}
+
+function SummaryCard({
+  title,
+  onEdit,
+  children,
+}: {
+  title: string;
+  onEdit: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border bg-surface p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-sm font-semibold">{title}</div>
+        <button type="button" onClick={onEdit} className="text-xs font-medium text-primary">
+          Edit
+        </button>
+      </div>
+      <div className="space-y-1.5">{children}</div>
     </div>
   );
 }
@@ -1224,12 +1425,13 @@ function OdometerInput({
       <Input
         type="number"
         inputMode="numeric"
+        className="h-12 text-base"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="123456"
       />
-      <label className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-md border border-input bg-background text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
-        {detecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+      <label className="inline-flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-md border border-input bg-background text-muted-foreground active:bg-accent">
+        {detecting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
         <span className="sr-only">Take odometer photo</span>
         <input
           type="file"
