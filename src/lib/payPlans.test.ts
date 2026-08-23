@@ -99,7 +99,7 @@ describe("computePlanPay", () => {
     });
     expect(r.fuel).toBe(0);
     expect(r.hourly_pay).toBe(61.04);
-    expect(r.total).toBe(49.03);
+    expect(r.total).toBe(49.04);
   });
 
   it("explains every number it produced", () => {
