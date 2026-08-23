@@ -332,17 +332,28 @@ export type LegPayload = {
 };
 
 export function buildLegsPayload(d: DriverTripDraft): LegPayload[] {
-  return d.legs.map((l) => ({
-    leg_index: l.leg_index,
-    leg_date: l.leg_date,
-    pickup_time: l.pickup_time || null,
-    pickup_odometer: Number(l.pickup_odometer),
-    pickup_address: l.pickup_address,
-    dropoff_time: l.dropoff_time || null,
-    dropoff_odometer: Number(l.dropoff_odometer),
-    dropoff_address: l.dropoff_address,
-  }));
+  return d.legs.map((l, i) => {
+    const pickup = parseOdometer(l.pickup_odometer);
+    const dropoff = parseOdometer(l.dropoff_odometer);
+    // Hard guard: odometers are a mandatory part of the state billing record.
+    if (pickup === null || dropoff === null || dropoff < pickup) {
+      throw new Error(
+        `Leg ${i + 1}: pickup and drop-off odometer readings are required and drop-off cannot be lower than pickup.`,
+      );
+    }
+    return {
+      leg_index: l.leg_index,
+      leg_date: l.leg_date,
+      pickup_time: l.pickup_time || null,
+      pickup_odometer: pickup,
+      pickup_address: l.pickup_address,
+      dropoff_time: l.dropoff_time || null,
+      dropoff_odometer: dropoff,
+      dropoff_address: l.dropoff_address,
+    };
+  });
 }
+
 
 /** Exact input for `createNemtTripGroup`. */
 export function buildCreateTripPayload(d: DriverTripDraft) {
