@@ -691,7 +691,7 @@ function NewNemtTripWizard() {
   /* ------------------------------ success screen ------------------------- */
   if (completedPdfs) {
     return (
-      <div className="mx-auto max-w-lg space-y-4 p-4 pb-28">
+      <div className="driver-cta-content-pad mx-auto max-w-lg space-y-4 p-4">
         <div className="flex flex-col items-center gap-3 rounded-3xl border border-emerald-500/40 bg-emerald-500/5 px-4 py-8 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15">
             <CheckCircle2 className="h-9 w-9 text-emerald-600 dark:text-emerald-400" />
@@ -739,7 +739,7 @@ function NewNemtTripWizard() {
           onClose={() => setPdfPreview(null)}
         />
 
-        <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 p-3 backdrop-blur">
+        <div className="driver-cta-bar z-20 border-t bg-background/95 px-3 pt-3 backdrop-blur">
           <div className="mx-auto flex max-w-lg gap-2">
             <Button
               variant="outline"
@@ -764,7 +764,7 @@ function NewNemtTripWizard() {
   const err = (key: string) => (showErrors ? issues[key] : undefined);
 
   return (
-    <div className="mx-auto max-w-lg pb-32">
+    <div className="driver-cta-content-pad mx-auto max-w-lg">
       {/* Sticky header + progress */}
       <div className="sticky top-0 z-20 border-b bg-background/95 px-4 pb-3 pt-4 backdrop-blur">
         <div className="flex items-center gap-3">
@@ -1359,7 +1359,7 @@ function NewNemtTripWizard() {
       </div>
 
       {/* Sticky primary CTA */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 p-3 backdrop-blur">
+      <div className="driver-cta-bar z-20 border-t bg-background/95 px-3 pt-3 backdrop-blur">
         <div className="mx-auto max-w-lg">
           {submitStage && (
             <div className="mb-2 text-center text-xs text-muted-foreground">{submitStage}</div>
