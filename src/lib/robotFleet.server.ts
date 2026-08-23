@@ -117,7 +117,16 @@ export function mergeFleet(envWorkers: FleetWorker[], dbRows: any[]): FleetWorke
       source: base ? "env" : "db",
     });
   }
-  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  // One physical robot process must appear exactly once, even when it is both
+  // the implicit legacy ROBOT_BASE_URL and a named registry row — otherwise it
+  // would double-count capacity and split company affinity.
+  const byUrl = new Map<string, FleetWorker>();
+  for (const w of byId.values()) {
+    const prev = byUrl.get(w.url);
+    if (!prev) byUrl.set(w.url, w);
+    else if (prev.source === "env" && w.source !== "env") byUrl.set(w.url, w);
+  }
+  return [...byUrl.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
 export async function loadFleet(supabase: any): Promise<FleetWorker[]> {
@@ -269,7 +278,11 @@ export async function probeWorker(
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(`${worker.url}/health`, { method: "GET", signal: ctrl.signal });
+    let res = await fetch(`${worker.url}/health`, { method: "GET", signal: ctrl.signal });
+    // Some robot builds expose liveness on `/` only; `/health` then 404s.
+    if (res.status === 404) {
+      res = await fetch(`${worker.url}/`, { method: "GET", signal: ctrl.signal });
+    }
     // Any HTTP answer proves the process is up; only 5xx counts as unhealthy.
     const ok = res.status < 500;
     return { ok, ms: Date.now() - t0, error: ok ? null : `health ${res.status}` };
