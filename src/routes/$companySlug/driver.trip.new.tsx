@@ -1341,6 +1341,20 @@ function NewNemtTripWizard() {
                 <span>{safetyIssue}</span>
               </div>
             )}
+
+            {verifyWarnings.length > 0 && (
+              <div className="space-y-1 rounded-2xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+                {verifyWarnings.map((w) => (
+                  <div key={w} className="flex gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span>{w}</span>
+                  </div>
+                ))}
+                <p className="pl-6 text-[11px] opacity-80">
+                  You can still submit — billing staff will review this trip.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
