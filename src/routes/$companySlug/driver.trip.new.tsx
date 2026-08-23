@@ -739,7 +739,7 @@ function NewNemtTripWizard() {
           onClose={() => setPdfPreview(null)}
         />
 
-        <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 p-3 backdrop-blur">
+        <div className="driver-cta-bar z-20 border-t bg-background/95 px-3 pt-3 backdrop-blur">
           <div className="mx-auto flex max-w-lg gap-2">
             <Button
               variant="outline"
