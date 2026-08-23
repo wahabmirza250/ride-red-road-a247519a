@@ -127,7 +127,7 @@ const TRIP_KINDS = [
 ] as const;
 
 function NewNemtTripWizard() {
-  const { tripId } = Route.useSearch();
+  const { tripId, draftId } = Route.useSearch();
   const { user, isDriver } = useAuth();
   const companySlug = useCompanySlug();
   const navigate = useAppNavigate();
@@ -138,6 +138,8 @@ function NewNemtTripWizard() {
   const [draftRestored, setDraftRestored] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [online, setOnline] = useState(true);
+  const [savingServerDraft, setSavingServerDraft] = useState(false);
+  const [serverSavedAt, setServerSavedAt] = useState<string | null>(null);
 
   const storageKey = useMemo(
     () => draftStorageKey(companySlug, user?.id ?? null),
@@ -147,13 +149,51 @@ function NewNemtTripWizard() {
   /* -------------------------- draft restore + autosave ------------------- */
   useEffect(() => {
     if (typeof window === "undefined" || !user?.id) return;
+    if (draftId) {
+      // Server draft is the source of truth when resuming a saved trip.
+      setHydrated(true);
+      return;
+    }
     const existing = loadDraft(window.localStorage, storageKey);
     if (existing && !isDraftEmpty(existing)) {
       setDraft(existing);
       setDraftRestored(true);
     }
     setHydrated(true);
-  }, [storageKey, user?.id]);
+  }, [storageKey, user?.id, draftId]);
+
+  /* ------------------------ resume a saved server draft ------------------ */
+  const fetchServerDraft = useServerFn(getDriverTripDraft);
+  const [resumeLoaded, setResumeLoaded] = useState(false);
+  useEffect(() => {
+    if (!draftId || resumeLoaded || !user?.id) return;
+    let cancelled = false;
+    fetchServerDraft({ data: { id: draftId } })
+      .then((row: any) => {
+        if (cancelled) return;
+        setResumeLoaded(true);
+        if (!row?.payload) return toast.error("That saved trip is no longer available");
+        const base = createEmptyDraft();
+        const restored: DriverTripDraft = {
+          ...base,
+          ...(row.payload as DriverTripDraft),
+          version: base.version,
+          server_draft_id: row.id,
+        };
+        setDraft(restored);
+        setServerSavedAt(row.updated_at ?? null);
+        setStep("trip");
+        toast.success("Saved trip loaded — finish the missing details");
+      })
+      .catch((e) => {
+        setResumeLoaded(true);
+        toast.error(e instanceof Error ? e.message : "Could not load the saved trip");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [draftId, fetchServerDraft, resumeLoaded, user?.id]);
+
 
   useEffect(() => {
     if (!hydrated || typeof window === "undefined") return;
