@@ -136,7 +136,7 @@ describe("required-field validation", () => {
 
   it("rejects a drop-off odometer below pickup", () => {
     const d = updateLeg(readyDraft(), 0, { dropoff_odometer: "900" });
-    expect(validateTripStep(d)["leg0.dropoff_odometer"]).toMatch(/lower than pickup/i);
+    expect(validateTripStep(d)["leg0.dropoff_odometer"]).toMatch(/negative|greater than or equal/i);
   });
 
   it("requires vehicle type and plate", () => {
@@ -248,10 +248,13 @@ describe("billing payload compatibility", () => {
     expect(args.legs).toEqual(buildCreateTripPayload(d).legs);
   });
 
-  it("keeps odometer values numeric for the billing mileage calculation", () => {
-    const legs = buildCreateTripPayload(withTripKind(readyDraft(), "round_trip")).legs;
+  it("keeps odometer values numeric and refuses an incomplete return leg", () => {
+    const rt = withTripKind(readyDraft(), "round_trip");
+    // Return leg has no readings yet -> payload must refuse to build.
+    expect(() => buildCreateTripPayload(rt)).toThrow(/odometer/i);
+    const legs = buildCreateTripPayload(readyDraft()).legs;
     expect(typeof legs[0].pickup_odometer).toBe("number");
-    expect(typeof legs[1].dropoff_odometer).toBe("number"); // empty return leg is caught by validation, never sent as a string
+    expect(typeof legs[0].dropoff_odometer).toBe("number");
   });
 });
 
