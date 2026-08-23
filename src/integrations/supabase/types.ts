@@ -179,6 +179,13 @@ export type Database = {
           status_check_worker: string | null
           status_checked_at: string | null
           submission_error: string | null
+          submit_attempt_count: number
+          submit_last_error: string | null
+          submit_last_ms: number | null
+          submit_lease_started_at: string | null
+          submit_locked_until: string | null
+          submit_next_attempt_at: string | null
+          submit_worker: string | null
           submitted_at: string | null
           trip_form_id: string | null
           trip_id: string
@@ -206,6 +213,13 @@ export type Database = {
           status_check_worker?: string | null
           status_checked_at?: string | null
           submission_error?: string | null
+          submit_attempt_count?: number
+          submit_last_error?: string | null
+          submit_last_ms?: number | null
+          submit_lease_started_at?: string | null
+          submit_locked_until?: string | null
+          submit_next_attempt_at?: string | null
+          submit_worker?: string | null
           submitted_at?: string | null
           trip_form_id?: string | null
           trip_id: string
@@ -233,6 +247,13 @@ export type Database = {
           status_check_worker?: string | null
           status_checked_at?: string | null
           submission_error?: string | null
+          submit_attempt_count?: number
+          submit_last_error?: string | null
+          submit_last_ms?: number | null
+          submit_lease_started_at?: string | null
+          submit_locked_until?: string | null
+          submit_next_attempt_at?: string | null
+          submit_worker?: string | null
           submitted_at?: string | null
           trip_form_id?: string | null
           trip_id?: string
@@ -2535,6 +2556,36 @@ export type Database = {
         }
         Relationships: []
       }
+      submission_queue_state: {
+        Row: {
+          id: boolean
+          last_result: Json
+          last_run_at: string | null
+          pause_reason: string | null
+          paused: boolean
+          paused_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          last_result?: Json
+          last_run_at?: string | null
+          pause_reason?: string | null
+          paused?: boolean
+          paused_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          last_result?: Json
+          last_run_at?: string | null
+          pause_reason?: string | null
+          paused?: boolean
+          paused_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscription_payments: {
         Row: {
           amount: number
@@ -2958,6 +3009,31 @@ export type Database = {
           },
         ]
       }
+      submission_queue_metrics: {
+        Row: {
+          avg_submit_ms: number | null
+          company_id: string | null
+          company_name: string | null
+          last_submitted_at: string | null
+          leased: number | null
+          needs_attention: number | null
+          oldest_queued_at: string | null
+          processing: number | null
+          queued: number | null
+          retrying: number | null
+          stale_locks: number | null
+          submitted_last_hour: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_records_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_view_driver_media: {
@@ -3029,8 +3105,29 @@ export type Database = {
           trip_id: string
         }[]
       }
+      lease_submission_jobs: {
+        Args: {
+          _company_id?: string
+          _global_limit?: number
+          _lease_seconds?: number
+          _per_company_limit?: number
+          _record_ids?: string[]
+          _stale_seconds?: number
+          _worker?: string
+        }
+        Returns: {
+          attempt: number
+          company_id: string
+          id: string
+          trip_id: string
+        }[]
+      }
       owner_unscoped: { Args: never; Returns: boolean }
       release_stale_claim_status_locks: {
+        Args: { _grace_seconds?: number }
+        Returns: number
+      }
+      release_stale_submission_locks: {
         Args: { _grace_seconds?: number }
         Returns: number
       }
