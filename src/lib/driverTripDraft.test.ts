@@ -3,21 +3,25 @@ import {
   DRAFT_TTL_MS,
   addRiderSlot,
   buildCreateTripPayload,
+  buildLegsPayload,
   buildPdfArgs,
   clearDraft,
   completedSteps,
   createEmptyDraft,
   draftStorageKey,
   isDraftSubmittable,
+  legMiles,
   loadDraft,
   pushRecentAddress,
   readRecentAddresses,
   removeRiderSlot,
+  parseOdometer,
   saveDraft,
   updateLeg,
   updateSlot,
   validateDetailsStep,
   validateSignStep,
+  totalMiles,
   validateTripStep,
   withTripKind,
   type DraftRider,
@@ -248,5 +252,120 @@ describe("billing payload compatibility", () => {
     const legs = buildCreateTripPayload(withTripKind(readyDraft(), "round_trip")).legs;
     expect(typeof legs[0].pickup_odometer).toBe("number");
     expect(typeof legs[1].dropoff_odometer).toBe("number"); // empty return leg is caught by validation, never sent as a string
+  });
+});
+
+/* ------------------- odometer: mandatory billing data ---------------------- */
+
+describe("odometer handling (mandatory for state billing)", () => {
+  function fullDraft(): DriverTripDraft {
+    let d = addRiderSlot(createEmptyDraft(), rider);
+    d = { ...d, vehicle_type: "ambulatory", plate: "ABC123", driver_full_name: "Dan Driver" };
+    d = updateLeg(d, 0, {
+      pickup_address: "1 A St",
+      dropoff_address: "2 B St",
+      pickup_odometer: "1000",
+      dropoff_odometer: "1012",
+    });
+    d = updateSlot(d, rider.id, { signature_data_url: "data:image/png;base64,xx", signer_name: "Jane Doe" });
+    return d;
+  }
+
+  it("parses valid readings and rejects junk", () => {
+    expect(parseOdometer("1000")).toBe(1000);
+    expect(parseOdometer(" 1,000 ")).toBe(1000);
+    expect(parseOdometer("1000.5")).toBe(1000.5);
+    expect(parseOdometer("")).toBeNull();
+    expect(parseOdometer("   ")).toBeNull();
+    expect(parseOdometer("abc")).toBeNull();
+    expect(parseOdometer("12a")).toBeNull();
+    expect(parseOdometer("-5")).toBeNull();
+    expect(parseOdometer("1e5")).toBeNull();
+    expect(parseOdometer(null)).toBeNull();
+  });
+
+  it("requires both readings on the single leg", () => {
+    const d = updateLeg(fullDraft(), 0, { pickup_odometer: "", dropoff_odometer: "" });
+    const issues = validateTripStep(d);
+    expect(issues["leg0.pickup_odometer"]).toMatch(/required/i);
+    expect(issues["leg0.dropoff_odometer"]).toMatch(/required/i);
+    expect(isDraftSubmittable(d)).toBe(false);
+    expect(completedSteps(d).trip).toBe(false);
+  });
+
+  it("rejects non-numeric readings", () => {
+    const d = updateLeg(fullDraft(), 0, { pickup_odometer: "12a", dropoff_odometer: " " });
+    const issues = validateTripStep(d);
+    expect(issues["leg0.pickup_odometer"]).toMatch(/whole number/i);
+    expect(issues["leg0.dropoff_odometer"]).toMatch(/required/i);
+  });
+
+  it("rejects negative mileage (drop-off lower than pickup)", () => {
+    const d = updateLeg(fullDraft(), 0, { pickup_odometer: "1200", dropoff_odometer: "1100" });
+    expect(validateTripStep(d)["leg0.dropoff_odometer"]).toMatch(/negative|greater/i);
+    expect(legMiles(d.legs[0])).toBeNull();
+    expect(isDraftSubmittable(d)).toBe(false);
+    expect(() => buildLegsPayload(d)).toThrow(/odometer/i);
+  });
+
+  it("allows equal readings (zero miles) but never negative in payload", () => {
+    const d = updateLeg(fullDraft(), 0, { pickup_odometer: "1000", dropoff_odometer: "1000" });
+    expect(validateTripStep(d)["leg0.dropoff_odometer"]).toBeUndefined();
+    expect(legMiles(d.legs[0])).toBe(0);
+    expect(buildLegsPayload(d)[0].dropoff_odometer).toBe(1000);
+  });
+
+  it("requires odometers on BOTH legs of a round trip", () => {
+    let d = withTripKind(fullDraft(), "round_trip");
+    d = updateLeg(d, 1, {
+      pickup_address: "2 B St",
+      dropoff_address: "1 A St",
+      pickup_odometer: "",
+      dropoff_odometer: "",
+    });
+    expect(validateTripStep(d)["leg1.pickup_odometer"]).toMatch(/required/i);
+    expect(isDraftSubmittable(d)).toBe(false);
+
+    d = updateLeg(d, 1, { pickup_odometer: "1012", dropoff_odometer: "1025" });
+    expect(validateTripStep(d)).toEqual({});
+    expect(totalMiles(d)).toBe(25);
+  });
+
+  it("preserves numeric odometers in the createNemtTripGroup and PDF payloads", () => {
+    let d = withTripKind(fullDraft(), "round_trip");
+    d = updateLeg(d, 1, {
+      pickup_address: "2 B St",
+      dropoff_address: "1 A St",
+      pickup_odometer: "1012",
+      dropoff_odometer: "1025",
+    });
+    const payload = buildCreateTripPayload(d);
+    expect(payload.legs).toHaveLength(2);
+    expect(payload.legs[0]).toMatchObject({ leg_index: 1, pickup_odometer: 1000, dropoff_odometer: 1012 });
+    expect(payload.legs[1]).toMatchObject({ leg_index: 2, pickup_odometer: 1012, dropoff_odometer: 1025 });
+    payload.legs.forEach((l) => {
+      expect(typeof l.pickup_odometer).toBe("number");
+      expect(l.dropoff_odometer - l.pickup_odometer).toBeGreaterThanOrEqual(0);
+    });
+
+    const pdf = buildPdfArgs(d, d.rider_slots[0], { driverName: "Dan Driver" });
+    expect(pdf.legs[0].pickup_odometer).toBe(1000);
+    expect(pdf.legs[1].dropoff_odometer).toBe(1025);
+  });
+
+  it("blocks payload building when a reading is missing", () => {
+    const d = updateLeg(fullDraft(), 0, { dropoff_odometer: "" });
+    expect(() => buildCreateTripPayload(d)).toThrow(/odometer/i);
+    expect(() => buildPdfArgs(d, d.rider_slots[0], { driverName: "Dan Driver" })).toThrow(/odometer/i);
+  });
+
+  it("keeps odometer values through draft save/reload", () => {
+    const s = memStorage();
+    const key = draftStorageKey("acme", "user-1");
+    saveDraft(s, key, fullDraft());
+    const back = loadDraft(s, key)!;
+    expect(back.legs[0].pickup_odometer).toBe("1000");
+    expect(back.legs[0].dropoff_odometer).toBe("1012");
+    clearDraft(s, key);
   });
 });
