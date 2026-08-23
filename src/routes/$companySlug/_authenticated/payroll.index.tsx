@@ -100,15 +100,17 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Only hourly-paid drivers belong in this calculator; commission drivers are
-  // paid from the "% of paid claims" tab.
-  const allRows = useMemo(
-    () => (period.data?.rows ?? []).filter((r) => r.pay_type !== "commission"),
-    [period.data],
-  );
+  // Every pay plan is calculated here — hourly, commission, per trip and the
+  // hybrids all resolve to one payment per driver per period.
+  const allRows = useMemo(() => period.data?.rows ?? [], [period.data]);
   /** A driver is "active" when something actually happened in this period. */
   const hasActivity = (r: PayrollRow) =>
-    r.hours > 0 || r.fuel_pending > 0 || r.paid_in_period > 0 || (r.outstanding ?? 0) > 0;
+    r.hours > 0 ||
+    r.claim_count > 0 ||
+    r.trip_count > 0 ||
+    r.fuel_pending > 0 ||
+    r.paid_in_period > 0 ||
+    (r.outstanding ?? 0) > 0;
   const activeCount = allRows.filter(hasActivity).length;
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
