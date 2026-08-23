@@ -11,6 +11,7 @@ import {
   Loader2,
   Percent,
   Search,
+  Settings2,
   Undo2,
   Wallet,
 } from "lucide-react";
@@ -25,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/nemt/PageHeader";
+import { PayPlanSettingsDialog } from "@/components/payroll/PayPlanSettingsDialog";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { setDriverHourlyRate, setDriverPayType } from "@/lib/driverPay.functions";
 import {
@@ -50,6 +52,34 @@ export const Route = createFileRoute("/$companySlug/_authenticated/payroll/")({
   }),
   component: PayrollPage,
 });
+
+/** One-line description of what a driver's plan pays on. */
+function planBasis(r: PayrollRow) {
+  const bits: string[] = [];
+  if (r.hourly_rate != null && r.plan !== "commission" && r.plan !== "per_trip") {
+    bits.push(`${formatCurrency(r.hourly_rate)}/hr`);
+  }
+  if (r.commission_percentage != null && (r.plan === "commission" || r.plan === "hybrid_hourly_commission")) {
+    bits.push(`${r.commission_percentage}% of paid claims`);
+  }
+  if (r.per_trip_amount != null && (r.plan === "per_trip" || r.plan === "hybrid_hourly_per_trip")) {
+    bits.push(`${formatCurrency(r.per_trip_amount)}/trip`);
+  }
+  return bits.length ? bits.join(" + ") : (r.issues[0] ?? "not configured");
+}
+
+/** What the driver actually did in the period, per their plan. */
+function workSummary(r: PayrollRow) {
+  const bits: string[] = [];
+  if (r.plan !== "commission" && r.plan !== "per_trip") bits.push(`${r.hours.toFixed(2)}h`);
+  if (r.plan === "commission" || r.plan === "hybrid_hourly_commission") {
+    bits.push(`${r.claim_count} paid claim${r.claim_count === 1 ? "" : "s"}`);
+  }
+  if (r.plan === "per_trip" || r.plan === "hybrid_hourly_per_trip") {
+    bits.push(`${r.trip_count} trip${r.trip_count === 1 ? "" : "s"}`);
+  }
+  return bits.join(" · ") || "—";
+}
 
 /** Biweekly window ending today (14 days), the default pay cycle. */
 function defaultPeriod() {
@@ -88,6 +118,8 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
     queryKey: ["payouts"],
     queryFn: () => payoutsFn({ data: { limit: 50 } }),
   });
+
+  const [plansOpen, setPlansOpen] = useState(false);
 
   const undo = useMutation({
     mutationFn: (id: string) => delFn({ data: { id } }),
@@ -193,6 +225,9 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
             >
               <Clock className="mr-1.5 h-4 w-4" /> Add hours
             </Button>
+            <Button variant="outline" onClick={() => setPlansOpen(true)}>
+              <Settings2 className="mr-1.5 h-4 w-4" /> Pay plans
+            </Button>
           </div>
         </div>
 
@@ -214,7 +249,7 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
             <h2 className="text-sm font-semibold">Drivers in this period</h2>
             <p className="text-xs text-muted-foreground">
               Click a driver to open their pay details. Showing {rows.length} of {allRows.length}{" "}
-              hourly drivers
+              drivers
               {!showAll && !search.trim() ? ` with activity (${activeCount})` : ""}.
             </p>
           </div>
@@ -228,9 +263,9 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
           <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Driver</th>
-              <th className="px-4 py-3">Rate</th>
-              <th className="px-4 py-3">Hours</th>
-              <th className="px-4 py-3">Gross</th>
+              <th className="px-4 py-3">Pay plan</th>
+              <th className="px-4 py-3">Work</th>
+              <th className="px-4 py-3">Earnings</th>
               <th className="px-4 py-3">Fuel</th>
               <th className="px-4 py-3">Paid</th>
               <th className="px-4 py-3">Outstanding</th>
@@ -240,7 +275,7 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
           <tbody>
             {period.isLoading && (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center">
+                <td colSpan={9} className="px-4 py-10 text-center">
                   <Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
                 </td>
               </tr>
@@ -258,16 +293,17 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
                     {r.open_shift && " · clocked in"}
                   </div>
                 </td>
-                <td className="px-4 py-3 tabular-nums">
-                  {r.hourly_rate == null ? (
-                    <span className="text-xs text-muted-foreground">no rate set</span>
-                  ) : (
-                    `${formatCurrency(r.hourly_rate)}/hr`
-                  )}
+                <td className="px-4 py-3">
+                  <div className="text-xs font-medium">{r.plan_label}</div>
+                  <div className="text-xs text-muted-foreground">{planBasis(r)}</div>
                 </td>
-                <td className="px-4 py-3 tabular-nums">{r.hours.toFixed(2)}h</td>
+                <td className="px-4 py-3 text-xs tabular-nums">{workSummary(r)}</td>
                 <td className="px-4 py-3 tabular-nums">
-                  {r.gross_earnings == null ? "—" : formatCurrency(r.gross_earnings)}
+                  {r.gross_earnings == null ? (
+                    <span className="text-xs text-amber-600">needs setup</span>
+                  ) : (
+                    formatCurrency(r.gross_earnings)
+                  )}
                 </td>
                 <td className="px-4 py-3 tabular-nums">{formatCurrency(r.fuel_pending)}</td>
                 <td className="px-4 py-3 tabular-nums">{formatCurrency(r.paid_in_period)}</td>
@@ -287,12 +323,12 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
             ))}
             {period.data && !rows.length && (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
+                <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
                   {search.trim()
                     ? "No driver matches that search."
                     : allRows.length
-                      ? "No hourly driver recorded time in this period — use “Show all drivers”."
-                      : "No hourly-paid drivers yet."}
+                      ? "No driver has payable work in this period — use “Show all drivers”."
+                      : "No drivers yet."}
                 </td>
               </tr>
             )}
@@ -383,6 +419,8 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
           qc.invalidateQueries({ queryKey: ["payout-drivers"] });
         }}
       />
+
+      <PayPlanSettingsDialog open={plansOpen} onOpenChange={setPlansOpen} />
 
       <ManualHoursDialog
         open={manualOpen}
