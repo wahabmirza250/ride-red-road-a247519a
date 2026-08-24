@@ -355,6 +355,25 @@ export function isDraftSavable(d: DriverTripDraft): boolean {
   return Object.keys(validateSaveStage(d)).length === 0;
 }
 
+/**
+ * Stage 0 — what must exist before a trip can be CREATED and persisted on the
+ * server. Deliberately excludes the pickup odometer: that reading is taken at
+ * the pickup, once the driver is actually there.
+ */
+export function validateCreateStage(d: DriverTripDraft): FieldIssues {
+  const issues: FieldIssues = { ...validatePassengerStep(d), ...validateDetailsStep(d) };
+  const l = d.legs[0];
+  if (!l) return { ...issues, "leg0.pickup_address": "Pickup address is required" };
+  if (!l.leg_date) issues["leg0.leg_date"] = "Pick the trip date";
+  if (!l.pickup_address.trim()) issues["leg0.pickup_address"] = "Pickup address is required";
+  if (!l.dropoff_address.trim()) issues["leg0.dropoff_address"] = "Destination is required";
+  return issues;
+}
+
+export function isDraftCreatable(d: DriverTripDraft): boolean {
+  return Object.keys(validateCreateStage(d)).length === 0;
+}
+
 /** Human-readable list of what still blocks final submission to billing. */
 export function missingForCompletion(d: DriverTripDraft): string[] {
   const missing: string[] = [];
