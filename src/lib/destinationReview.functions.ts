@@ -36,7 +36,7 @@ export const classifyDestinationsForReview = createServerFn({ method: "POST" })
       .from("billing_records")
       .select(
         `id, trip_id, company_id, status,
-         medicaid_trips!inner(id, dropoff_address, dropoff_facility_name, pickup_at)`,
+         medicaid_trips!inner(id, dropoff_address, pickup_at)`,
       )
       .limit(data.limit ?? MAX_TRIPS_PER_RUN);
     q = data.trip_ids?.length
@@ -210,7 +210,7 @@ export const recheckTripDestination = createServerFn({ method: "POST" })
 
     const { data: bill, error } = await supabase
       .from("billing_records")
-      .select("id, trip_id, company_id, medicaid_trips!inner(dropoff_address, dropoff_facility_name)")
+      .select("id, trip_id, company_id, medicaid_trips!inner(dropoff_address)")
       .eq("trip_id", data.trip_id)
       .limit(1)
       .maybeSingle();
