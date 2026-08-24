@@ -686,6 +686,127 @@ export type Database = {
           },
         ]
       }
+      destination_place_cache: {
+        Row: {
+          address: string | null
+          company_id: string | null
+          created_at: string
+          expires_at: string
+          fetched_at: string
+          id: string
+          lookup_ok: boolean
+          nearby: Json
+          normalized_key: string
+          place: Json | null
+          provider: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          company_id?: string | null
+          created_at?: string
+          expires_at?: string
+          fetched_at?: string
+          id?: string
+          lookup_ok?: boolean
+          nearby?: Json
+          normalized_key: string
+          place?: Json | null
+          provider?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          company_id?: string | null
+          created_at?: string
+          expires_at?: string
+          fetched_at?: string
+          id?: string
+          lookup_ok?: boolean
+          nearby?: Json
+          normalized_key?: string
+          place?: Json | null
+          provider?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "destination_place_cache_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      destination_review_overrides: {
+        Row: {
+          billing_record_id: string | null
+          classification_id: string | null
+          company_id: string | null
+          created_at: string
+          id: string
+          note: string | null
+          original_status: string
+          original_summary: string | null
+          overridden_by: string | null
+          trip_id: string
+        }
+        Insert: {
+          billing_record_id?: string | null
+          classification_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          original_status: string
+          original_summary?: string | null
+          overridden_by?: string | null
+          trip_id: string
+        }
+        Update: {
+          billing_record_id?: string | null
+          classification_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          original_status?: string
+          original_summary?: string | null
+          overridden_by?: string | null
+          trip_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "destination_review_overrides_billing_record_id_fkey"
+            columns: ["billing_record_id"]
+            isOneToOne: false
+            referencedRelation: "billing_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "destination_review_overrides_classification_id_fkey"
+            columns: ["classification_id"]
+            isOneToOne: false
+            referencedRelation: "trip_destination_classifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "destination_review_overrides_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "destination_review_overrides_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "medicaid_trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dispatch_events: {
         Row: {
           actor_id: string | null
@@ -3229,6 +3350,72 @@ export type Database = {
             columns: ["trip_id"]
             isOneToOne: true
             referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trip_destination_classifications: {
+        Row: {
+          classified_at: string
+          classifier_version: string
+          company_id: string | null
+          confidence: number
+          created_at: string
+          destination_text: string | null
+          evidence: Json
+          id: string
+          matched: Json
+          reasons: Json
+          status: string
+          summary: string | null
+          trip_id: string
+          updated_at: string
+        }
+        Insert: {
+          classified_at?: string
+          classifier_version: string
+          company_id?: string | null
+          confidence?: number
+          created_at?: string
+          destination_text?: string | null
+          evidence?: Json
+          id?: string
+          matched?: Json
+          reasons?: Json
+          status: string
+          summary?: string | null
+          trip_id: string
+          updated_at?: string
+        }
+        Update: {
+          classified_at?: string
+          classifier_version?: string
+          company_id?: string | null
+          confidence?: number
+          created_at?: string
+          destination_text?: string | null
+          evidence?: Json
+          id?: string
+          matched?: Json
+          reasons?: Json
+          status?: string
+          summary?: string | null
+          trip_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_destination_classifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_destination_classifications_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "medicaid_trips"
             referencedColumns: ["id"]
           },
         ]
