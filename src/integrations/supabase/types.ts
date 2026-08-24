@@ -457,6 +457,65 @@ export type Database = {
         }
         Relationships: []
       }
+      company_comm_settings: {
+        Row: {
+          company_id: string
+          created_at: string
+          inbound_webhook_path: string | null
+          messaging_profile_id: string | null
+          notify_bill_approved: boolean
+          notify_bill_rejected: boolean
+          notify_driver_arriving: boolean
+          notify_trip_assigned: boolean
+          notify_trip_reminder: boolean
+          provider: string
+          setup_notes: string | null
+          sms_enabled: boolean
+          sms_from_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          inbound_webhook_path?: string | null
+          messaging_profile_id?: string | null
+          notify_bill_approved?: boolean
+          notify_bill_rejected?: boolean
+          notify_driver_arriving?: boolean
+          notify_trip_assigned?: boolean
+          notify_trip_reminder?: boolean
+          provider?: string
+          setup_notes?: string | null
+          sms_enabled?: boolean
+          sms_from_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          inbound_webhook_path?: string | null
+          messaging_profile_id?: string | null
+          notify_bill_approved?: boolean
+          notify_bill_rejected?: boolean
+          notify_driver_arriving?: boolean
+          notify_trip_assigned?: boolean
+          notify_trip_reminder?: boolean
+          provider?: string
+          setup_notes?: string | null
+          sms_enabled?: boolean
+          sms_from_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_comm_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_pay_settings: {
         Row: {
           commission_base: string
@@ -2772,6 +2831,153 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_conversations: {
+        Row: {
+          company_id: string
+          contact_name: string | null
+          contact_phone: string
+          created_at: string
+          id: string
+          is_known_contact: boolean
+          last_inbound_at: string | null
+          last_message_at: string | null
+          our_number: string
+          passenger_id: string | null
+          status: string
+          unread_count: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          contact_name?: string | null
+          contact_phone: string
+          created_at?: string
+          id?: string
+          is_known_contact?: boolean
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          our_number: string
+          passenger_id?: string | null
+          status?: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          contact_name?: string | null
+          contact_phone?: string
+          created_at?: string
+          id?: string
+          is_known_contact?: boolean
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          our_number?: string
+          passenger_id?: string | null
+          status?: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_conversations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_conversations_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "passengers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_messages: {
+        Row: {
+          attempt_count: number
+          body: string
+          company_id: string
+          conversation_id: string
+          created_at: string
+          dedupe_key: string | null
+          delivered_at: string | null
+          direction: string
+          error_message: string | null
+          event_kind: string | null
+          from_number: string
+          id: string
+          metadata: Json
+          provider: string
+          provider_message_id: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          to_number: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          body: string
+          company_id: string
+          conversation_id: string
+          created_at?: string
+          dedupe_key?: string | null
+          delivered_at?: string | null
+          direction: string
+          error_message?: string | null
+          event_kind?: string | null
+          from_number: string
+          id?: string
+          metadata?: Json
+          provider?: string
+          provider_message_id?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          to_number: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          body?: string
+          company_id?: string
+          conversation_id?: string
+          created_at?: string
+          dedupe_key?: string | null
+          delivered_at?: string | null
+          direction?: string
+          error_message?: string | null
+          event_kind?: string | null
+          from_number?: string
+          id?: string
+          metadata?: Json
+          provider?: string
+          provider_message_id?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          to_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_messages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "sms_conversations"
             referencedColumns: ["id"]
           },
         ]

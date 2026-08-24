@@ -31,6 +31,7 @@ import { Route as CompanySlugPassengerIndexRouteImport } from './routes/$company
 import { Route as CompanySlugDriverIndexRouteImport } from './routes/$companySlug/driver.index'
 import { Route as CompanySlugDispatchIndexRouteImport } from './routes/$companySlug/dispatch.index'
 import { Route as CompanySlugBillingIndexRouteImport } from './routes/$companySlug/billing.index'
+import { Route as ApiPublicTelnyxInboundRouteImport } from './routes/api/public/telnyx-inbound'
 import { Route as ApiPublicSmsInboundRouteImport } from './routes/api/public/sms-inbound'
 import { Route as ApiPublicGetTripPdfRouteImport } from './routes/api/public/get-trip-pdf'
 import { Route as ApiPublicGetPortalCredentialRouteImport } from './routes/api/public/get-portal-credential'
@@ -79,6 +80,7 @@ import { Route as CompanySlugAuthenticatedEventsRouteImport } from './routes/$co
 import { Route as CompanySlugAuthenticatedDriversRouteImport } from './routes/$companySlug/_authenticated/drivers'
 import { Route as CompanySlugAuthenticatedDriverPayRouteImport } from './routes/$companySlug/_authenticated/driver-pay'
 import { Route as CompanySlugAuthenticatedDashboardRouteImport } from './routes/$companySlug/_authenticated/dashboard'
+import { Route as CompanySlugAuthenticatedCommunicationsRouteImport } from './routes/$companySlug/_authenticated/communications'
 import { Route as CompanySlugDispatchRoutesIndexRouteImport } from './routes/$companySlug/dispatch.routes.index'
 import { Route as CompanySlugAuthenticatedPayrollIndexRouteImport } from './routes/$companySlug/_authenticated/payroll.index'
 import { Route as ApiPublicHooksSyncClaimStatusRouteImport } from './routes/api/public/hooks/sync-claim-status'
@@ -204,6 +206,11 @@ const CompanySlugBillingIndexRoute = CompanySlugBillingIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => CompanySlugBillingRoute,
+} as any)
+const ApiPublicTelnyxInboundRoute = ApiPublicTelnyxInboundRouteImport.update({
+  id: '/api/public/telnyx-inbound',
+  path: '/api/public/telnyx-inbound',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicSmsInboundRoute = ApiPublicSmsInboundRouteImport.update({
   id: '/api/public/sms-inbound',
@@ -487,6 +494,12 @@ const CompanySlugAuthenticatedDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
   } as any)
+const CompanySlugAuthenticatedCommunicationsRoute =
+  CompanySlugAuthenticatedCommunicationsRouteImport.update({
+    id: '/communications',
+    path: '/communications',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
 const CompanySlugDispatchRoutesIndexRoute =
   CompanySlugDispatchRoutesIndexRouteImport.update({
     id: '/',
@@ -584,6 +597,7 @@ export interface FileRoutesByFullPath {
   '/track/$tripId': typeof TrackTripIdRoute
   '/$companySlug/': typeof CompanySlugIndexRoute
   '/owner/': typeof OwnerIndexRoute
+  '/$companySlug/communications': typeof CompanySlugAuthenticatedCommunicationsRoute
   '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/driver-pay': typeof CompanySlugAuthenticatedDriverPayRoute
   '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
@@ -632,6 +646,7 @@ export interface FileRoutesByFullPath {
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
   '/api/public/sms-inbound': typeof ApiPublicSmsInboundRoute
+  '/api/public/telnyx-inbound': typeof ApiPublicTelnyxInboundRoute
   '/$companySlug/billing/': typeof CompanySlugBillingIndexRoute
   '/$companySlug/dispatch/': typeof CompanySlugDispatchIndexRoute
   '/$companySlug/driver/': typeof CompanySlugDriverIndexRoute
@@ -663,6 +678,7 @@ export interface FileRoutesByTo {
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/owner': typeof OwnerIndexRoute
+  '/$companySlug/communications': typeof CompanySlugAuthenticatedCommunicationsRoute
   '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/driver-pay': typeof CompanySlugAuthenticatedDriverPayRoute
   '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
@@ -710,6 +726,7 @@ export interface FileRoutesByTo {
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
   '/api/public/sms-inbound': typeof ApiPublicSmsInboundRoute
+  '/api/public/telnyx-inbound': typeof ApiPublicTelnyxInboundRoute
   '/$companySlug/billing': typeof CompanySlugBillingIndexRoute
   '/$companySlug/dispatch': typeof CompanySlugDispatchIndexRoute
   '/$companySlug/driver': typeof CompanySlugDriverIndexRoute
@@ -748,6 +765,7 @@ export interface FileRoutesById {
   '/track/$tripId': typeof TrackTripIdRoute
   '/$companySlug/': typeof CompanySlugIndexRoute
   '/owner/': typeof OwnerIndexRoute
+  '/$companySlug/_authenticated/communications': typeof CompanySlugAuthenticatedCommunicationsRoute
   '/$companySlug/_authenticated/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/_authenticated/driver-pay': typeof CompanySlugAuthenticatedDriverPayRoute
   '/$companySlug/_authenticated/drivers': typeof CompanySlugAuthenticatedDriversRoute
@@ -796,6 +814,7 @@ export interface FileRoutesById {
   '/api/public/get-portal-credential': typeof ApiPublicGetPortalCredentialRoute
   '/api/public/get-trip-pdf': typeof ApiPublicGetTripPdfRoute
   '/api/public/sms-inbound': typeof ApiPublicSmsInboundRoute
+  '/api/public/telnyx-inbound': typeof ApiPublicTelnyxInboundRoute
   '/$companySlug/billing/': typeof CompanySlugBillingIndexRoute
   '/$companySlug/dispatch/': typeof CompanySlugDispatchIndexRoute
   '/$companySlug/driver/': typeof CompanySlugDriverIndexRoute
@@ -834,6 +853,7 @@ export interface FileRouteTypes {
     | '/track/$tripId'
     | '/$companySlug/'
     | '/owner/'
+    | '/$companySlug/communications'
     | '/$companySlug/dashboard'
     | '/$companySlug/driver-pay'
     | '/$companySlug/drivers'
@@ -882,6 +902,7 @@ export interface FileRouteTypes {
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
     | '/api/public/sms-inbound'
+    | '/api/public/telnyx-inbound'
     | '/$companySlug/billing/'
     | '/$companySlug/dispatch/'
     | '/$companySlug/driver/'
@@ -913,6 +934,7 @@ export interface FileRouteTypes {
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/owner'
+    | '/$companySlug/communications'
     | '/$companySlug/dashboard'
     | '/$companySlug/driver-pay'
     | '/$companySlug/drivers'
@@ -960,6 +982,7 @@ export interface FileRouteTypes {
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
     | '/api/public/sms-inbound'
+    | '/api/public/telnyx-inbound'
     | '/$companySlug/billing'
     | '/$companySlug/dispatch'
     | '/$companySlug/driver'
@@ -997,6 +1020,7 @@ export interface FileRouteTypes {
     | '/track/$tripId'
     | '/$companySlug/'
     | '/owner/'
+    | '/$companySlug/_authenticated/communications'
     | '/$companySlug/_authenticated/dashboard'
     | '/$companySlug/_authenticated/driver-pay'
     | '/$companySlug/_authenticated/drivers'
@@ -1045,6 +1069,7 @@ export interface FileRouteTypes {
     | '/api/public/get-portal-credential'
     | '/api/public/get-trip-pdf'
     | '/api/public/sms-inbound'
+    | '/api/public/telnyx-inbound'
     | '/$companySlug/billing/'
     | '/$companySlug/dispatch/'
     | '/$companySlug/driver/'
@@ -1079,6 +1104,7 @@ export interface RootRouteChildren {
   ApiPublicGetPortalCredentialRoute: typeof ApiPublicGetPortalCredentialRoute
   ApiPublicGetTripPdfRoute: typeof ApiPublicGetTripPdfRoute
   ApiPublicSmsInboundRoute: typeof ApiPublicSmsInboundRoute
+  ApiPublicTelnyxInboundRoute: typeof ApiPublicTelnyxInboundRoute
   ApiPublicHooksPollRobotJobsRoute: typeof ApiPublicHooksPollRobotJobsRoute
   ApiPublicHooksSubmissionQueueTickRoute: typeof ApiPublicHooksSubmissionQueueTickRoute
   ApiPublicHooksSyncClaimStatusRoute: typeof ApiPublicHooksSyncClaimStatusRoute
@@ -1239,6 +1265,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$companySlug/billing/'
       preLoaderRoute: typeof CompanySlugBillingIndexRouteImport
       parentRoute: typeof CompanySlugBillingRoute
+    }
+    '/api/public/telnyx-inbound': {
+      id: '/api/public/telnyx-inbound'
+      path: '/api/public/telnyx-inbound'
+      fullPath: '/api/public/telnyx-inbound'
+      preLoaderRoute: typeof ApiPublicTelnyxInboundRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/sms-inbound': {
       id: '/api/public/sms-inbound'
@@ -1576,6 +1609,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugAuthenticatedDashboardRouteImport
       parentRoute: typeof CompanySlugAuthenticatedRouteRoute
     }
+    '/$companySlug/_authenticated/communications': {
+      id: '/$companySlug/_authenticated/communications'
+      path: '/communications'
+      fullPath: '/$companySlug/communications'
+      preLoaderRoute: typeof CompanySlugAuthenticatedCommunicationsRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
     '/$companySlug/dispatch/routes/': {
       id: '/$companySlug/dispatch/routes/'
       path: '/'
@@ -1686,6 +1726,7 @@ const CompanySlugAuthenticatedMedicaidTripsRouteWithChildren =
   )
 
 interface CompanySlugAuthenticatedRouteRouteChildren {
+  CompanySlugAuthenticatedCommunicationsRoute: typeof CompanySlugAuthenticatedCommunicationsRoute
   CompanySlugAuthenticatedDashboardRoute: typeof CompanySlugAuthenticatedDashboardRoute
   CompanySlugAuthenticatedDriverPayRoute: typeof CompanySlugAuthenticatedDriverPayRoute
   CompanySlugAuthenticatedDriversRoute: typeof CompanySlugAuthenticatedDriversRoute
@@ -1713,6 +1754,8 @@ interface CompanySlugAuthenticatedRouteRouteChildren {
 
 const CompanySlugAuthenticatedRouteRouteChildren: CompanySlugAuthenticatedRouteRouteChildren =
   {
+    CompanySlugAuthenticatedCommunicationsRoute:
+      CompanySlugAuthenticatedCommunicationsRoute,
     CompanySlugAuthenticatedDashboardRoute:
       CompanySlugAuthenticatedDashboardRoute,
     CompanySlugAuthenticatedDriverPayRoute:
@@ -1914,6 +1957,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicGetPortalCredentialRoute: ApiPublicGetPortalCredentialRoute,
   ApiPublicGetTripPdfRoute: ApiPublicGetTripPdfRoute,
   ApiPublicSmsInboundRoute: ApiPublicSmsInboundRoute,
+  ApiPublicTelnyxInboundRoute: ApiPublicTelnyxInboundRoute,
   ApiPublicHooksPollRobotJobsRoute: ApiPublicHooksPollRobotJobsRoute,
   ApiPublicHooksSubmissionQueueTickRoute:
     ApiPublicHooksSubmissionQueueTickRoute,
