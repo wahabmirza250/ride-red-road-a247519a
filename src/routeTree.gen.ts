@@ -80,6 +80,7 @@ import { Route as CompanySlugAuthenticatedEventsRouteImport } from './routes/$co
 import { Route as CompanySlugAuthenticatedDriversRouteImport } from './routes/$companySlug/_authenticated/drivers'
 import { Route as CompanySlugAuthenticatedDriverPayRouteImport } from './routes/$companySlug/_authenticated/driver-pay'
 import { Route as CompanySlugAuthenticatedDashboardRouteImport } from './routes/$companySlug/_authenticated/dashboard'
+import { Route as CompanySlugAuthenticatedCommunicationsRouteImport } from './routes/$companySlug/_authenticated/communications'
 import { Route as CompanySlugDispatchRoutesIndexRouteImport } from './routes/$companySlug/dispatch.routes.index'
 import { Route as CompanySlugAuthenticatedPayrollIndexRouteImport } from './routes/$companySlug/_authenticated/payroll.index'
 import { Route as ApiPublicHooksSyncClaimStatusRouteImport } from './routes/api/public/hooks/sync-claim-status'
@@ -493,6 +494,12 @@ const CompanySlugAuthenticatedDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
   } as any)
+const CompanySlugAuthenticatedCommunicationsRoute =
+  CompanySlugAuthenticatedCommunicationsRouteImport.update({
+    id: '/communications',
+    path: '/communications',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
 const CompanySlugDispatchRoutesIndexRoute =
   CompanySlugDispatchRoutesIndexRouteImport.update({
     id: '/',
@@ -590,6 +597,7 @@ export interface FileRoutesByFullPath {
   '/track/$tripId': typeof TrackTripIdRoute
   '/$companySlug/': typeof CompanySlugIndexRoute
   '/owner/': typeof OwnerIndexRoute
+  '/$companySlug/communications': typeof CompanySlugAuthenticatedCommunicationsRoute
   '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/driver-pay': typeof CompanySlugAuthenticatedDriverPayRoute
   '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
@@ -670,6 +678,7 @@ export interface FileRoutesByTo {
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/owner': typeof OwnerIndexRoute
+  '/$companySlug/communications': typeof CompanySlugAuthenticatedCommunicationsRoute
   '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/driver-pay': typeof CompanySlugAuthenticatedDriverPayRoute
   '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
@@ -756,6 +765,7 @@ export interface FileRoutesById {
   '/track/$tripId': typeof TrackTripIdRoute
   '/$companySlug/': typeof CompanySlugIndexRoute
   '/owner/': typeof OwnerIndexRoute
+  '/$companySlug/_authenticated/communications': typeof CompanySlugAuthenticatedCommunicationsRoute
   '/$companySlug/_authenticated/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/_authenticated/driver-pay': typeof CompanySlugAuthenticatedDriverPayRoute
   '/$companySlug/_authenticated/drivers': typeof CompanySlugAuthenticatedDriversRoute
@@ -843,6 +853,7 @@ export interface FileRouteTypes {
     | '/track/$tripId'
     | '/$companySlug/'
     | '/owner/'
+    | '/$companySlug/communications'
     | '/$companySlug/dashboard'
     | '/$companySlug/driver-pay'
     | '/$companySlug/drivers'
@@ -923,6 +934,7 @@ export interface FileRouteTypes {
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/owner'
+    | '/$companySlug/communications'
     | '/$companySlug/dashboard'
     | '/$companySlug/driver-pay'
     | '/$companySlug/drivers'
@@ -1008,6 +1020,7 @@ export interface FileRouteTypes {
     | '/track/$tripId'
     | '/$companySlug/'
     | '/owner/'
+    | '/$companySlug/_authenticated/communications'
     | '/$companySlug/_authenticated/dashboard'
     | '/$companySlug/_authenticated/driver-pay'
     | '/$companySlug/_authenticated/drivers'
@@ -1596,6 +1609,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugAuthenticatedDashboardRouteImport
       parentRoute: typeof CompanySlugAuthenticatedRouteRoute
     }
+    '/$companySlug/_authenticated/communications': {
+      id: '/$companySlug/_authenticated/communications'
+      path: '/communications'
+      fullPath: '/$companySlug/communications'
+      preLoaderRoute: typeof CompanySlugAuthenticatedCommunicationsRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
     '/$companySlug/dispatch/routes/': {
       id: '/$companySlug/dispatch/routes/'
       path: '/'
@@ -1706,6 +1726,7 @@ const CompanySlugAuthenticatedMedicaidTripsRouteWithChildren =
   )
 
 interface CompanySlugAuthenticatedRouteRouteChildren {
+  CompanySlugAuthenticatedCommunicationsRoute: typeof CompanySlugAuthenticatedCommunicationsRoute
   CompanySlugAuthenticatedDashboardRoute: typeof CompanySlugAuthenticatedDashboardRoute
   CompanySlugAuthenticatedDriverPayRoute: typeof CompanySlugAuthenticatedDriverPayRoute
   CompanySlugAuthenticatedDriversRoute: typeof CompanySlugAuthenticatedDriversRoute
@@ -1733,6 +1754,8 @@ interface CompanySlugAuthenticatedRouteRouteChildren {
 
 const CompanySlugAuthenticatedRouteRouteChildren: CompanySlugAuthenticatedRouteRouteChildren =
   {
+    CompanySlugAuthenticatedCommunicationsRoute:
+      CompanySlugAuthenticatedCommunicationsRoute,
     CompanySlugAuthenticatedDashboardRoute:
       CompanySlugAuthenticatedDashboardRoute,
     CompanySlugAuthenticatedDriverPayRoute:
