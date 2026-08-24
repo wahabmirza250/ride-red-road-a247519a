@@ -1281,14 +1281,17 @@ function SubmittedTab({
     return rows.filter((r) => {
       const conf = (r.state_confirmation_number ?? "").toLowerCase();
       const name = (r.passenger_name ?? "").toLowerCase();
+      const driver = (r.driver_name ?? "").toLowerCase();
       const submitted = (r.submitted_at ?? "").toLowerCase();
       const pickup = (r.pickup_at ?? "").toLowerCase();
       return (
         conf.includes(needle) ||
         name.includes(needle) ||
+        driver.includes(needle) ||
         submitted.includes(needle) ||
         pickup.includes(needle)
       );
+
     });
   }, [rows, q]);
 
