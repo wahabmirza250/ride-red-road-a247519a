@@ -1068,8 +1068,9 @@ function AwaitingPortalTab({
               </div>
             </div>
           </div>
-        ))}
-      </div>
+        )}
+      />
+
       <MarkSubmittedDialog
         row={confirmFor}
         onClose={() => setConfirmFor(null)}
