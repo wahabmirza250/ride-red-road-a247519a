@@ -62,7 +62,7 @@ export const classifyDestinationsForReview = createServerFn({ method: "POST" })
         trip_id: b.trip_id,
         company_id: b.company_id ?? null,
         destination: b.medicaid_trips?.dropoff_address ?? null,
-        destination_name: b.medicaid_trips?.dropoff_facility_name ?? null,
+        destination_name: null,
       }));
 
     if (!trips.length) {
@@ -224,7 +224,7 @@ export const recheckTripDestination = createServerFn({ method: "POST" })
           trip_id: bill.trip_id,
           company_id: bill.company_id ?? null,
           destination: (bill as any).medicaid_trips?.dropoff_address ?? null,
-          destination_name: (bill as any).medicaid_trips?.dropoff_facility_name ?? null,
+          destination_name: null,
         },
       ],
       { refreshKeys: [(bill as any).medicaid_trips?.dropoff_address ?? ""] },
