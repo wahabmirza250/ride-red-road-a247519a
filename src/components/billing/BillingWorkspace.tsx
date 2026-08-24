@@ -606,7 +606,7 @@ function PendingReviewTab({
           { label: "Status" },
           { label: "PDF" },
         ]}
-        renderRow={(r) => (
+        renderRow={(r: any) => (
           <tr
             key={r.id}
             className="cursor-pointer hover:bg-accent/60"
