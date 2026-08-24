@@ -833,103 +833,90 @@ function ReadyToSubmitTab({
       </div>
 
 
-      <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-soft">
-        <table className="w-full min-w-[680px] text-sm">
-          <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="w-10 px-4 py-3"></th>
-              <th className="px-4 py-3 text-left">Passenger</th>
-              <th className="px-4 py-3 text-left">Driver</th>
-              <th className="px-4 py-3 text-left">Trip date</th>
-              <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">PDF</th>
+      <DriverGroupedTable
+        rows={rows}
+        columns={[
+          { label: "", className: "w-10" },
+          { label: "Passenger" },
+          { label: "Trip date" },
+          { label: "Submitted" },
+          { label: "Status" },
+          { label: "PDF" },
+        ]}
+        renderRow={(r: any) => {
+          const canSelect = r.status === "approved" || r.status === "needs_fix";
+          const isRunning = submittingIds.has(r.id) || r.status === "submitting";
+          return (
+            <tr
+              key={r.id}
+              className="cursor-pointer hover:bg-accent/60"
+              onClick={() => onOpen(r.id)}
+            >
+              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={selected.has(r.id)}
+                  onCheckedChange={() => toggleOne(r.id)}
+                  disabled={!canSelect || isRunning}
+                  aria-label="Select trip"
+                />
+              </td>
+              <td className="px-4 py-3">
+                <div className="font-medium">{r.passenger_name ?? "—"}</div>
+                <div className="text-xs text-muted-foreground">{r.medicaid_id}</div>
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {formatDateTime(r.pickup_at)}
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {r.submitted_at ? formatDateTime(r.submitted_at) : "Not submitted"}
+              </td>
+              <td className="px-4 py-3">
+                {r.status === "queued" ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600">
+                    waiting in queue
+                  </span>
+                ) : isRunning ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
+                    <Loader2 className="h-3 w-3 animate-spin" /> robot running
+                  </span>
+                ) : r.status === "needs_fix" ? (
+                  <StatusPill status="needs_fix" />
+                ) : (
+                  <StatusPill status="approved" />
+                )}
+                {r.submission_error && !isRunning && (
+                  <div className="mt-1 flex items-start gap-1 text-xs text-destructive">
+                    <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span>{r.submission_error}</span>
+                  </div>
+                )}
+                {!isRunning && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-2 h-7 rounded-full px-3 text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFixId(r.id);
+                    }}
+                  >
+                    <Pencil className="mr-1 h-3 w-3" />
+                    Edit &amp; fix
+                  </Button>
+                )}
+              </td>
+              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                <PdfCell
+                  pdfUrl={r.pdf_url}
+                  passengerName={r.passenger_name}
+                  onPreview={onPreviewPdf}
+                />
+              </td>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {rows.map((r) => {
-              const canSelect = r.status === "approved" || r.status === "needs_fix";
-              const isRunning =
-                submittingIds.has(r.id) || r.status === "submitting";
-              return (
-                <tr
-                  key={r.id}
-                  className="cursor-pointer hover:bg-accent/60"
-                  onClick={() => onOpen(r.id)}
-                >
-                  <td
-                    className="px-4 py-3"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Checkbox
-                      checked={selected.has(r.id)}
-                      onCheckedChange={() => toggleOne(r.id)}
-                      disabled={!canSelect || isRunning}
-                      aria-label="Select trip"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{r.passenger_name ?? "—"}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {r.medicaid_id}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">{r.driver_name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatDateTime(r.pickup_at)}
-                  </td>
-                  <td className="px-4 py-3">
-                    {r.status === "queued" ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600">
-                        waiting in queue
-                      </span>
-                    ) : isRunning ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
-                        <Loader2 className="h-3 w-3 animate-spin" /> robot running
-                      </span>
-                    ) : r.status === "needs_fix" ? (
+          );
+        }}
+      />
 
-                      <StatusPill status="needs_fix" />
-                    ) : (
-                      <StatusPill status="approved" />
-                    )}
-                    {r.submission_error && !isRunning && (
-                      <div className="mt-1 flex items-start gap-1 text-xs text-destructive">
-                        <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-                        <span>{r.submission_error}</span>
-                      </div>
-                    )}
-                    {!isRunning && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="mt-2 h-7 rounded-full px-3 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFixId(r.id);
-                        }}
-                      >
-                        <Pencil className="mr-1 h-3 w-3" />
-                        Edit &amp; fix
-                      </Button>
-                    )}
-                  </td>
-
-                  <td
-                    className="px-4 py-3"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <PdfCell
-                      pdfUrl={r.pdf_url}
-                      passengerName={r.passenger_name}
-                      onPreview={onPreviewPdf}
-                    />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
 
       <FixBillDialog id={fixId} onClose={() => setFixId(null)} />
     </div>
