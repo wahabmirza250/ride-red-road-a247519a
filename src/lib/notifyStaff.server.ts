@@ -57,6 +57,8 @@ export async function notifyDispatchers(n: StaffNotification) {
   }
 
   // 4. SMS to every staff phone on file that has alerts enabled.
+  //    Company-scoped alerts go through the provider layer (Telnyx/Twilio per
+  //    company, with idempotency + audit); unscoped alerts use the legacy path.
   let smsSent = 0;
   try {
     const { data: profiles } = await supabaseAdmin
@@ -69,8 +71,31 @@ export async function notifyDispatchers(n: StaffNotification) {
       .filter(Boolean) as string[];
     if (numbers.length) {
       const text = `${n.title}\n${n.body}${n.smsSuffix ? `\n${n.smsSuffix}` : ""}`;
-      const res = await sendSmsToMany(numbers, text);
-      smsSent = res.sent;
+      if (n.companyId) {
+        const { createCommsDeps } = await import("@/lib/comms/store.server");
+        const { sendCompanySms } = await import("@/lib/comms/engine");
+        const { dedupeKey } = await import("@/lib/comms/core");
+        const deps = createCommsDeps();
+        const stamp = Date.now();
+        const results = await Promise.all(
+          Array.from(new Set(numbers)).map((to) =>
+            sendCompanySms(deps, {
+              companyId: n.companyId as string,
+              to,
+              body: text,
+              eventKind: `staff_${n.kind}`,
+              dedupeKey: dedupeKey(["staff", n.kind, to, stamp]),
+            }),
+          ),
+        );
+        smsSent = results.filter((r) => r.ok).length;
+        // Nothing configured yet for this company — keep the legacy channel alive.
+        if (!smsSent && results.every((r) => r.status === "skipped")) {
+          smsSent = (await sendSmsToMany(numbers, text)).sent;
+        }
+      } else {
+        smsSent = (await sendSmsToMany(numbers, text)).sent;
+      }
     }
   } catch (e) {
     console.warn("[notify] sms failed", e);
