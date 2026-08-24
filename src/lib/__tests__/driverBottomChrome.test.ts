@@ -32,11 +32,17 @@ describe("driver bottom chrome offsets", () => {
     expect(layout).not.toMatch(/fleet-bottom-nav fixed bottom-3/);
   });
 
-  it("trip wizard uses shared CTA classes instead of bottom-0 fixed bars", () => {
-    const wizard = read("src/routes/$companySlug/driver.trip.new.tsx");
-    expect(wizard.match(/driver-cta-bar/g)?.length).toBe(2);
-    expect(wizard).toContain("driver-step-header");
-    expect(wizard).not.toMatch(/fixed inset-x-0 bottom-0/);
+  it("create + active trip screens use shared CTA classes, one layer each", () => {
+    for (const file of [
+      "src/routes/$companySlug/driver.trip.new.tsx",
+      "src/routes/$companySlug/driver.trip.active.tsx",
+    ]) {
+      const src = read(file);
+      expect(src).toContain("driver-cta-bar");
+      expect(src).toContain("driver-step-header");
+      expect(src).toContain("driver-cta-content-pad");
+      expect(src).not.toMatch(/fixed inset-x-0 bottom-0/);
+    }
   });
 });
 
