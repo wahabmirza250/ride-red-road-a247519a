@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { fmtMoney } from "@/lib/rideMath";
 import { formatDateTime } from "@/lib/format";
 import { Loader2 } from "lucide-react";
+import { InProgressTrips } from "@/components/driver/InProgressTrips";
 
 export const Route = createFileRoute("/$companySlug/driver/history")({
   component: DriverHistory,
@@ -55,6 +56,7 @@ function DriverHistory() {
   return (
     <div className="space-y-3">
       <h1 className="text-xl font-semibold">Trip history</h1>
+      <InProgressTrips />
       {rows.length === 0 && (
         <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
           No trips yet.

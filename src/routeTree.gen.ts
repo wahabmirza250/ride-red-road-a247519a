@@ -87,6 +87,7 @@ import { Route as ApiPublicHooksPollRobotJobsRouteImport } from './routes/api/pu
 import { Route as CompanySlugPassengerBookVehicleRouteImport } from './routes/$companySlug/passenger.book.vehicle'
 import { Route as CompanySlugPassengerBookPickupRouteImport } from './routes/$companySlug/passenger.book.pickup'
 import { Route as CompanySlugDriverTripNewRouteImport } from './routes/$companySlug/driver.trip.new'
+import { Route as CompanySlugDriverTripActiveRouteImport } from './routes/$companySlug/driver.trip.active'
 import { Route as CompanySlugDispatchRoutesRouteIdRouteImport } from './routes/$companySlug/dispatch.routes.$routeId'
 import { Route as CompanySlugAuthenticatedPayrollDriverIdRouteImport } from './routes/$companySlug/_authenticated/payroll.$driverId'
 import { Route as CompanySlugAuthenticatedMedicaidTripsNewRouteImport } from './routes/$companySlug/_authenticated/medicaid-trips.new'
@@ -534,6 +535,12 @@ const CompanySlugDriverTripNewRoute =
     path: '/trip/new',
     getParentRoute: () => CompanySlugDriverRoute,
   } as any)
+const CompanySlugDriverTripActiveRoute =
+  CompanySlugDriverTripActiveRouteImport.update({
+    id: '/trip/active',
+    path: '/trip/active',
+    getParentRoute: () => CompanySlugDriverRoute,
+  } as any)
 const CompanySlugDispatchRoutesRouteIdRoute =
   CompanySlugDispatchRoutesRouteIdRouteImport.update({
     id: '/$routeId',
@@ -632,6 +639,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/medicaid-trips/new': typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
   '/$companySlug/payroll/$driverId': typeof CompanySlugAuthenticatedPayrollDriverIdRoute
   '/$companySlug/dispatch/routes/$routeId': typeof CompanySlugDispatchRoutesRouteIdRoute
+  '/$companySlug/driver/trip/active': typeof CompanySlugDriverTripActiveRoute
   '/$companySlug/driver/trip/new': typeof CompanySlugDriverTripNewRoute
   '/$companySlug/passenger/book/pickup': typeof CompanySlugPassengerBookPickupRoute
   '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
@@ -709,6 +717,7 @@ export interface FileRoutesByTo {
   '/$companySlug/medicaid-trips/new': typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
   '/$companySlug/payroll/$driverId': typeof CompanySlugAuthenticatedPayrollDriverIdRoute
   '/$companySlug/dispatch/routes/$routeId': typeof CompanySlugDispatchRoutesRouteIdRoute
+  '/$companySlug/driver/trip/active': typeof CompanySlugDriverTripActiveRoute
   '/$companySlug/driver/trip/new': typeof CompanySlugDriverTripNewRoute
   '/$companySlug/passenger/book/pickup': typeof CompanySlugPassengerBookPickupRoute
   '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
@@ -794,6 +803,7 @@ export interface FileRoutesById {
   '/$companySlug/_authenticated/medicaid-trips/new': typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
   '/$companySlug/_authenticated/payroll/$driverId': typeof CompanySlugAuthenticatedPayrollDriverIdRoute
   '/$companySlug/dispatch/routes/$routeId': typeof CompanySlugDispatchRoutesRouteIdRoute
+  '/$companySlug/driver/trip/active': typeof CompanySlugDriverTripActiveRoute
   '/$companySlug/driver/trip/new': typeof CompanySlugDriverTripNewRoute
   '/$companySlug/passenger/book/pickup': typeof CompanySlugPassengerBookPickupRoute
   '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
@@ -879,6 +889,7 @@ export interface FileRouteTypes {
     | '/$companySlug/medicaid-trips/new'
     | '/$companySlug/payroll/$driverId'
     | '/$companySlug/dispatch/routes/$routeId'
+    | '/$companySlug/driver/trip/active'
     | '/$companySlug/driver/trip/new'
     | '/$companySlug/passenger/book/pickup'
     | '/$companySlug/passenger/book/vehicle'
@@ -956,6 +967,7 @@ export interface FileRouteTypes {
     | '/$companySlug/medicaid-trips/new'
     | '/$companySlug/payroll/$driverId'
     | '/$companySlug/dispatch/routes/$routeId'
+    | '/$companySlug/driver/trip/active'
     | '/$companySlug/driver/trip/new'
     | '/$companySlug/passenger/book/pickup'
     | '/$companySlug/passenger/book/vehicle'
@@ -1040,6 +1052,7 @@ export interface FileRouteTypes {
     | '/$companySlug/_authenticated/medicaid-trips/new'
     | '/$companySlug/_authenticated/payroll/$driverId'
     | '/$companySlug/dispatch/routes/$routeId'
+    | '/$companySlug/driver/trip/active'
     | '/$companySlug/driver/trip/new'
     | '/$companySlug/passenger/book/pickup'
     | '/$companySlug/passenger/book/vehicle'
@@ -1619,6 +1632,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugDriverTripNewRouteImport
       parentRoute: typeof CompanySlugDriverRoute
     }
+    '/$companySlug/driver/trip/active': {
+      id: '/$companySlug/driver/trip/active'
+      path: '/trip/active'
+      fullPath: '/$companySlug/driver/trip/active'
+      preLoaderRoute: typeof CompanySlugDriverTripActiveRouteImport
+      parentRoute: typeof CompanySlugDriverRoute
+    }
     '/$companySlug/dispatch/routes/$routeId': {
       id: '/$companySlug/dispatch/routes/$routeId'
       path: '/$routeId'
@@ -1801,6 +1821,7 @@ interface CompanySlugDriverRouteChildren {
   CompanySlugDriverProfileRoute: typeof CompanySlugDriverProfileRoute
   CompanySlugDriverSigninRoute: typeof CompanySlugDriverSigninRoute
   CompanySlugDriverIndexRoute: typeof CompanySlugDriverIndexRoute
+  CompanySlugDriverTripActiveRoute: typeof CompanySlugDriverTripActiveRoute
   CompanySlugDriverTripNewRoute: typeof CompanySlugDriverTripNewRoute
 }
 
@@ -1812,6 +1833,7 @@ const CompanySlugDriverRouteChildren: CompanySlugDriverRouteChildren = {
   CompanySlugDriverProfileRoute: CompanySlugDriverProfileRoute,
   CompanySlugDriverSigninRoute: CompanySlugDriverSigninRoute,
   CompanySlugDriverIndexRoute: CompanySlugDriverIndexRoute,
+  CompanySlugDriverTripActiveRoute: CompanySlugDriverTripActiveRoute,
   CompanySlugDriverTripNewRoute: CompanySlugDriverTripNewRoute,
 }
 

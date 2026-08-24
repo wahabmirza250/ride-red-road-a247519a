@@ -112,3 +112,67 @@ export const closeDriverTripDraft = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/**
+ * Idempotent "start a trip". Repeated taps never create a second active trip:
+ * an existing in-progress row for the same driver + rider (+ same first leg
+ * date) is reused and refreshed instead.
+ */
+export const startDriverTripDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: {
+    label?: string | null;
+    rider_id?: string | null;
+    assigned_trip_id?: string | null;
+    leg_date?: string | null;
+    payload: any;
+  }) => {
+    if (!data || typeof data !== "object" || !data.payload) {
+      throw new Error("A trip payload is required");
+    }
+    return data;
+  })
+  .handler(async ({ context, data }) => {
+    const { data: open, error: findErr } = await context.supabase
+      .from("driver_trip_drafts")
+      .select("id,payload")
+      .eq("driver_id", context.userId)
+      .eq("status", "in_progress")
+      .order("updated_at", { ascending: false })
+      .limit(25);
+    if (findErr) throw new Error(findErr.message);
+
+    const match = (open ?? []).find((row: any) => {
+      if (data.rider_id && row.payload?.rider_slots?.[0]?.rider?.id !== data.rider_id) return false;
+      if (!data.rider_id) return false;
+      if (data.leg_date && row.payload?.legs?.[0]?.leg_date !== data.leg_date) return false;
+      return true;
+    }) as { id: string } | undefined;
+
+    const row = {
+      driver_id: context.userId,
+      label: data.label ?? null,
+      rider_id: data.rider_id ?? null,
+      assigned_trip_id: data.assigned_trip_id ?? null,
+      payload: data.payload as never,
+      status: "in_progress",
+    };
+
+    if (match?.id) {
+      const { error } = await context.supabase
+        .from("driver_trip_drafts")
+        .update(row)
+        .eq("id", match.id)
+        .eq("driver_id", context.userId);
+      if (error) throw new Error(error.message);
+      return { id: match.id, reused: true };
+    }
+
+    const { data: inserted, error } = await context.supabase
+      .from("driver_trip_drafts")
+      .insert(row)
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { id: inserted.id as string, reused: false };
+  });
