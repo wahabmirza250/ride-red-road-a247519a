@@ -68,13 +68,16 @@ export function classifyTripDestination(
 ): ClassifierResult {
   const key = normalizeDestinationKey(trip.destination);
   const row = cache.get(key);
-  const providerFailed = deferredKeys.has(key) || (!!row && row.lookup_ok === false) || (!row && key.length > 0 && !cache.size);
+  // No usable place evidence => classify from text only and never let a
+  // provider gap read as a non-medical finding.
+  const providerFailed =
+    deferredKeys.has(key) || (row ? row.lookup_ok === false : Boolean(key));
   return classifyDestination({
     address: trip.destination,
     name: trip.destination_name ?? null,
     place: row?.place ?? null,
     nearby: row?.nearby ?? [],
-    providerFailed: !row ? providerFailed : row.lookup_ok === false,
+    providerFailed,
   });
 }
 
