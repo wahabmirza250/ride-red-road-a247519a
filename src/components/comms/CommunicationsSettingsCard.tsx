@@ -22,7 +22,7 @@ const TOGGLES: { key: NotificationKind; field: string }[] = [
 
 /**
  * Company communications settings. Shows provider status and the assigned
- * number; the provider API key is never sent to the browser — only a
+ * number; the provider credential is never sent to the browser — only a
  * boolean "credentials ready" flag.
  */
 export function CommunicationsSettingsCard() {
@@ -134,7 +134,7 @@ export function CommunicationsSettingsCard() {
           <ul className="mt-2 space-y-1 text-muted-foreground">
             <li>
               Provider credentials:{" "}
-              {s.credentials_ready ? "connected" : "waiting for your API key"}
+              {s.credentials_ready ? "connected" : "waiting for provider credentials"}
             </li>
             <li>
               Incoming-message security:{" "}

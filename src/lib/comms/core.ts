@@ -3,7 +3,7 @@
  * selection, message templates, dedupe keys and inbound payload parsing.
  *
  * NOTHING in this file may read a secret. Credentials live only in
- * `*.server.ts` modules and are read inside handlers from process.env.
+ * `*.server.ts` modules and are read inside handlers from the server environment.
  */
 
 export type CommProvider = "telnyx" | "twilio" | "none";

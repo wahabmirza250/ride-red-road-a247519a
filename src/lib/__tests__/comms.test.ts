@@ -391,9 +391,8 @@ describe("no secrets client-side", () => {
     const fs = await import("node:fs/promises");
     const telnyx = await fs.readFile("src/lib/comms/telnyx.server.ts", "utf8");
     expect(telnyx).toContain('process.env["TELNYX_API_KEY"]');
-    // never at module scope
-    const firstLine = telnyx.split("\n").findIndex((l) => l.includes("TELNYX_API_KEY"));
-    expect(telnyx.split("\n").slice(0, firstLine).join("\n")).toMatch(/function|=>/);
+    // never read at module scope: no top-level binding pulls a secret
+    expect(telnyx).not.toMatch(/^(const|let|var)\s+\w+\s*=\s*process\.env/m);
   });
 
   it("the settings server fn returns readiness flags, not keys", async () => {
