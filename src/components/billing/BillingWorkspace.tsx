@@ -1310,58 +1310,52 @@ function SubmittedTab({
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-soft">
-          <table className="w-full min-w-[680px] text-sm">
-            <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 text-left">Passenger</th>
-                <th className="px-4 py-3 text-left">Trip date</th>
-                <th className="px-4 py-3 text-left">Submitted</th>
-                <th className="px-4 py-3 text-left">Confirmation #</th>
-                <th className="px-4 py-3 text-left">PDF</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((r) => (
-                <tr
-                  key={r.id}
-                  className="cursor-pointer hover:bg-accent/60"
-                  onClick={() => onOpen(r.id)}
-                >
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{r.passenger_name ?? "—"}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {r.medicaid_id}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatDateTime(r.pickup_at)}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {r.submitted_at ? formatDateTime(r.submitted_at) : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="rounded-md bg-success/10 px-2 py-1 font-mono text-xs font-semibold text-success">
-                      {r.state_confirmation_number ?? "—"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-1">
-                      <PdfCell
-                        pdfUrl={r.pdf_url}
-                        passengerName={r.passenger_name}
-                        onPreview={onPreviewPdf}
-                      />
-                      <Button size="sm" variant="ghost" onClick={() => setCancelFor(r)}>
-                        <Ban className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DriverGroupedTable
+          rows={filtered}
+          columns={[
+            { label: "Passenger" },
+            { label: "Trip date" },
+            { label: "Submitted" },
+            { label: "Confirmation #" },
+            { label: "PDF" },
+          ]}
+          renderRow={(r: any) => (
+            <tr
+              key={r.id}
+              className="cursor-pointer hover:bg-accent/60"
+              onClick={() => onOpen(r.id)}
+            >
+              <td className="px-4 py-3">
+                <div className="font-medium">{r.passenger_name ?? "—"}</div>
+                <div className="text-xs text-muted-foreground">{r.medicaid_id}</div>
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {formatDateTime(r.pickup_at)}
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {r.submitted_at ? formatDateTime(r.submitted_at) : "—"}
+              </td>
+              <td className="px-4 py-3">
+                <span className="rounded-md bg-success/10 px-2 py-1 font-mono text-xs font-semibold text-success">
+                  {r.state_confirmation_number ?? "—"}
+                </span>
+              </td>
+              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-1">
+                  <PdfCell
+                    pdfUrl={r.pdf_url}
+                    passengerName={r.passenger_name}
+                    onPreview={onPreviewPdf}
+                  />
+                  <Button size="sm" variant="ghost" onClick={() => setCancelFor(r)}>
+                    <Ban className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </td>
+            </tr>
+          )}
+        />
+
       )}
       <CancelSubmissionDialog row={cancelFor} onClose={() => setCancelFor(null)} />
     </div>
