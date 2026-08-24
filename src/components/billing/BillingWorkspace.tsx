@@ -58,6 +58,7 @@ import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
 import { FixBillDialog } from "@/components/billing/FixBillDialog";
 import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
+import { MedicalReviewTab } from "@/components/billing/MedicalReviewTab";
 
 
 
@@ -84,7 +85,13 @@ function looksLikeEdgeFailure(e: unknown): boolean {
 }
 
 
-type TabKey = "pending_review" | "ready_to_submit" | "awaiting_portal" | "submitted" | "claims_history";
+type TabKey =
+  | "pending_review"
+  | "ready_to_submit"
+  | "medical_review"
+  | "awaiting_portal"
+  | "submitted"
+  | "claims_history";
 
 const TABS: {
   key: TabKey;
@@ -111,6 +118,12 @@ const TABS: {
     label: "Ready to Submit",
     statuses: ["approved", "needs_fix"],
     countKeys: ["approved", "needs_fix"],
+  },
+  {
+    key: "medical_review",
+    label: "Needs Medical Review",
+    statuses: ["pending_review"],
+    countKeys: [],
   },
   {
     // Anything the robot is actively working on ("submitting"), waiting its
@@ -349,6 +362,8 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
 
       {tab === "claims_history" ? (
         <ClaimsHistoryTab />
+      ) : tab === "medical_review" ? (
+        <MedicalReviewTab />
       ) : rows.isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
