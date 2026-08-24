@@ -71,6 +71,7 @@ const ADMIN_NAV_GROUPS = [
   ],
   [
     { to: "/messages", label: "Messages", icon: MessageSquare },
+    { to: "/communications", label: "Communications", icon: MessageSquare },
     { to: "/news-feed", label: "News Feed", icon: Megaphone },
     { to: "/news", label: "News", icon: Newspaper },
   ],
