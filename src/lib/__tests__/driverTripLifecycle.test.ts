@@ -46,7 +46,7 @@ function baseDraft(): ActiveTripDraft {
 
 function completeLeg(d: ActiveTripDraft, pickup: string, dropoff: string): ActiveTripDraft {
   const idx = getLifecycle(d).active_leg;
-  let next = applyTransition(d, "start_navigation");
+  let next = getLifecycle(d).phase === "draft" ? applyTransition(d, "start_navigation") : d;
   next = applyTransition(next, "arrive_pickup");
   next = updateLeg(next, idx, { pickup_odometer: pickup, pickup_time: "09:00" }) as ActiveTripDraft;
   next = applyTransition(next, "start_trip");
