@@ -82,4 +82,13 @@ describe("robot payload preflight", () => {
     });
     expect(validateRobotPayloadPreflight(normalized, { doesSubmit: true }).ok).toBe(true);
   });
+
+  it("blocks a patient number that does not match the Medicaid member ID", () => {
+    const result = validateRobotPayloadPreflight(
+      { ...complete, medicaid_member_id: "B351105", patient_number: "internal-trip-id" },
+      { doesSubmit: true },
+    );
+    expect(result.ok).toBe(false);
+    expect(formatRobotPreflightFailure(result)).toMatch(/Patient Number must match the Medicaid Member ID/i);
+  });
 });

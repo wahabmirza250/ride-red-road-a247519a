@@ -15,6 +15,7 @@ import {
   UNVERIFIED_SUBMIT_STATUS,
 } from "@/lib/billingHelpers";
 import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
+import { isPortalStep1ValidationFailure, PORTAL_STEP1_USER_MESSAGE } from "@/lib/submitErrors";
 
 export type ReconcileResult = {
   pending: boolean;
@@ -34,7 +35,7 @@ export async function reconcileRobotJob(
   const { data: rec, error } = await supabase
       .from("billing_records")
       .select(
-        `id, status, trip_id,
+        `id, status, trip_id, state_confirmation_number,
          medicaid_trips!inner(id, robot_job_id, robot_worker_id, robot_worker_url, robot_pass, robot_last_status, robot_last_message, robot_last_checked_at, status, submitted_confirmation, robot_confirmation_number)`,
       )
       .eq("id", data.id)
@@ -48,13 +49,15 @@ export async function reconcileRobotJob(
     // so its new claim number can be recorded.
     const knownConfirmation: string | null =
       trip?.robot_confirmation_number ?? trip?.submitted_confirmation ?? null;
-    if (knownConfirmation && trip?.robot_pass !== "resubmit") {
+    const billingConfirmation: string | null = (rec as any)?.state_confirmation_number ?? null;
+    if ((knownConfirmation || billingConfirmation) && trip?.robot_pass !== "resubmit") {
+      const confirmation = knownConfirmation ?? billingConfirmation;
 
       return {
         pending: false,
         status: "submitted",
-        message: `Already submitted — portal confirmation #${knownConfirmation}`,
-        confirmation_number: knownConfirmation,
+        message: `Already submitted — portal confirmation #${confirmation}`,
+        confirmation_number: confirmation,
       };
     }
 
@@ -350,6 +353,32 @@ export async function reconcileRobotJob(
         .eq("id", rec.id);
       await logAudit(supabase, rec.id, userId, "robot_failed_no_service_lines", clear);
       return { pending: false, status: resultStatus || "NO_SERVICE_LINES", message: clear };
+    }
+
+    if (isPortalStep1ValidationFailure(errMsg)) {
+      const clear = `${PORTAL_STEP1_USER_MESSAGE} Internal detail: ${errMsg.slice(0, 300)}`;
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          robot_last_status: "PORTAL_STEP1_VALIDATION_FAILED",
+          robot_last_message: PORTAL_STEP1_USER_MESSAGE,
+          robot_last_checked_at: nowIso,
+        })
+        .eq("id", trip.id);
+      await supabase
+        .from("billing_records")
+        .update({
+          status: "needs_fix",
+          submission_error: PORTAL_STEP1_USER_MESSAGE,
+          fix_notes: clear,
+          requires_human_step: true,
+          submit_next_attempt_at: null,
+          submit_locked_until: null,
+          submit_worker: null,
+        })
+        .eq("id", rec.id);
+      await logAudit(supabase, rec.id, userId, "robot_step1_validation_failed", clear);
+      return { pending: false, status: "PORTAL_STEP1_VALIDATION_FAILED", message: PORTAL_STEP1_USER_MESSAGE };
     }
 
     // FALSE-FAILURE GUARD: the Confirm click landed and only the navigation

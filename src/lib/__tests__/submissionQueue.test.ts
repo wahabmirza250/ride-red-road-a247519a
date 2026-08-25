@@ -189,6 +189,18 @@ describe("dispatch", () => {
     expect(rec.status).toBe("needs_fix");
     expect(rec.submit_attempt_count).toBe(1);
   });
+
+  it("parks Step 1 required-field failures for verification without retry", async () => {
+    const rec = makeRecord("1", { riderId: "rA" });
+    const { supabase } = makeFakeDb([rec]);
+    failNext = "Still on Step 1 after clicking Continue. Errors: Error | * Indicates a required field.";
+    const res = await dispatchLeasedSubmissions(supabase, "actor");
+    expect(res.failed).toBe(1);
+    expect(rec.status).toBe("needs_fix");
+    expect(rec.requires_human_step).toBe(true);
+    expect(rec.submission_error).toMatch(/Portal Step 1 validation failed/i);
+    expect(started.length).toBe(0);
+  });
 });
 
 describe("crash safety", () => {

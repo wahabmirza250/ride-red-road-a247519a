@@ -47,7 +47,8 @@ export const getRewardsPublic = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const settings = await readSettings(context.supabase);
-    const { data: winners } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: winners } = await supabaseAdmin
       .from("contest_winners")
       .select("id, period_start, period_end, prize_description, selected_at, passenger_id")
       .order("selected_at", { ascending: false })
@@ -61,7 +62,7 @@ export const getRewardsPublic = createServerFn({ method: "GET" })
     }> = [];
     if (winners?.length) {
       const ids = Array.from(new Set(winners.map((w: any) => w.passenger_id)));
-      const { data: ps } = await context.supabase
+      const { data: ps } = await supabaseAdmin
         .from("passengers")
         .select("id, first_name, last_name")
         .in("id", ids);

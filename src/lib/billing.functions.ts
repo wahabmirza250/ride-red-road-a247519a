@@ -14,6 +14,8 @@ import {
   looksLikePostConfirmTimeout,
   UNVERIFIED_SUBMIT_STATUS,
   TRIP_SELECT_FOR_ROBOT,
+  assertRobotSubmissionPreflight,
+  getRobotSubmissionDiagnostic,
 
 } from "@/lib/billingHelpers";
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
@@ -195,7 +197,14 @@ export const getBillingRecord = createServerFn({ method: "POST" })
       .eq("billing_record_id", data.id)
       .order("created_at", { ascending: false });
 
-    return { record: rec, trip, driver_name, signature_url, pdf_url, audit: audit ?? [] };
+    const robot_diagnostic = await getRobotSubmissionDiagnostic(supabase, {
+      billingRecordId: data.id,
+      trip,
+      providerUserId: userId,
+      mode: "full",
+    });
+
+    return { record: rec, trip, driver_name, signature_url, pdf_url, audit: audit ?? [], robot_diagnostic };
   });
 
 export const regenerateBillingPdf = createServerFn({ method: "POST" })
@@ -387,7 +396,8 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
     const { data: rec, error: recErr } = await supabase
       .from("billing_records")
       .select(
-        `id, status, trip_id,
+        `id, status, trip_id, submission_error,
+         requires_human_step,
          medicaid_trips!inner(
            id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
            state_pdf_path, identity_verified, robot_last_status, status, portal_status,
@@ -434,8 +444,22 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
 
     const trip: any = rec.medicaid_trips;
     if (!trip) throw new Error("Trip not found");
+    if (rec.requires_human_step) {
+      throw new Error(
+        rec.submission_error ||
+          "This bill needs verification before another automatic submission can start.",
+      );
+    }
 
     try {
+      if (data.mode !== "debug_confirm_page") {
+        await assertRobotSubmissionPreflight(supabase, {
+          billingRecordId: data.id,
+          trip,
+          providerUserId: userId,
+          mode: data.mode,
+        });
+      }
       // Serialize against the portal session: if another job for this company
       // is live, this record is parked as `queued` and starts on its own.
       const { enqueueOrStartRobot } = await import("@/lib/robotQueue.server");
@@ -486,6 +510,7 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
           submission_error: msg,
           fix_notes: raw.slice(0, 500),
           submit_last_error: raw.slice(0, 500),
+          requires_human_step: true,
         })
         .eq("id", data.id);
       await logAudit(supabase, data.id, userId, "robot_start_failed", raw.slice(0, 400));
@@ -536,10 +561,13 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
     const { data: recs, error: recErr } = await supabase
       .from("billing_records")
       .select(
-        `id, status, trip_id,
+        `id, status, trip_id, requires_human_step,
          medicaid_trips!inner(
-           id, company_id, robot_last_status, status, portal_status,
-           robot_confirmation_number, submitted_confirmation
+            id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
+            state_pdf_path, identity_verified, robot_last_status, status, portal_status,
+            robot_confirmation_number, submitted_confirmation,
+            vehicle_type, trip_kind, rider_id,
+            riders(medicaid_id)
          )`,
       )
       .in("id", data.ids);
@@ -563,8 +591,33 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
         skipped.push({ id: rec.id as string, reason: "already has a claim — submit it individually to confirm" });
         continue;
       }
+      if ((rec as any).requires_human_step) {
+        skipped.push({ id: rec.id as string, reason: "needs verification before retry" });
+        continue;
+      }
       if (!allowed.includes(rec.status as string) && !(isResubmit && data.acknowledge_duplicate)) {
         skipped.push({ id: rec.id as string, reason: `status "${rec.status}"` });
+        continue;
+      }
+      try {
+        await assertRobotSubmissionPreflight(supabase, {
+          billingRecordId: rec.id as string,
+          trip,
+          providerUserId: userId,
+          mode: "full",
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Submission blocked: required claim data is missing.";
+        skipped.push({ id: rec.id as string, reason: msg });
+        await supabase
+          .from("billing_records")
+          .update({
+            status: "needs_fix",
+            submission_error: msg,
+            fix_notes: msg,
+            requires_human_step: true,
+          })
+          .eq("id", rec.id);
         continue;
       }
       toQueue.push(rec.id as string);
@@ -651,6 +704,26 @@ export const markPortalSubmitted = createServerFn({ method: "POST" })
       })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    const { data: rec } = await supabase
+      .from("billing_records")
+      .select("trip_id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (rec?.trip_id) {
+      await supabase
+        .from("medicaid_trips")
+        .update({
+          status: "submitted",
+          submitted_confirmation: data.confirmation_number,
+          robot_confirmation_number: data.confirmation_number,
+          portal_confirmation: data.confirmation_number,
+          portal_status: "submitted",
+          portal_submitted_at: nowIso,
+          submitted_at: nowIso,
+          submitted_by: userId,
+        })
+        .eq("id", rec.trip_id);
+    }
     await logAudit(
       supabase,
       data.id,
