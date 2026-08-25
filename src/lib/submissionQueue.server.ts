@@ -78,6 +78,17 @@ export const submitInfraCooldownMs = () =>
 export const BACKOFF_BASE_MS = 60_000;
 export const BACKOFF_MAX_MS = 30 * 60_000;
 
+/**
+ * IMMEDIATE-REFILL LOOP. After a claim reconciles as finished, the freed
+ * single-flight slot is refilled inside the same tick instead of waiting for
+ * the next cron minute. These are poll/round bounds, NOT a cooldown.
+ */
+export const SUBMIT_REFILL_POLL_MS = envInt("SUBMIT_REFILL_POLL_MS", 4_000, 1_000, 30_000);
+export const SUBMIT_REFILL_MAX_ROUNDS = envInt("SUBMIT_REFILL_MAX_ROUNDS", 20, 0, 100);
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+
 /** Delay before attempt `attempt + 1` (exponential, capped). */
 export function submitBackoffMs(attempt: number): number {
   return Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * Math.pow(2, Math.max(0, attempt)));
@@ -618,8 +629,21 @@ export async function dispatchLeasedSubmissions(
  */
 export async function runSubmissionQueueTick(
   supabase: any,
-  opts: { actorId?: string | null; companyId?: string | null; worker?: string } = {},
+  opts: {
+    actorId?: string | null;
+    companyId?: string | null;
+    worker?: string;
+    /**
+     * Keep reconciling + refilling the freed single-flight slot inside this
+     * tick (used by the background cron). Off by default so a UI-triggered
+     * kick still returns immediately.
+     */
+    refill?: boolean;
+    refillPollMs?: number;
+    refillMaxRounds?: number;
+  } = {},
 ): Promise<QueueTickResult> {
+
   const t0 = Date.now();
   const base: QueueTickResult = {
     ok: true,
@@ -686,16 +710,51 @@ export async function runSubmissionQueueTick(
     });
   }
 
+  // IMMEDIATE REFILL AFTER A SUCCESS.
+  // A finished claim frees the account's single-flight slot right away, so the
+  // tick keeps re-reconciling and re-dispatching while its budget lasts instead
+  // of leaving the slot idle until the next cron minute. There is deliberately
+  // NO success cooldown here — backoff only ever comes from a real worker or
+  // transport failure inside `scheduleRetryOrFail`.
+  let totals = { ...reconciled };
+  const pollMs = Math.max(250, opts.refillPollMs ?? SUBMIT_REFILL_POLL_MS);
+  const maxRounds = opts.refill === false ? 0 : (opts.refillMaxRounds ?? (opts.refill ? SUBMIT_REFILL_MAX_ROUNDS : 0));
+  let rounds = 0;
+  while (rounds < maxRounds && Date.now() - t0 + pollMs < budget) {
+    rounds++;
+    await sleep(pollMs);
+    const again = await reconcileInFlight(supabase, opts.actorId ?? null, opts.companyId ?? null);
+    totals = { checked: totals.checked + again.checked, settled: totals.settled + again.settled };
+    // Nothing left in flight AND nothing settled → the lane is idle, stop early.
+    if (again.checked === 0 && again.settled === 0) break;
+    if (again.settled <= 0) continue;
+
+    const more = await dispatchLeasedSubmissions(supabase, opts.actorId ?? null, {
+      companyId: opts.companyId ?? null,
+      worker: opts.worker ?? `tick-${t0}-r${rounds}`,
+    });
+    dispatch = {
+      leased: dispatch.leased + more.leased,
+      started: dispatch.started + more.started,
+      paced: dispatch.paced + more.paced,
+      retried: dispatch.retried + more.retried,
+      failed: dispatch.failed + more.failed,
+      blocked: dispatch.blocked + more.blocked,
+      startedIds: [...dispatch.startedIds, ...more.startedIds],
+    };
+  }
+
   const out: QueueTickResult = {
     ...base,
     ran: true,
     ...dispatch,
     recovered,
     staleLocksReleased,
-    checked: reconciled.checked,
-    settled: reconciled.settled,
+    checked: totals.checked,
+    settled: totals.settled,
     ms: Date.now() - t0,
   };
+
   await recordRun(supabase, out);
   return out;
 }

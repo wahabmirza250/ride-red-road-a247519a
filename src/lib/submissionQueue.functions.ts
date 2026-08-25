@@ -236,3 +236,20 @@ export const getSubmissionBatchProgress = createServerFn({ method: "POST" })
     const { getBatchProgress } = await import("@/lib/submissionBatch.server");
     return getBatchProgress(supabase, data.batch_id);
   });
+
+/**
+ * DONE / COMPLETED feed plus live queue counters. Read-only and RLS-scoped;
+ * it powers the completed history section and the throughput telemetry.
+ */
+export const getSubmissionDoneFeed = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ limit: z.number().int().min(20).max(500).optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertBillingOrAdmin(supabase, userId);
+    const { getDoneFeed } = await import("@/lib/submissionDone.server");
+    return getDoneFeed(supabase, { limit: data?.limit });
+  });
+

@@ -59,6 +59,7 @@ import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
 import { FixBillDialog } from "@/components/billing/FixBillDialog";
 import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
 import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
+import { DoneClaimsSection } from "@/components/billing/DoneClaimsSection";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
 import { MedicalReviewTab } from "@/components/billing/MedicalReviewTab";
 
@@ -340,6 +341,8 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       {isAdmin && !embedded && <BillingRatesCard />}
 
       <SubmissionQueuePanel />
+
+      <DoneClaimsSection />
 
 
 
