@@ -51,7 +51,7 @@ export function ManualPayrollItemDialog({
 
   const drivers = useQuery({
     queryKey: ["payout_drivers"],
-    queryFn: () => driversFn() as Promise<{ id: string; name: string }[]>,
+    queryFn: () => driversFn() as Promise<{ driver_id: string; name: string }[]>,
     enabled: open,
   });
 
@@ -123,7 +123,7 @@ export function ManualPayrollItemDialog({
               </SelectTrigger>
               <SelectContent>
                 {(drivers.data ?? []).map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
+                  <SelectItem key={d.driver_id} value={d.driver_id}>
                     {d.name}
                   </SelectItem>
                 ))}
