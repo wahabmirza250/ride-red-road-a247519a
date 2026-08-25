@@ -27,9 +27,18 @@ import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/format";
 import {
   getSubmissionQueueState,
+  getSubmissionDoneFeed,
   setSubmissionQueuePaused,
   type SubmissionQueueState,
 } from "@/lib/submissionQueue.functions";
+import { ThroughputBadge } from "@/components/billing/DoneClaimsSection";
+import { throughputSummary, type DoneClaim } from "@/lib/submissionThroughput";
+
+type DoneFeedShape = {
+  counters: { queued: number; processing: number; verifying: number; needs_attention: number; done: number };
+  claims: DoneClaim[];
+};
+
 import {
   ageLabel,
   deriveQueueHealth,
