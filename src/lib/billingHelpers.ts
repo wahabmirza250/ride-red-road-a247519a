@@ -357,6 +357,26 @@ export async function startRobotSubmission(
     );
   }
 
+  // FINAL SINGLE-FLIGHT BOUNDARY (defence in depth).
+  // The DB-leased queue is the only intended dispatcher, but this helper is the
+  // last shared gate before the network call, so it independently refuses to
+  // open a second live portal session for the same provider account. The app
+  // must never depend on the automation worker's own concurrency limit.
+  if (doesSubmit) {
+    const { listActiveRobotJobs } = await import("@/lib/robotQueue.server");
+    const companyId = args.companyId ?? trip.company_id ?? null;
+    const live = await listActiveRobotJobs(supabase, {
+      companyId,
+      excludeRecordId: billingRecordId,
+    });
+    if (live.length > 0) {
+      throw new Error(
+        "Another portal session is already running on this provider account — the automation service is temporarily unavailable for this bill. Nothing was submitted; it stays queued.",
+      );
+    }
+  }
+
+
   // Portal-clock guard: never send a date of service the portal will reject as
   // being in the future (Mountain Time), which silently zeroes the claim.
   const serviceDateMDY = formatTripDateMDY(trip.pickup_at);
