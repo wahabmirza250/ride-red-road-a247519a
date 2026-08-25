@@ -22,6 +22,7 @@ export type FakeRecord = {
   submission_error?: string | null;
   fix_notes?: string | null;
   requires_human_step?: boolean;
+  state_confirmation_number?: string | null;
   submit_account_key?: string | null;
   submit_idempotency_key?: string | null;
   submit_batch_id?: string | null;
