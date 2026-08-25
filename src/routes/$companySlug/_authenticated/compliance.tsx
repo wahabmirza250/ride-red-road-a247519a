@@ -108,7 +108,7 @@ function CompliancePage() {
     <div className="space-y-6">
       <PageHeader
         title="Compliance & Vehicle Expenses"
-        subtitle={`Insurance alerts at ${ALERT_THRESHOLDS.join(", ")} days before expiration`}
+        description={`Insurance alerts at ${ALERT_THRESHOLDS.join(", ")} days before expiration`}
       />
 
       {alerts.length > 0 && (
