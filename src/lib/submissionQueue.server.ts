@@ -717,16 +717,18 @@ export async function runSubmissionQueueTick(
   // NO success cooldown here — backoff only ever comes from a real worker or
   // transport failure inside `scheduleRetryOrFail`.
   let totals = { ...reconciled };
+  const pollMs = Math.max(250, opts.refillPollMs ?? SUBMIT_REFILL_POLL_MS);
+  const maxRounds = opts.refill === false ? 0 : (opts.refillMaxRounds ?? (opts.refill ? SUBMIT_REFILL_MAX_ROUNDS : 0));
   let rounds = 0;
-  while (
-    rounds < SUBMIT_REFILL_MAX_ROUNDS &&
-    Date.now() - t0 + SUBMIT_REFILL_POLL_MS < budget
-  ) {
+  while (rounds < maxRounds && Date.now() - t0 + pollMs < budget) {
     rounds++;
-    await sleep(SUBMIT_REFILL_POLL_MS);
+    await sleep(pollMs);
     const again = await reconcileInFlight(supabase, opts.actorId ?? null, opts.companyId ?? null);
     totals = { checked: totals.checked + again.checked, settled: totals.settled + again.settled };
+    // Nothing left in flight AND nothing settled → the lane is idle, stop early.
+    if (again.checked === 0 && again.settled === 0) break;
     if (again.settled <= 0) continue;
+
     const more = await dispatchLeasedSubmissions(supabase, opts.actorId ?? null, {
       companyId: opts.companyId ?? null,
       worker: opts.worker ?? `tick-${t0}-r${rounds}`,
