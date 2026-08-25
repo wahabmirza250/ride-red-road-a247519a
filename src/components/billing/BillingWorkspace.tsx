@@ -154,7 +154,20 @@ const TABS: {
     statuses: ["submitted"],
     countKeys: [],
   },
+  {
+    key: "payroll",
+    label: "Payroll",
+    statuses: ["submitted"],
+    countKeys: [],
+  },
+  {
+    key: "denied",
+    label: "Denied / Resubmission",
+    statuses: ["submitted"],
+    countKeys: [],
+  },
 ];
+
 
 
 /** The full billing workflow. Lives in the dedicated Billing app; admins can
