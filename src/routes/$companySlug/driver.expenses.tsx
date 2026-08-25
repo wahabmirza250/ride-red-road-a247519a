@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { submitGasReceipt, listMyGasReceipts } from "@/lib/gasReceipts.functions";
+import { VehicleExpensesPanel } from "@/components/driver/VehicleExpensesPanel";
 
 export const Route = createFileRoute("/$companySlug/driver/expenses")({
   component: ExpensesPage,
@@ -127,6 +128,8 @@ function ExpensesPage() {
           ))}
         </div>
       </div>
+
+      <VehicleExpensesPanel />
     </div>
   );
 }

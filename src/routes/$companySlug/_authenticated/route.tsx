@@ -59,6 +59,7 @@ const ADMIN_NAV_GROUPS = [
   [
     { to: "/drivers", label: "Drivers", icon: Users },
     { to: "/salary", label: "Salary", icon: Banknote },
+    { to: "/compliance", label: "Compliance", icon: Shield },
     { to: "/passengers", label: "Passengers", icon: UserRound },
   ],
   [

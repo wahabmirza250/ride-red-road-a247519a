@@ -80,6 +80,7 @@ import { Route as CompanySlugAuthenticatedEventsRouteImport } from './routes/$co
 import { Route as CompanySlugAuthenticatedDriversRouteImport } from './routes/$companySlug/_authenticated/drivers'
 import { Route as CompanySlugAuthenticatedDriverPayRouteImport } from './routes/$companySlug/_authenticated/driver-pay'
 import { Route as CompanySlugAuthenticatedDashboardRouteImport } from './routes/$companySlug/_authenticated/dashboard'
+import { Route as CompanySlugAuthenticatedComplianceRouteImport } from './routes/$companySlug/_authenticated/compliance'
 import { Route as CompanySlugAuthenticatedCommunicationsRouteImport } from './routes/$companySlug/_authenticated/communications'
 import { Route as CompanySlugDispatchRoutesIndexRouteImport } from './routes/$companySlug/dispatch.routes.index'
 import { Route as CompanySlugAuthenticatedPayrollIndexRouteImport } from './routes/$companySlug/_authenticated/payroll.index'
@@ -92,6 +93,7 @@ import { Route as CompanySlugDriverTripNewRouteImport } from './routes/$companyS
 import { Route as CompanySlugDriverTripActiveRouteImport } from './routes/$companySlug/driver.trip.active'
 import { Route as CompanySlugDispatchRoutesRouteIdRouteImport } from './routes/$companySlug/dispatch.routes.$routeId'
 import { Route as CompanySlugAuthenticatedPayrollDriverIdRouteImport } from './routes/$companySlug/_authenticated/payroll.$driverId'
+import { Route as CompanySlugAuthenticatedPayrollStatementDriverIdRouteImport } from './routes/$companySlug/_authenticated/payroll-statement.$driverId'
 import { Route as CompanySlugAuthenticatedMedicaidTripsNewRouteImport } from './routes/$companySlug/_authenticated/medicaid-trips.new'
 import { Route as CompanySlugAuthenticatedTripsTripIdProofRouteImport } from './routes/$companySlug/_authenticated/trips_.$tripId.proof'
 
@@ -494,6 +496,12 @@ const CompanySlugAuthenticatedDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
   } as any)
+const CompanySlugAuthenticatedComplianceRoute =
+  CompanySlugAuthenticatedComplianceRouteImport.update({
+    id: '/compliance',
+    path: '/compliance',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
 const CompanySlugAuthenticatedCommunicationsRoute =
   CompanySlugAuthenticatedCommunicationsRouteImport.update({
     id: '/communications',
@@ -566,6 +574,12 @@ const CompanySlugAuthenticatedPayrollDriverIdRoute =
     path: '/payroll/$driverId',
     getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
   } as any)
+const CompanySlugAuthenticatedPayrollStatementDriverIdRoute =
+  CompanySlugAuthenticatedPayrollStatementDriverIdRouteImport.update({
+    id: '/payroll-statement/$driverId',
+    path: '/payroll-statement/$driverId',
+    getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
+  } as any)
 const CompanySlugAuthenticatedMedicaidTripsNewRoute =
   CompanySlugAuthenticatedMedicaidTripsNewRouteImport.update({
     id: '/new',
@@ -598,6 +612,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/': typeof CompanySlugIndexRoute
   '/owner/': typeof OwnerIndexRoute
   '/$companySlug/communications': typeof CompanySlugAuthenticatedCommunicationsRoute
+  '/$companySlug/compliance': typeof CompanySlugAuthenticatedComplianceRoute
   '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/driver-pay': typeof CompanySlugAuthenticatedDriverPayRoute
   '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
@@ -652,6 +667,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/driver/': typeof CompanySlugDriverIndexRoute
   '/$companySlug/passenger/': typeof CompanySlugPassengerIndexRoute
   '/$companySlug/medicaid-trips/new': typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
+  '/$companySlug/payroll-statement/$driverId': typeof CompanySlugAuthenticatedPayrollStatementDriverIdRoute
   '/$companySlug/payroll/$driverId': typeof CompanySlugAuthenticatedPayrollDriverIdRoute
   '/$companySlug/dispatch/routes/$routeId': typeof CompanySlugDispatchRoutesRouteIdRoute
   '/$companySlug/driver/trip/active': typeof CompanySlugDriverTripActiveRoute
@@ -679,6 +695,7 @@ export interface FileRoutesByTo {
   '/track/$tripId': typeof TrackTripIdRoute
   '/owner': typeof OwnerIndexRoute
   '/$companySlug/communications': typeof CompanySlugAuthenticatedCommunicationsRoute
+  '/$companySlug/compliance': typeof CompanySlugAuthenticatedComplianceRoute
   '/$companySlug/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/driver-pay': typeof CompanySlugAuthenticatedDriverPayRoute
   '/$companySlug/drivers': typeof CompanySlugAuthenticatedDriversRoute
@@ -732,6 +749,7 @@ export interface FileRoutesByTo {
   '/$companySlug/driver': typeof CompanySlugDriverIndexRoute
   '/$companySlug/passenger': typeof CompanySlugPassengerIndexRoute
   '/$companySlug/medicaid-trips/new': typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
+  '/$companySlug/payroll-statement/$driverId': typeof CompanySlugAuthenticatedPayrollStatementDriverIdRoute
   '/$companySlug/payroll/$driverId': typeof CompanySlugAuthenticatedPayrollDriverIdRoute
   '/$companySlug/dispatch/routes/$routeId': typeof CompanySlugDispatchRoutesRouteIdRoute
   '/$companySlug/driver/trip/active': typeof CompanySlugDriverTripActiveRoute
@@ -766,6 +784,7 @@ export interface FileRoutesById {
   '/$companySlug/': typeof CompanySlugIndexRoute
   '/owner/': typeof OwnerIndexRoute
   '/$companySlug/_authenticated/communications': typeof CompanySlugAuthenticatedCommunicationsRoute
+  '/$companySlug/_authenticated/compliance': typeof CompanySlugAuthenticatedComplianceRoute
   '/$companySlug/_authenticated/dashboard': typeof CompanySlugAuthenticatedDashboardRoute
   '/$companySlug/_authenticated/driver-pay': typeof CompanySlugAuthenticatedDriverPayRoute
   '/$companySlug/_authenticated/drivers': typeof CompanySlugAuthenticatedDriversRoute
@@ -820,6 +839,7 @@ export interface FileRoutesById {
   '/$companySlug/driver/': typeof CompanySlugDriverIndexRoute
   '/$companySlug/passenger/': typeof CompanySlugPassengerIndexRoute
   '/$companySlug/_authenticated/medicaid-trips/new': typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
+  '/$companySlug/_authenticated/payroll-statement/$driverId': typeof CompanySlugAuthenticatedPayrollStatementDriverIdRoute
   '/$companySlug/_authenticated/payroll/$driverId': typeof CompanySlugAuthenticatedPayrollDriverIdRoute
   '/$companySlug/dispatch/routes/$routeId': typeof CompanySlugDispatchRoutesRouteIdRoute
   '/$companySlug/driver/trip/active': typeof CompanySlugDriverTripActiveRoute
@@ -854,6 +874,7 @@ export interface FileRouteTypes {
     | '/$companySlug/'
     | '/owner/'
     | '/$companySlug/communications'
+    | '/$companySlug/compliance'
     | '/$companySlug/dashboard'
     | '/$companySlug/driver-pay'
     | '/$companySlug/drivers'
@@ -908,6 +929,7 @@ export interface FileRouteTypes {
     | '/$companySlug/driver/'
     | '/$companySlug/passenger/'
     | '/$companySlug/medicaid-trips/new'
+    | '/$companySlug/payroll-statement/$driverId'
     | '/$companySlug/payroll/$driverId'
     | '/$companySlug/dispatch/routes/$routeId'
     | '/$companySlug/driver/trip/active'
@@ -935,6 +957,7 @@ export interface FileRouteTypes {
     | '/track/$tripId'
     | '/owner'
     | '/$companySlug/communications'
+    | '/$companySlug/compliance'
     | '/$companySlug/dashboard'
     | '/$companySlug/driver-pay'
     | '/$companySlug/drivers'
@@ -988,6 +1011,7 @@ export interface FileRouteTypes {
     | '/$companySlug/driver'
     | '/$companySlug/passenger'
     | '/$companySlug/medicaid-trips/new'
+    | '/$companySlug/payroll-statement/$driverId'
     | '/$companySlug/payroll/$driverId'
     | '/$companySlug/dispatch/routes/$routeId'
     | '/$companySlug/driver/trip/active'
@@ -1021,6 +1045,7 @@ export interface FileRouteTypes {
     | '/$companySlug/'
     | '/owner/'
     | '/$companySlug/_authenticated/communications'
+    | '/$companySlug/_authenticated/compliance'
     | '/$companySlug/_authenticated/dashboard'
     | '/$companySlug/_authenticated/driver-pay'
     | '/$companySlug/_authenticated/drivers'
@@ -1075,6 +1100,7 @@ export interface FileRouteTypes {
     | '/$companySlug/driver/'
     | '/$companySlug/passenger/'
     | '/$companySlug/_authenticated/medicaid-trips/new'
+    | '/$companySlug/_authenticated/payroll-statement/$driverId'
     | '/$companySlug/_authenticated/payroll/$driverId'
     | '/$companySlug/dispatch/routes/$routeId'
     | '/$companySlug/driver/trip/active'
@@ -1609,6 +1635,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugAuthenticatedDashboardRouteImport
       parentRoute: typeof CompanySlugAuthenticatedRouteRoute
     }
+    '/$companySlug/_authenticated/compliance': {
+      id: '/$companySlug/_authenticated/compliance'
+      path: '/compliance'
+      fullPath: '/$companySlug/compliance'
+      preLoaderRoute: typeof CompanySlugAuthenticatedComplianceRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
     '/$companySlug/_authenticated/communications': {
       id: '/$companySlug/_authenticated/communications'
       path: '/communications'
@@ -1693,6 +1726,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugAuthenticatedPayrollDriverIdRouteImport
       parentRoute: typeof CompanySlugAuthenticatedRouteRoute
     }
+    '/$companySlug/_authenticated/payroll-statement/$driverId': {
+      id: '/$companySlug/_authenticated/payroll-statement/$driverId'
+      path: '/payroll-statement/$driverId'
+      fullPath: '/$companySlug/payroll-statement/$driverId'
+      preLoaderRoute: typeof CompanySlugAuthenticatedPayrollStatementDriverIdRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedRouteRoute
+    }
     '/$companySlug/_authenticated/medicaid-trips/new': {
       id: '/$companySlug/_authenticated/medicaid-trips/new'
       path: '/new'
@@ -1727,6 +1767,7 @@ const CompanySlugAuthenticatedMedicaidTripsRouteWithChildren =
 
 interface CompanySlugAuthenticatedRouteRouteChildren {
   CompanySlugAuthenticatedCommunicationsRoute: typeof CompanySlugAuthenticatedCommunicationsRoute
+  CompanySlugAuthenticatedComplianceRoute: typeof CompanySlugAuthenticatedComplianceRoute
   CompanySlugAuthenticatedDashboardRoute: typeof CompanySlugAuthenticatedDashboardRoute
   CompanySlugAuthenticatedDriverPayRoute: typeof CompanySlugAuthenticatedDriverPayRoute
   CompanySlugAuthenticatedDriversRoute: typeof CompanySlugAuthenticatedDriversRoute
@@ -1747,6 +1788,7 @@ interface CompanySlugAuthenticatedRouteRouteChildren {
   CompanySlugAuthenticatedSchedulesRoute: typeof CompanySlugAuthenticatedSchedulesRoute
   CompanySlugAuthenticatedTeamRoute: typeof CompanySlugAuthenticatedTeamRoute
   CompanySlugAuthenticatedTripsRoute: typeof CompanySlugAuthenticatedTripsRoute
+  CompanySlugAuthenticatedPayrollStatementDriverIdRoute: typeof CompanySlugAuthenticatedPayrollStatementDriverIdRoute
   CompanySlugAuthenticatedPayrollDriverIdRoute: typeof CompanySlugAuthenticatedPayrollDriverIdRoute
   CompanySlugAuthenticatedPayrollIndexRoute: typeof CompanySlugAuthenticatedPayrollIndexRoute
   CompanySlugAuthenticatedTripsTripIdProofRoute: typeof CompanySlugAuthenticatedTripsTripIdProofRoute
@@ -1756,6 +1798,8 @@ const CompanySlugAuthenticatedRouteRouteChildren: CompanySlugAuthenticatedRouteR
   {
     CompanySlugAuthenticatedCommunicationsRoute:
       CompanySlugAuthenticatedCommunicationsRoute,
+    CompanySlugAuthenticatedComplianceRoute:
+      CompanySlugAuthenticatedComplianceRoute,
     CompanySlugAuthenticatedDashboardRoute:
       CompanySlugAuthenticatedDashboardRoute,
     CompanySlugAuthenticatedDriverPayRoute:
@@ -1786,6 +1830,8 @@ const CompanySlugAuthenticatedRouteRouteChildren: CompanySlugAuthenticatedRouteR
       CompanySlugAuthenticatedSchedulesRoute,
     CompanySlugAuthenticatedTeamRoute: CompanySlugAuthenticatedTeamRoute,
     CompanySlugAuthenticatedTripsRoute: CompanySlugAuthenticatedTripsRoute,
+    CompanySlugAuthenticatedPayrollStatementDriverIdRoute:
+      CompanySlugAuthenticatedPayrollStatementDriverIdRoute,
     CompanySlugAuthenticatedPayrollDriverIdRoute:
       CompanySlugAuthenticatedPayrollDriverIdRoute,
     CompanySlugAuthenticatedPayrollIndexRoute:

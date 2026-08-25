@@ -397,6 +397,193 @@ export type Database = {
           },
         ]
       }
+      claim_modifier_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          company_id: string | null
+          created_at: string
+          id: string
+          modifier: string
+          reason: string | null
+          resubmission_id: string | null
+          service_line_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          modifier: string
+          reason?: string | null
+          resubmission_id?: string | null
+          service_line_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          modifier?: string
+          reason?: string | null
+          resubmission_id?: string | null
+          service_line_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_modifier_audit_resubmission_id_fkey"
+            columns: ["resubmission_id"]
+            isOneToOne: false
+            referencedRelation: "claim_resubmissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_modifier_audit_service_line_id_fkey"
+            columns: ["service_line_id"]
+            isOneToOne: false
+            referencedRelation: "claim_service_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claim_resubmissions: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          original_claim_number: string | null
+          original_denial_reason: string | null
+          original_status: string | null
+          original_trip_id: string
+          resubmission_claim_number: string | null
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          original_claim_number?: string | null
+          original_denial_reason?: string | null
+          original_status?: string | null
+          original_trip_id: string
+          resubmission_claim_number?: string | null
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          original_claim_number?: string | null
+          original_denial_reason?: string | null
+          original_status?: string | null
+          original_trip_id?: string
+          resubmission_claim_number?: string | null
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_resubmissions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_resubmissions_original_trip_id_fkey"
+            columns: ["original_trip_id"]
+            isOneToOne: false
+            referencedRelation: "medicaid_trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claim_service_lines: {
+        Row: {
+          amount: number | null
+          company_id: string | null
+          created_at: string
+          id: string
+          line_index: number
+          miles: number | null
+          modifiers: string[]
+          procedure_code: string | null
+          resubmission_id: string
+          service_date: string | null
+          trip_id: string | null
+          units: number | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          line_index?: number
+          miles?: number | null
+          modifiers?: string[]
+          procedure_code?: string | null
+          resubmission_id: string
+          service_date?: string | null
+          trip_id?: string | null
+          units?: number | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          line_index?: number
+          miles?: number | null
+          modifiers?: string[]
+          procedure_code?: string | null
+          resubmission_id?: string
+          service_date?: string | null
+          trip_id?: string | null
+          units?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_service_lines_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_service_lines_resubmission_id_fkey"
+            columns: ["resubmission_id"]
+            isOneToOne: false
+            referencedRelation: "claim_resubmissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_service_lines_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "medicaid_trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claim_status_sync_state: {
         Row: {
           id: boolean
@@ -1078,6 +1265,81 @@ export type Database = {
           },
           {
             foreignKeyName: "driver_hour_clearings_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_insurance_docs: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          document_path: string | null
+          driver_id: string
+          effective_date: string | null
+          expiration_date: string
+          id: string
+          insurer: string
+          notes: string | null
+          policy_number: string
+          status: string
+          updated_at: string
+          vehicle_label: string | null
+          vehicle_plate: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_path?: string | null
+          driver_id: string
+          effective_date?: string | null
+          expiration_date: string
+          id?: string
+          insurer: string
+          notes?: string | null
+          policy_number: string
+          status?: string
+          updated_at?: string
+          vehicle_label?: string | null
+          vehicle_plate?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_path?: string | null
+          driver_id?: string
+          effective_date?: string | null
+          expiration_date?: string
+          id?: string
+          insurer?: string
+          notes?: string | null
+          policy_number?: string
+          status?: string
+          updated_at?: string
+          vehicle_label?: string | null
+          vehicle_plate?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_insurance_docs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_insurance_docs_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
@@ -2300,6 +2562,132 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          company_id: string | null
+          created_at: string
+          data: Json | null
+          id: string
+          notes: string | null
+          payroll_item_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: string
+          notes?: string | null
+          payroll_item_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: string
+          notes?: string | null
+          payroll_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_audit_log_payroll_item_id_fkey"
+            columns: ["payroll_item_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_items: {
+        Row: {
+          amount: number
+          category: string | null
+          claim_number: string | null
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          driver_id: string
+          id: string
+          kind: string
+          notes: string | null
+          passenger_name: string | null
+          payout_id: string | null
+          payroll_status: string
+          ref_id: string | null
+          service_date: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount?: number
+          category?: string | null
+          claim_number?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          driver_id: string
+          id?: string
+          kind?: string
+          notes?: string | null
+          passenger_name?: string | null
+          payout_id?: string | null
+          payroll_status?: string
+          ref_id?: string | null
+          service_date?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          claim_number?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          driver_id?: string
+          id?: string
+          kind?: string
+          notes?: string | null
+          passenger_name?: string | null
+          payout_id?: string | null
+          payroll_status?: string
+          ref_id?: string | null
+          service_date?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_items_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_items_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "driver_payouts"
             referencedColumns: ["id"]
           },
         ]
@@ -3780,6 +4168,75 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_expenses: {
+        Row: {
+          amount: number
+          category: string
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          driver_id: string
+          expense_date: string
+          id: string
+          notes: string | null
+          odometer: number | null
+          receipt_path: string | null
+          updated_at: string
+          vehicle_label: string | null
+          vehicle_plate: string | null
+          vendor: string | null
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_id: string
+          expense_date: string
+          id?: string
+          notes?: string | null
+          odometer?: number | null
+          receipt_path?: string | null
+          updated_at?: string
+          vehicle_label?: string | null
+          vehicle_plate?: string | null
+          vendor?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string
+          expense_date?: string
+          id?: string
+          notes?: string | null
+          odometer?: number | null
+          receipt_path?: string | null
+          updated_at?: string
+          vehicle_label?: string | null
+          vehicle_plate?: string | null
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_expenses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_expenses_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
         ]

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar } from "@/components/Avatar";
 import { toast } from "sonner";
 import { Camera, Loader2, LogOut } from "lucide-react";
+import { InsuranceCard } from "@/components/driver/InsuranceCard";
 
 export const Route = createFileRoute("/$companySlug/driver/profile")({
   component: DriverProfile,
@@ -249,6 +250,8 @@ function DriverProfile() {
           </div>
         </div>
       )}
+
+      <InsuranceCard />
 
       <Button
         variant="outline"

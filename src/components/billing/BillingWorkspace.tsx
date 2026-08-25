@@ -55,7 +55,11 @@ import { getPortal } from "@/lib/portals";
 import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
+import { sameDayFlaggedTripIds } from "@/lib/sameDayBilling";
 import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
+import { PayrollClaimsTab } from "@/components/billing/PayrollClaimsTab";
+import { DeniedClaimsTab } from "@/components/billing/DeniedClaimsTab";
+
 import { FixBillDialog } from "@/components/billing/FixBillDialog";
 import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
 import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
@@ -94,7 +98,10 @@ type TabKey =
   | "medical_review"
   | "awaiting_portal"
   | "submitted"
-  | "claims_history";
+  | "claims_history"
+  | "payroll"
+  | "denied";
+
 
 const TABS: {
   key: TabKey;
@@ -151,7 +158,20 @@ const TABS: {
     statuses: ["submitted"],
     countKeys: [],
   },
+  {
+    key: "payroll",
+    label: "Payroll",
+    statuses: ["submitted"],
+    countKeys: [],
+  },
+  {
+    key: "denied",
+    label: "Denied / Resubmission",
+    statuses: ["submitted"],
+    countKeys: [],
+  },
 ];
+
 
 
 /** The full billing workflow. Lives in the dedicated Billing app; admins can
@@ -367,8 +387,13 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
 
       {tab === "claims_history" ? (
         <ClaimsHistoryTab />
+      ) : tab === "payroll" ? (
+        <PayrollClaimsTab />
+      ) : tab === "denied" ? (
+        <DeniedClaimsTab />
       ) : tab === "medical_review" ? (
         <MedicalReviewTab />
+
       ) : rows.isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -692,6 +717,21 @@ function ReadyToSubmitTab({
   const [fixId, setFixId] = useState<string | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
 
+  // REVIEW WARNING ONLY: same company + same member + same date of service.
+  // Nothing is merged and no modifier is applied — the biller decides.
+  const sameDayIds = useMemo(
+    () =>
+      sameDayFlaggedTripIds(
+        rows.map((r: any) => ({
+          trip_id: r.id,
+          company_id: r.company_id ?? null,
+          medicaid_id: r.medicaid_id ?? null,
+          service_date: r.pickup_at ?? null,
+        })),
+      ),
+    [rows],
+  );
+
   // A bill that already carries a portal confirmation number is a real live
   // claim, whatever its billing status says — never selectable for submit or
   // delete here.
@@ -892,6 +932,11 @@ function ReadyToSubmitTab({
               <td className="px-4 py-3">
                 <div className="font-medium">{r.passenger_name ?? "—"}</div>
                 <div className="text-xs text-muted-foreground">{r.medicaid_id}</div>
+                {sameDayIds.has(r.id) && (
+                  <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600">
+                    <AlertTriangle className="h-3 w-3" /> Multiple trips this service date
+                  </div>
+                )}
               </td>
               <td className="px-4 py-3 text-muted-foreground">
                 {formatDateTime(r.pickup_at)}
