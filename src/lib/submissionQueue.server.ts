@@ -26,6 +26,12 @@ import {
   looksLikeRetryableTimeout,
 } from "@/lib/billingHelpers";
 import {
+  isInfrastructureSubmitError,
+  sanitizeSubmitError,
+  AMBIGUOUS_USER_MESSAGE,
+} from "@/lib/submitErrors";
+
+import {
   listActiveRobotJobs,
   riderKeyOf,
   resolveProviderUserId,
@@ -40,10 +46,18 @@ import { loadFleet, effectiveGlobalLimit } from "@/lib/robotFleet.server";
 export { envInt } from "@/lib/submissionQueueEnv";
 import { envInt } from "@/lib/submissionQueueEnv";
 
-/** Max concurrent real portal submissions for ONE company. Default keeps the
- *  proven production throughput of 8 live portal sessions per provider. */
-export const maxSubmitPerCompany = () => envInt("SUBMIT_MAX_PER_COMPANY", 8, 1, 50);
-/** Max concurrent real portal submissions across ALL companies. */
+/**
+ * STRICT SINGLE-FLIGHT PER PROVIDER/COMPANY.
+ *
+ * Live Railway evidence showed that several simultaneous portal sessions on one
+ * provider account flood the automation worker (Chromium spawn EAGAIN, closed
+ * browsers, 480s timeouts) — and at least one claim still submitted in the
+ * middle of that noise, which makes duplicates the real danger. So exactly ONE
+ * HCPF submission may be in flight per company at any moment, and the value is
+ * clamped so it can never be raised by configuration.
+ */
+export const maxSubmitPerCompany = () => envInt("SUBMIT_MAX_PER_COMPANY", 1, 1, 1);
+/** Max concurrent real portal submissions across ALL companies (separate accounts). */
 export const maxSubmitGlobal = () => envInt("SUBMIT_MAX_GLOBAL", 20, 1, 200);
 /** How long a leased bill stays locked to one worker. */
 export const submitLeaseSeconds = () => envInt("SUBMIT_LEASE_SECONDS", 300, 60, 3600);
@@ -53,6 +67,9 @@ export const submitStaleGraceSeconds = () => envInt("SUBMIT_STALE_GRACE_SECONDS"
 export const SUBMIT_RUN_BUDGET_MS = () => envInt("SUBMIT_RUN_BUDGET_MS", 100_000, 10_000, 240_000);
 /** Attempts (including the first) before a bill needs a human. */
 export const maxSubmitAttempts = () => envInt("SUBMIT_MAX_ATTEMPTS", 3, 1, 10);
+/** Cooldown after a worker/browser-level failure before the next attempt. */
+export const submitInfraCooldownMs = () =>
+  envInt("SUBMIT_INFRA_COOLDOWN_MS", 90_000, 10_000, 15 * 60_000);
 
 export const BACKOFF_BASE_MS = 60_000;
 export const BACKOFF_MAX_MS = 30 * 60_000;
@@ -65,7 +82,9 @@ export function submitBackoffMs(attempt: number): number {
 /** Errors that are safe to retry with identical data. */
 export function isTransientSubmitError(msg: string | null | undefined): boolean {
   if (!msg) return false;
+  if (isAmbiguousSubmitError(msg)) return false;
   if (looksLikeRetryableTimeout(msg)) return true;
+  if (isInfrastructureSubmitError(msg)) return true;
   return (
     /fetch failed|network|ECONNRESET|ECONNREFUSED|socket hang up|502|503|504|temporarily unavailable|rejected the request \(5\d\d\)/i.test(
       String(msg),
@@ -82,6 +101,49 @@ export function isAmbiguousSubmitError(msg: string | null | undefined): boolean 
   return /confirm|already submitted|claim may exist|SUBMITTED_UNVERIFIED/i.test(String(msg));
 }
 
+/**
+ * DB-side proof that a bill may already have reached the portal. Checked before
+ * ANY retry: if there is any evidence at all, the bill is routed to awaiting
+ * verification instead of being resubmitted.
+ */
+export function hasPortalClaimEvidence(rec: any): boolean {
+  const trip = rec?.medicaid_trips ?? rec ?? {};
+  if (trip.robot_confirmation_number || trip.submitted_confirmation) return true;
+  if (rec?.state_confirmation_number) return true;
+  const robot = String(trip.robot_last_status ?? "");
+  if (/^SUBMITTED/i.test(robot)) return true;
+  const portal = String(trip.portal_status ?? "");
+  if (/submitted|paid|approved|suspended|denied/i.test(portal)) return true;
+  if (String(trip.status ?? "") === "submitted") return true;
+  return false;
+}
+
+/**
+ * Park a bill for human verification instead of retrying it. Used whenever a
+ * previous attempt ended ambiguously or left claim evidence behind.
+ */
+export async function parkForVerification(
+  supabase: any,
+  args: { id: string; actorId: string | null; detail: string },
+): Promise<void> {
+  const note = `${AMBIGUOUS_USER_MESSAGE} ${args.detail}`.trim();
+  await supabase
+    .from("billing_records")
+    .update({
+      status: "needs_fix",
+      requires_human_step: true,
+      submission_error: AMBIGUOUS_USER_MESSAGE,
+      fix_notes: note,
+      submit_locked_until: null,
+      submit_worker: null,
+      submit_next_attempt_at: null,
+      submit_last_error: note.slice(0, 500),
+    })
+    .eq("id", args.id);
+  await logAudit(supabase, args.id, args.actorId, "submission_awaiting_verification", note);
+}
+
+
 export type QueueTickResult = {
   ok: boolean;
   ran: boolean;
@@ -89,6 +151,7 @@ export type QueueTickResult = {
   leased: number;
   started: number;
   paced: number;
+  blocked: number;
   retried: number;
   failed: number;
   recovered: number;
@@ -100,6 +163,7 @@ export type QueueTickResult = {
 };
 
 const TRIP_SELECT = `id, status, trip_id, company_id, submit_attempt_count,
+   submit_last_error, state_confirmation_number,
    medicaid_trips!inner(
      id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
      state_pdf_path, identity_verified, robot_job_id, robot_job_started_at,
@@ -249,11 +313,20 @@ export async function scheduleRetryOrFail(
 ): Promise<"retry" | "failed"> {
   const { id, attempt, error, actorId } = args;
   const nextAttempt = attempt + 1;
-  const transient = isTransientSubmitError(error) && !isAmbiguousSubmitError(error);
+  const ambiguous = isAmbiguousSubmitError(error);
+  const infra = isInfrastructureSubmitError(error);
+  const transient = isTransientSubmitError(error) && !ambiguous;
   const canRetry = transient && nextAttempt < maxSubmitAttempts();
+  // Diagnostics stay in `submit_last_error` / the audit log; the biller sees a
+  // short sentence, never a Playwright stack trace.
+  const userMsg = sanitizeSubmitError(error);
 
   if (canRetry) {
-    const delay = submitBackoffMs(attempt);
+    // A worker/browser failure means the whole worker is unhealthy, so wait out
+    // a cooldown before the single-flight slot is used again.
+    const delay = infra
+      ? Math.max(submitBackoffMs(attempt), submitInfraCooldownMs())
+      : submitBackoffMs(attempt);
     await supabase
       .from("billing_records")
       .update({
@@ -263,7 +336,7 @@ export async function scheduleRetryOrFail(
         submit_locked_until: null,
         submit_worker: null,
         submit_last_error: error.slice(0, 500),
-        submission_error: error.slice(0, 500),
+        submission_error: userMsg,
         requires_human_step: false,
       })
       .eq("id", id);
@@ -286,9 +359,9 @@ export async function scheduleRetryOrFail(
       submit_locked_until: null,
       submit_worker: null,
       submit_last_error: error.slice(0, 500),
-      submission_error: error.slice(0, 500),
-      fix_notes: error.slice(0, 500),
-      requires_human_step: isAmbiguousSubmitError(error),
+      submission_error: ambiguous ? AMBIGUOUS_USER_MESSAGE : userMsg,
+      fix_notes: (ambiguous ? `${AMBIGUOUS_USER_MESSAGE} ` : "") + error.slice(0, 400),
+      requires_human_step: ambiguous,
     })
     .eq("id", id);
   await logAudit(
@@ -301,6 +374,7 @@ export async function scheduleRetryOrFail(
   return "failed";
 }
 
+
 /* ---------------- Dispatch ---------------------------------------------- */
 
 /**
@@ -311,16 +385,25 @@ export async function scheduleRetryOrFail(
 export async function dispatchLeasedSubmissions(
   supabase: any,
   actorId: string | null,
-  opts: { companyId?: string | null; worker?: string; recordIds?: string[] | null } = {},
+  opts: {
+    companyId?: string | null;
+    worker?: string;
+    recordIds?: string[] | null;
+    /** Robot mode; queued work is a one-shot "full" submission by default. */
+    mode?: "capture" | "submit" | "full" | "debug_confirm_page";
+  } = {},
 ): Promise<{
   leased: number;
   started: number;
   paced: number;
   retried: number;
   failed: number;
+  /** Retries stopped because the bill may already exist at the portal. */
+  blocked: number;
   startedIds: string[];
   globalLimit?: number;
 }> {
+
   const worker = opts.worker ?? `w-${Math.random().toString(36).slice(2, 10)}`;
 
   // FLEET-AWARE GLOBAL CAP. With one worker this is exactly today's
@@ -335,6 +418,7 @@ export async function dispatchLeasedSubmissions(
       paced: 0,
       retried: 0,
       failed: 0,
+      blocked: 0,
       startedIds: [],
       globalLimit: 0,
     };
@@ -347,8 +431,19 @@ export async function dispatchLeasedSubmissions(
     globalLimit,
   });
   if (leases.length === 0) {
-    return { leased: 0, started: 0, paced: 0, retried: 0, failed: 0, startedIds: [], globalLimit };
+    return {
+      leased: 0,
+      started: 0,
+      paced: 0,
+      retried: 0,
+      failed: 0,
+      blocked: 0,
+      startedIds: [],
+      globalLimit,
+    };
   }
+
+
 
   // Same-passenger pacing: the portal chokes when several sessions touch one
   // member at once. Live counts come from the DB, not memory.
@@ -376,6 +471,7 @@ export async function dispatchLeasedSubmissions(
   let paced = 0;
   let retried = 0;
   let failed = 0;
+  let blocked = 0;
   const dispatchable: Array<{ lease: SubmissionLease; rec: any }> = [];
 
   for (const lease of leases) {
@@ -384,6 +480,24 @@ export async function dispatchLeasedSubmissions(
       await releaseLease(supabase, lease.id);
       continue;
     }
+
+    // RECONCILE BEFORE ANY RETRY.
+    // A bill that already failed once (timeout / closed browser / worker error)
+    // is only retried when the database shows no sign that a claim exists. Any
+    // evidence at all → awaiting verification, never an automatic resubmit.
+    const isRetry =
+      Number(rec.submit_attempt_count ?? lease.attempt ?? 0) > 0 || Boolean(rec.submit_last_error);
+    if (isRetry && hasPortalClaimEvidence(rec)) {
+      await parkForVerification(supabase, {
+        id: rec.id,
+        actorId,
+        detail:
+          "A previous attempt left portal claim evidence in our records, so this bill was not retried. Verify it at the portal before resubmitting.",
+      });
+      blocked++;
+      continue;
+    }
+
     const key = riderKeyOf(rec.medicaid_trips);
     if (key) {
       const live = riderLive.get(key) ?? 0;
@@ -421,8 +535,9 @@ export async function dispatchLeasedSubmissions(
           billingRecordId: rec.id,
           trip: rec.medicaid_trips,
           providerUserId: provider,
-          // Queued work is always a real one-shot submission — unchanged.
-          mode: "full",
+          // Queued work is a real one-shot submission unless a caller (the
+          // legacy two-pass confirm) explicitly asks for another mode.
+          mode: opts.mode ?? "full",
           // Tenant used only to pick a robot worker; payload is untouched.
           companyId: rec.company_id ?? rec.medicaid_trips?.company_id ?? null,
           fleetContext,
@@ -462,9 +577,11 @@ export async function dispatchLeasedSubmissions(
     paced,
     retried,
     failed,
+    blocked,
     startedIds,
     globalLimit,
   };
+
 }
 
 /**
@@ -485,6 +602,7 @@ export async function runSubmissionQueueTick(
     leased: 0,
     started: 0,
     paced: 0,
+    blocked: 0,
     retried: 0,
     failed: 0,
     recovered: 0,
@@ -527,7 +645,15 @@ export async function runSubmissionQueueTick(
   );
 
   const budget = SUBMIT_RUN_BUDGET_MS();
-  let dispatch = { leased: 0, started: 0, paced: 0, retried: 0, failed: 0, startedIds: [] as string[] };
+  let dispatch = {
+    leased: 0,
+    started: 0,
+    paced: 0,
+    retried: 0,
+    failed: 0,
+    blocked: 0,
+    startedIds: [] as string[],
+  };
   if (Date.now() - t0 < budget) {
     dispatch = await dispatchLeasedSubmissions(supabase, opts.actorId ?? null, {
       companyId: opts.companyId ?? null,

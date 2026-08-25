@@ -89,7 +89,7 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-async function drain(records: FakeRecord[], supabase: any, maxTicks = 400) {
+async function drain(records: FakeRecord[], supabase: any, maxTicks = 4000) {
   const t0 = Date.now();
   let ticks = 0;
   let started = 0;

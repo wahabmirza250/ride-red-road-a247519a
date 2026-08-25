@@ -20,10 +20,16 @@ import { startRobotSubmission, logAudit } from "@/lib/billingHelpers";
 export const ROBOT_JOB_STALE_MS = 12 * 60 * 1000;
 
 /**
- * How many portal sessions the automation service can genuinely run at once
- * for a single provider account.
+ * STRICT SINGLE-FLIGHT: exactly ONE live portal session per provider/company.
+ *
+ * Overlapping sessions on one provider account flooded the automation worker in
+ * production (Chromium spawn EAGAIN, closed browsers, 480s timeouts) while one
+ * claim still went through — so duplicates, not throughput, are the risk. Extra
+ * approved bills wait in the persistent queue and start only after the previous
+ * job reaches a terminal state.
  */
-export const MAX_CONCURRENT_ROBOT_JOBS = 8;
+export const MAX_CONCURRENT_ROBOT_JOBS = 1;
+
 
 /**
  * PER-PASSENGER THROTTLE.
@@ -163,8 +169,16 @@ export async function queuedAhead(
 }
 
 /**
- * Start the robot for a record, or park it behind the job that currently owns
- * the portal session.
+ * SINGLE ENTRY POINT FOR AN INTERACTIVE SUBMISSION.
+ *
+ * A real submission is never started straight from a click. The bill is first
+ * persisted as `queued` with a conditional (idempotent) status flip, and the
+ * atomic single-flight lease decides whether it may start now. That makes
+ * double clicks, page refreshes, several open tabs and background polling all
+ * collapse onto the same queued row instead of opening extra portal sessions.
+ *
+ * Capture / diagnostic runs never submit, so they keep their old behaviour of
+ * refusing to start while a session is live.
  */
 export async function enqueueOrStartRobot(
   supabase: any,
@@ -175,7 +189,7 @@ export async function enqueueOrStartRobot(
     providerUserId: string;
     mode: "capture" | "submit" | "full" | "debug_confirm_page";
   },
-): Promise<{ queued: boolean; ahead: number }> {
+): Promise<{ queued: boolean; ahead: number; duplicate?: boolean }> {
   const { billingRecordId, companyId, trip, providerUserId, mode } = args;
 
   const active = await listActiveRobotJobs(supabase, {
@@ -183,54 +197,78 @@ export async function enqueueOrStartRobot(
     excludeRecordId: billingRecordId,
   });
   const globalFull = active.length >= MAX_CONCURRENT_ROBOT_JOBS;
-
-  // Same-passenger pacing: the portal chokes when several sessions touch one
-  // member at once, so cap per rider even when global slots are free.
   const key = riderKeyOf(trip);
   const riderActive = key ? active.filter((a) => a.riderKey === key).length : 0;
   const riderFull = Boolean(key) && riderActive >= MAX_CONCURRENT_JOBS_PER_RIDER;
 
-  const full = globalFull || riderFull;
-
-  if (full && (mode === "capture" || mode === "debug_confirm_page")) {
+  if ((globalFull || riderFull) && (mode === "capture" || mode === "debug_confirm_page")) {
     throw new Error(
-      riderFull && !globalFull
-        ? `This passenger already has ${riderActive} portal session(s) running. Try the capture run again in a few minutes.`
-        : `All ${MAX_CONCURRENT_ROBOT_JOBS} portal sessions are busy right now. Try the capture run again in a few minutes.`,
+      "A portal session is already running on this account. Try the capture run again in a few minutes.",
     );
   }
+  if (mode === "capture" || mode === "debug_confirm_page") {
+    await startRobotSubmission(supabase, { billingRecordId, trip, providerUserId, mode });
+    return { queued: false, ahead: 0 };
+  }
 
-  if (full) {
-    await supabase
-      .from("billing_records")
-      .update({
-        status: "queued",
-        submission_error: null,
-        requires_human_step: false,
-      })
-      .eq("id", billingRecordId);
+  // IDEMPOTENT ENQUEUE. Read the current status, then flip it only if it is
+  // still that same status: a second concurrent click loses the race and is
+  // reported as a duplicate rather than starting a second job.
+  const { data: current } = await supabase
+    .from("billing_records")
+    .select("id, status")
+    .eq("id", billingRecordId)
+    .maybeSingle();
+  const currentStatus = String(current?.status ?? "");
+
+  if (currentStatus === "submitting" || currentStatus === "queued") {
     const ahead = await queuedAhead(supabase, companyId, billingRecordId);
-    await logAudit(
-      supabase,
-      billingRecordId,
-      providerUserId,
-      "queued_behind_active_job",
-      riderFull && !globalFull
-        ? `Paced automatically: this passenger already has ${riderActive} of ${MAX_CONCURRENT_JOBS_PER_RIDER} allowed portal sessions running. Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`
-        : `All ${MAX_CONCURRENT_ROBOT_JOBS} portal sessions busy. Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`,
-    );
-    return { queued: true, ahead };
+    return { queued: true, ahead, duplicate: true };
   }
 
+  const { data: flipped } = await supabase
+    .from("billing_records")
+    .update({
+      status: "queued",
+      submission_error: null,
+      requires_human_step: false,
+      submit_attempt_count: 0,
+      submit_next_attempt_at: null,
+      submit_locked_until: null,
+      submit_worker: null,
+      submit_last_error: null,
+    })
+    .eq("id", billingRecordId)
+    .eq("status", currentStatus)
+    .select("id");
+  if ((flipped ?? []).length === 0) {
+    // Someone else already moved this row — treat as the same request.
+    const ahead = await queuedAhead(supabase, companyId, billingRecordId);
+    return { queued: true, ahead, duplicate: true };
+  }
 
-  await startRobotSubmission(supabase, {
-    billingRecordId,
-    trip,
-    providerUserId,
+  // Ask the single-flight dispatcher to start it now if the account is free.
+  const { dispatchLeasedSubmissions } = await import("@/lib/submissionQueue.server");
+  const res = await dispatchLeasedSubmissions(supabase, providerUserId, {
+    companyId: companyId ?? null,
+    recordIds: [billingRecordId],
+    worker: `interactive-${String(providerUserId).slice(0, 8)}`,
     mode,
   });
-  return { queued: false, ahead: 0 };
+  if (res.startedIds.includes(billingRecordId)) return { queued: false, ahead: 0 };
+
+  const ahead = await queuedAhead(supabase, companyId, billingRecordId);
+  await logAudit(
+    supabase,
+    billingRecordId,
+    providerUserId,
+    "queued_behind_active_job",
+    `Only one portal session runs at a time on this provider account. Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`,
+  );
+  return { queued: true, ahead };
 }
+
+
 
 /**
  * Called after a job reaches a terminal state: lease and dispatch the oldest
