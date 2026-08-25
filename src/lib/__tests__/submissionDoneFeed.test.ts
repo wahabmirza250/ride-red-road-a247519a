@@ -19,16 +19,17 @@ vi.mock("@/lib/billingHelpers", async () => ({
 
 // Reconcile is the "a claim finished" signal. The first sweep settles the
 // in-flight job by marking it submitted, exactly as production reconcile does.
-const settleQueue: Array<(sb: any) => Promise<void>> = [];
+type Sweep = { checked: number; settled: number; apply?: () => void };
+const settleQueue: Sweep[] = [];
 vi.mock("@/lib/robotQueue.server", async (orig) => {
   const actual = (await orig()) as any;
   return {
     ...actual,
-    reconcileInFlight: vi.fn(async (sb: any) => {
+    reconcileInFlight: vi.fn(async () => {
       const next = settleQueue.shift();
       if (!next) return { checked: 0, settled: 0 };
-      await next(sb);
-      return { checked: 1, settled: 1 };
+      next.apply?.();
+      return { checked: next.checked, settled: next.settled };
     }),
   };
 });
@@ -130,9 +131,14 @@ describe("immediate refill after a successful claim", () => {
 
     // First reconcile settles nothing (nothing in flight yet); the second one
     // finishes bill 1, which must immediately free the single-flight slot.
-    settleQueue.push(async () => {
-      a.status = "submitted";
-      a.state_confirmation_number = "2326237001236";
+    settleQueue.push({ checked: 0, settled: 0 });
+    settleQueue.push({
+      checked: 1,
+      settled: 1,
+      apply: () => {
+        a.status = "submitted";
+        a.state_confirmation_number = "2326237001236";
+      },
     });
 
     const tick = await runSubmissionQueueTick(supabase, {
@@ -151,9 +157,8 @@ describe("immediate refill after a successful claim", () => {
     const a = makeRecord("1", { status: "queued" });
     const b = makeRecord("2", { status: "queued" });
     const { supabase } = makeFakeDb([a, b]);
-    settleQueue.push(async () => {
-      a.status = "submitted";
-    });
+    settleQueue.push({ checked: 0, settled: 0 });
+    settleQueue.push({ checked: 1, settled: 1, apply: () => { a.status = "submitted"; } });
     const tick = await runSubmissionQueueTick(supabase, { actorId: null });
     expect(tick.started).toBe(1);
     expect(started).toEqual(["1"]);
