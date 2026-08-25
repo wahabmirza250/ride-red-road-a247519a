@@ -705,16 +705,19 @@ export const confirmAndSubmitClaim = createServerFn({ method: "POST" })
       return { ok: true, queued: queueResult.queued, ahead: queueResult.ahead };
 
     } catch (e: any) {
-      const msg = e?.message ?? "Could not start the real submission";
+      const raw = e?.message ?? "Could not start the real submission";
+      const { sanitizeSubmitError } = await import("@/lib/submitErrors");
+      const msg = sanitizeSubmitError(raw);
       await supabase
         .from("billing_records")
         .update({
           status: "pending_submit",
           requires_human_step: true,
           submission_error: msg,
+          submit_last_error: raw.slice(0, 500),
         })
         .eq("id", data.id);
-      await logAudit(supabase, data.id, userId, "claim_confirm_failed", msg);
+      await logAudit(supabase, data.id, userId, "claim_confirm_failed", raw.slice(0, 400));
       throw new Error(msg);
     }
   });
