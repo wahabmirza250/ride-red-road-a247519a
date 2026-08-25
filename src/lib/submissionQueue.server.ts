@@ -629,8 +629,21 @@ export async function dispatchLeasedSubmissions(
  */
 export async function runSubmissionQueueTick(
   supabase: any,
-  opts: { actorId?: string | null; companyId?: string | null; worker?: string } = {},
+  opts: {
+    actorId?: string | null;
+    companyId?: string | null;
+    worker?: string;
+    /**
+     * Keep reconciling + refilling the freed single-flight slot inside this
+     * tick (used by the background cron). Off by default so a UI-triggered
+     * kick still returns immediately.
+     */
+    refill?: boolean;
+    refillPollMs?: number;
+    refillMaxRounds?: number;
+  } = {},
 ): Promise<QueueTickResult> {
+
   const t0 = Date.now();
   const base: QueueTickResult = {
     ok: true,
