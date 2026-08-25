@@ -823,6 +823,9 @@ function ReadyToSubmitTab({
         }}
       />
 
+      {batchId && <BatchProgressCard batchId={batchId} onDismiss={() => setBatchId(null)} />}
+
+
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-3">
         <div className="flex items-center gap-3 text-sm">
           <Checkbox
