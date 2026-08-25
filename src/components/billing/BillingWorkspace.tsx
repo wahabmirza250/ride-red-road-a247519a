@@ -56,6 +56,9 @@ import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
 import { PdfPreviewDialog } from "@/components/PdfPreviewDialog";
 import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
 import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
+import { PayrollClaimsTab } from "@/components/billing/PayrollClaimsTab";
+import { DeniedClaimsTab } from "@/components/billing/DeniedClaimsTab";
+
 import { FixBillDialog } from "@/components/billing/FixBillDialog";
 import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
 import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
