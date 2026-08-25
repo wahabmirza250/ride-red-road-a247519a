@@ -386,8 +386,13 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
 
       {tab === "claims_history" ? (
         <ClaimsHistoryTab />
+      ) : tab === "payroll" ? (
+        <PayrollClaimsTab />
+      ) : tab === "denied" ? (
+        <DeniedClaimsTab />
       ) : tab === "medical_review" ? (
         <MedicalReviewTab />
+
       ) : rows.isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
