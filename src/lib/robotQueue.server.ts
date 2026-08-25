@@ -226,10 +226,34 @@ export async function enqueueOrStartRobot(
     return { queued: true, ahead, duplicate: true };
   }
 
+  // Account key + idempotency key: an interactive click on a single bill uses
+  // the exact same lane and the same duplicate collapsing as a large batch.
+  const { resolveAccountKey } = await import("@/lib/submissionAccount.server");
+  const { buildIdempotencyKey, versionOfKey } = await import("@/lib/submissionIdempotency");
+  const accountKey = await resolveAccountKey(supabase, companyId ?? trip?.company_id ?? null);
+  const { data: keyRow } = await supabase
+    .from("billing_records")
+    .select("submit_idempotency_key")
+    .eq("id", billingRecordId)
+    .maybeSingle();
+  const priorClaim = trip?.robot_confirmation_number ?? trip?.submitted_confirmation ?? null;
+  const idempotencyKey = buildIdempotencyKey({
+    accountKey,
+    companyId: companyId ?? trip?.company_id ?? null,
+    tripId: trip?.id ?? billingRecordId,
+    serviceDate: trip?.pickup_at ?? null,
+    // A deliberate resubmission of an already-claimed bill is a new intent.
+    version: versionOfKey(keyRow?.submit_idempotency_key ?? null) + (priorClaim ? 1 : 0),
+  });
+
   const { data: flipped } = await supabase
     .from("billing_records")
     .update({
       status: "queued",
+      submit_account_key: accountKey,
+      submit_idempotency_key: idempotencyKey,
+      failure_stage: null,
+      failure_code: null,
       submission_error: null,
       requires_human_step: false,
       submit_attempt_count: 0,

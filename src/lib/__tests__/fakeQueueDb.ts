@@ -22,12 +22,24 @@ export type FakeRecord = {
   submission_error?: string | null;
   fix_notes?: string | null;
   requires_human_step?: boolean;
+  submit_account_key?: string | null;
+  submit_idempotency_key?: string | null;
+  submit_batch_id?: string | null;
+  submit_heartbeat_at?: string | null;
+  failure_stage?: string | null;
+  failure_code?: string | null;
   medicaid_trips: any;
 };
 
 export function makeRecord(
   id: string,
-  opts: Partial<FakeRecord> & { riderId?: string; jobId?: string | null; company?: string } = {},
+  opts: Partial<FakeRecord> & {
+    riderId?: string;
+    jobId?: string | null;
+    company?: string;
+    /** HCPF portal account the bill serializes on. Defaults to one per company. */
+    accountKey?: string;
+  } = {},
 ): FakeRecord {
   const company = opts.company ?? "co1";
   return {
@@ -41,6 +53,9 @@ export function makeRecord(
     submit_locked_until: opts.submit_locked_until ?? null,
     submit_next_attempt_at: opts.submit_next_attempt_at ?? null,
     submit_worker: null,
+    submit_account_key: opts.accountKey ?? `acct:hcpf:${company}`,
+    submit_idempotency_key: opts.submit_idempotency_key ?? null,
+    submit_batch_id: opts.submit_batch_id ?? null,
     medicaid_trips: {
       id: `t${id}`,
       company_id: company,
@@ -94,6 +109,7 @@ export function makeFakeDb(
     ...state,
   };
   const audits: Array<{ id: string; action: string; note?: string }> = [];
+  const batches: any[] = [];
 
   function table(name: string) {
     const st: any = { op: "select", filters: {}, ins: null, lt: null, updates: null };
@@ -175,6 +191,24 @@ export function makeFakeDb(
         return { data: null, error: null };
       }
 
+      if (name === "submission_batches") {
+        if (st.op === "insert") {
+          const row = Array.isArray(st.updates) ? st.updates[0] : st.updates;
+          const created = { id: `batch-${batches.length + 1}`, created_at: new Date().toISOString(), ...row };
+          batches.push(created);
+          return { data: created, error: null };
+        }
+        if (st.op === "update") {
+          for (const b of batches.filter(matches)) Object.assign(b, st.updates);
+          return { data: null, error: null };
+        }
+        return { data: single ? (batches.filter(matches)[0] ?? null) : batches.filter(matches), error: null };
+      }
+      if (name !== "billing_records") {
+        // billing_settings / state_portal_credentials / anything else: empty.
+        return { data: single ? null : [], error: null };
+      }
+
       const hits = records.filter(matches);
       if (st.op === "update") {
         for (const r of hits) Object.assign(r, st.updates);
@@ -186,6 +220,9 @@ export function makeFakeDb(
 
     return builder;
   }
+
+  /** Lock scope: the HCPF portal account, falling back to the company row. */
+  const accountKeyOf = (r: FakeRecord) => String(r.submit_account_key ?? r.company_id);
 
   const rpc = async (fn: string, args: any = {}) => {
     const now = Date.now();
@@ -219,7 +256,7 @@ export function makeFakeDb(
           r.submit_locked_until &&
           new Date(r.submit_locked_until).getTime() > now;
         if (!live && !leasedElsewhere) continue;
-        const k = String(r.company_id);
+        const k = accountKeyOf(r);
         active.set(k, (active.get(k) ?? 0) + 1);
       }
       const totalActive = [...active.values()].reduce((a, b) => a + b, 0);
@@ -241,15 +278,15 @@ export function makeFakeDb(
 
       const rn = new Map<string, number>();
       const ranked = due.map((r) => {
-        const k = String(r.company_id);
+        const k = accountKeyOf(r);
         const n = (rn.get(k) ?? 0) + 1;
         rn.set(k, n);
         return { r, rn: n };
       });
 
       const picked = ranked
-        .filter((x) => x.rn <= Math.max(pc - (active.get(String(x.r.company_id)) ?? 0), 0))
-        .sort((a, b) => a.rn - b.rn || String(a.r.company_id).localeCompare(String(b.r.company_id)))
+        .filter((x) => x.rn <= Math.max(pc - (active.get(accountKeyOf(x.r)) ?? 0), 0))
+        .sort((a, b) => a.rn - b.rn || accountKeyOf(a.r).localeCompare(accountKeyOf(b.r)))
         .slice(0, Math.max(g - totalActive, 0));
 
       const leased: any[] = [];
@@ -260,6 +297,7 @@ export function makeFakeDb(
         r.submit_locked_until = new Date(now + ls * 1000).toISOString();
         r.submit_lease_started_at = new Date(now).toISOString();
         r.submit_worker = args._worker ?? null;
+        r.submit_heartbeat_at = new Date(now).toISOString();
         leased.push({
           id: r.id,
           trip_id: r.trip_id,
@@ -296,5 +334,6 @@ export function makeFakeDb(
     audits,
     queueState,
     robotWorkers,
+    batches,
   };
 }
