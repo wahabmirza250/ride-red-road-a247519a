@@ -78,6 +78,17 @@ export const submitInfraCooldownMs = () =>
 export const BACKOFF_BASE_MS = 60_000;
 export const BACKOFF_MAX_MS = 30 * 60_000;
 
+/**
+ * IMMEDIATE-REFILL LOOP. After a claim reconciles as finished, the freed
+ * single-flight slot is refilled inside the same tick instead of waiting for
+ * the next cron minute. These are poll/round bounds, NOT a cooldown.
+ */
+export const SUBMIT_REFILL_POLL_MS = envInt("SUBMIT_REFILL_POLL_MS", 4_000, 1_000, 30_000);
+export const SUBMIT_REFILL_MAX_ROUNDS = envInt("SUBMIT_REFILL_MAX_ROUNDS", 20, 0, 100);
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+
 /** Delay before attempt `attempt + 1` (exponential, capped). */
 export function submitBackoffMs(attempt: number): number {
   return Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * Math.pow(2, Math.max(0, attempt)));
