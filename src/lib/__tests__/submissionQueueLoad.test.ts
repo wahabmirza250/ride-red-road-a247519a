@@ -18,6 +18,9 @@ vi.mock("@/lib/billingHelpers", async () => {
     ROBOT_BASE_URL: "https://example.invalid",
     logAudit: vi.fn(async () => {}),
     looksLikeRetryableTimeout: (m: string) => /timed out|timeout/i.test(String(m ?? "")),
+    looksLikePossiblySubmittedTimeout: (m: string) =>
+      /SubmitClaimProf3|after clicking (?:Submit|Confirm)/i.test(String(m ?? "")) &&
+      /timed out|timeout|closed/i.test(String(m ?? "")),
     startRobotSubmission: vi.fn(async (_sb: any, args: any) => {
       const outcome = (plan.get(args.billingRecordId) ?? "fast_success") as any;
       adapter.setMockRobotPlan(() => outcome);

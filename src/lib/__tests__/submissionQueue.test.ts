@@ -17,6 +17,9 @@ vi.mock("@/lib/billingHelpers", async () => {
     }),
     logAudit: vi.fn(async () => {}),
     looksLikeRetryableTimeout: (m: string) => /timed out|timeout/i.test(String(m ?? "")),
+    looksLikePossiblySubmittedTimeout: (m: string) =>
+      /SubmitClaimProf3|after clicking (?:Submit|Confirm)/i.test(String(m ?? "")) &&
+      /timed out|timeout|closed/i.test(String(m ?? "")),
   };
 });
 
@@ -56,6 +59,16 @@ describe("limits", () => {
     expect(isTransientSubmitError("fetch failed")).toBe(true);
     expect(isTransientSubmitError("Member ID is invalid")).toBe(false);
     expect(isAmbiguousSubmitError("confirm page never loaded")).toBe(true);
+    expect(
+      isAmbiguousSubmitError(
+        "Timeout 480000ms exceeded after clicking SubmitClaimProf3; Target page, context or browser has been closed",
+      ),
+    ).toBe(true);
+    expect(
+      isTransientSubmitError(
+        "Timeout 480000ms exceeded after clicking SubmitClaimProf3; Target page, context or browser has been closed",
+      ),
+    ).toBe(false);
   });
 });
 

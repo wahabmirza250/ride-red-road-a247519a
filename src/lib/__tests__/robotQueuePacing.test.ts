@@ -9,6 +9,7 @@ vi.mock("@/lib/billingHelpers", () => ({
   }),
   logAudit: vi.fn(async () => {}),
   looksLikeRetryableTimeout: () => false,
+  looksLikePossiblySubmittedTimeout: () => false,
 }));
 
 import { makeFakeDb, makeRecord } from "./fakeQueueDb";

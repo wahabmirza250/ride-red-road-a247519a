@@ -84,4 +84,27 @@ describe("automatic timeout retry", () => {
     expect(record.auto_retry_count).toBe(0);
     expect(audits.length).toBe(0);
   });
+
+  it("does not downgrade or resubmit when success was already recorded before a timeout arrives", async () => {
+    const record: any = {
+      id: "b3",
+      auto_retry_count: 0,
+      status: "submitted",
+      state_confirmation_number: "2326237001236",
+      medicaid_trips: {
+        robot_confirmation_number: "2326237001236",
+        submitted_confirmation: "2326237001236",
+        robot_last_status: "SUBMITTED",
+      },
+    };
+    const trip: any = { id: "t3", robot_job_id: "job3", robot_last_status: "SUBMITTED" };
+    const sb = makeSupabase(record, trip);
+
+    const out = await maybeAutoRetryTimeout(sb, "b3", "t3", TIMEOUT_ERR, "actor");
+    expect(out.retried).toBe(false);
+    expect(record.status).toBe("submitted");
+    expect(record.auto_retry_count).toBe(0);
+    expect(trip.robot_job_id).toBe("job3");
+    expect(audits.at(-1).action).toBe("auto_retry_skipped_claim_evidence");
+  });
 });

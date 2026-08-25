@@ -23,6 +23,7 @@
 import {
   startRobotSubmission,
   logAudit,
+  looksLikePossiblySubmittedTimeout,
   looksLikeRetryableTimeout,
 } from "@/lib/billingHelpers";
 import {
@@ -98,7 +99,10 @@ export function isTransientSubmitError(msg: string | null | undefined): boolean 
  */
 export function isAmbiguousSubmitError(msg: string | null | undefined): boolean {
   if (!msg) return false;
-  return /confirm|already submitted|claim may exist|SUBMITTED_UNVERIFIED/i.test(String(msg));
+  return (
+    /confirm|already submitted|claim may exist|SUBMITTED_UNVERIFIED/i.test(String(msg)) ||
+    looksLikePossiblySubmittedTimeout(msg)
+  );
 }
 
 /**

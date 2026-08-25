@@ -11,6 +11,11 @@ import { z } from "zod";
 import type { Leg } from "@/lib/medicaidPdf";
 import { legMiles } from "@/lib/claimCalc";
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
+import {
+  formatRobotPayloadDiagnostic,
+  formatRobotPreflightFailure,
+  validateRobotPayloadPreflight,
+} from "@/lib/robotPayload";
 
 /**
  * Billed miles are ALWAYS computed in code from odometer readings —
@@ -180,6 +185,11 @@ export function denverTimeHM(input: Date | string | null | undefined): string {
 }
 
 export function formatTripDateMDY(pickupAt: string | null | undefined): string {
+  if (!pickupAt) throw new Error("Submission blocked: trip/service date is missing.");
+  const d = new Date(pickupAt);
+  if (Number.isNaN(d.getTime())) {
+    throw new Error("Submission blocked: trip/service date is invalid.");
+  }
   const iso = denverDateISO(pickupAt);
   const [yyyy, mm, dd] = iso.split("-");
   return `${mm}/${dd}/${yyyy}`;
@@ -337,7 +347,7 @@ export async function startRobotSubmission(
   const rider = trip.riders;
   const medicaidMemberId: string | null = rider?.medicaid_id ?? null;
   if (!medicaidMemberId) {
-    throw new Error("Rider has no Medicaid member ID");
+    throw new Error("Submission blocked: Medicaid member ID is missing.");
   }
 
 
@@ -362,7 +372,7 @@ export async function startRobotSubmission(
   // last shared gate before the network call, so it independently refuses to
   // open a second live portal session for the same provider account. The app
   // must never depend on the automation worker's own concurrency limit.
-  if (doesSubmit) {
+  {
     const { listActiveRobotJobs } = await import("@/lib/robotQueue.server");
     const companyId = args.companyId ?? trip.company_id ?? null;
     const live = await listActiveRobotJobs(supabase, {
@@ -371,7 +381,9 @@ export async function startRobotSubmission(
     });
     if (live.length > 0) {
       throw new Error(
-        "Another portal session is already running on this provider account — the automation service is temporarily unavailable for this bill. Nothing was submitted; it stays queued.",
+        doesSubmit
+          ? "Another portal session is already running on this provider account — the automation service is temporarily unavailable for this bill. Nothing was submitted; it stays queued."
+          : "Another portal session is already running on this provider account. Try the diagnostic run again in a few minutes.",
       );
     }
   }
@@ -397,7 +409,7 @@ export async function startRobotSubmission(
   }
   const signatureCaptured = Boolean(proofRow?.signature_path || proofRow?.state_pdf_path);
   if (doesSubmit && !signatureCaptured) {
-    throw new Error("Submission blocked: this trip has no signed report on file");
+    throw new Error("Submission blocked: this trip has no signed report on file.");
   }
 
   // FAIL CLOSED ON RATES.
@@ -448,6 +460,7 @@ export async function startRobotSubmission(
 
   const payload = {
     id: jobId,
+    job_id: jobId,
     medicaid_trip_id: trip.id,
     provider_id: providerUserId,
     company_id: rates.companyId,
@@ -469,6 +482,17 @@ export async function startRobotSubmission(
     date_of_service: serviceDateMDY,
     from_date: serviceDateMDY,
     to_date: serviceDateMDY,
+    // Step 1 portal prerequisites. These are fixed for the Colorado Medicaid
+    // professional claim path the robot automates; send explicit aliases so a
+    // missing/defaulted worker field cannot leave Step 1 with only the generic
+    // "required field" message.
+    payer: "Medicaid",
+    payer_type: "Medicaid",
+    claim_payer: "Medicaid",
+    insurance_type: "Medicaid",
+    date_type: "service",
+    date_type_code: "service",
+    service_date_type: "service",
 
 
     // Explicit rates so the automation service never has to guess or fall back
@@ -497,6 +521,9 @@ export async function startRobotSubmission(
     provider_signature_on_file: signatureCaptured,
     signature_on_file: signatureCaptured,
     provider_has_signature_on_file: signatureCaptured,
+    provider_signature_on_file_state: signatureCaptured ? "yes" : "no",
+    signature_on_file_state: signatureCaptured ? "yes" : "no",
+    provider_has_signature_on_file_state: signatureCaptured ? "yes" : "no",
     // "Did the Driver verify the member's identity?" at the portal. Explicit
     // aliases so the robot reads whichever key it implements.
     identity_verified: proofRow?.identity_verified !== false,
@@ -555,6 +582,23 @@ export async function startRobotSubmission(
     expected_service_lines: 2,
   };
 
+  const preflight = validateRobotPayloadPreflight(payload, { doesSubmit });
+  if (!preflight.ok) {
+    const msg = formatRobotPreflightFailure(preflight);
+    const diagnostics = JSON.stringify({
+      ...formatRobotPayloadDiagnostic(payload),
+      issues: preflight.issues,
+    });
+    await supabase.from("billing_audit_log").insert({
+      billing_record_id: billingRecordId,
+      action: "robot_payload_preflight_failed",
+      actor_id: providerUserId,
+      actor_type: "admin",
+      notes: diagnostics,
+    });
+    throw new Error(msg);
+  }
+
   // Persist the safety-critical outbound values before contacting the robot.
   // This intentionally excludes member/provider identifiers and gives future
   // incident reviews the exact flags sent for a specific job attempt.
@@ -576,6 +620,9 @@ export async function startRobotSubmission(
       trip_date_sent: payload.trip_date,
       patient_number_sent: payload.patient_number,
       member_id_last4: String(payload.member_id ?? "").slice(-4),
+      payer_sent: payload.payer,
+      date_type_sent: payload.date_type,
+      signature_on_file_state: payload.signature_on_file_state,
       is_round_trip: payload.is_round_trip,
       diagnosis_code_sent: payload.diagnosis_code,
 
@@ -663,6 +710,22 @@ export function looksLikePostConfirmTimeout(raw: string | null | undefined): boo
 }
 
 /**
+ * Any timeout/closed-browser after the robot reached Submit/Confirm is an
+ * ambiguous portal outcome. It must go to read-only verification, never back to
+ * the submit queue, because a real claim may already exist.
+ */
+export function looksLikePossiblySubmittedTimeout(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  const t = String(raw);
+  const reachedSubmitOrConfirm =
+    /ConfirmCmnButton|SubmitClaimProf3|Submit\s*Claim|Confirm Professional Claim|click(?:ed)?\s*(?:Submit|Confirm)/i.test(t) ||
+    (/confirm|submit/i.test(t) && /click action done|after clicking|postback/i.test(t));
+  const timeoutOrClosed =
+    /Timeout \d+ms exceeded|timed out|navigation timeout|browser has been closed|Target page, context or browser has been closed|closed browser|page closed/i.test(t);
+  return reachedSubmitOrConfirm && timeoutOrClosed;
+}
+
+/**
  * DEFINITIVELY NOT SUBMITTED.
  *
  * The portal rejected Step 3 (or the run aborted on the pre-Submit guard)
@@ -707,6 +770,7 @@ export function looksLikeRetryableTimeout(raw: string | null | undefined): boole
     /invalid/i.test(t) ||
     /not eligible|eligibility/i.test(t) ||
     /duplicate/i.test(t) ||
+    looksLikePossiblySubmittedTimeout(t) ||
     /date .*future/i.test(t);
   if (dataProblem) return false;
   return (

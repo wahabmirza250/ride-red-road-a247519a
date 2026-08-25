@@ -9,6 +9,7 @@
 import {
   logAudit,
   ROBOT_BASE_URL,
+  looksLikePossiblySubmittedTimeout,
   looksLikePostConfirmTimeout,
   looksLikeNoServiceLinesFailure,
   UNVERIFIED_SUBMIT_STATUS,
@@ -354,11 +355,10 @@ export async function reconcileRobotJob(
     // FALSE-FAILURE GUARD: the Confirm click landed and only the navigation
     // wait timed out. The claim is very likely live at the portal, so this must
     // NEVER go back into a retryable state — that would double-submit.
-    if (pass === "submit" && looksLikePostConfirmTimeout(errMsg)) {
+    if (pass === "submit" && (looksLikePostConfirmTimeout(errMsg) || looksLikePossiblySubmittedTimeout(errMsg))) {
       const warn =
-        "The portal Confirm button was clicked successfully, but the page did not " +
-        "finish loading before the automation timed out. The claim was most likely " +
-        "SUBMITTED. An automatic read-only portal search will now run every few " +
+        "The automation reached the portal Submit/Confirm area, then timed out or the browser closed. " +
+        "A claim may already exist. An automatic read-only portal search will now run every few " +
         "minutes to find the real claim number — do NOT resubmit.";
       await supabase
         .from("medicaid_trips")
@@ -374,6 +374,9 @@ export async function reconcileRobotJob(
           status: "submitting",
           submission_error: warn,
           requires_human_step: false,
+          submit_next_attempt_at: null,
+          submit_locked_until: null,
+          submit_worker: null,
         })
         .eq("id", rec.id);
       await logAudit(supabase, rec.id, userId, "robot_submit_unverified", `${warn} :: ${errMsg.slice(0, 500)}`);
