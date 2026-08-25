@@ -94,7 +94,10 @@ type TabKey =
   | "medical_review"
   | "awaiting_portal"
   | "submitted"
-  | "claims_history";
+  | "claims_history"
+  | "payroll"
+  | "denied";
+
 
 const TABS: {
   key: TabKey;
