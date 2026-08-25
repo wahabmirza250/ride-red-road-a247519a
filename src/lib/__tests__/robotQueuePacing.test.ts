@@ -29,32 +29,33 @@ describe("per-passenger dispatch pacing", () => {
 
     const res = await dispatchNextQueued(supabase, "actor", "co1");
 
-    // The company cap bounds one pass; within it, one passenger never takes
-    // more than its own cap.
+    // Strict single flight: one company gets exactly one live portal session.
     expect(res.startedIds.length).toBeLessThanOrEqual(maxSubmitPerCompany());
     const aCount = started.filter((s) => s.trip.rider_id === "riderA").length;
     expect(aCount).toBeLessThanOrEqual(MAX_CONCURRENT_JOBS_PER_RIDER);
-    // Remaining same-passenger bills stay parked, not failed.
+    // Remaining bills stay parked, not failed.
     expect(records.filter((r) => r.status === "queued").length).toBeGreaterThan(0);
   });
 
-  it("releases the next same-passenger bill as its slots free up", async () => {
+  it("releases the next bill only after the live job reaches a terminal state", async () => {
     const records = [
       makeRecord("1", { riderId: "riderA", status: "submitting", jobId: "job1" }),
-      makeRecord("2", { riderId: "riderA", status: "submitting", jobId: "job2" }),
-      makeRecord("3", { riderId: "riderA" }),
-      makeRecord("4", { riderId: "riderB" }),
+      makeRecord("2", { riderId: "riderA" }),
+      makeRecord("3", { riderId: "riderB" }),
     ];
     const { supabase } = makeFakeDb(records);
 
-    // Both riderA sessions live: only riderB may start.
+    // A session is live for this provider account: nothing new may start.
     let res = await dispatchNextQueued(supabase, "actor", "co1");
-    expect(res.startedIds).toEqual(["4"]);
+    expect(res.startedIds).toEqual([]);
+    expect(started.length).toBe(0);
 
-    // One riderA job finishes → the parked riderA bill goes automatically.
+    // The live job finishes → exactly one queued bill goes.
     records[0]!.status = "submitted";
-    started.length = 0;
+    records[0]!.medicaid_trips.robot_job_id = null;
     res = await dispatchNextQueued(supabase, "actor", "co1");
-    expect(res.startedIds).toEqual(["3"]);
+    expect(res.startedIds.length).toBe(1);
+    expect(started.length).toBe(1);
   });
 });
+
