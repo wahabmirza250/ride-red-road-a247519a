@@ -24,6 +24,9 @@ vi.mock("@/lib/billingHelpers", async () => {
     ROBOT_BASE_URL: "https://legacy.test",
     logAudit: vi.fn(async () => {}),
     looksLikeRetryableTimeout: (m: string) => /timed out|timeout/i.test(String(m ?? "")),
+    looksLikePossiblySubmittedTimeout: (m: string) =>
+      /SubmitClaimProf3|after clicking (?:Submit|Confirm)/i.test(String(m ?? "")) &&
+      /timed out|timeout|closed/i.test(String(m ?? "")),
     startRobotSubmission: vi.fn(async (sb: any, args: any) => {
       const out = await fleet.dispatchToFleet(sb, {
         payload: { company_id: args.companyId, billing_record_id: args.billingRecordId },

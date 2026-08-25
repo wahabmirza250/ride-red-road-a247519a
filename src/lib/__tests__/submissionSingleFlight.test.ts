@@ -22,6 +22,9 @@ vi.mock("@/lib/billingHelpers", () => ({
   }),
   logAudit: vi.fn(async () => {}),
   looksLikeRetryableTimeout: (m: string) => /timed out|timeout/i.test(String(m ?? "")),
+  looksLikePossiblySubmittedTimeout: (m: string) =>
+    /SubmitClaimProf3|after clicking (?:Submit|Confirm)/i.test(String(m ?? "")) &&
+    /timed out|timeout|closed/i.test(String(m ?? "")),
 }));
 
 import { makeFakeDb, makeRecord } from "./fakeQueueDb";
