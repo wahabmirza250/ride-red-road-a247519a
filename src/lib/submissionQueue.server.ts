@@ -28,6 +28,7 @@ import {
 } from "@/lib/billingHelpers";
 import {
   isInfrastructureSubmitError,
+  classifySubmitFailure,
   sanitizeSubmitError,
   AMBIGUOUS_USER_MESSAGE,
   isPortalStep1ValidationFailure,
@@ -144,6 +145,8 @@ export async function parkForVerification(
       submit_worker: null,
       submit_next_attempt_at: null,
       submit_last_error: note.slice(0, 500),
+      failure_stage: "portal_submit",
+      failure_code: "ambiguous_outcome",
     })
     .eq("id", args.id);
   await logAudit(supabase, args.id, args.actorId, "submission_awaiting_verification", note);
@@ -259,6 +262,8 @@ export async function recoverOrphanedSubmissions(
         requires_human_step: true,
         submission_error: msg,
         fix_notes: msg,
+        failure_stage: "worker",
+        failure_code: "worker_unavailable",
         submit_locked_until: null,
         submit_worker: null,
         submit_last_error: msg,
@@ -327,6 +332,7 @@ export async function scheduleRetryOrFail(
   // Diagnostics stay in `submit_last_error` / the audit log; the biller sees a
   // short sentence, never a Playwright stack trace.
   const userMsg = sanitizeSubmitError(error);
+  const failure = classifySubmitFailure(error);
 
   if (canRetry) {
     // A worker/browser failure means the whole worker is unhealthy, so wait out
@@ -340,11 +346,14 @@ export async function scheduleRetryOrFail(
         status: "queued",
         submit_attempt_count: nextAttempt,
         submit_next_attempt_at: new Date(Date.now() + delay).toISOString(),
+        submit_heartbeat_at: null,
         submit_locked_until: null,
         submit_worker: null,
         submit_last_error: error.slice(0, 500),
         submission_error: userMsg,
         requires_human_step: false,
+        failure_stage: failure.stage,
+        failure_code: failure.code,
       })
       .eq("id", id);
     await logAudit(
@@ -369,6 +378,8 @@ export async function scheduleRetryOrFail(
         submission_error: step1 ? PORTAL_STEP1_USER_MESSAGE : ambiguous ? AMBIGUOUS_USER_MESSAGE : userMsg,
         fix_notes: (step1 ? `${PORTAL_STEP1_USER_MESSAGE} ` : ambiguous ? `${AMBIGUOUS_USER_MESSAGE} ` : "") + error.slice(0, 400),
         requires_human_step: ambiguous || step1,
+        failure_stage: failure.stage,
+        failure_code: failure.code,
     })
     .eq("id", id);
   await logAudit(
@@ -524,7 +535,14 @@ export async function dispatchLeasedSubmissions(
       // never both flip the same row.
       const { data: claimed } = await supabase
         .from("billing_records")
-        .update({ status: "submitting", submission_error: null, requires_human_step: false })
+        .update({
+          status: "submitting",
+          submission_error: null,
+          requires_human_step: false,
+          submit_heartbeat_at: new Date().toISOString(),
+          failure_stage: null,
+          failure_code: null,
+        })
         .eq("id", rec.id)
         .eq("status", "queued")
         .select("id");

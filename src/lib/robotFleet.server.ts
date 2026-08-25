@@ -28,6 +28,8 @@ export type FleetWorker = {
   last_health_error: string | null;
   failure_streak: number;
   unhealthy_until: string | null;
+  /** Companies this worker is dedicated to. Empty/undefined = serves any. */
+  company_ids?: string[];
   source: "env" | "db";
 };
 
@@ -114,6 +116,9 @@ export function mergeFleet(envWorkers: FleetWorker[], dbRows: any[]): FleetWorke
       last_health_error: row.last_health_error ?? null,
       failure_streak: Number(row.failure_streak ?? 0),
       unhealthy_until: row.unhealthy_until ?? null,
+      company_ids: Array.isArray(row.company_ids)
+        ? (row.company_ids as string[]).filter(Boolean)
+        : [],
       source: base ? "env" : "db",
     });
   }
@@ -139,6 +144,19 @@ export async function loadFleet(supabase: any): Promise<FleetWorker[]> {
     /* registry is an enhancement — never block dispatch on it */
   }
   return mergeFleet(envWorkers, rows);
+}
+
+/**
+ * ACCOUNT/COMPANY-AWARE ROUTING.
+ *
+ * A worker with `company_ids` is dedicated to those companies only; a worker
+ * with none is general-purpose. This is what lets capacity be added per company
+ * later without ever letting two workers share one HCPF account.
+ */
+export function workerServesCompany(w: FleetWorker, companyId: string | null | undefined): boolean {
+  const list = w.company_ids ?? [];
+  if (list.length === 0) return true;
+  return companyId ? list.includes(companyId) : false;
 }
 
 export function isWorkerHealthy(w: FleetWorker, now: number = Date.now()): boolean {
@@ -201,7 +219,9 @@ export function pickWorkerForCompany(
   opts: { exclude?: string[]; now?: number; ignoreCapacity?: boolean } = {},
 ): FleetWorker | null {
   const now = opts.now ?? Date.now();
-  const pool = healthyWorkers(fleet, now).filter((w) => !(opts.exclude ?? []).includes(w.id));
+  const pool = healthyWorkers(fleet, now)
+    .filter((w) => !(opts.exclude ?? []).includes(w.id))
+    .filter((w) => workerServesCompany(w, companyId));
   if (pool.length === 0) return null;
   const home = hashString(String(companyId ?? "no-company")) % pool.length;
   for (let i = 0; i < pool.length; i++) {

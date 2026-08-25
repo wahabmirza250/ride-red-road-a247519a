@@ -89,3 +89,51 @@ export function sanitizeSubmitError(msg: string | null | undefined): string {
   const clean = firstLine.replace(/\s+/g, " ").trim();
   return clean.length > 200 ? `${clean.slice(0, 197)}...` : clean;
 }
+
+/* ---------------- Machine-readable failure taxonomy ---------------------- */
+
+/**
+ * A stable (stage, code) pair for every failure, persisted on the billing
+ * record so the UI, metrics and support can reason about failures WITHOUT ever
+ * rendering raw Playwright text.
+ *
+ * stage: where in the pipeline it broke.
+ * code:  what broke, in a fixed vocabulary.
+ */
+export type SubmitFailureStage =
+  | "preflight"
+  | "dispatch"
+  | "portal_step1"
+  | "portal_submit"
+  | "worker"
+  | "reconcile"
+  | "unknown";
+
+export type SubmitFailureCode =
+  | "missing_required_data"
+  | "portal_step1_required_field"
+  | "ambiguous_outcome"
+  | "worker_unavailable"
+  | "network"
+  | "account_busy"
+  | "portal_rejected"
+  | "unknown";
+
+export function classifySubmitFailure(
+  msg: string | null | undefined,
+): { stage: SubmitFailureStage; code: SubmitFailureCode } {
+  const s = String(msg ?? "").trim();
+  if (!s) return { stage: "unknown", code: "unknown" };
+  if (isPortalStep1ValidationFailure(s))
+    return { stage: "portal_step1", code: "portal_step1_required_field" };
+  if (AMBIGUOUS_PATTERNS.some((re) => re.test(s)))
+    return { stage: "portal_submit", code: "ambiguous_outcome" };
+  if (/already running on this account|single.?flight|account is busy/i.test(s))
+    return { stage: "dispatch", code: "account_busy" };
+  if (/required|missing|invalid|must be|not configured|no provider/i.test(s) && !isInfrastructureSubmitError(s))
+    return { stage: "preflight", code: "missing_required_data" };
+  if (isInfrastructureSubmitError(s)) return { stage: "worker", code: "worker_unavailable" };
+  if (/fetch failed|network|ECONN|socket hang up|50\d/i.test(s))
+    return { stage: "worker", code: "network" };
+  return { stage: "portal_submit", code: "portal_rejected" };
+}

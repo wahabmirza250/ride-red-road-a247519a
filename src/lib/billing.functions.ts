@@ -577,7 +577,13 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
     const skipped: Array<{ id: string; reason: string }> = [];
     const duplicates: string[] = [];
     const companies = new Set<string | null>();
-    const toQueue: string[] = [];
+    const candidates: Array<{
+      id: string;
+      companyId: string | null;
+      tripId: string;
+      serviceDate: string | null;
+      resubmit: boolean;
+    }> = [];
 
     for (const rec of recs ?? []) {
       const trip: any = (rec as any).medicaid_trips;
@@ -607,6 +613,7 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
           mode: "full",
         });
       } catch (e) {
+        // STEP-1 FAIL CLOSED: this bill is parked, the batch keeps going.
         const msg = e instanceof Error ? e.message : "Submission blocked: required claim data is missing.";
         skipped.push({ id: rec.id as string, reason: msg });
         await supabase
@@ -616,41 +623,48 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
             submission_error: msg,
             fix_notes: msg,
             requires_human_step: true,
+            failure_stage: "preflight",
+            failure_code: "missing_required_data",
           })
           .eq("id", rec.id);
         continue;
       }
-      toQueue.push(rec.id as string);
+      candidates.push({
+        id: rec.id as string,
+        companyId: trip?.company_id ?? null,
+        tripId: (rec as any).trip_id ?? trip?.id,
+        serviceDate: trip?.pickup_at ?? null,
+        resubmit: isResubmit && data.acknowledge_duplicate,
+      });
       companies.add(trip?.company_id ?? null);
     }
 
-    if (toQueue.length === 0) {
-      return { queued: 0, started: 0, startedIds: [] as string[], skipped, duplicates };
+    if (candidates.length === 0) {
+      return {
+        queued: 0,
+        started: 0,
+        startedIds: [] as string[],
+        skipped,
+        duplicates,
+        batch_id: null as string | null,
+      };
     }
 
-    // ENQUEUE ONLY. The click never waits on portal work: every selected bill
-    // is persisted as `queued` with a fresh attempt budget, and the leasing
-    // workers (in-app sweep + one-minute cron) dispatch them within the
-    // per-company and global concurrency caps. Crash-safe by construction.
-    const { error: qErr } = await supabase
-      .from("billing_records")
-      .update({
-        status: "queued",
-        submission_error: null,
-        requires_human_step: false,
-        submit_attempt_count: 0,
-        submit_next_attempt_at: null,
-        submit_locked_until: null,
-        submit_worker: null,
-        submit_last_error: null,
-      })
-      .in("id", toQueue);
-    if (qErr) throw new Error(qErr.message);
-    for (const id of toQueue) {
-      await logAudit(supabase, id, userId, "queued_for_bulk_submit");
-    }
+    // ENQUEUE ONLY, ACCOUNT-SCOPED AND IDEMPOTENT. The click never waits on
+    // portal work: every selected bill is persisted as `queued`, stamped with
+    // the HCPF account key it must serialize on plus an immutable idempotency
+    // key, and the leasing workers (in-app sweep + one-minute cron) dispatch
+    // them within the per-account and global caps. Crash-safe by construction.
+    const { enqueueSubmissionBatch } = await import("@/lib/submissionBatch.server");
+    const batch = await enqueueSubmissionBatch(supabase, {
+      actorId: userId,
+      candidates,
+      label: `Batch of ${candidates.length}`,
+    });
+    duplicates.push(...batch.duplicates);
+    for (const f of batch.failed) skipped.push({ id: f.id, reason: f.reason });
 
-    // Best-effort immediate kick so the first batch starts without waiting for
+    // Best-effort immediate kick so the first bill starts without waiting for
     // the next tick. Bounded by the same leases: it can never exceed the caps,
     // and anything not started simply stays queued.
     const startedIds: string[] = [];
@@ -667,11 +681,12 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
     }
 
     return {
-      queued: toQueue.length,
+      queued: batch.enqueued.length,
       started: startedIds.length,
       startedIds,
       skipped,
       duplicates,
+      batch_id: batch.batchId,
     };
   });
 

@@ -161,6 +161,8 @@ export type Database = {
           auto_retry_count: number
           company_id: string | null
           created_at: string
+          failure_code: string | null
+          failure_stage: string | null
           fix_notes: string | null
           id: string
           portal_status_raw: string | null
@@ -179,7 +181,11 @@ export type Database = {
           status_check_worker: string | null
           status_checked_at: string | null
           submission_error: string | null
+          submit_account_key: string | null
           submit_attempt_count: number
+          submit_batch_id: string | null
+          submit_heartbeat_at: string | null
+          submit_idempotency_key: string | null
           submit_last_error: string | null
           submit_last_ms: number | null
           submit_lease_started_at: string | null
@@ -195,6 +201,8 @@ export type Database = {
           auto_retry_count?: number
           company_id?: string | null
           created_at?: string
+          failure_code?: string | null
+          failure_stage?: string | null
           fix_notes?: string | null
           id?: string
           portal_status_raw?: string | null
@@ -213,7 +221,11 @@ export type Database = {
           status_check_worker?: string | null
           status_checked_at?: string | null
           submission_error?: string | null
+          submit_account_key?: string | null
           submit_attempt_count?: number
+          submit_batch_id?: string | null
+          submit_heartbeat_at?: string | null
+          submit_idempotency_key?: string | null
           submit_last_error?: string | null
           submit_last_ms?: number | null
           submit_lease_started_at?: string | null
@@ -229,6 +241,8 @@ export type Database = {
           auto_retry_count?: number
           company_id?: string | null
           created_at?: string
+          failure_code?: string | null
+          failure_stage?: string | null
           fix_notes?: string | null
           id?: string
           portal_status_raw?: string | null
@@ -247,7 +261,11 @@ export type Database = {
           status_check_worker?: string | null
           status_checked_at?: string | null
           submission_error?: string | null
+          submit_account_key?: string | null
           submit_attempt_count?: number
+          submit_batch_id?: string | null
+          submit_heartbeat_at?: string | null
+          submit_idempotency_key?: string | null
           submit_last_error?: string | null
           submit_last_ms?: number | null
           submit_lease_started_at?: string | null
@@ -2708,6 +2726,7 @@ export type Database = {
       robot_workers: {
         Row: {
           base_url: string
+          company_ids: string[] | null
           created_at: string
           enabled: boolean
           failure_streak: number
@@ -2721,6 +2740,7 @@ export type Database = {
         }
         Insert: {
           base_url: string
+          company_ids?: string[] | null
           created_at?: string
           enabled?: boolean
           failure_streak?: number
@@ -2734,6 +2754,7 @@ export type Database = {
         }
         Update: {
           base_url?: string
+          company_ids?: string[] | null
           created_at?: string
           enabled?: boolean
           failure_streak?: number
@@ -3217,6 +3238,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      submission_batches: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string | null
+          total_enqueued: number
+          total_rejected: number
+          total_requested: number
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          total_enqueued?: number
+          total_rejected?: number
+          total_requested?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          total_enqueued?: number
+          total_rejected?: number
+          total_requested?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_batches_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       submission_queue_state: {
         Row: {

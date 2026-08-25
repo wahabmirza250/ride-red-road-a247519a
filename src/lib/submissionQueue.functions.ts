@@ -222,3 +222,17 @@ export const runSubmissionQueueNow = createServerFn({ method: "POST" })
       worker: `manual-${userId.slice(0, 8)}`,
     });
   });
+
+/**
+ * LIVE BATCH PROGRESS for the biller who clicked Submit. Read-only, RLS-scoped
+ * and free of any worker/portal internals.
+ */
+export const getSubmissionBatchProgress = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ batch_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertBillingOrAdmin(supabase, userId);
+    const { getBatchProgress } = await import("@/lib/submissionBatch.server");
+    return getBatchProgress(supabase, data.batch_id);
+  });
