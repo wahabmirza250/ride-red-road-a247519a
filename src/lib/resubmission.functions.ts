@@ -148,7 +148,7 @@ export const prepareResubmission = createServerFn({ method: "POST" })
     const { data: legs } = await supabase
       .from("medicaid_trip_legs")
       .select("leg_index, pickup_odometer, dropoff_odometer")
-      .eq("trip_id", trip.id)
+      .eq("medicaid_trip_id", trip.id)
       .order("leg_index");
     const lines = ((legs ?? []) as any[]).length ? (legs as any[]) : [{ leg_index: 1 }];
     await supabase.from("claim_service_lines").insert(
