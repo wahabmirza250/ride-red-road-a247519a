@@ -368,7 +368,7 @@ export async function sweepRobotJobs(
   supabase: any,
   actorId: string | null,
   companyId?: string | null,
-  opts: { refill?: boolean } = {},
+  opts: { refill?: boolean; refillMaxRounds?: number } = {},
 ): Promise<{ checked: number; settled: number; started: string | null; startedIds: string[] }> {
   const { runSubmissionQueueTick } = await import("@/lib/submissionQueue.server");
   // Background sweeps keep refilling the freed single-flight slot in-tick, so a
@@ -377,6 +377,8 @@ export async function sweepRobotJobs(
     actorId,
     companyId,
     refill: opts.refill ?? false,
+    // Bounded so one company can never monopolise a multi-tenant sweep.
+    refillMaxRounds: opts.refill ? (opts.refillMaxRounds ?? 5) : 0,
   });
   return {
     checked: tick.checked,
