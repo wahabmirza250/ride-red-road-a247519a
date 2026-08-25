@@ -75,10 +75,21 @@ export function SubmissionQueuePanel() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not change the pause state"),
   });
 
+  const doneFn = useServerFn(getSubmissionDoneFeed);
+  const done = useQuery({
+    queryKey: ["submission_done_feed"],
+    queryFn: () => doneFn({ data: {} }) as Promise<DoneFeedShape>,
+    retry: false,
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: true,
+  });
+
   const health = deriveQueueHealth(state.data);
   const t = totalsFromState(state.data);
   const limits = state.data?.limits;
   const fleet = state.data?.fleet;
+  const tp = throughputSummary(done.data?.claims ?? [], t.queued + t.processing);
+
 
   const tone =
     health.level === "paused"
