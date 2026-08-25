@@ -716,6 +716,21 @@ function ReadyToSubmitTab({
   const [fixId, setFixId] = useState<string | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
 
+  // REVIEW WARNING ONLY: same company + same member + same date of service.
+  // Nothing is merged and no modifier is applied — the biller decides.
+  const sameDayIds = useMemo(
+    () =>
+      sameDayFlaggedTripIds(
+        rows.map((r: any) => ({
+          trip_id: r.id,
+          company_id: r.company_id ?? null,
+          medicaid_id: r.medicaid_id ?? null,
+          service_date: r.pickup_at ?? null,
+        })),
+      ),
+    [rows],
+  );
+
   // A bill that already carries a portal confirmation number is a real live
   // claim, whatever its billing status says — never selectable for submit or
   // delete here.
@@ -916,6 +931,11 @@ function ReadyToSubmitTab({
               <td className="px-4 py-3">
                 <div className="font-medium">{r.passenger_name ?? "—"}</div>
                 <div className="text-xs text-muted-foreground">{r.medicaid_id}</div>
+                {sameDayIds.has(r.id) && (
+                  <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600">
+                    <AlertTriangle className="h-3 w-3" /> Multiple trips this service date
+                  </div>
+                )}
               </td>
               <td className="px-4 py-3 text-muted-foreground">
                 {formatDateTime(r.pickup_at)}
