@@ -68,6 +68,7 @@ export function normalizeRobotPayloadContract(input: Record<string, unknown>): N
       input.patient_id,
       input.portal_patient_number,
       input.trip_id,
+      input.id,
     ),
     service_date: str(
       input.service_date_mdy,
