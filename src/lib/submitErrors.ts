@@ -38,6 +38,9 @@ const AMBIGUOUS_PATTERNS = [
   /already submitted/i,
   /claim may exist/i,
   /SUBMITTED_UNVERIFIED/i,
+  /SubmitClaimProf3/i,
+  /ConfirmCmnButton/i,
+  /after clicking (?:Submit|Confirm)/i,
 ];
 
 /** Worker/browser-level failure: safe to retry later, never proof of a claim. */
