@@ -111,10 +111,10 @@ export const listPayrollClaims = createServerFn({ method: "POST" })
               .eq("kind", "claim")
               .in("ref_id", ids)
           : Promise.resolve({ data: [] as any[] }),
-        (await import("@/lib/claimAmount.server")).computeClaimTotals(supabase, rows),
+        computeClaimTotals(supabase, rows),
         resolveDriverPayForClaims(supabase, companyId, rows),
       ]);
-      void computeClaimTotals;
+
 
       const recOf = new Map(((records ?? []) as any[]).map((r) => [r.trip_id, r]));
       const itemOf = new Map(((items ?? []) as any[]).map((i) => [i.ref_id, i]));
