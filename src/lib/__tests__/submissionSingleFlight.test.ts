@@ -42,6 +42,7 @@ import {
   isInfrastructureSubmitError,
   sanitizeSubmitError,
   INFRA_USER_MESSAGE,
+  PORTAL_STEP1_USER_MESSAGE,
 } from "@/lib/submitErrors";
 
 let realFetch: typeof globalThis.fetch;
@@ -216,6 +217,21 @@ describe("ambiguous outcomes are never auto-resubmitted", () => {
     });
     expect(out).toBe("failed");
     expect(rec.requires_human_step).toBe(true);
+  });
+
+  it("stops for a human on portal Step 1 required-field failures", async () => {
+    const rec = makeRecord("1", { riderId: "rA" });
+    const { supabase } = makeFakeDb([rec]);
+    const out = await scheduleRetryOrFail(supabase, {
+      id: "1",
+      tripId: "t1",
+      attempt: 0,
+      error: "Still on Step 1 after clicking Continue. Errors: * Indicates a required field.",
+      actorId: null,
+    });
+    expect(out).toBe("failed");
+    expect(rec.requires_human_step).toBe(true);
+    expect(rec.submission_error).toBe(PORTAL_STEP1_USER_MESSAGE);
   });
 });
 

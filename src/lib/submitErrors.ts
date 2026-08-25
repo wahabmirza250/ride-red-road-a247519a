@@ -43,6 +43,12 @@ const AMBIGUOUS_PATTERNS = [
   /after clicking (?:Submit|Confirm)/i,
 ];
 
+const PORTAL_STEP1_PATTERNS = [
+  /Still on Step 1 after clicking Continue/i,
+  /Step\s*1[^\n]*(?:validation|required field|\* Indicates a required field)/i,
+  /\* Indicates a required field/i,
+];
+
 /** Worker/browser-level failure: safe to retry later, never proof of a claim. */
 export function isInfrastructureSubmitError(msg: string | null | undefined): boolean {
   if (!msg) return false;
@@ -55,6 +61,15 @@ export const INFRA_USER_MESSAGE =
   "Submission worker temporarily unavailable — queued for safe retry.";
 export const AMBIGUOUS_USER_MESSAGE =
   "The portal outcome could not be verified — awaiting verification. This bill was NOT resubmitted automatically.";
+export const PORTAL_STEP1_USER_MESSAGE =
+  "Portal Step 1 validation failed — do not retry automatically.";
+
+/** Portal Step 1 rebuilt/posted back with a missing required field. */
+export function isPortalStep1ValidationFailure(msg: string | null | undefined): boolean {
+  if (!msg) return false;
+  const s = String(msg);
+  return PORTAL_STEP1_PATTERNS.some((re) => re.test(s));
+}
 
 /**
  * Strip stack traces / raw automation noise and return one short sentence that
@@ -63,6 +78,7 @@ export const AMBIGUOUS_USER_MESSAGE =
 export function sanitizeSubmitError(msg: string | null | undefined): string {
   const raw = String(msg ?? "").trim();
   if (!raw) return "Submission could not be started. It is queued for a safe retry.";
+  if (isPortalStep1ValidationFailure(raw)) return PORTAL_STEP1_USER_MESSAGE;
   if (isInfrastructureSubmitError(raw)) return INFRA_USER_MESSAGE;
 
   const firstLine =

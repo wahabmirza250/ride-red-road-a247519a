@@ -175,6 +175,7 @@ export function BillingDetailSheet({
   const rec = detail.data?.record as any;
   const trip = detail.data?.trip as any;
   const rider = trip?.riders;
+  const diagnostic = detail.data?.robot_diagnostic as any;
 
   const robotJobId: string | null = trip?.robot_job_id ?? null;
   const robotStatus: string | null = trip?.robot_last_status ?? null;
@@ -295,6 +296,7 @@ export function BillingDetailSheet({
               <Field label="Odometer end" value={trip?.odometer_end} />
               <Field label="Miles" value={trip?.miles} />
             </div>
+            {diagnostic && <RobotDiagnosticPanel diagnostic={diagnostic} />}
             <Field label="Pickup address" value={trip?.pickup_address} />
             <Field label="Drop-off address" value={trip?.dropoff_address} />
 
@@ -539,6 +541,46 @@ export function BillingDetailSheet({
       </SheetContent>
     </Sheet>
 
+  );
+}
+
+function RobotDiagnosticPanel({ diagnostic }: { diagnostic: any }) {
+  const items = [
+    ["Company", diagnostic.has_company ? "yes" : "no"],
+    ["Member last4", diagnostic.member_last4 ?? "—"],
+    ["Service date", diagnostic.service_date ?? "—"],
+    ["Patient last4", diagnostic.patient_last4 ?? "—"],
+    ["Signature", diagnostic.signature_on_file_state ?? "unknown"],
+    ["Portal config", diagnostic.has_portal_config ? "yes" : "no"],
+    ["Rates", diagnostic.has_rates ? "yes" : "no"],
+    ["Vehicle", diagnostic.vehicle_type ?? "—"],
+    ["Miles", diagnostic.miles ?? "—"],
+    ["Trip units", diagnostic.trip_units ?? "—"],
+  ];
+  return (
+    <div className="rounded-xl border border-border bg-surface p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <Label>Submission preflight</Label>
+        <span className={diagnostic.ok ? "text-xs text-success" : "text-xs text-destructive"}>
+          {diagnostic.ok ? "ready" : "blocked"}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+        {items.map(([label, value]) => (
+          <div key={label}>
+            <div className="text-muted-foreground">{label}</div>
+            <div className="font-medium">{String(value)}</div>
+          </div>
+        ))}
+      </div>
+      {Array.isArray(diagnostic.issues) && diagnostic.issues.length > 0 && (
+        <div className="mt-2 space-y-1 text-xs text-destructive">
+          {diagnostic.issues.map((issue: any) => (
+            <div key={`${issue.field}-${issue.message}`}>{issue.message}</div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

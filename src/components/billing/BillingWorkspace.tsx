@@ -695,6 +695,7 @@ function ReadyToSubmitTab({
         .filter(
           (r) =>
             (r.status === "approved" || r.status === "needs_fix") &&
+            !r.requires_human_step &&
             !r.state_confirmation_number,
         )
         .map((r) => r.id as string),
@@ -862,7 +863,7 @@ function ReadyToSubmitTab({
           { label: "PDF" },
         ]}
         renderRow={(r: any) => {
-          const canSelect = r.status === "approved" || r.status === "needs_fix";
+          const canSelect = (r.status === "approved" || r.status === "needs_fix") && !r.requires_human_step;
           const isRunning = submittingIds.has(r.id) || r.status === "submitting";
           return (
             <tr

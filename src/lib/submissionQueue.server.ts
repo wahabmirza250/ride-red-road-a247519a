@@ -30,6 +30,8 @@ import {
   isInfrastructureSubmitError,
   sanitizeSubmitError,
   AMBIGUOUS_USER_MESSAGE,
+  isPortalStep1ValidationFailure,
+  PORTAL_STEP1_USER_MESSAGE,
 } from "@/lib/submitErrors";
 
 import {
@@ -318,8 +320,9 @@ export async function scheduleRetryOrFail(
   const { id, attempt, error, actorId } = args;
   const nextAttempt = attempt + 1;
   const ambiguous = isAmbiguousSubmitError(error);
+  const step1 = isPortalStep1ValidationFailure(error);
   const infra = isInfrastructureSubmitError(error);
-  const transient = isTransientSubmitError(error) && !ambiguous;
+  const transient = isTransientSubmitError(error) && !ambiguous && !step1;
   const canRetry = transient && nextAttempt < maxSubmitAttempts();
   // Diagnostics stay in `submit_last_error` / the audit log; the biller sees a
   // short sentence, never a Playwright stack trace.
@@ -363,9 +366,9 @@ export async function scheduleRetryOrFail(
       submit_locked_until: null,
       submit_worker: null,
       submit_last_error: error.slice(0, 500),
-      submission_error: ambiguous ? AMBIGUOUS_USER_MESSAGE : userMsg,
-      fix_notes: (ambiguous ? `${AMBIGUOUS_USER_MESSAGE} ` : "") + error.slice(0, 400),
-      requires_human_step: ambiguous,
+        submission_error: step1 ? PORTAL_STEP1_USER_MESSAGE : ambiguous ? AMBIGUOUS_USER_MESSAGE : userMsg,
+        fix_notes: (step1 ? `${PORTAL_STEP1_USER_MESSAGE} ` : ambiguous ? `${AMBIGUOUS_USER_MESSAGE} ` : "") + error.slice(0, 400),
+        requires_human_step: ambiguous || step1,
     })
     .eq("id", id);
   await logAudit(

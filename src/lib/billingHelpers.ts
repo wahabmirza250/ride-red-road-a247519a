@@ -313,6 +313,185 @@ export async function requireCompanyRates(
   };
 }
 
+export type RobotSubmissionDiagnostic = {
+  ok: boolean;
+  has_company: boolean;
+  member_last4: string | null;
+  service_date: string | null;
+  patient_last4: string | null;
+  signature_on_file_state: "yes" | "no" | "unknown";
+  identity_verified: boolean | null;
+  has_portal_config: boolean;
+  has_rates: boolean;
+  vehicle_type: string | null;
+  miles: number | null;
+  trip_units: number | null;
+  issues: RobotPayloadPreflightIssue[];
+};
+
+type RobotPayloadPreflightIssue = {
+  field: string;
+  message: string;
+};
+
+function last4(value: unknown): string | null {
+  const s = typeof value === "string" ? value.trim() : "";
+  return s ? s.slice(-4) : null;
+}
+
+function diagnosticIssue(field: string, message: string): RobotPayloadPreflightIssue {
+  return { field, message };
+}
+
+/**
+ * READ-ONLY submission diagnostic. No credentials, full member IDs, provider
+ * ids or patient numbers are returned — only presence flags and last-four masks.
+ */
+export async function getRobotSubmissionDiagnostic(
+  supabase: any,
+  args: { billingRecordId: string; trip: any; providerUserId: string | null; mode?: "capture" | "submit" | "full" | "debug_confirm_page" },
+): Promise<RobotSubmissionDiagnostic> {
+  const { trip } = args;
+  const doesSubmit = args.mode === "submit" || args.mode === "full" || !args.mode;
+  const issues: RobotPayloadPreflightIssue[] = [];
+
+  const providerUserId = args.providerUserId ?? "";
+  const medicaidMemberId = typeof trip?.riders?.medicaid_id === "string" ? trip.riders.medicaid_id.trim() : "";
+  let companyId: string | null = trip?.company_id ?? null;
+  if (!companyId && trip?.id) {
+    const { data } = await supabase
+      .from("medicaid_trips")
+      .select("company_id")
+      .eq("id", trip.id)
+      .maybeSingle();
+    companyId = data?.company_id ?? null;
+  }
+
+  let serviceDateMDY = "";
+  try {
+    serviceDateMDY = formatTripDateMDY(trip?.pickup_at);
+    if (doesSubmit) assertServiceDateNotFuture(serviceDateMDY);
+  } catch (e) {
+    issues.push(diagnosticIssue("service_date", e instanceof Error ? e.message : "Submission blocked: trip/service date is invalid."));
+  }
+
+  let proofRow: any = null;
+  if (trip?.id) {
+    const { data, error } = await supabase
+      .from("medicaid_trips")
+      .select("signature_path, state_pdf_path, identity_verified")
+      .eq("id", trip.id)
+      .maybeSingle();
+    if (error) {
+      issues.push(diagnosticIssue("signature_on_file_state", `Could not verify the trip signature before submission: ${error.message}`));
+    } else {
+      proofRow = data;
+    }
+  }
+  const signatureCaptured = Boolean(proofRow?.signature_path || proofRow?.state_pdf_path || trip?.signature_path || trip?.state_pdf_path);
+  const signatureState: "yes" | "no" = signatureCaptured ? "yes" : "no";
+
+  const vehicleType = typeof trip?.vehicle_type === "string" && trip.vehicle_type.trim() ? trip.vehicle_type.trim() : "ambulatory";
+  let rates: Awaited<ReturnType<typeof requireCompanyRates>> | null = null;
+  try {
+    rates = await requireCompanyRates(supabase, trip, vehicleType);
+    companyId = rates.companyId;
+  } catch (e) {
+    issues.push(diagnosticIssue("rates", e instanceof Error ? e.message : RATES_NOT_CONFIGURED_MESSAGE));
+  }
+
+  let hasPortalConfig = false;
+  if (companyId) {
+    try {
+      await requireCompanyPortalCredential(supabase, companyId);
+      hasPortalConfig = true;
+    } catch (e) {
+      issues.push(diagnosticIssue("portal_id", e instanceof Error ? e.message : NO_PORTAL_CREDENTIAL_MESSAGE));
+    }
+  } else {
+    issues.push(diagnosticIssue("company_id", "Submission blocked: no company is linked to this bill."));
+  }
+
+  let billedMiles: number | null = null;
+  let tripUnits: number | null = null;
+  if (trip?.id) {
+    const { data: legRows, error: legErr } = await supabase
+      .from("medicaid_trip_legs")
+      .select("leg_index, pickup_odometer, dropoff_odometer")
+      .eq("medicaid_trip_id", trip.id)
+      .order("leg_index");
+    if (legErr) {
+      issues.push(diagnosticIssue("miles", `Could not read the odometer legs for this trip: ${legErr.message}`));
+    } else {
+      const odometerLegs = (legRows?.length ? legRows : [
+        { pickup_odometer: trip.odometer_start, dropoff_odometer: trip.odometer_end },
+      ]).map((l: any) => ({
+        pickup_odometer: Number(l.pickup_odometer ?? 0),
+        dropoff_odometer: Number(l.dropoff_odometer ?? 0),
+      }));
+      billedMiles = computeBilledMiles(odometerLegs);
+      const positiveLegs = odometerLegs.filter((l: { pickup_odometer: number; dropoff_odometer: number }) => legMiles(l) > 0).length;
+      tripUnits = trip.trip_kind === "round_trip" || positiveLegs >= 2 ? 2 : 1;
+      if (doesSubmit && billedMiles <= 0) {
+        issues.push(diagnosticIssue("miles", "Submission blocked: odometer readings give 0 billable miles"));
+      }
+    }
+  }
+
+  const canonical = {
+    provider_id: providerUserId,
+    company_id: companyId ?? "",
+    portal_id: hasPortalConfig ? "configured" : "",
+    medicaid_member_id: medicaidMemberId,
+    patient_number: medicaidMemberId,
+    service_date: serviceDateMDY,
+    signature_on_file_state: signatureState,
+    payer: "Medicaid",
+    date_type: "service",
+    vehicle_type: vehicleType,
+    diagnosis_code: rates?.diagnosis_code ?? "",
+  };
+  const preflight = validateRobotPayloadPreflight(canonical, { doesSubmit });
+  if (!preflight.ok) issues.push(...preflight.issues);
+
+  const deduped = Array.from(
+    new Map(issues.map((issue) => [`${issue.field}:${issue.message}`, issue])).values(),
+  );
+  return {
+    ok: deduped.length === 0,
+    has_company: Boolean(companyId),
+    member_last4: last4(medicaidMemberId),
+    service_date: serviceDateMDY || null,
+    patient_last4: last4(medicaidMemberId),
+    signature_on_file_state: signatureState,
+    identity_verified: proofRow ? proofRow.identity_verified !== false : null,
+    has_portal_config: hasPortalConfig,
+    has_rates: Boolean(rates?.trip && rates?.mile && rates?.diagnosis_code),
+    vehicle_type: vehicleType || null,
+    miles: billedMiles,
+    trip_units: tripUnits,
+    issues: deduped,
+  };
+}
+
+/** Fail-fast gate used before any bill is persisted into the robot queue. */
+export async function assertRobotSubmissionPreflight(
+  supabase: any,
+  args: { billingRecordId: string; trip: any; providerUserId: string | null; mode?: "capture" | "submit" | "full" | "debug_confirm_page" },
+): Promise<RobotSubmissionDiagnostic> {
+  const diagnostic = await getRobotSubmissionDiagnostic(supabase, args);
+  if (diagnostic.ok) return diagnostic;
+  const first = diagnostic.issues[0]?.message ?? "Submission blocked: required claim data is missing.";
+  await logAudit(
+    supabase,
+    args.billingRecordId,
+    args.providerUserId,
+    "robot_preflight_blocked_before_queue",
+    JSON.stringify(diagnostic),
+  );
+  throw new Error(first);
+}
+
 export async function startRobotSubmission(
   supabase: any,
   args: {
