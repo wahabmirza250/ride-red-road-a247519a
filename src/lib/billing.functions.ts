@@ -396,7 +396,7 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
     const { data: rec, error: recErr } = await supabase
       .from("billing_records")
       .select(
-        `id, status, trip_id,
+        `id, status, trip_id, submission_error,
          requires_human_step,
          medicaid_trips!inner(
            id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
@@ -561,7 +561,7 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
     const { data: recs, error: recErr } = await supabase
       .from("billing_records")
       .select(
-        `id, status, trip_id,
+        `id, status, trip_id, requires_human_step,
          medicaid_trips!inner(
             id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
             state_pdf_path, identity_verified, robot_last_status, status, portal_status,
