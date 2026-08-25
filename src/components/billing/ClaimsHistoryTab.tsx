@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpDown, Loader2, Search, ReceiptText, Trash2 } from "lucide-react";
+import { ArrowUpDown, Loader2, Plus, Search, ReceiptText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,18 @@ import {
 } from "@/components/ui/select";
 import { formatDateTime } from "@/lib/format";
 import { ClaimStatusSyncCard } from "@/components/billing/ClaimStatusSyncCard";
+import { Badge } from "@/components/ui/badge";
 import { formatMoney } from "@/lib/claimReview";
+import { AddManualTripDialog } from "@/components/billing/AddManualTripDialog";
+import {
+  listManualClaimTrips,
+  setManualClaimStatus,
+  type ManualClaimRow,
+} from "@/lib/manualClaims.functions";
+import {
+  MANUAL_CLAIM_STATUS_LABEL,
+  MANUAL_CLAIM_STATUS_OPTIONS,
+} from "@/lib/manualClaims";
 import {
   listClaimsHistory,
   clearClaimsHistory,
@@ -41,6 +52,24 @@ export function ClaimsHistoryTab() {
   const [q, setQ] = useState("");
   const [desc, setDesc] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+
+  const manualListFn = useServerFn(listManualClaimTrips);
+  const manualStatusFn = useServerFn(setManualClaimStatus);
+  const manualQuery = useQuery({
+    queryKey: ["manual_claims"],
+    queryFn: () => manualListFn({ data: {} }) as Promise<ManualClaimRow[]>,
+    retry: false,
+  });
+  const manualStatusMutation = useMutation({
+    mutationFn: (vars: { id: string; claim_status: string }) =>
+      manualStatusFn({ data: vars }) as Promise<{ ok: boolean }>,
+    onSuccess: () => {
+      toast.success("Manual trip status updated");
+      void qc.invalidateQueries({ queryKey: ["manual_claims"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update status"),
+  });
 
   const query = useQuery({
     queryKey: ["claims_history"],
@@ -79,21 +108,43 @@ export function ClaimsHistoryTab() {
   });
 
 
+  /** Manual trips live alongside portal claims in the same list. */
+  const manualRows = useMemo<ClaimHistoryRow[]>(
+    () =>
+      (manualQuery.data ?? []).map((m) => ({
+        id: m.id,
+        claim_id: m.claim_number,
+        member_name: m.passenger_name,
+        medicaid_id: null,
+        trip_date: m.service_date,
+        submitted_at: null,
+        total_amount: m.billed_amount,
+        total_source: null,
+        status: m.claim_status,
+      })),
+    [manualQuery.data],
+  );
+  const manualById = useMemo(
+    () => new Map((manualQuery.data ?? []).map((m) => [m.id, m])),
+    [manualQuery.data],
+  );
+
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
-    const list = (query.data ?? []).filter((r) =>
+    const list = [...(query.data ?? []), ...manualRows].filter((r) =>
       !term
         ? true
         : (r.member_name ?? "").toLowerCase().includes(term) ||
           (r.claim_id ?? "").toLowerCase().includes(term) ||
-          (r.medicaid_id ?? "").toLowerCase().includes(term),
+          (r.medicaid_id ?? "").toLowerCase().includes(term) ||
+          (manualById.get(r.id)?.driver_name ?? "").toLowerCase().includes(term),
     );
     return [...list].sort((a, b) => {
       const av = new Date(a.submitted_at ?? a.trip_date ?? 0).getTime();
       const bv = new Date(b.submitted_at ?? b.trip_date ?? 0).getTime();
       return desc ? bv - av : av - bv;
     });
-  }, [query.data, q, desc]);
+  }, [query.data, manualRows, manualById, q, desc]);
 
   if (query.isError) {
     return (
@@ -125,6 +176,9 @@ export function ClaimsHistoryTab() {
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
+        <Button size="sm" onClick={() => setManualOpen(true)}>
+          <Plus className="mr-1 h-4 w-4" /> Add Manual Trip
+        </Button>
         <Button variant="outline" size="sm" onClick={() => setDesc((d) => !d)}>
           <ArrowUpDown className="mr-1 h-3.5 w-3.5" />
           {desc ? "Newest first" : "Oldest first"}
@@ -133,7 +187,7 @@ export function ClaimsHistoryTab() {
           variant="ghost"
           size="sm"
           className="text-destructive"
-          disabled={rows.length === 0 || clearMutation.isPending}
+          disabled={(query.data ?? []).length === 0 || clearMutation.isPending}
           onClick={() => setConfirmOpen(true)}
         >
           <Trash2 className="mr-1 h-3.5 w-3.5" />
@@ -144,7 +198,7 @@ export function ClaimsHistoryTab() {
 
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-          No submitted claims yet.
+          No claims yet. Use “Add Manual Trip” for a trip handled outside the automated flow.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-border bg-surface/60">
@@ -157,11 +211,14 @@ export function ClaimsHistoryTab() {
                 <th className="px-3 py-2 text-left font-medium">Submitted</th>
                 <th className="px-3 py-2 text-left font-medium">Status</th>
                 <th className="px-3 py-2 text-right font-medium">Total</th>
+                <th className="px-3 py-2 text-left font-medium">Source</th>
               </tr>
             </thead>
 
             <tbody>
-              {rows.map((r) => (
+              {rows.map((r) => {
+                const manual = manualById.get(r.id);
+                return (
                 <tr key={r.id} className="border-t border-border/60">
                   <td className="px-3 py-2 font-mono">
                     <span className="inline-flex items-center gap-1">
@@ -174,37 +231,72 @@ export function ClaimsHistoryTab() {
                     {r.medicaid_id && (
                       <div className="font-mono text-xs text-muted-foreground">{r.medicaid_id}</div>
                     )}
+                    {manual && (
+                      <div className="text-xs text-muted-foreground">{manual.driver_name}</div>
+                    )}
                   </td>
                   <td className="px-3 py-2">{r.trip_date ? formatDateTime(r.trip_date) : "—"}</td>
                   <td className="px-3 py-2">
-                    {r.submitted_at ? formatDateTime(r.submitted_at) : "—"}
+                    {manual ? "—" : r.submitted_at ? formatDateTime(r.submitted_at) : "—"}
                   </td>
                   <td className="px-3 py-2">
-                    <Select
-                      value={CLAIM_STATUS_OPTIONS.includes((r.status ?? "") as never)
-                        ? (r.status as string)
-                        : "submitted"}
-                      onValueChange={(v) => statusMutation.mutate({ tripId: r.id, status: v })}
-                      disabled={savingId === r.id}
-                    >
-                      <SelectTrigger className="h-8 w-[140px] text-xs capitalize">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CLAIM_STATUS_OPTIONS.map((s) => (
-                          <SelectItem key={s} value={s} className="text-xs capitalize">
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {savingId === r.id && (
-                      <Loader2 className="mt-1 h-3 w-3 animate-spin text-muted-foreground" />
+                    {manual ? (
+                      <Select
+                        value={
+                          MANUAL_CLAIM_STATUS_OPTIONS.includes((manual.claim_status ?? "") as never)
+                            ? (manual.claim_status as string)
+                            : "internal"
+                        }
+                        onValueChange={(v) =>
+                          manualStatusMutation.mutate({ id: manual.id, claim_status: v })
+                        }
+                        disabled={manualStatusMutation.isPending}
+                      >
+                        <SelectTrigger className="h-8 w-[140px] text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MANUAL_CLAIM_STATUS_OPTIONS.map((s) => (
+                            <SelectItem key={s} value={s} className="text-xs">
+                              {MANUAL_CLAIM_STATUS_LABEL[s]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <>
+                        <Select
+                          value={CLAIM_STATUS_OPTIONS.includes((r.status ?? "") as never)
+                            ? (r.status as string)
+                            : "submitted"}
+                          onValueChange={(v) => statusMutation.mutate({ tripId: r.id, status: v })}
+                          disabled={savingId === r.id}
+                        >
+                          <SelectTrigger className="h-8 w-[140px] text-xs capitalize">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CLAIM_STATUS_OPTIONS.map((s) => (
+                              <SelectItem key={s} value={s} className="text-xs capitalize">
+                                {s}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {savingId === r.id && (
+                          <Loader2 className="mt-1 h-3 w-3 animate-spin text-muted-foreground" />
+                        )}
+                      </>
                     )}
                   </td>
 
                   <td className="px-3 py-2 text-right tabular-nums">
                     {r.total_amount != null ? formatMoney(r.total_amount) : "—"}
+                    {manual && manual.driver_pay_amount != null && (
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        driver pay {formatMoney(manual.driver_pay_amount)}
+                      </div>
+                    )}
                     {r.total_source === "calculated" && (
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                         from rates
@@ -217,19 +309,29 @@ export function ClaimsHistoryTab() {
                     )}
                   </td>
 
+                  <td className="px-3 py-2">
+                    {manual ? (
+                      <Badge variant="outline">MANUAL</Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Portal</span>
+                    )}
+                  </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
+
+      <AddManualTripDialog open={manualOpen} onOpenChange={setManualOpen} />
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Clear claims history?</DialogTitle>
             <DialogDescription>
-              This will reset all {rows.length} submitted claim{rows.length === 1 ? "" : "s"} back to
+              This will reset all {(query.data ?? []).length} submitted claim{(query.data ?? []).length === 1 ? "" : "s"} back to
               “Ready to Submit” and remove the confirmation numbers. The trips themselves stay in the
               billing workflow and can be re-submitted.
             </DialogDescription>

@@ -28,6 +28,11 @@ import {
 } from "@/lib/payrollItems";
 import { SAME_DAY_WARNING } from "@/lib/sameDayBilling";
 import { ManualPayrollItemDialog } from "@/components/billing/ManualPayrollItemDialog";
+import {
+  addManualClaimsToPayroll,
+  listManualClaimTrips,
+  type ManualClaimRow,
+} from "@/lib/manualClaims.functions";
 import { CLAIM_STATUS_OPTIONS } from "@/lib/claimsHistory.functions";
 
 const ALL = "__all__";
@@ -51,6 +56,8 @@ export function PayrollClaimsTab({ companySlug }: { companySlug?: string }) {
   const qc = useQueryClient();
   const listFn = useServerFn(listPayrollClaims);
   const addFn = useServerFn(addClaimsToPayroll);
+  const manualListFn = useServerFn(listManualClaimTrips);
+  const addManualFn = useServerFn(addManualClaimsToPayroll);
 
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -82,7 +89,52 @@ export function PayrollClaimsTab({ companySlug }: { companySlug?: string }) {
     retry: false,
   });
 
-  const rows = query.data?.rows ?? [];
+  const manualQuery = useQuery({
+    queryKey: ["manual_claims", { from, to }],
+    queryFn: () =>
+      manualListFn({ data: { from: from || undefined, to: to || undefined } }) as Promise<
+        ManualClaimRow[]
+      >,
+    retry: false,
+  });
+
+  /** Manual trips are shown alongside portal claims and use their entered pay. */
+  const manualRows = useMemo<PayrollClaimRow[]>(() => {
+    const drv = driver.trim().toLowerCase();
+    const term = passenger.trim().toLowerCase();
+    return (manualQuery.data ?? [])
+      .filter((m) => (drv ? m.driver_name.toLowerCase().includes(drv) : true))
+      .filter((m) => (term ? m.passenger_name.toLowerCase().includes(term) : true))
+      .filter((m) =>
+        claimStatus === ALL ? true : (m.claim_status ?? "").toLowerCase() === claimStatus,
+      )
+      .filter((m) => (payrollStatus === ALL ? true : m.payroll_status === payrollStatus))
+      .map((m) => ({
+        trip_id: m.id,
+        trip_date: m.service_date,
+        passenger: m.passenger_name,
+        medicaid_id: null,
+        driver_id: m.driver_id,
+        driver_name: m.driver_name,
+        claim_number: m.claim_number,
+        claim_status: m.claim_status,
+        billed_amount: m.billed_amount,
+        driver_pay_amount: m.driver_pay_amount,
+        payroll_status: m.payroll_status,
+        payroll_item_id: m.payroll_item_id,
+        submitted_at: null,
+        paid_at: null,
+        source: "manual_entry" as const,
+        same_day_flag: false,
+      }));
+  }, [manualQuery.data, driver, passenger, claimStatus, payrollStatus]);
+
+  const manualIds = useMemo(() => new Set(manualRows.map((r) => r.trip_id)), [manualRows]);
+
+  const rows = useMemo(
+    () => [...manualRows, ...(query.data?.rows ?? [])],
+    [manualRows, query.data],
+  );
 
   const summaries = useMemo(
     () =>
@@ -107,12 +159,32 @@ export function PayrollClaimsTab({ companySlug }: { companySlug?: string }) {
   const eligible = rows.filter((r) => r.payroll_status === "not_added" && r.driver_id);
 
   const addMutation = useMutation({
-    mutationFn: (ids: string[]) =>
-      addFn({ data: { trip_ids: ids } }) as Promise<{
-        added: number;
-        skipped: number;
-        duplicates: number;
-      }>,
+    mutationFn: async (ids: string[]) => {
+      const manual = ids.filter((id) => manualIds.has(id));
+      const trips = ids.filter((id) => !manualIds.has(id));
+      let added = 0;
+      let skipped = 0;
+      let duplicates = 0;
+      if (trips.length) {
+        const res = (await addFn({ data: { trip_ids: trips } })) as {
+          added: number;
+          skipped: number;
+          duplicates: number;
+        };
+        added += res.added;
+        skipped += res.skipped;
+        duplicates += res.duplicates;
+      }
+      if (manual.length) {
+        const res = (await addManualFn({ data: { manual_ids: manual } })) as {
+          added: number;
+          duplicates: number;
+        };
+        added += res.added;
+        duplicates += res.duplicates;
+      }
+      return { added, skipped, duplicates };
+    },
     onSuccess: (res) => {
       toast.success(
         `${res.added} claim${res.added === 1 ? "" : "s"} added to payroll` +
@@ -122,6 +194,7 @@ export function PayrollClaimsTab({ companySlug }: { companySlug?: string }) {
       setSelected(new Set());
       void qc.invalidateQueries({ queryKey: ["payroll_claims"] });
       void qc.invalidateQueries({ queryKey: ["payroll_items"] });
+      void qc.invalidateQueries({ queryKey: ["manual_claims"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not add to payroll"),
   });
@@ -187,7 +260,7 @@ export function PayrollClaimsTab({ companySlug }: { companySlug?: string }) {
           Select all eligible ({eligible.length})
         </Button>
         <Button size="sm" variant="outline" onClick={() => setManualOpen(true)}>
-          <Plus className="mr-1.5 h-4 w-4" /> Manual Payroll Item
+          <Plus className="mr-1.5 h-4 w-4" /> Bonus / Adjustment
         </Button>
         <div className="ml-auto text-xs text-muted-foreground">
           {query.data?.total ?? 0} claims · page {page + 1}
@@ -314,8 +387,10 @@ export function PayrollClaimsTab({ companySlug }: { companySlug?: string }) {
                               {r.paid_at ? formatDate(r.paid_at) : "—"}
                             </td>
                             <td className="p-2">
-                              {r.source === "manual" ? (
+                              {r.source === "manual_entry" ? (
                                 <Badge variant="outline">MANUAL</Badge>
+                              ) : r.source === "manual" ? (
+                                <Badge variant="secondary">PAPER</Badge>
                               ) : r.source === "resubmission" ? (
                                 <Badge variant="secondary">RESUBMISSION</Badge>
                               ) : (
