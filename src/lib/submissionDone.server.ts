@@ -34,7 +34,7 @@ export async function getDoneFeed(
     supabase
       .from("billing_records")
       .select(
-        "id, trip_id, status, state_confirmation_number, submitted_at, updated_at, submit_batch_id, medicaid_trips(paper_patient_name)",
+        "id, trip_id, status, state_confirmation_number, submitted_at, updated_at, submit_batch_id, medicaid_trips(riders(full_name))",
       )
       .in("status", DONE_STATUSES)
       .order("submitted_at", { ascending: false, nullsFirst: false })
@@ -101,7 +101,7 @@ export async function getDoneFeed(
       batchId: r.submit_batch_id ?? null,
       batchLabel: batch?.label ?? null,
       biller: batch?.created_by ? (billerById.get(batch.created_by) ?? null) : null,
-      passenger: r.medicaid_trips?.paper_patient_name ?? null,
+      passenger: r.medicaid_trips?.riders?.full_name ?? null,
     };
   });
 
