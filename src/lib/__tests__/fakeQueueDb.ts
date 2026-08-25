@@ -54,7 +54,9 @@ export function makeRecord(
     submit_locked_until: opts.submit_locked_until ?? null,
     submit_next_attempt_at: opts.submit_next_attempt_at ?? null,
     submit_worker: null,
-    submit_account_key: opts.accountKey ?? `acct:hcpf:${company}`,
+    // Matches the production fallback account key for a company with no
+    // portal credential row configured yet.
+    submit_account_key: opts.accountKey ?? `company:${company}`,
     submit_idempotency_key: opts.submit_idempotency_key ?? null,
     submit_batch_id: opts.submit_batch_id ?? null,
     medicaid_trips: {
