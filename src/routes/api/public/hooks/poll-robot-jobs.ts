@@ -43,7 +43,7 @@ export const Route = createFileRoute("/api/public/hooks/poll-robot-jobs")({
         const results: any[] = [];
         for (const companyId of companies) {
           try {
-            const out = await sweepRobotJobs(supabaseAdmin, null as any, companyId);
+            const out = await sweepRobotJobs(supabaseAdmin, null as any, companyId, { refill: true });
             results.push({ company_id: companyId, ...out });
           } catch (e: any) {
             results.push({ company_id: companyId, error: e?.message ?? "sweep failed" });
