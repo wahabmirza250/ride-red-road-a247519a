@@ -31,9 +31,24 @@ export async function maybeAutoRetryTimeout(
 
   const { data: rec } = await supabase
     .from("billing_records")
-    .select("id, auto_retry_count")
+    .select("id, auto_retry_count, state_confirmation_number, medicaid_trips(robot_confirmation_number, submitted_confirmation, robot_last_status, portal_status, status)")
     .eq("id", recordId)
     .maybeSingle();
+  const tripEvidence: any = rec?.medicaid_trips ?? {};
+  const hasClaimEvidence = Boolean(
+    rec?.state_confirmation_number ||
+      tripEvidence.robot_confirmation_number ||
+      tripEvidence.submitted_confirmation ||
+      /^SUBMITTED/i.test(String(tripEvidence.robot_last_status ?? "")) ||
+      /submitted|paid|approved|suspended|denied/i.test(String(tripEvidence.portal_status ?? "")) ||
+      String(tripEvidence.status ?? "") === "submitted",
+  );
+  if (hasClaimEvidence) {
+    const message =
+      "A timeout arrived after claim evidence was already recorded. Nothing was retried or downgraded.";
+    await logAudit(supabase, recordId, actorId, "auto_retry_skipped_claim_evidence", message);
+    return { retried: false, exhausted: false, message };
+  }
   const used: number = Number(rec?.auto_retry_count ?? 0);
 
   if (used >= MAX_AUTO_TIMEOUT_RETRIES) {
