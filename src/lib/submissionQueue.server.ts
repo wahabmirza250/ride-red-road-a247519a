@@ -686,16 +686,49 @@ export async function runSubmissionQueueTick(
     });
   }
 
+  // IMMEDIATE REFILL AFTER A SUCCESS.
+  // A finished claim frees the account's single-flight slot right away, so the
+  // tick keeps re-reconciling and re-dispatching while its budget lasts instead
+  // of leaving the slot idle until the next cron minute. There is deliberately
+  // NO success cooldown here — backoff only ever comes from a real worker or
+  // transport failure inside `scheduleRetryOrFail`.
+  let totals = { ...reconciled };
+  let rounds = 0;
+  while (
+    rounds < SUBMIT_REFILL_MAX_ROUNDS &&
+    Date.now() - t0 + SUBMIT_REFILL_POLL_MS < budget
+  ) {
+    rounds++;
+    await sleep(SUBMIT_REFILL_POLL_MS);
+    const again = await reconcileInFlight(supabase, opts.actorId ?? null, opts.companyId ?? null);
+    totals = { checked: totals.checked + again.checked, settled: totals.settled + again.settled };
+    if (again.settled <= 0) continue;
+    const more = await dispatchLeasedSubmissions(supabase, opts.actorId ?? null, {
+      companyId: opts.companyId ?? null,
+      worker: opts.worker ?? `tick-${t0}-r${rounds}`,
+    });
+    dispatch = {
+      leased: dispatch.leased + more.leased,
+      started: dispatch.started + more.started,
+      paced: dispatch.paced + more.paced,
+      retried: dispatch.retried + more.retried,
+      failed: dispatch.failed + more.failed,
+      blocked: dispatch.blocked + more.blocked,
+      startedIds: [...dispatch.startedIds, ...more.startedIds],
+    };
+  }
+
   const out: QueueTickResult = {
     ...base,
     ran: true,
     ...dispatch,
     recovered,
     staleLocksReleased,
-    checked: reconciled.checked,
-    settled: reconciled.settled,
+    checked: totals.checked,
+    settled: totals.settled,
     ms: Date.now() - t0,
   };
+
   await recordRun(supabase, out);
   return out;
 }
