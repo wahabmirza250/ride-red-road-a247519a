@@ -58,6 +58,7 @@ import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
 import { ClaimsHistoryTab } from "@/components/billing/ClaimsHistoryTab";
 import { FixBillDialog } from "@/components/billing/FixBillDialog";
 import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
+import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
 import { MedicalReviewTab } from "@/components/billing/MedicalReviewTab";
 
@@ -594,6 +595,8 @@ function PendingReviewTab({
     return <EmptyState message="No trips awaiting review." />;
   return (
     <div className="space-y-3">
+      {batchId && <BatchProgressCard batchId={batchId} onDismiss={() => setBatchId(null)} />}
+
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-3">
         <div className="flex items-center gap-3 text-sm">
           <Checkbox
@@ -685,6 +688,7 @@ function ReadyToSubmitTab({
     null,
   );
   const [fixId, setFixId] = useState<string | null>(null);
+  const [batchId, setBatchId] = useState<string | null>(null);
 
   // A bill that already carries a portal confirmation number is a real live
   // claim, whatever its billing status says — never selectable for submit or
@@ -773,6 +777,7 @@ function ReadyToSubmitTab({
     try {
       const res: any = await startBatchFn({ data: { ids, acknowledge_duplicate: false } });
       setSelected(new Set());
+      if (res?.batch_id) setBatchId(res.batch_id as string);
       if (res?.started) {
         toast.success(
           `${res.queued ?? res.started} bill${(res.queued ?? res.started) === 1 ? "" : "s"} queued — ` +
@@ -892,11 +897,15 @@ function ReadyToSubmitTab({
               <td className="px-4 py-3">
                 {r.status === "queued" ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600">
-                    waiting in queue
+                    <Clock className="h-3 w-3" /> Queued
                   </span>
                 ) : isRunning ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
-                    <Loader2 className="h-3 w-3 animate-spin" /> robot running
+                    <Loader2 className="h-3 w-3 animate-spin" /> Processing
+                  </span>
+                ) : r.requires_human_step ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-xs font-medium text-violet-600">
+                    Verifying submission
                   </span>
                 ) : r.status === "needs_fix" ? (
                   <StatusPill status="needs_fix" />
