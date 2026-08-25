@@ -185,6 +185,11 @@ export function denverTimeHM(input: Date | string | null | undefined): string {
 }
 
 export function formatTripDateMDY(pickupAt: string | null | undefined): string {
+  if (!pickupAt) throw new Error("Submission blocked: trip/service date is missing.");
+  const d = new Date(pickupAt);
+  if (Number.isNaN(d.getTime())) {
+    throw new Error("Submission blocked: trip/service date is invalid.");
+  }
   const iso = denverDateISO(pickupAt);
   const [yyyy, mm, dd] = iso.split("-");
   return `${mm}/${dd}/${yyyy}`;
