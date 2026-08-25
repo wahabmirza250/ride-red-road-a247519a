@@ -152,12 +152,24 @@ export function SubmissionQueuePanel() {
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <Stat label="Queued" value={t.queued} />
-        <Stat label="Processing" value={Math.min(t.processing, 1)} />
-        {t.processing > 1 && <Stat label="Finishing up" value={t.processing - 1} />}
-        <Stat label="Retrying" value={t.retrying} />
+        <Stat label="Processing" value={t.processing} />
+        <Stat label="Verifying" value={done.data?.counters.verifying ?? 0} />
         <Stat label="Needs attention" value={t.needsAttention} warn={t.needsAttention > 0} />
-        <Stat label="Submitted (1h)" value={t.submittedLastHour} />
+        <Stat label="Done" value={done.data?.counters.done ?? t.submittedLastHour} />
       </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <ThroughputBadge
+          avg={tp.avgSecondsPerClaim}
+          perHour={tp.claimsPerHour}
+          eta={tp.etaSeconds}
+          pending={t.queued + t.processing}
+        />
+        {t.retrying > 0 && (
+          <span className="text-[11px] text-muted-foreground">{t.retrying} retrying after a transport error</span>
+        )}
+      </div>
+
 
       {open && (
         <div className="mt-3 space-y-3 border-t border-border pt-3">
