@@ -11,6 +11,11 @@ import { z } from "zod";
 import type { Leg } from "@/lib/medicaidPdf";
 import { legMiles } from "@/lib/claimCalc";
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
+import {
+  formatRobotPayloadDiagnostic,
+  formatRobotPreflightFailure,
+  validateRobotPayloadPreflight,
+} from "@/lib/robotPayload";
 
 /**
  * Billed miles are ALWAYS computed in code from odometer readings —
@@ -337,7 +342,7 @@ export async function startRobotSubmission(
   const rider = trip.riders;
   const medicaidMemberId: string | null = rider?.medicaid_id ?? null;
   if (!medicaidMemberId) {
-    throw new Error("Rider has no Medicaid member ID");
+    throw new Error("Submission blocked: Medicaid member ID is missing.");
   }
 
 
@@ -397,7 +402,7 @@ export async function startRobotSubmission(
   }
   const signatureCaptured = Boolean(proofRow?.signature_path || proofRow?.state_pdf_path);
   if (doesSubmit && !signatureCaptured) {
-    throw new Error("Submission blocked: this trip has no signed report on file");
+    throw new Error("Submission blocked: this trip has no signed report on file.");
   }
 
   // FAIL CLOSED ON RATES.
@@ -448,6 +453,7 @@ export async function startRobotSubmission(
 
   const payload = {
     id: jobId,
+    job_id: jobId,
     medicaid_trip_id: trip.id,
     provider_id: providerUserId,
     company_id: rates.companyId,
@@ -469,6 +475,17 @@ export async function startRobotSubmission(
     date_of_service: serviceDateMDY,
     from_date: serviceDateMDY,
     to_date: serviceDateMDY,
+    // Step 1 portal prerequisites. These are fixed for the Colorado Medicaid
+    // professional claim path the robot automates; send explicit aliases so a
+    // missing/defaulted worker field cannot leave Step 1 with only the generic
+    // "required field" message.
+    payer: "Medicaid",
+    payer_type: "Medicaid",
+    claim_payer: "Medicaid",
+    insurance_type: "Medicaid",
+    date_type: "service",
+    date_type_code: "service",
+    service_date_type: "service",
 
 
     // Explicit rates so the automation service never has to guess or fall back
@@ -497,6 +514,9 @@ export async function startRobotSubmission(
     provider_signature_on_file: signatureCaptured,
     signature_on_file: signatureCaptured,
     provider_has_signature_on_file: signatureCaptured,
+    provider_signature_on_file_state: signatureCaptured ? "yes" : "no",
+    signature_on_file_state: signatureCaptured ? "yes" : "no",
+    provider_has_signature_on_file_state: signatureCaptured ? "yes" : "no",
     // "Did the Driver verify the member's identity?" at the portal. Explicit
     // aliases so the robot reads whichever key it implements.
     identity_verified: proofRow?.identity_verified !== false,
@@ -555,6 +575,23 @@ export async function startRobotSubmission(
     expected_service_lines: 2,
   };
 
+  const preflight = validateRobotPayloadPreflight(payload, { doesSubmit });
+  if (!preflight.ok) {
+    const msg = formatRobotPreflightFailure(preflight);
+    const diagnostics = JSON.stringify({
+      ...formatRobotPayloadDiagnostic(payload),
+      issues: preflight.issues,
+    });
+    await supabase.from("billing_audit_log").insert({
+      billing_record_id: billingRecordId,
+      action: "robot_payload_preflight_failed",
+      actor_id: providerUserId,
+      actor_type: "admin",
+      notes: diagnostics,
+    });
+    throw new Error(msg);
+  }
+
   // Persist the safety-critical outbound values before contacting the robot.
   // This intentionally excludes member/provider identifiers and gives future
   // incident reviews the exact flags sent for a specific job attempt.
@@ -576,6 +613,9 @@ export async function startRobotSubmission(
       trip_date_sent: payload.trip_date,
       patient_number_sent: payload.patient_number,
       member_id_last4: String(payload.member_id ?? "").slice(-4),
+      payer_sent: payload.payer,
+      date_type_sent: payload.date_type,
+      signature_on_file_state: payload.signature_on_file_state,
       is_round_trip: payload.is_round_trip,
       diagnosis_code_sent: payload.diagnosis_code,
 
