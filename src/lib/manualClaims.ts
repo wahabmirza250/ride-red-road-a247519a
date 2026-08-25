@@ -105,12 +105,3 @@ export function manualPayrollLine(
     created_by: actorId,
   };
 }
-
-/**
- * Guard used by tests and by the queue boundary: a manual trip id is never a
- * `medicaid_trips` id, so it can never be enqueued for HCPF submission.
- */
-export function isManualClaimId(id: string, manualIds: Iterable<string>): boolean {
-  for (const m of manualIds) if (m === id) return true;
-  return false;
-}
