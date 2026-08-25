@@ -2152,6 +2152,72 @@ export type Database = {
           },
         ]
       }
+      manual_claim_records: {
+        Row: {
+          billed_amount: number | null
+          claim_number: string | null
+          claim_status: string | null
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          driver_id: string
+          driver_pay_amount: number
+          id: string
+          notes: string | null
+          passenger_name: string
+          service_date: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          billed_amount?: number | null
+          claim_number?: string | null
+          claim_status?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_id: string
+          driver_pay_amount?: number
+          id?: string
+          notes?: string | null
+          passenger_name: string
+          service_date: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          billed_amount?: number | null
+          claim_number?: string | null
+          claim_status?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string
+          driver_pay_amount?: number
+          id?: string
+          notes?: string | null
+          passenger_name?: string
+          service_date?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_claim_records_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_claim_records_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medicaid_trip_legs: {
         Row: {
           created_at: string

@@ -41,7 +41,8 @@ export type PayrollClaimRow = {
   payroll_item_id: string | null;
   submitted_at: string | null;
   paid_at: string | null;
-  source: "system" | "manual" | "resubmission";
+  /** `manual_entry` = internal manual trip created in Claim History. */
+  source: "system" | "manual" | "resubmission" | "manual_entry";
   same_day_flag: boolean;
 };
 

@@ -21,36 +21,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createManualPayrollItem } from "@/lib/payrollItems.functions";
+import { createManualClaimTrip } from "@/lib/manualClaims.functions";
 import { listPayoutDrivers } from "@/lib/driverPayout.functions";
-import { validateManualItem } from "@/lib/payrollItems";
+import {
+  MANUAL_CLAIM_STATUS_LABEL,
+  MANUAL_CLAIM_STATUS_OPTIONS,
+  validateManualClaim,
+} from "@/lib/manualClaims";
 
 /**
- * Trips are entered in Claim History via "+ Add Manual Trip"; this dialog is
- * only for money that is not a trip (bonus, reimbursement, correction,
- * deduction), so `manual_trip` is deliberately not offered here.
+ * "+ Add Manual Trip" — an INTERNAL claim-history record for a trip handled
+ * outside the automated HCPF flow. It is never submitted to the state portal.
  */
-const ADJUSTMENT_CATEGORIES = [
-  "bonus",
-  "reimbursement",
-  "correction",
-  "deduction",
-  "other",
-] as const;
-
-const CATEGORY_LABEL: Record<string, string> = {
-  bonus: "Bonus",
-  reimbursement: "Reimbursement",
-  correction: "Correction",
-  deduction: "Deduction",
-  other: "Other",
-};
-
-/**
- * Manual payroll line for work handled outside the automated claim flow.
- * Negative amounts are only accepted as an explicit Adjustment.
- */
-export function ManualPayrollItemDialog({
+export function AddManualTripDialog({
   open,
   onOpenChange,
 }: {
@@ -58,7 +41,7 @@ export function ManualPayrollItemDialog({
   onOpenChange: (v: boolean) => void;
 }) {
   const qc = useQueryClient();
-  const createFn = useServerFn(createManualPayrollItem);
+  const createFn = useServerFn(createManualClaimTrip);
   const driversFn = useServerFn(listPayoutDrivers);
 
   const drivers = useQuery({
@@ -68,12 +51,12 @@ export function ManualPayrollItemDialog({
   });
 
   const [driverId, setDriverId] = useState("");
-  const [kind, setKind] = useState<"manual" | "adjustment">("manual");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [passenger, setPassenger] = useState("");
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState<string>("bonus");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [claimNumber, setClaimNumber] = useState("");
+  const [billed, setBilled] = useState("");
+  const [pay, setPay] = useState("");
+  const [status, setStatus] = useState<string>("internal");
   const [notes, setNotes] = useState("");
 
   const save = useMutation({
@@ -81,35 +64,37 @@ export function ManualPayrollItemDialog({
       createFn({
         data: {
           driver_id: driverId,
-          kind,
+          passenger_name: passenger,
           service_date: date,
-          passenger_name: passenger || null,
-          description,
-          amount: Number(amount),
-          category: category as never,
+          claim_number: claimNumber || null,
+          billed_amount: billed === "" ? null : Number(billed),
+          driver_pay_amount: Number(pay),
+          claim_status: status,
           notes: notes || null,
         },
       }) as Promise<{ id: string }>,
     onSuccess: () => {
-      toast.success("Manual payroll item added");
-      void qc.invalidateQueries({ queryKey: ["payroll_items"] });
+      toast.success("Manual trip added to Claim History");
+      void qc.invalidateQueries({ queryKey: ["manual_claims"] });
+      void qc.invalidateQueries({ queryKey: ["claims_history"] });
       void qc.invalidateQueries({ queryKey: ["payroll_claims"] });
       onOpenChange(false);
-      setDescription("");
-      setAmount("");
-      setNotes("");
       setPassenger("");
+      setClaimNumber("");
+      setBilled("");
+      setPay("");
+      setNotes("");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save item"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save manual trip"),
   });
 
   function submit() {
-    const check = validateManualItem({
-      kind,
-      amount: Number(amount),
-      description,
+    const check = validateManualClaim({
       driver_id: driverId || null,
+      passenger_name: passenger,
       service_date: date,
+      billed_amount: billed === "" ? null : Number(billed),
+      driver_pay_amount: Number(pay),
     });
     if (!check.ok) return toast.error(check.error);
     save.mutate();
@@ -119,10 +104,11 @@ export function ManualPayrollItemDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Bonus / adjustment</DialogTitle>
+          <DialogTitle>Add manual trip</DialogTitle>
           <DialogDescription>
-            For pay that is not a trip — a bonus, reimbursement, correction or deduction. To record
-            a trip handled outside the automated flow, use “+ Add Manual Trip” in Claim History.
+            An internal Claim History record for a trip handled outside the automated flow. It is
+            never submitted to the state portal, and the driver pay amount you enter here is used
+            exactly as typed when it is added to payroll.
           </DialogDescription>
         </DialogHeader>
 
@@ -145,44 +131,34 @@ export function ManualPayrollItemDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>Type</Label>
-              <Select value={kind} onValueChange={(v) => setKind(v as "manual" | "adjustment")}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="manual">Addition (positive)</SelectItem>
-                  <SelectItem value="adjustment">Adjustment (+/−)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Passenger / client name</Label>
+              <Input value={passenger} onChange={(e) => setPassenger(e.target.value)} />
             </div>
             <div className="grid gap-1.5">
-              <Label>Service / trip date</Label>
+              <Label>Trip / service date</Label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>Amount ($)</Label>
+              <Label>Claim number</Label>
               <Input
-                type="number"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder={kind === "adjustment" ? "-25.00" : "45.00"}
+                value={claimNumber}
+                onChange={(e) => setClaimNumber(e.target.value)}
+                placeholder="Optional / external reference"
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>Reason / category</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Label>Claim status (optional)</Label>
+              <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ADJUSTMENT_CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {CATEGORY_LABEL[c] ?? c}
+                  {MANUAL_CLAIM_STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {MANUAL_CLAIM_STATUS_LABEL[s]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -190,22 +166,31 @@ export function ManualPayrollItemDialog({
             </div>
           </div>
 
-          <div className="grid gap-1.5">
-            <Label>Passenger / client (optional)</Label>
-            <Input value={passenger} onChange={(e) => setPassenger(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label>Amount billed ($)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={billed}
+                onChange={(e) => setBilled(e.target.value)}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Driver pay amount ($)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={pay}
+                onChange={(e) => setPay(e.target.value)}
+                placeholder="45.00"
+              />
+            </div>
           </div>
 
           <div className="grid gap-1.5">
-            <Label>Description</Label>
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Weekend bonus"
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label>Notes (optional)</Label>
+            <Label>Notes / reason (optional)</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
         </div>
@@ -215,7 +200,7 @@ export function ManualPayrollItemDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={save.isPending}>
-            {save.isPending ? "Saving…" : "Add to payroll"}
+            {save.isPending ? "Saving…" : "Save manual trip"}
           </Button>
         </DialogFooter>
       </DialogContent>
