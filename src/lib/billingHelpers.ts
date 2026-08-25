@@ -703,6 +703,22 @@ export function looksLikePostConfirmTimeout(raw: string | null | undefined): boo
 }
 
 /**
+ * Any timeout/closed-browser after the robot reached Submit/Confirm is an
+ * ambiguous portal outcome. It must go to read-only verification, never back to
+ * the submit queue, because a real claim may already exist.
+ */
+export function looksLikePossiblySubmittedTimeout(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  const t = String(raw);
+  const reachedSubmitOrConfirm =
+    /ConfirmCmnButton|SubmitClaimProf3|Submit\s*Claim|Confirm Professional Claim|click(?:ed)?\s*(?:Submit|Confirm)/i.test(t) ||
+    (/confirm|submit/i.test(t) && /click action done|after clicking|postback/i.test(t));
+  const timeoutOrClosed =
+    /Timeout \d+ms exceeded|timed out|navigation timeout|browser has been closed|Target page, context or browser has been closed|closed browser|page closed/i.test(t);
+  return reachedSubmitOrConfirm && timeoutOrClosed;
+}
+
+/**
  * DEFINITIVELY NOT SUBMITTED.
  *
  * The portal rejected Step 3 (or the run aborted on the pre-Submit guard)
@@ -747,6 +763,7 @@ export function looksLikeRetryableTimeout(raw: string | null | undefined): boole
     /invalid/i.test(t) ||
     /not eligible|eligibility/i.test(t) ||
     /duplicate/i.test(t) ||
+    looksLikePossiblySubmittedTimeout(t) ||
     /date .*future/i.test(t);
   if (dataProblem) return false;
   return (
