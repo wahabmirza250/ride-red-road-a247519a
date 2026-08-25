@@ -372,7 +372,7 @@ export async function startRobotSubmission(
   // last shared gate before the network call, so it independently refuses to
   // open a second live portal session for the same provider account. The app
   // must never depend on the automation worker's own concurrency limit.
-  if (doesSubmit) {
+  {
     const { listActiveRobotJobs } = await import("@/lib/robotQueue.server");
     const companyId = args.companyId ?? trip.company_id ?? null;
     const live = await listActiveRobotJobs(supabase, {
@@ -381,7 +381,9 @@ export async function startRobotSubmission(
     });
     if (live.length > 0) {
       throw new Error(
-        "Another portal session is already running on this provider account — the automation service is temporarily unavailable for this bill. Nothing was submitted; it stays queued.",
+        doesSubmit
+          ? "Another portal session is already running on this provider account — the automation service is temporarily unavailable for this bill. Nothing was submitted; it stays queued."
+          : "Another portal session is already running on this provider account. Try the diagnostic run again in a few minutes.",
       );
     }
   }
