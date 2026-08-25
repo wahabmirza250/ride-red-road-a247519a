@@ -1,6 +1,7 @@
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 import { DuplicateSubmitDialog } from "@/components/billing/DuplicateSubmitDialog";
 import { parseDuplicateClaimError, type DuplicateClaimInfo } from "@/lib/duplicateSubmit";
+import { sanitizeSubmitError } from "@/lib/submitErrors";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -236,7 +237,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
             prev?.status !== "needs_fix" &&
             next?.submission_error
           ) {
-            toast.error(`Submission failed: ${next.submission_error}`);
+            toast.error(`Submission failed: ${sanitizeSubmitError(next.submission_error)}`);
           }
         },
       )
@@ -746,7 +747,7 @@ function ReadyToSubmitTab({
         setDuplicate({ id, info: dup });
         return "duplicate" as const;
       }
-      toast.error(`Trip ${id.slice(0, 8)}…: ${e?.message ?? "Failed"}`);
+      toast.error(`Trip ${id.slice(0, 8)}…: ${sanitizeSubmitError(e?.message)}`);
       return "failed" as const;
     } finally {
       setSubmittingIds((prev) => {
@@ -788,7 +789,7 @@ function ReadyToSubmitTab({
       }
       if (!res?.queued && !res?.skipped?.length) toast.message("Nothing to submit.");
     } catch (e: any) {
-      toast.error(e?.message ?? "Bulk submit failed");
+      toast.error(sanitizeSubmitError(e?.message ?? "Bulk submit failed"));
     } finally {
       setSubmittingIds(new Set());
       qc.invalidateQueries({ queryKey: ["billing_list"] });
@@ -904,7 +905,7 @@ function ReadyToSubmitTab({
                 {r.submission_error && !isRunning && (
                   <div className="mt-1 flex items-start gap-1 text-xs text-destructive">
                     <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-                    <span>{r.submission_error}</span>
+                    <span>{sanitizeSubmitError(r.submission_error)}</span>
                   </div>
                 )}
                 {!isRunning && (
@@ -987,7 +988,7 @@ function AwaitingPortalTab({
         setDupQueue({ id: v.id, info: dup });
         return;
       }
-      toast.error(e?.message ?? "Could not start the submission");
+      toast.error(sanitizeSubmitError(e?.message ?? "Could not start the submission"));
     },
   });
 

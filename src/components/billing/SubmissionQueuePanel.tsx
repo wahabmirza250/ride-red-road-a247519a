@@ -152,7 +152,8 @@ export function SubmissionQueuePanel() {
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <Stat label="Queued" value={t.queued} />
-        <Stat label="Processing" value={t.processing} />
+        <Stat label="Processing" value={Math.min(t.processing, 1)} />
+        {t.processing > 1 && <Stat label="Finishing up" value={t.processing - 1} />}
         <Stat label="Retrying" value={t.retrying} />
         <Stat label="Needs attention" value={t.needsAttention} warn={t.needsAttention > 0} />
         <Stat label="Submitted (1h)" value={t.submittedLastHour} />
@@ -173,7 +174,7 @@ export function SubmissionQueuePanel() {
               label="Concurrency limits"
               value={
                 limits
-                  ? `${limits.per_company}/company · ${limits.global} overall`
+                  ? `${limits.per_company} at a time per provider account · ${limits.global} overall`
                   : "—"
               }
             />

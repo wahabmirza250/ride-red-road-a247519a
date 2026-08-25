@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { sanitizeSubmitError } from "@/lib/submitErrors";
 import {
   Sheet,
   SheetContent,
@@ -222,8 +223,9 @@ export function BillingDetailSheet({
                     This portal needs a manual step to submit
                   </div>
                   <div>
-                    {rec.submission_error ??
-                      "The portal presented a CAPTCHA or two-factor challenge. Complete it manually in the portal, then hit Retry."}
+                    {rec.submission_error
+                      ? sanitizeSubmitError(rec.submission_error)
+                      : "The portal presented a CAPTCHA or two-factor challenge. Complete it manually in the portal, then hit Retry."}
                   </div>
                 </div>
               </div>
@@ -233,7 +235,7 @@ export function BillingDetailSheet({
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div className="text-xs">
                   <div className="font-medium">Submission error</div>
-                  <div>{rec.submission_error}</div>
+                  <div>{sanitizeSubmitError(rec.submission_error)}</div>
                 </div>
               </div>
             )}
