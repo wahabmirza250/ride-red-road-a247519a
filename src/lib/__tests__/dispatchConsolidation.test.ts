@@ -3,12 +3,11 @@ import { readFileSync } from "node:fs";
 
 const read = (p: string) => readFileSync(p, "utf8");
 
-describe("dispatch consolidation + games removal", () => {
+describe("dispatch consolidation (games preserved)", () => {
   it("admin navigation has a single Dispatch destination and no Planner or Games entries", () => {
     const nav = read("src/routes/$companySlug/_authenticated/route.tsx");
     expect(nav).not.toMatch(/"\/planner"/);
-    expect(nav).not.toMatch(/"\/games"/);
-    expect(nav).not.toMatch(/Gamepad2/);
+    expect(nav).toMatch(/\{ to: "\/games", label: "Games", icon: Gamepad2 \}/);
     expect(nav).toMatch(/\{ to: "\/live-ops", label: "Dispatch"/);
   });
 
@@ -19,13 +18,16 @@ describe("dispatch consolidation + games removal", () => {
     expect(src).toMatch(/tab: "plan"/);
   });
 
-  it("legacy games URLs redirect instead of 404", () => {
-    expect(read("src/routes/$companySlug/_authenticated/games.tsx")).toMatch(
-      /\/\$companySlug\/dashboard/,
-    );
-    expect(read("src/routes/$companySlug/passenger.games.tsx")).toMatch(
-      /\/\$companySlug\/passenger/,
-    );
+  it("keeps the real Games admin page and passenger games page", () => {
+    const admin = read("src/routes/$companySlug/_authenticated/games.tsx");
+    expect(admin).toMatch(/createFileRoute\("\/\$companySlug\/_authenticated\/games"\)/);
+    expect(admin).not.toMatch(/redirect\(/);
+    expect(admin).toMatch(/from\("games"\)/);
+
+    const passenger = read("src/routes/$companySlug/passenger.games.tsx");
+    expect(passenger).toMatch(/createFileRoute\("\/\$companySlug\/passenger\/games"\)/);
+    expect(passenger).not.toMatch(/redirect\(/);
+    expect(passenger).toMatch(/listPublicGames/);
   });
 
   it("dispatch app exposes Plan as an internal tab", () => {
