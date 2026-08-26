@@ -36,7 +36,12 @@ function makeSupabase(record: any, trip: any) {
   } as any;
 }
 
-const TIMEOUT_ERR = "page.click: Timeout 480000ms exceeded — the portal run timed out";
+// Only a timeout that explicitly proves the run died before Submit is retryable.
+const TIMEOUT_ERR =
+  "stage=login: page.click: Timeout 480000ms exceeded — submit_reached=false, portal login never completed";
+const GENERIC_TIMEOUT = "Job timed out after 480s";
+const SUBMIT_TIMEOUT =
+  "Timeout 480000ms exceeded after clicking Submit (SubmitClaimProf3) — click action done";
 const DATA_ERR = "Still on Step 1 after clicking Continue. Errors: * Indicates a required field.";
 
 describe("automatic timeout retry", () => {
@@ -44,11 +49,39 @@ describe("automatic timeout retry", () => {
     audits.length = 0;
   });
 
-  it("classifies timeouts as retryable and data errors as not", () => {
+  it("classifies timeouts as retryable only with explicit pre-submit evidence", () => {
     expect(looksLikeRetryableTimeout(TIMEOUT_ERR)).toBe(true);
+    expect(looksLikeRetryableTimeout(GENERIC_TIMEOUT)).toBe(false);
+    expect(looksLikeRetryableTimeout(SUBMIT_TIMEOUT)).toBe(false);
     expect(looksLikeRetryableTimeout(DATA_ERR)).toBe(false);
     expect(looksLikeRetryableTimeout("Medicaid ID not found for member")).toBe(false);
   });
+
+  it("never auto-retries a generic worker timeout with no stage evidence", async () => {
+    const record: any = { id: "b9", auto_retry_count: 0, status: "submitting" };
+    const trip: any = { id: "t9", robot_job_id: "job9" };
+    const sb = makeSupabase(record, trip);
+
+    const out = await maybeAutoRetryTimeout(sb, "b9", "t9", GENERIC_TIMEOUT, "actor");
+    expect(out).toEqual({ retried: false, exhausted: false, message: null });
+    expect(record.status).toBe("submitting");
+    expect(record.auto_retry_count).toBe(0);
+    expect(trip.robot_job_id).toBe("job9"); // original job id preserved
+    expect(audits.length).toBe(0);
+  });
+
+  it("never auto-retries a timeout that mentions the Submit/Confirm boundary", async () => {
+    const record: any = { id: "b10", auto_retry_count: 0, status: "submitting" };
+    const trip: any = { id: "t10", robot_job_id: "job10" };
+    const sb = makeSupabase(record, trip);
+
+    const out = await maybeAutoRetryTimeout(sb, "b10", "t10", SUBMIT_TIMEOUT, "actor");
+    expect(out.retried).toBe(false);
+    expect(record.auto_retry_count).toBe(0);
+    expect(trip.robot_job_id).toBe("job10");
+    expect(audits.length).toBe(0);
+  });
+
 
   it("re-queues a timed-out bill up to the cap, then parks it for a human", async () => {
     const record: any = { id: "b1", auto_retry_count: 0, status: "submitting" };
