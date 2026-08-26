@@ -69,6 +69,7 @@ import {
   processingStateLabel,
   queuedToastMessage,
 } from "@/lib/billingUiCopy";
+import { ClaimProgressCell } from "@/components/billing/ClaimProgressCell";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
 
@@ -967,18 +968,28 @@ function ReadyToSubmitTab({
                 {r.submitted_at ? formatDateTime(r.submitted_at) : "Not submitted"}
               </td>
               <td className="px-4 py-3">
-                {r.status === "queued" ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600">
-                    <Clock className="h-3 w-3" /> {processingStateLabel("queued")}
-                  </span>
-                ) : isRunning ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
-                    <Loader2 className="h-3 w-3 animate-spin" /> {processingStateLabel("submitting")}
-                  </span>
-                ) : r.requires_human_step ? (
+                {r.requires_human_step ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-xs font-medium text-violet-600">
                     {processingStateLabel(r.status, { requiresHumanStep: true })}
                   </span>
+                ) : r.status === "queued" ? (
+                  <>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600">
+                      <Clock className="h-3 w-3" /> {processingStateLabel("queued")}
+                    </span>
+                    <ClaimProgressCell recordStatus="queued" robotStatus={null} startedAt={null} />
+                  </>
+                ) : isRunning ? (
+                  <>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
+                      <Loader2 className="h-3 w-3 animate-spin" /> {processingStateLabel("submitting")}
+                    </span>
+                    <ClaimProgressCell
+                      recordStatus={r.status}
+                      robotStatus={r.robot_last_status}
+                      startedAt={r.robot_job_started_at ?? r.submit_started_at ?? null}
+                    />
+                  </>
                 ) : r.status === "needs_fix" ? (
                   <StatusPill status="needs_fix" />
                 ) : (

@@ -298,14 +298,36 @@ export async function probeWorker(
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    let res = await fetch(`${worker.url}/health`, { method: "GET", signal: ctrl.signal });
-    // Some robot builds expose liveness on `/` only; `/health` then 404s.
-    if (res.status === 404) {
-      res = await fetch(`${worker.url}/`, { method: "GET", signal: ctrl.signal });
+    // The production robot exposes liveness on `/` and does NOT serve
+    // `/health` (it 404s). A missing/404 health route therefore says nothing
+    // about liveness: fall back to the root and never report red for it.
+    let status: number | null = null;
+    let lastError: string | null = null;
+    try {
+      const res = await fetch(`${worker.url}/health`, { method: "GET", signal: ctrl.signal });
+      status = res.status;
+    } catch (e: any) {
+      lastError = e?.message ?? "unreachable";
+    }
+    if (status === null || status === 404 || status === 405 || status >= 500) {
+      try {
+        const res = await fetch(`${worker.url}/`, { method: "GET", signal: ctrl.signal });
+        status = res.status;
+        lastError = null;
+      } catch (e: any) {
+        lastError = e?.message ?? "unreachable";
+        if (status === null) {
+          return { ok: false, ms: Date.now() - t0, error: lastError };
+        }
+      }
     }
     // Any HTTP answer proves the process is up; only 5xx counts as unhealthy.
-    const ok = res.status < 500;
-    return { ok, ms: Date.now() - t0, error: ok ? null : `health ${res.status}` };
+    const ok = status !== null && status < 500;
+    return {
+      ok,
+      ms: Date.now() - t0,
+      error: ok ? null : (lastError ?? `health ${status}`),
+    };
   } catch (e: any) {
     return { ok: false, ms: Date.now() - t0, error: e?.message ?? "unreachable" };
   } finally {
