@@ -211,6 +211,20 @@ export async function resolveUnverifiedClaim(
     }`,
   );
 
+  // No lookup capability = no evidence either way. Say so plainly and hand it
+  // to a human with the exact search terms; never imply the portal was checked
+  // and never let it drift toward a resubmit.
+  if (found.unsupported) {
+    const msg =
+      `CANNOT VERIFY AUTOMATICALLY: the automation service has no read-only claim search available ` +
+      `(${found.detail}). The Confirm click may have created a claim. Search the portal manually ` +
+      `(Claims → Search Claims) for member ${memberId} on ${portalDate(trip.pickup_at)} and record the ` +
+      `claim number here. Do NOT resubmit until you have checked.`;
+    await flagForHuman(supabase, rec.id, trip.id, actorId, msg, nowIso);
+    return { pending: false, status: "NEEDS_HUMAN_LOOKUP", message: msg };
+  }
+
+
   if (found.claim) {
     const message = `Resolved automatically by a read-only portal search: claim #${found.claim}${
       found.status ? ` (portal status ${found.status})` : ""
