@@ -992,15 +992,15 @@ function ReadyToSubmitTab({
               <td className="px-4 py-3">
                 {r.status === "queued" ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600">
-                    <Clock className="h-3 w-3" /> Queued
+                    <Clock className="h-3 w-3" /> {processingStateLabel("queued")}
                   </span>
                 ) : isRunning ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Processing
+                    <Loader2 className="h-3 w-3 animate-spin" /> {processingStateLabel("submitting")}
                   </span>
                 ) : r.requires_human_step ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-xs font-medium text-violet-600">
-                    Verifying submission
+                    {processingStateLabel(r.status, { requiresHumanStep: true })}
                   </span>
                 ) : r.status === "needs_fix" ? (
                   <StatusPill status="needs_fix" />
