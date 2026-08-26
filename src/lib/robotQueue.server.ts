@@ -11,6 +11,8 @@
  *     one pass, dispatching the oldest queued records in parallel
  */
 import { startRobotSubmission, logAudit } from "@/lib/billingHelpers";
+import { envInt } from "@/lib/submissionQueueEnv";
+
 
 /**
  * The automation service hard-kills a job at 480s. Anything older than this is
@@ -23,13 +25,15 @@ export const ROBOT_JOB_STALE_MS = 12 * 60 * 1000;
  * CONTROLLED ACCOUNT CAPACITY: up to this many live portal sessions per
  * provider/company account.
  *
- * The automation service supports bounded per-account concurrency (its own
- * server caps at 8); RedArt stays deliberately below that so one tenant can
- * never flood the worker (Chromium spawn EAGAIN, closed browsers, 480s
+ * Single source of truth with the queue layer: same env var, same 1..8 clamp,
+ * same default of 4. The automation service's own server caps at 8, so RedArt
+ * can never ask it for more than it supports, and the default keeps one tenant
+ * from flooding the worker (Chromium spawn EAGAIN, closed browsers, 480s
  * timeouts). Extra approved bills wait in the persistent queue and start as
  * soon as an account slot frees up.
  */
-export const MAX_CONCURRENT_ROBOT_JOBS = 4;
+export const MAX_CONCURRENT_ROBOT_JOBS = envInt("SUBMIT_MAX_PER_COMPANY", 4, 1, 8);
+
 
 
 /**
@@ -379,7 +383,10 @@ export async function sweepRobotJobs(
     companyId,
     refill: opts.refill ?? false,
     // Bounded so one company can never monopolise a multi-tenant sweep.
-    refillMaxRounds: opts.refill ? (opts.refillMaxRounds ?? 5) : 0,
+    // Bounded so one company can never monopolise a multi-tenant sweep; the
+    // tick's own wall-clock budget is the real stop.
+    refillMaxRounds: opts.refill ? (opts.refillMaxRounds ?? 12) : 0,
+
   });
   return {
     checked: tick.checked,
