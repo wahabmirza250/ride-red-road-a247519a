@@ -33,6 +33,7 @@ import { driverCreatePassenger, driverSearchPassengers } from "@/lib/passenger.f
 import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
 import { clockIn, clockOut, getShiftStats, addShiftMiles } from "@/lib/shifts.functions";
 import { formatHours } from "@/lib/shiftTime";
+import { openNavigation as openMapsDirections } from "@/lib/mapsDeepLink";
 import { recordTripMedia } from "@/lib/tripMedia.functions";
 import { addTripStop, markStopArrived, markStopDeparted, updateTripAddress } from "@/lib/tripStops.functions";
 import { ActiveJourneyCard } from "@/components/driver/ActiveJourneyCard";
@@ -548,10 +549,13 @@ function DriverHome() {
     toast.success(`Switched to ${pax.first_name} ${pax.last_name}`);
   }
 
-  /** Opens the full-screen in-app turn-by-turn navigator (never an external app). */
+  /** Opens Google Maps with driving directions to the stop that is current now. */
   function openNavigation() {
     if (!active) return;
-    setNavOpen(true);
+    const heading = tripStatus === "in_progress"
+      ? { lat: active.dropoff_lat, lng: active.dropoff_lng, address: active.dropoff_address }
+      : { lat: active.pickup_lat, lng: active.pickup_lng, address: active.pickup_address };
+    openMapsDirections(heading);
   }
 
 
@@ -822,6 +826,7 @@ function DriverHome() {
             }
             destinationKind={tripStatus === "in_progress" ? "dropoff" : "pickup"}
             onStartNavigation={openNavigation}
+            onRouteOverview={() => setNavOpen(true)}
           />
 
 

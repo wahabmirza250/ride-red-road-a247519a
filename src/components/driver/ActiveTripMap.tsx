@@ -1,6 +1,6 @@
 /// <reference types="google.maps" />
 import { useEffect, useRef, useState } from "react";
-import { Navigation, Loader2 } from "lucide-react";
+import { Navigation, Loader2, Map as MapIcon } from "lucide-react";
 import { loadGoogleMapsDark, DARK_MAP_STYLE, LIGHT_MAP_STYLE } from "@/lib/googleMapsDark";
 import { useLiveEta } from "@/lib/useLiveEta";
 import { useTheme } from "@/lib/theme";
@@ -17,6 +17,8 @@ type Props = {
   destinationKind?: "pickup" | "dropoff" | "stop";
   /** Opens Google Maps with driving directions to this stop. */
   onStartNavigation?: () => void;
+  /** Opens the full route preview for this stop. */
+  onRouteOverview?: () => void;
 };
 
 /**
@@ -30,6 +32,7 @@ export function ActiveTripMap({
   destinationLabel,
   destinationKind = "pickup",
   onStartNavigation,
+  onRouteOverview,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -171,14 +174,25 @@ export function ActiveTripMap({
             <div className="max-w-[16rem] truncate text-xs text-muted-foreground">{destinationLabel}</div>
           )}
         </div>
-        {onStartNavigation && (
-          <Button
-            className="h-11 rounded-full px-5 text-sm font-semibold"
-            onClick={onStartNavigation}
-          >
-            <Navigation className="mr-2 h-4 w-4" /> Start Navigation
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {onRouteOverview && (
+            <Button
+              variant="ghost"
+              className="h-11 rounded-full text-sm font-semibold"
+              onClick={onRouteOverview}
+            >
+              <MapIcon className="mr-2 h-4 w-4" /> Route Overview
+            </Button>
+          )}
+          {onStartNavigation && (
+            <Button
+              className="h-11 rounded-full px-5 text-sm font-semibold"
+              onClick={onStartNavigation}
+            >
+              <Navigation className="mr-2 h-4 w-4" /> Start Navigation
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
