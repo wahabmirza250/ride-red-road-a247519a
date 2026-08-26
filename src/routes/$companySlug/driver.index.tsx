@@ -34,7 +34,7 @@ import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
 import { clockIn, clockOut, getShiftStats, addShiftMiles } from "@/lib/shifts.functions";
 import { recordTripMedia } from "@/lib/tripMedia.functions";
 import { addTripStop, markStopArrived, markStopDeparted, updateTripAddress } from "@/lib/tripStops.functions";
-import { ActiveRouteCard } from "@/components/driver/ActiveRouteCard";
+import { ActiveJourneyCard } from "@/components/driver/ActiveJourneyCard";
 import { ActiveTripMap } from "@/components/driver/ActiveTripMap";
 import { InAppNavigation } from "@/components/driver/InAppNavigation";
 import { EditAddressButton } from "@/components/driver/EditAddressButton";
@@ -691,7 +691,7 @@ function DriverHome() {
         </div>
       )}
       {/* Assigned multi-passenger route stop list */}
-      <ActiveRouteCard />
+      <ActiveJourneyCard />
 
       {/* Active trip */}
 
