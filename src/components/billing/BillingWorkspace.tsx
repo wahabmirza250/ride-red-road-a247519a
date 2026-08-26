@@ -65,7 +65,18 @@ import { DeniedClaimsTab } from "@/components/billing/DeniedClaimsTab";
 import { FixBillDialog } from "@/components/billing/FixBillDialog";
 import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
 import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
-import { DoneClaimsSection } from "@/components/billing/DoneClaimsSection";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  BILLING_PAGE_DESCRIPTION,
+  WAITING_FOR_SLOT_MESSAGE,
+  processingStateLabel,
+  queuedToastMessage,
+} from "@/lib/billingUiCopy";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
 import { MedicalReviewTab } from "@/components/billing/MedicalReviewTab";
 
