@@ -59,37 +59,37 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-describe("strict single flight", () => {
-  it("caps a provider account at one live submission", () => {
-    expect(MAX_CONCURRENT_ROBOT_JOBS).toBe(1);
-    expect(maxSubmitPerCompany()).toBe(1);
+describe("controlled account concurrency", () => {
+  it("caps a provider account at four live submissions", () => {
+    expect(MAX_CONCURRENT_ROBOT_JOBS).toBe(4);
+    expect(maxSubmitPerCompany()).toBe(4);
   });
 
-  it("starts one bill and queues the rest, then releases them one at a time", async () => {
-    const records = Array.from({ length: 5 }, (_, i) =>
+  it("starts up to the cap and releases the rest as slots free", async () => {
+    const records = Array.from({ length: 6 }, (_, i) =>
       makeRecord(String(i + 1), { riderId: `r${i}` }),
     );
     const { supabase } = makeFakeDb(records);
 
     const first = await dispatchLeasedSubmissions(supabase, "actor");
-    expect(first.started).toBe(1);
-    expect(records.filter((r) => r.status === "submitting").length).toBe(1);
+    expect(first.started).toBe(4);
+    expect(records.filter((r) => r.status === "submitting").length).toBe(4);
 
-    // Nothing else may start while the session is live.
+    // Account is full: nothing else may start.
     const second = await dispatchLeasedSubmissions(supabase, "actor");
     expect(second.started).toBe(0);
 
-    // Terminal state → exactly one more starts.
+    // One terminal state → exactly one more starts.
     const live = records.find((r) => r.status === "submitting")!;
     live.status = "submitted";
     live.medicaid_trips.robot_job_id = null;
     const third = await dispatchLeasedSubmissions(supabase, "actor");
     expect(third.started).toBe(1);
-    expect(started.length).toBe(2);
+    expect(started.length).toBe(5);
   });
 
-  it("keeps parallel dispatchers to one live session in total", async () => {
-    const records = Array.from({ length: 6 }, (_, i) =>
+  it("keeps parallel dispatchers within the account cap, with no duplicates", async () => {
+    const records = Array.from({ length: 12 }, (_, i) =>
       makeRecord(String(i + 1), { riderId: `r${i}` }),
     );
     const { supabase } = makeFakeDb(records);
@@ -99,8 +99,20 @@ describe("strict single flight", () => {
       dispatchLeasedSubmissions(supabase, "c", { worker: "c" }),
     ]);
     const ids = batches.flatMap((b) => b.startedIds);
+    // The same bill is never dispatched twice under parallel dispatchers.
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids.length).toBeLessThanOrEqual(1);
+    expect(ids.length).toBeLessThanOrEqual(maxSubmitPerCompany());
+  });
+
+  it("never runs two claims for the SAME rider at once", async () => {
+    const records = Array.from({ length: 5 }, (_, i) =>
+      makeRecord(String(i + 1), { riderId: "same-rider" }),
+    );
+    const { supabase } = makeFakeDb(records);
+    const res = await dispatchLeasedSubmissions(supabase, "actor");
+    expect(res.started).toBe(1);
+    expect(records.filter((r) => r.status === "submitting").length).toBe(1);
+    expect(records.filter((r) => r.status === "queued").length).toBe(4);
   });
 
   it("still runs different provider accounts in parallel", async () => {
@@ -152,10 +164,13 @@ describe("idempotency: double clicks, refreshes and extra tabs", () => {
     expect(started.length).toBe(0);
   });
 
-  it("parks an interactive submit behind a live session instead of starting it", async () => {
+  it("parks an interactive submit behind a full account instead of starting it", async () => {
     const live = makeRecord("1", { riderId: "rA", status: "submitting", jobId: "j1" });
+    const live2 = makeRecord("3", { riderId: "rC", status: "submitting", jobId: "j3" });
+    const live3 = makeRecord("4", { riderId: "rD", status: "submitting", jobId: "j4" });
+    const live4 = makeRecord("5", { riderId: "rE", status: "submitting", jobId: "j5" });
     const next = makeRecord("2", { riderId: "rB", status: "approved" });
-    const { supabase } = makeFakeDb([live, next]);
+    const { supabase } = makeFakeDb([live, live2, live3, live4, next]);
     const out = await enqueueOrStartRobot(supabase, {
       billingRecordId: "2",
       companyId: "co1",
@@ -274,18 +289,17 @@ describe("worker/browser failures release the lock cleanly", () => {
     const good = makeRecord("2", { riderId: "rB" });
     const { supabase } = makeFakeDb([bad, good]);
 
+    // The failing bill is the first one leased; the mock fails only that call.
     failNext = "Target page, context or browser has been closed";
     const first = await dispatchLeasedSubmissions(supabase, "actor");
-    expect(first.started).toBe(0);
-
-    const second = await dispatchLeasedSubmissions(supabase, "actor");
-    expect(second.startedIds).toEqual(["2"]);
-    expect(started.length).toBe(1);
+    expect(first.retried).toBe(1);
+    expect(bad.status).toBe("queued");
+    expect(started.map((s: any) => s.billingRecordId)).toEqual(["2"]);
   });
 });
 
 describe("queue recovery", () => {
-  it("releases abandoned leases and resumes the single-flight queue", async () => {
+  it("releases abandoned leases and resumes the queue", async () => {
     const rec = makeRecord("1", {
       riderId: "rA",
       submit_locked_until: new Date(Date.now() - 60 * 60_000).toISOString(),
