@@ -1122,20 +1122,20 @@ export const listSubmissionQueue = createServerFn({ method: "GET" })
         queue_label = `Submitted — claim #${trip.robot_confirmation_number}`;
       } else if (r.status === "pending_submit") {
         queue_state = "awaiting_review";
-        queue_label = "Captured — waiting for your review";
+        queue_label = "Needs verification";
       } else if (r.status === "queued") {
-        // Controlled account capacity: a bounded number of bills process per
-        // provider account, so everything else is honestly labelled as queued.
+        // Controlled account capacity: several DIFFERENT riders process in
+        // parallel, so everything else honestly waits for a free slot.
         const ahead = (aheadInQueue ?? 0) + running.length;
         queue_state = "queued";
         queue_label =
           ahead > 0
-            ? `Queued — ${ahead} job${ahead === 1 ? "" : "s"} ahead on the portal account`
-            : "Queued — starting shortly";
+            ? `Waiting for submission slot — ${ahead} claim${ahead === 1 ? "" : "s"} ahead`
+            : "Waiting for submission slot";
       } else {
         // An actively running submission on this provider account.
         queue_state = "running";
-        queue_label = "Processing at the portal now";
+        queue_label = "Submitting to HCPF";
       }
 
 
