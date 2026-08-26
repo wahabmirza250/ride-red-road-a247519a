@@ -51,7 +51,14 @@ async function searchPortalClaim(args: {
   portalId: string | null;
   memberId: string;
   serviceDateISO: string | null;
-}): Promise<{ ok: boolean; claim: string | null; status: string | null; detail: string }> {
+}): Promise<{
+  ok: boolean;
+  claim: string | null;
+  status: string | null;
+  detail: string;
+  /** The lookup capability itself is missing/unreachable — nothing was checked. */
+  unsupported?: boolean;
+}> {
   const serviceDate = portalDate(args.serviceDateISO);
   let res: Response;
   try {
