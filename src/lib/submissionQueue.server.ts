@@ -58,12 +58,15 @@ import { envInt } from "@/lib/submissionQueueEnv";
  * Live Railway evidence showed that UNBOUNDED simultaneous portal sessions on
  * one provider account flood the automation worker (Chromium spawn EAGAIN,
  * closed browsers, 480s timeouts). The automation service itself supports
- * bounded concurrency, so RedArt allows a conservative 4 active HCPF
- * submissions per account, hard-clamped to 1..4 so configuration can never
- * raise it further. Duplicate protection does not rely on this number: it comes
- * from idempotency keys, conditional status flips and per-rider single flight.
+ * bounded concurrency (its own server caps at 8), so RedArt stays at a
+ * conservative DEFAULT of 4 active HCPF submissions per account and allows an
+ * operator to ramp to at most 8 via `SUBMIT_MAX_PER_COMPANY` — the clamp keeps
+ * configuration from ever going past what the automation service supports.
+ * Duplicate protection does not rely on this number: it comes from idempotency
+ * keys, conditional status flips and per-rider single flight.
  */
-export const maxSubmitPerCompany = () => envInt("SUBMIT_MAX_PER_COMPANY", 4, 1, 4);
+export const maxSubmitPerCompany = () => envInt("SUBMIT_MAX_PER_COMPANY", 4, 1, 8);
+
 /** Max concurrent real portal submissions across ALL companies (separate accounts). */
 export const maxSubmitGlobal = () => envInt("SUBMIT_MAX_GLOBAL", 20, 1, 200);
 /** How long a leased bill stays locked to one worker. */
