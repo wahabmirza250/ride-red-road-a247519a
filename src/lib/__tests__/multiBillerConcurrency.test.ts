@@ -183,10 +183,12 @@ describe("100-bill batch", () => {
     failNext = "Indicates a required field.";
     const first = await dispatchLeasedSubmissions(supabase, null, { worker: "w1" });
     expect(first.failed).toBe(1);
-    expect(started.length).toBe(0);
+    // The rest of that pass still ran: one bad bill never blocks the account.
+    expect(first.started).toBe(maxSubmitPerCompany() - 1);
+    expect(records.filter((r) => r.status === "needs_fix").length).toBe(1);
 
     const second = await dispatchLeasedSubmissions(supabase, null, { worker: "w2" });
-    expect(second.started).toBe(1);
+    expect(second.started).toBe(1); // the freed slot is refilled
     expect(records.filter((r) => r.status === "needs_fix").length).toBe(1);
   });
 });
