@@ -22,7 +22,6 @@ import {
   Ban,
   Trash2,
   Pencil,
-  ChevronDown,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/nemt/PageHeader";
@@ -30,7 +29,6 @@ import { StatusPill } from "@/components/nemt/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -66,18 +64,14 @@ import { FixBillDialog } from "@/components/billing/FixBillDialog";
 import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
 import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   BILLING_PAGE_DESCRIPTION,
   WAITING_FOR_SLOT_MESSAGE,
   processingStateLabel,
   queuedToastMessage,
 } from "@/lib/billingUiCopy";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
+import { BillingStageNav } from "@/components/billing/BillingStageNav";
+
 import { MedicalReviewTab } from "@/components/billing/MedicalReviewTab";
 
 
@@ -191,6 +185,15 @@ const PRIMARY_KEYS: TabKey[] = [
   "submitted",
 ];
 const SECONDARY_KEYS: TabKey[] = ["medical_review", "claims_history", "payroll", "denied"];
+
+/** One short, plain-English hint per stage so the rail reads like a pipeline. */
+const STAGE_HINTS: Partial<Record<TabKey, string>> = {
+  pending_review: "Check the paper bill",
+  ready_to_submit: "Send to the state portal",
+  awaiting_portal: "Working at the portal",
+  submitted: "Claim number saved",
+};
+
 
 
 
@@ -383,51 +386,25 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
 
       <SubmissionQueuePanel />
 
-      {/* Primary workflow: four obvious stages, with everything else tucked
-          into an unobtrusive More menu so the main path stays scannable. */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-          <TabsList className="justify-start overflow-x-auto flex-nowrap">
-            {PRIMARY_KEYS.map((key) => {
-              const t = TABS.find((x) => x.key === key)!;
-              const c = countFor(key);
-              return (
-                <TabsTrigger key={key} value={key} className="shrink-0 whitespace-nowrap">
-                  {t.label}
-                  {c !== null && (
-                    <span className="ml-2 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-semibold text-foreground/80">
-                      {c}
-                    </span>
-                  )}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </Tabs>
+      {/* Primary workflow: four obvious stages read left to right, with every
+          secondary tool tucked into an unobtrusive More menu. */}
+      <BillingStageNav
+        stages={PRIMARY_KEYS.map((key) => ({
+          key,
+          label: TABS.find((x) => x.key === key)!.label,
+          count: countFor(key),
+          hint: STAGE_HINTS[key],
+        }))}
+        active={tab}
+        onSelect={(k) => setTab(k as TabKey)}
+        secondary={SECONDARY_KEYS.map((key) => ({
+          key,
+          label: TABS.find((x) => x.key === key)!.label,
+        }))}
+        secondaryActiveLabel={secondaryActive ? secondaryLabel : null}
+        onSelectSecondary={(k) => setTab(k as TabKey)}
+      />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="sm"
-              variant={secondaryActive ? "secondary" : "ghost"}
-              className="rounded-full text-muted-foreground data-[state=open]:text-foreground"
-            >
-              {secondaryActive ? secondaryLabel : "More tools"}
-              <ChevronDown className="ml-1 h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            {SECONDARY_KEYS.map((key) => {
-              const t = TABS.find((x) => x.key === key)!;
-              return (
-                <DropdownMenuItem key={key} onSelect={() => setTab(key)}>
-                  {t.label}
-                </DropdownMenuItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
 
 
       {tab === "claims_history" ? (
