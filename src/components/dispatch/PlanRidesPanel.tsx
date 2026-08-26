@@ -12,6 +12,24 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+type Ride = Awaited<ReturnType<typeof getPlannableRides>>[number];
+
+function dayKey(iso: string | null) {
+  if (!iso) return "Unscheduled / ASAP";
+  return new Date(iso).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function toLocalInput(iso: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function PlanRidesPanel() {
   const load = useServerFn(getPlannableRides);
   const loadDrivers = useServerFn(adminListAssignableDrivers);
