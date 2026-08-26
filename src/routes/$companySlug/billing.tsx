@@ -1,12 +1,13 @@
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AppLink } from "@/lib/appLink";
-import { LogOut, Moon, Sun, MessageSquare, ListChecks, ReceiptText, Settings, Layers, Users } from "lucide-react";
+import { LogOut, Moon, Sun, MessageSquare, ListChecks, Settings, Layers, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { AccessDenied } from "@/components/AccessDenied";
+import { BrandMark } from "@/components/Brand";
 import { CompanyLogo } from "@/components/CompanyLogo";
 
 export const Route = createFileRoute("/$companySlug/billing")({
