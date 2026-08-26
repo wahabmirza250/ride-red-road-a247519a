@@ -383,7 +383,10 @@ export async function sweepRobotJobs(
     companyId,
     refill: opts.refill ?? false,
     // Bounded so one company can never monopolise a multi-tenant sweep.
-    refillMaxRounds: opts.refill ? (opts.refillMaxRounds ?? 5) : 0,
+    // Bounded so one company can never monopolise a multi-tenant sweep; the
+    // tick's own wall-clock budget is the real stop.
+    refillMaxRounds: opts.refill ? (opts.refillMaxRounds ?? 12) : 0,
+
   });
   return {
     checked: tick.checked,
