@@ -1139,10 +1139,7 @@ function AwaitingPortalTab({
                 {r.status === "pending_submit" && (
                   <div className="mt-2 flex items-start gap-2 rounded-lg bg-info/10 p-2 text-xs text-info">
                     <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>
-                      Waiting to be sent. Submitting runs one job that fills, submits
-                      and confirms on the portal, then saves the real claim number.
-                    </span>
+                    <span>{WAITING_FOR_SLOT_MESSAGE}</span>
                   </div>
                 )}
                 <QueueBadge info={queueById.get(r.id)} />
