@@ -109,7 +109,7 @@ describe("atomic leasing", () => {
       return m;
     }, {});
     expect(byCompany["big"]).toBeLessThanOrEqual(maxSubmitPerCompany());
-    expect(byCompany["small"]).toBe(maxSubmitPerCompany());
+    expect(byCompany["small"]).toBe(2); // only 2 exist, both served
   });
 
   it("honours the per-company cap against jobs already running", async () => {
@@ -127,34 +127,45 @@ describe("atomic leasing", () => {
 });
 
 describe("dispatch", () => {
-  it("starts exactly one bill per provider account and clears its lease", async () => {
-    const records = Array.from({ length: 3 }, (_, i) =>
+  it("starts up to the account cap and clears every lease", async () => {
+    const records = Array.from({ length: 6 }, (_, i) =>
       makeRecord(String(i + 1), { riderId: `r${i}` }),
     );
     const { supabase } = makeFakeDb(records);
     const res = await dispatchLeasedSubmissions(supabase, "actor");
-    expect(res.started).toBe(1);
-    expect(started.length).toBe(1);
-    expect(records.filter((r) => r.status === "submitting").length).toBe(1);
-    expect(records.filter((r) => r.status === "queued").length).toBe(2);
+    expect(res.started).toBe(maxSubmitPerCompany());
+    expect(started.length).toBe(maxSubmitPerCompany());
+    expect(records.filter((r) => r.status === "submitting").length).toBe(maxSubmitPerCompany());
+    expect(records.filter((r) => r.status === "queued").length).toBe(6 - maxSubmitPerCompany());
     expect(records.every((r) => r.submit_locked_until === null)).toBe(true);
   });
 
-  it("never starts anything while a session is live, without burning an attempt", async () => {
+  it("never starts a second claim for the SAME rider, without burning an attempt", async () => {
     const records = [
       makeRecord("1", { status: "submitting", jobId: "j1", riderId: "riderA" }),
       makeRecord("2", { riderId: "riderA" }),
-      makeRecord("3", { riderId: "riderB" }),
     ];
     const { supabase } = makeFakeDb(records);
     const res = await dispatchLeasedSubmissions(supabase, "actor");
     expect(res.startedIds).toEqual([]);
     expect(started.length).toBe(0);
-    for (const parked of records.filter((r) => r.id !== "1")) {
-      expect(parked.status).toBe("queued");
-      expect(parked.submit_attempt_count).toBe(0);
-      expect(parked.submit_locked_until).toBeNull();
-    }
+    const parked = records[1]!;
+    expect(parked.status).toBe("queued");
+    expect(parked.submit_attempt_count).toBe(0);
+    expect(parked.submit_locked_until).toBeNull();
+  });
+
+  it("stops adding work once the account cap is already in flight", async () => {
+    const records = [
+      ...Array.from({ length: maxSubmitPerCompany() }, (_, i) =>
+        makeRecord(`live${i}`, { status: "submitting", jobId: `j${i}`, riderId: `live-r${i}` }),
+      ),
+      makeRecord("9", { riderId: "riderZ" }),
+    ];
+    const { supabase } = makeFakeDb(records);
+    const res = await dispatchLeasedSubmissions(supabase, "actor");
+    expect(res.startedIds).toEqual([]);
+    expect(records.find((r) => r.id === "9")!.status).toBe("queued");
   });
 
   it("retries a transient failure with backoff, then stops for a human", async () => {
