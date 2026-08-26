@@ -7,7 +7,7 @@
  *
  * Invariants:
  *   - Every enqueued bill is stamped with the HCPF ACCOUNT KEY it must
- *     serialize on, so all billers of one company share one single-flight lane
+ *     serialize on, so all billers of one company share one capacity-limited lane
  *     while other companies run in parallel.
  *   - Every enqueued bill is stamped with an immutable IDEMPOTENCY KEY. The
  *     unique index on that column is what collapses double clicks, refreshes,
