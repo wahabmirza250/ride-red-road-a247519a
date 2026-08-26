@@ -37,6 +37,7 @@ type ShiftRecord = ShiftRow & {
   id: string;
   gps_miles?: number | string | null;
   earnings?: number | string | null;
+  end_odometer?: number | null;
 };
 
 /** The driver's currently running shift, if any. */
