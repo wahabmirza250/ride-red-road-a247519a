@@ -145,26 +145,31 @@ function DriverHome() {
   const lastFixRef = useRef<{ lat: number; lng: number; t: number } | null>(null);
   const milesBufferRef = useRef(0);
 
-  // Shift stats — hours always derive from the server-stored clock-in
-  // timestamp, so a refresh or reconnect never resets the running clock.
+  // Shift stats — hours always derive from the server-stored start and end
+  // times, so a refresh, a backgrounded phone or a re-login never resets the
+  // running clock and an overnight shift still counts towards today.
   type ShiftStats = {
     today_hours: number;
     today_miles: number;
     today_earnings: number;
     hourly_rate: number | null;
+    closed_hours_today: number;
+    closed_earnings_today: number;
     open_shift_started_at: string | null;
+    day_started_at: string | null;
+    open_shift_rate: number | null;
   };
   const [stats, setStats] = useState<ShiftStats>({
     today_hours: 0, today_miles: 0, today_earnings: 0, hourly_rate: null,
-    open_shift_started_at: null,
+    closed_hours_today: 0, closed_earnings_today: 0,
+    open_shift_started_at: null, day_started_at: null, open_shift_rate: null,
   });
-  const [statsAt, setStatsAt] = useState(() => Date.now());
   const [tick, setTick] = useState(0);
+  const [shiftBusy, setShiftBusy] = useState(false);
   const refreshStats = useCallback(async () => {
     try {
       const r = await statsFn();
       setStats(r);
-      setStatsAt(Date.now());
     } catch { /* ignore */ }
   }, [statsFn]);
 
@@ -177,16 +182,48 @@ function DriverHome() {
     return () => clearInterval(t);
   }, [refreshStats]);
 
-  const liveElapsedHours = stats.open_shift_started_at
-    ? stats.today_hours + Math.max(0, (Date.now() - statsAt) / 3_600_000)
-    : stats.today_hours;
+  void tick;
+  // Live portion of the shift that is running right now, measured from the
+  // stored start time (clipped to the start of today).
+  const openStart = stats.open_shift_started_at ? Date.parse(stats.open_shift_started_at) : null;
+  const dayStart = stats.day_started_at ? Date.parse(stats.day_started_at) : null;
+  const openHoursToday =
+    openStart == null
+      ? 0
+      : Math.max(0, (Date.now() - Math.max(openStart, dayStart ?? openStart)) / 3_600_000);
+  const onShift = openStart != null;
+  const liveElapsedHours = stats.closed_hours_today + openHoursToday;
   const liveEarnings = stats.hourly_rate == null
     ? null
-    : stats.today_earnings +
-      (stats.open_shift_started_at
-        ? Math.max(0, (Date.now() - statsAt) / 3_600_000) * stats.hourly_rate
-        : 0);
-  void tick;
+    : stats.closed_earnings_today + openHoursToday * (stats.open_shift_rate ?? stats.hourly_rate);
+
+  async function startShiftNow() {
+    if (shiftBusy || onShift) return;
+    setShiftBusy(true);
+    try {
+      await clockInFn({ data: {} });
+      toast.success("Shift started");
+      await refreshStats();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not start your shift");
+    } finally {
+      setShiftBusy(false);
+    }
+  }
+
+  async function endShiftNow() {
+    if (shiftBusy || !onShift) return;
+    setShiftBusy(true);
+    try {
+      await clockOutFn({ data: {} });
+      toast.success("Shift ended");
+      await refreshStats();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not end your shift");
+    } finally {
+      setShiftBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (!user) return;
