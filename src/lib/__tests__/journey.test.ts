@@ -1,4 +1,21 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, beforeAll } from "vitest";
+
+/** Minimal on-device storage stub so recovery can be tested outside a browser. */
+function installStorage() {
+  const map = new Map<string, string>();
+  const store = {
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => void map.set(k, v),
+    removeItem: (k: string) => void map.delete(k),
+    clear: () => map.clear(),
+    key: (i: number) => Array.from(map.keys())[i] ?? null,
+    get length() {
+      return map.size;
+    },
+  } as unknown as Storage;
+  (globalThis as { window?: unknown }).window = { localStorage: store };
+}
+
 import {
   arriveAtStop,
   completeStop,
