@@ -3,14 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
-  Activity,
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   Loader2,
   PauseCircle,
   PlayCircle,
-  Send,
   Server,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
