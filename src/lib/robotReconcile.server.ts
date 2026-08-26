@@ -91,6 +91,21 @@ export async function reconcileRobotJob(
     });
     const text = await res.text();
     if (!res.ok) {
+      // ORPHANED JOB: the automation service restarted and lost its in-memory
+      // job table, so it answers 404 forever. This proves nothing about HCPF,
+      // so it is NEVER retried — bounded confirmation window, then Needs
+      // Verification with all evidence preserved.
+      const { isJobNotFoundResponse } = await import("@/lib/robotJobLost");
+      if (isJobNotFoundResponse(res.status, text)) {
+        const { handleLostRobotJob } = await import("@/lib/robotJobLost.server");
+        return await handleLostRobotJob(supabase, {
+          recordId: rec.id,
+          tripId: trip.id,
+          actorId: userId,
+          robotLastStatus: trip?.robot_last_status ?? null,
+          robotLastCheckedAt: trip?.robot_last_checked_at ?? null,
+        });
+      }
       // Don't mutate DB state on a transient poll failure
       return {
         pending: true,
