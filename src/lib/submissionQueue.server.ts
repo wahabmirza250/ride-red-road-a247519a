@@ -98,6 +98,10 @@ export function submitBackoffMs(attempt: number): number {
 export function isTransientSubmitError(msg: string | null | undefined): boolean {
   if (!msg) return false;
   if (isAmbiguousSubmitError(msg)) return false;
+  // A timeout on its own proves nothing about where the run died. Without
+  // explicit pre-Submit evidence it is parked, never automatically re-queued.
+  const timeoutish = /timed out|timeout|ETIMEDOUT/i.test(String(msg));
+  if (timeoutish && !hasExplicitPreSubmitFailureEvidence(msg)) return false;
   if (looksLikeRetryableTimeout(msg)) return true;
   if (isInfrastructureSubmitError(msg)) return true;
   return (
@@ -106,6 +110,7 @@ export function isTransientSubmitError(msg: string | null | undefined): boolean 
     )
   );
 }
+
 
 /**
  * Outcomes that may or may not have created a real claim at the portal.
