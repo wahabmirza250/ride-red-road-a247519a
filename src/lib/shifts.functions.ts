@@ -1,5 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  earningsInWindow,
+  isStaleOpenShift,
+  roundHours,
+  shiftHours,
+  startOfDayMs,
+  sumHoursInWindow,
+  MAX_SHIFT_HOURS,
+  type ShiftRow,
+} from "@/lib/shiftTime";
 
 /** Driver identity + their pay config. Pay lives in the admin-only
  *  `driver_pay` table; hourly_rate may be null until an admin sets it. */
@@ -23,7 +33,49 @@ async function getDriver(userId: string) {
   };
 }
 
-/** Start a shift. Idempotent — returns the currently open shift if one exists. */
+type ShiftRecord = ShiftRow & {
+  id: string;
+  gps_miles?: number | string | null;
+  earnings?: number | string | null;
+  end_odometer?: number | null;
+};
+
+/** The driver's currently running shift, if any. */
+async function openShiftFor(driverId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("driver_shifts")
+    .select("*")
+    .eq("driver_id", driverId)
+    .is("clock_out_at", null)
+    .order("clock_in_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as ShiftRecord | null) ?? null;
+}
+
+/**
+ * Closes a shift a driver forgot to end, capped at the safety limit, so one
+ * forgotten shift can never swallow every later day's hours.
+ */
+async function closeStaleShift(open: ShiftRecord | null, rate: number | null) {
+  if (!open || !isStaleOpenShift(open, Date.now())) return null;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const endMs = Date.parse(open.clock_in_at) + MAX_SHIFT_HOURS * 3_600_000;
+  const hours = MAX_SHIFT_HOURS;
+  const hourlyRate = Number(open.hourly_rate_snapshot ?? rate ?? 0) || 0;
+  await supabaseAdmin
+    .from("driver_shifts")
+    .update({
+      clock_out_at: new Date(endMs).toISOString(),
+      earnings: Math.round(hours * hourlyRate * 100) / 100,
+    })
+    .eq("id", open.id)
+    .is("clock_out_at", null);
+  return open.id;
+}
+
+/** Start a shift. Repeated taps return the shift that is already running. */
 export const clockIn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { start_odometer?: number | null }) => input ?? {})
@@ -31,15 +83,11 @@ export const clockIn = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const driver = await getDriver(context.userId);
 
-    const { data: open } = await supabaseAdmin
-      .from("driver_shifts")
-      .select("*")
-      .eq("driver_id", driver.id)
-      .is("clock_out_at", null)
-      .order("clock_in_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (open) return open;
+    const existing = await openShiftFor(driver.id);
+    if (existing) {
+      const closed = await closeStaleShift(existing, driver.hourly_rate);
+      if (!closed) return existing;
+    }
 
     const { data: row, error } = await supabaseAdmin
       .from("driver_shifts")
@@ -60,22 +108,17 @@ export const clockOut = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const driver = await getDriver(context.userId);
-    const { data: open } = await supabaseAdmin
-      .from("driver_shifts")
-      .select("*")
-      .eq("driver_id", driver.id)
-      .is("clock_out_at", null)
-      .order("clock_in_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const open = await openShiftFor(driver.id);
     if (!open) return null;
 
     const now = new Date();
-    const hours = Math.max(0, (now.getTime() - new Date(open.clock_in_at).getTime()) / 3600000);
-    const miles = data.gps_miles ?? open.gps_miles ?? 0;
-    const rate = open.hourly_rate_snapshot ?? driver.hourly_rate ?? 0;
-    const earnings = Math.round(hours * Number(rate) * 100) / 100;
+    const hours = shiftHours(open, now.getTime());
+    const miles = data.gps_miles ?? Number(open.gps_miles ?? 0);
+    const rate = Number(open.hourly_rate_snapshot ?? driver.hourly_rate ?? 0) || 0;
+    const earnings = Math.round(hours * rate * 100) / 100;
 
+    // The `is("clock_out_at", null)` filter makes a second tap a no-op instead
+    // of a second, shorter shift record.
     const { data: closed, error } = await supabaseAdmin
       .from("driver_shifts")
       .update({
@@ -85,64 +128,81 @@ export const clockOut = createServerFn({ method: "POST" })
         earnings,
       })
       .eq("id", open.id)
+      .is("clock_out_at", null)
       .select("*")
-      .single();
+      .maybeSingle();
     if (error) throw new Error(error.message);
-    return closed;
+    return closed ?? null;
   });
+
+/** Named for the driver-facing controls; same records payroll already reads. */
+export const startShift = clockIn;
+export const endShift = clockOut;
 
 export const getCurrentShift = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const driver = await getDriver(context.userId);
-    const { data } = await supabaseAdmin
-      .from("driver_shifts")
-      .select("*")
-      .eq("driver_id", driver.id)
-      .is("clock_out_at", null)
-      .order("clock_in_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    return { shift: data, hourly_rate: driver.hourly_rate, pay_type: driver.pay_type };
+    const open = await openShiftFor(driver.id);
+    return { shift: open, hourly_rate: driver.hourly_rate, pay_type: driver.pay_type };
   });
 
-/** Aggregate for dashboard: today + all-time hours, miles, earnings. */
+/**
+ * Everything the driver home screen shows about today: hours, miles, earnings
+ * and whether a shift is running. Hours are derived from stored timestamps and
+ * clipped to today, so a shift that started yesterday still counts correctly.
+ */
 export const getShiftStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const driver = await getDriver(context.userId);
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const { data: rows } = await supabaseAdmin
-      .from("driver_shifts")
-      .select("clock_in_at, clock_out_at, gps_miles, earnings, hourly_rate_snapshot")
-      .eq("driver_id", driver.id)
-      .gte("clock_in_at", startOfDay.toISOString());
 
-    let hours = 0;
-    let miles = 0;
-    let earnings = 0;
-    let openSince: string | null = null;
-    for (const r of rows ?? []) {
-      const end = r.clock_out_at ? new Date(r.clock_out_at) : new Date();
-      const h = Math.max(0, (end.getTime() - new Date(r.clock_in_at).getTime()) / 3600000);
-      hours += h;
-      miles += Number(r.gps_miles ?? 0);
-      earnings += r.clock_out_at
-        ? Number(r.earnings ?? 0)
-        : Math.round(h * Number(r.hourly_rate_snapshot ?? 0) * 100) / 100;
-      if (!r.clock_out_at) openSince = r.clock_in_at;
-    }
+    const stale = await openShiftFor(driver.id);
+    await closeStaleShift(stale, driver.hourly_rate);
+
+    const now = Date.now();
+    const dayStart = startOfDayMs(now);
+    // Reach back far enough to catch a shift that began before midnight.
+    const lookback = new Date(dayStart - 48 * 3_600_000).toISOString();
+    const { data } = await supabaseAdmin
+      .from("driver_shifts")
+      .select("id, clock_in_at, clock_out_at, gps_miles, earnings, hourly_rate_snapshot")
+      .eq("driver_id", driver.id)
+      .gte("clock_in_at", lookback)
+      .order("clock_in_at", { ascending: false });
+
+    const rows = (data ?? []) as ShiftRecord[];
+    const todayRows = rows.filter((r) => {
+      const end = r.clock_out_at ? Date.parse(r.clock_out_at) : now;
+      return end > dayStart;
+    });
+
+    const openRow = rows.find((r) => !r.clock_out_at) ?? null;
+    const closedToday = todayRows.filter((r) => r.clock_out_at);
+
+    const hours = sumHoursInWindow(todayRows, dayStart, now, now);
+    const closedHours = sumHoursInWindow(closedToday, dayStart, now, now);
+    const miles = todayRows.reduce((t, r) => t + Number(r.gps_miles ?? 0), 0);
+    const earnings = earningsInWindow(todayRows, dayStart, now, now, driver.hourly_rate);
+    const closedEarnings = earningsInWindow(closedToday, dayStart, now, now, driver.hourly_rate);
+
     return {
-      today_hours: Math.round(hours * 100) / 100,
+      today_hours: roundHours(hours),
       today_miles: Math.round(miles * 100) / 100,
-      today_earnings: Math.round(earnings * 100) / 100,
+      today_earnings: earnings,
       hourly_rate: driver.hourly_rate,
-      /** Server timestamp of the currently open shift, if any. The client
-       *  counts up from this so a refresh never resets the clock. */
-      open_shift_started_at: openSince,
+      /** Hours already banked today from finished shifts. */
+      closed_hours_today: roundHours(closedHours),
+      closed_earnings_today: closedEarnings,
+      /** When the running shift began, or null when no shift is running. */
+      open_shift_started_at: openRow?.clock_in_at ?? null,
+      /** Where today's live count starts (handles an overnight shift). */
+      day_started_at: new Date(dayStart).toISOString(),
+      open_shift_rate:
+        openRow == null
+          ? null
+          : Number(openRow.hourly_rate_snapshot ?? driver.hourly_rate ?? 0) || 0,
     };
   });
 
@@ -153,12 +213,7 @@ export const addShiftMiles = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const driver = await getDriver(context.userId);
-    const { data: open } = await supabaseAdmin
-      .from("driver_shifts")
-      .select("id, gps_miles")
-      .eq("driver_id", driver.id)
-      .is("clock_out_at", null)
-      .maybeSingle();
+    const open = await openShiftFor(driver.id);
     if (!open) return null;
     const next = Number(open.gps_miles ?? 0) + Math.max(0, data.delta_miles);
     await supabaseAdmin.from("driver_shifts").update({ gps_miles: next }).eq("id", open.id);

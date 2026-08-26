@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Navigation, Route as RouteIcon, Check, Loader2, Users } from "lucide-react";
+import { Navigation, Route as RouteIcon, Check, Loader2, Map as MapIcon, Users } from "lucide-react";
 import { getMyActiveRoute, completeRouteStop } from "@/lib/routes.functions";
+import { openNavigation } from "@/lib/mapsDeepLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -194,25 +195,29 @@ export function ActiveJourneyCard() {
         )}
 
         {next ? (
-          <div className="space-y-2 rounded-xl bg-surface p-3">
+          <div className="space-y-3 rounded-2xl bg-surface p-4 shadow-soft">
             <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
               Next Stop · {progressLabel}
             </div>
-            <div className="text-sm font-semibold">
+            <div className="text-lg font-semibold leading-tight">
               {next.kind === "pickup" ? "Pickup" : "Drop-off"} · {next.passenger_name}
             </div>
-            <div className="text-xs text-muted-foreground">{next.address}</div>
+            <div className="text-sm text-muted-foreground">{next.address}</div>
             {next.medicaid_id && (
               <div className="text-[11px] text-muted-foreground">Member ID {next.medicaid_id}</div>
             )}
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Button className="h-11 flex-1 rounded-xl text-xs font-semibold" onClick={() => setNavOpen(true)}>
-                <Navigation className="mr-2 h-4 w-4" />
-                {next.kind === "pickup" ? "Navigate to Pickup" : "Navigate to Drop-off"}
-              </Button>
+            <Button
+              className="h-14 w-full rounded-2xl text-base font-semibold"
+              onClick={() =>
+                openNavigation({ lat: next.lat, lng: next.lng, address: next.address })
+              }
+            >
+              <Navigation className="mr-2 h-5 w-5" /> Start Navigation
+            </Button>
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
-                className="h-11 rounded-xl text-xs font-semibold"
+                className="h-12 flex-1 rounded-2xl text-sm font-semibold"
                 onClick={() => (next.status === "pending" ? markArrived(next) : openConfirm(next))}
               >
                 {next.status === "pending"
@@ -223,10 +228,17 @@ export function ActiveJourneyCard() {
                     ? "Confirm Pickup"
                     : "Complete Drop-off"}
               </Button>
+              <Button
+                variant="ghost"
+                className="h-12 rounded-2xl text-sm font-semibold"
+                onClick={() => setNavOpen(true)}
+              >
+                <MapIcon className="mr-2 h-4 w-4" /> Route Overview
+              </Button>
             </div>
           </div>
         ) : (
-          <div className="rounded-xl bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-600">
+          <div className="rounded-2xl bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-600">
             All stops completed. Every passenger's trip has been recorded.
           </div>
         )}

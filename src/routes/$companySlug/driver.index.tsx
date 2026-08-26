@@ -32,6 +32,8 @@ import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { driverCreatePassenger, driverSearchPassengers } from "@/lib/passenger.functions";
 import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
 import { clockIn, clockOut, getShiftStats, addShiftMiles } from "@/lib/shifts.functions";
+import { formatHours } from "@/lib/shiftTime";
+import { openNavigation as openMapsDirections } from "@/lib/mapsDeepLink";
 import { recordTripMedia } from "@/lib/tripMedia.functions";
 import { addTripStop, markStopArrived, markStopDeparted, updateTripAddress } from "@/lib/tripStops.functions";
 import { ActiveJourneyCard } from "@/components/driver/ActiveJourneyCard";
@@ -145,26 +147,31 @@ function DriverHome() {
   const lastFixRef = useRef<{ lat: number; lng: number; t: number } | null>(null);
   const milesBufferRef = useRef(0);
 
-  // Shift stats — hours always derive from the server-stored clock-in
-  // timestamp, so a refresh or reconnect never resets the running clock.
+  // Shift stats — hours always derive from the server-stored start and end
+  // times, so a refresh, a backgrounded phone or a re-login never resets the
+  // running clock and an overnight shift still counts towards today.
   type ShiftStats = {
     today_hours: number;
     today_miles: number;
     today_earnings: number;
     hourly_rate: number | null;
+    closed_hours_today: number;
+    closed_earnings_today: number;
     open_shift_started_at: string | null;
+    day_started_at: string | null;
+    open_shift_rate: number | null;
   };
   const [stats, setStats] = useState<ShiftStats>({
     today_hours: 0, today_miles: 0, today_earnings: 0, hourly_rate: null,
-    open_shift_started_at: null,
+    closed_hours_today: 0, closed_earnings_today: 0,
+    open_shift_started_at: null, day_started_at: null, open_shift_rate: null,
   });
-  const [statsAt, setStatsAt] = useState(() => Date.now());
   const [tick, setTick] = useState(0);
+  const [shiftBusy, setShiftBusy] = useState(false);
   const refreshStats = useCallback(async () => {
     try {
       const r = await statsFn();
       setStats(r);
-      setStatsAt(Date.now());
     } catch { /* ignore */ }
   }, [statsFn]);
 
@@ -177,16 +184,48 @@ function DriverHome() {
     return () => clearInterval(t);
   }, [refreshStats]);
 
-  const liveElapsedHours = stats.open_shift_started_at
-    ? stats.today_hours + Math.max(0, (Date.now() - statsAt) / 3_600_000)
-    : stats.today_hours;
+  void tick;
+  // Live portion of the shift that is running right now, measured from the
+  // stored start time (clipped to the start of today).
+  const openStart = stats.open_shift_started_at ? Date.parse(stats.open_shift_started_at) : null;
+  const dayStart = stats.day_started_at ? Date.parse(stats.day_started_at) : null;
+  const openHoursToday =
+    openStart == null
+      ? 0
+      : Math.max(0, (Date.now() - Math.max(openStart, dayStart ?? openStart)) / 3_600_000);
+  const onShift = openStart != null;
+  const liveElapsedHours = stats.closed_hours_today + openHoursToday;
   const liveEarnings = stats.hourly_rate == null
     ? null
-    : stats.today_earnings +
-      (stats.open_shift_started_at
-        ? Math.max(0, (Date.now() - statsAt) / 3_600_000) * stats.hourly_rate
-        : 0);
-  void tick;
+    : stats.closed_earnings_today + openHoursToday * (stats.open_shift_rate ?? stats.hourly_rate);
+
+  async function startShiftNow() {
+    if (shiftBusy || onShift) return;
+    setShiftBusy(true);
+    try {
+      await clockInFn({ data: {} });
+      toast.success("Shift started");
+      await refreshStats();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not start your shift");
+    } finally {
+      setShiftBusy(false);
+    }
+  }
+
+  async function endShiftNow() {
+    if (shiftBusy || !onShift) return;
+    setShiftBusy(true);
+    try {
+      await clockOutFn({ data: {} });
+      toast.success("Shift ended");
+      await refreshStats();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not end your shift");
+    } finally {
+      setShiftBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -369,8 +408,10 @@ function DriverHome() {
       if (error) return toast.error(error.message);
       setDriver({ ...driver, status: "available", current_lat: pos.lat, current_lng: pos.lng });
       setGeoError(null);
-      try { await clockInFn({ data: {} }); toast.success("You're online — clocked in"); }
-      catch (e) { toast.error(e instanceof Error ? e.message : "Could not clock in"); }
+      // Going online also starts the shift when one isn't running; starting is
+      // safe to repeat and never creates a second shift.
+      try { await clockInFn({ data: {} }); toast.success("You're online"); }
+      catch (e) { toast.error(e instanceof Error ? e.message : "Could not start your shift"); }
       void refreshStats();
     } else {
       const { error } = await supabase.from("drivers")
@@ -384,8 +425,9 @@ function DriverHome() {
       if (error) return toast.error(error.message);
       setDriver({ ...driver, status: "offline", current_lat: null, current_lng: null });
       setGeoError(null); setSpeedMph(null); lastFixRef.current = null;
-      try { await clockOutFn({ data: {} }); toast.success("Clocked out"); }
-      catch (e) { toast.error(e instanceof Error ? e.message : "Could not clock out"); }
+      // The shift keeps running until the driver ends it, so hours are never
+      // lost by toggling availability.
+      toast.success("You're offline");
       void refreshStats();
     }
   }
@@ -507,10 +549,13 @@ function DriverHome() {
     toast.success(`Switched to ${pax.first_name} ${pax.last_name}`);
   }
 
-  /** Opens the full-screen in-app turn-by-turn navigator (never an external app). */
+  /** Opens Google Maps with driving directions to the stop that is current now. */
   function openNavigation() {
     if (!active) return;
-    setNavOpen(true);
+    const heading = tripStatus === "in_progress"
+      ? { lat: active.dropoff_lat, lng: active.dropoff_lng, address: active.dropoff_address }
+      : { lat: active.pickup_lat, lng: active.pickup_lng, address: active.pickup_address };
+    openMapsDirections(heading);
   }
 
 
@@ -622,26 +667,59 @@ function DriverHome() {
   const showOffers = !active && online;
 
   return (
-    <div className="space-y-4">
-      {/* Header: status + earnings dashboard */}
-      <div className="flex items-center justify-between rounded-2xl border border-border bg-surface p-5 shadow-soft">
-        <div>
-          <div className="text-sm text-muted-foreground">Status</div>
-          <div className="text-lg font-semibold">
-            {online ? "Online — clocked in" : "Offline — clocked out"}
+    <div className="space-y-5">
+      {/* Today: shift control first, everything else supports it */}
+      <section className="overflow-hidden rounded-3xl border border-border bg-surface shadow-soft">
+        <div className="flex items-start justify-between gap-3 p-5">
+          <div className="min-w-0">
+            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+              Today
+            </div>
+            <div className="mt-1 text-4xl font-bold tabular-nums leading-none">
+              {formatHours(liveElapsedHours)}
+            </div>
+            <div className="mt-1.5 text-xs text-muted-foreground">
+              Hours Today · {onShift ? "Shift running" : "No shift running"}
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={toggleOnline}
+            aria-label={online ? "Go offline" : "Go online"}
+            className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border transition ${
+              online
+                ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-600"
+                : "border-border bg-surface-muted text-muted-foreground"
+            }`}
+          >
+            <Power className="h-6 w-6" />
+          </button>
         </div>
-        <Button onClick={toggleOnline}
-          className={`h-14 w-14 rounded-full ${online ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}>
-          <Power className="h-6 w-6" />
-        </Button>
-      </div>
+
+        <div className="px-5 pb-5">
+          <Button
+            onClick={() => void (onShift ? endShiftNow() : startShiftNow())}
+            disabled={shiftBusy}
+            variant={onShift ? "outline" : "default"}
+            className="h-14 w-full rounded-2xl text-base font-semibold"
+          >
+            {shiftBusy ? (
+              <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Saving…</>
+            ) : onShift ? (
+              "End Shift"
+            ) : (
+              "Start Shift"
+            )}
+          </Button>
+        </div>
+      </section>
 
       <StatsGrid
         todayHours={liveElapsedHours} todayMiles={stats.today_miles}
         todayEarnings={liveEarnings} hourlyRate={stats.hourly_rate}
-        speedMph={online ? speedMph : null} onShift={online}
+        speedMph={online ? speedMph : null} onShift={onShift}
       />
+
 
       <InProgressTrips />
 
@@ -748,6 +826,7 @@ function DriverHome() {
             }
             destinationKind={tripStatus === "in_progress" ? "dropoff" : "pickup"}
             onStartNavigation={openNavigation}
+            onRouteOverview={() => setNavOpen(true)}
           />
 
 
