@@ -13,7 +13,8 @@ import { isPortalStep1ValidationFailure, classifySubmitFailure } from "@/lib/sub
 const GENERIC = "Job timed out after 480s";
 const SUBMIT_BOUNDARY =
   "Timeout 480000ms exceeded waiting for scheduled navigations to finish after clicking Confirm (ConfirmCmnButton) — click action done";
-const PRE_SUBMIT = "stage=login timeout: submit_reached=false, portal login page never loaded";
+const PRE_SUBMIT =
+  "stage=login: page.goto timed out — submit_reached=false, portal login page never loaded";
 const STEP1 = "Still on Step 1 after clicking Continue. Errors: * Indicates a required field.";
 
 describe("timeout evidence guard", () => {

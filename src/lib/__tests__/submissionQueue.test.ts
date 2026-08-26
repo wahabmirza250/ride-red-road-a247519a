@@ -56,7 +56,11 @@ describe("limits", () => {
     expect(submitBackoffMs(20)).toBe(30 * 60_000);
   });
   it("classifies errors", () => {
-    expect(isTransientSubmitError("Robot timed out after 600s")).toBe(true);
+    // A bare worker timeout proves nothing about where the run died.
+    expect(isTransientSubmitError("Robot timed out after 600s")).toBe(false);
+    expect(
+      isTransientSubmitError("stage=login: page.goto timed out, submit_reached=false"),
+    ).toBe(true);
     expect(isTransientSubmitError("fetch failed")).toBe(true);
     expect(isTransientSubmitError("Member ID is invalid")).toBe(false);
     expect(isAmbiguousSubmitError("confirm page never loaded")).toBe(true);
@@ -157,7 +161,7 @@ describe("dispatch", () => {
     const rec = makeRecord("1", { riderId: "rA" });
     const { supabase } = makeFakeDb([rec]);
 
-    failNext = "Robot timed out after 600s";
+    failNext = "stage=login: page.goto timed out, submit_reached=false";
     let res = await dispatchLeasedSubmissions(supabase, "actor");
     expect(res.retried).toBe(1);
     expect(rec.status).toBe("queued");
@@ -169,13 +173,13 @@ describe("dispatch", () => {
     expect(res.leased).toBe(0);
 
     rec.submit_next_attempt_at = new Date(Date.now() - 1000).toISOString();
-    failNext = "Robot timed out after 600s";
+    failNext = "stage=login: page.goto timed out, submit_reached=false";
     res = await dispatchLeasedSubmissions(supabase, "actor");
     expect(res.retried).toBe(1);
     expect(rec.submit_attempt_count).toBe(2);
 
     rec.submit_next_attempt_at = new Date(Date.now() - 1000).toISOString();
-    failNext = "Robot timed out after 600s";
+    failNext = "stage=login: page.goto timed out, submit_reached=false";
     res = await dispatchLeasedSubmissions(supabase, "actor");
     expect(res.failed).toBe(1);
     expect(rec.status).toBe("needs_fix");

@@ -246,7 +246,6 @@ describe("worker/browser failures release the lock cleanly", () => {
       "net::ERR_CONNECTION_RESET",
     ]) {
       expect(isInfrastructureSubmitError(msg)).toBe(true);
-      expect(isTransientSubmitError(msg)).toBe(true);
       expect(sanitizeSubmitError(msg)).toBe(INFRA_USER_MESSAGE);
     }
     expect(isInfrastructureSubmitError("Member ID is invalid")).toBe(false);

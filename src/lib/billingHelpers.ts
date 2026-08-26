@@ -946,6 +946,7 @@ const PRE_SUBMIT_EVIDENCE_PATTERNS = [
   /failed before (?:the )?(?:Submit|Confirm)/i,
   /never (?:reached|clicked) (?:the )?(?:Submit|Confirm)/i,
   /browserType\.launch/i,
+  /\bpage\.goto\b/i,
   /\b(?:EAGAIN|ENOMEM|resource temporarily unavailable)\b/i,
   /timed out (?:while )?(?:on|during|at) (?:the )?(?:portal )?(?:login|sign[- ]?in)\b/i,
 ];
