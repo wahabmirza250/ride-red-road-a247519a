@@ -2,8 +2,8 @@
  * PORTAL SUBMISSION QUEUE (server-side).
  *
  * The automation service runs up to MAX_CONCURRENT_ROBOT_JOBS isolated portal
- * sessions per company at once (proven in production). The queue therefore
- * exists to cap concurrency, not to serialize:
+ * sessions per company account at once. The queue therefore exists to cap
+ * concurrency, not to serialize:
  *
  *   - up to MAX_CONCURRENT_ROBOT_JOBS active robot jobs per company
  *   - anything started while all slots are busy is parked as `queued`
@@ -20,27 +20,28 @@ import { startRobotSubmission, logAudit } from "@/lib/billingHelpers";
 export const ROBOT_JOB_STALE_MS = 12 * 60 * 1000;
 
 /**
- * STRICT SINGLE-FLIGHT: exactly ONE live portal session per provider/company.
+ * CONTROLLED ACCOUNT CAPACITY: up to this many live portal sessions per
+ * provider/company account.
  *
- * Overlapping sessions on one provider account flooded the automation worker in
- * production (Chromium spawn EAGAIN, closed browsers, 480s timeouts) while one
- * claim still went through — so duplicates, not throughput, are the risk. Extra
- * approved bills wait in the persistent queue and start only after the previous
- * job reaches a terminal state.
+ * The automation service supports bounded per-account concurrency (its own
+ * server caps at 8); RedArt stays deliberately below that so one tenant can
+ * never flood the worker (Chromium spawn EAGAIN, closed browsers, 480s
+ * timeouts). Extra approved bills wait in the persistent queue and start as
+ * soon as an account slot frees up.
  */
-export const MAX_CONCURRENT_ROBOT_JOBS = 1;
+export const MAX_CONCURRENT_ROBOT_JOBS = 4;
 
 
 /**
- * PER-PASSENGER THROTTLE.
+ * PER-PASSENGER SINGLE FLIGHT.
  *
  * Grouping several bills for the same member and submitting them together is
- * the normal workflow, but the portal cannot handle many simultaneous sessions
- * touching one member record — those runs time out at 480s. So each passenger
- * gets at most this many live jobs, no matter how many global slots are free;
- * the rest park as `queued` and follow automatically.
+ * the normal workflow, but two simultaneous portal sessions touching ONE member
+ * record are both a duplicate risk and a reliable source of 480s timeouts. So a
+ * passenger only ever has ONE live job, no matter how many account slots are
+ * free; the rest park as `queued` and follow automatically.
  */
-export const MAX_CONCURRENT_JOBS_PER_RIDER = 2;
+export const MAX_CONCURRENT_JOBS_PER_RIDER = 1;
 
 /** Stable per-passenger key: rider row first, Medicaid ID as a fallback. */
 export function riderKeyOf(trip: any): string | null {
@@ -173,7 +174,7 @@ export async function queuedAhead(
  *
  * A real submission is never started straight from a click. The bill is first
  * persisted as `queued` with a conditional (idempotent) status flip, and the
- * atomic single-flight lease decides whether it may start now. That makes
+ * atomic account lease decides whether it may start now. That makes
  * double clicks, page refreshes, several open tabs and background polling all
  * collapse onto the same queued row instead of opening extra portal sessions.
  *
@@ -287,7 +288,7 @@ export async function enqueueOrStartRobot(
     billingRecordId,
     providerUserId,
     "queued_behind_active_job",
-    `Only one portal session runs at a time on this provider account. Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`,
+    `This provider account is at its active submission capacity. Parked in the queue with ${ahead} job(s) ahead; it starts automatically.`,
   );
   return { queued: true, ahead };
 }

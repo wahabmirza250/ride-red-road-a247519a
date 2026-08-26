@@ -53,16 +53,17 @@ export { envInt } from "@/lib/submissionQueueEnv";
 import { envInt } from "@/lib/submissionQueueEnv";
 
 /**
- * STRICT SINGLE-FLIGHT PER PROVIDER/COMPANY.
+ * CONTROLLED CONCURRENCY PER PROVIDER/COMPANY ACCOUNT.
  *
- * Live Railway evidence showed that several simultaneous portal sessions on one
- * provider account flood the automation worker (Chromium spawn EAGAIN, closed
- * browsers, 480s timeouts) — and at least one claim still submitted in the
- * middle of that noise, which makes duplicates the real danger. So exactly ONE
- * HCPF submission may be in flight per company at any moment, and the value is
- * clamped so it can never be raised by configuration.
+ * Live Railway evidence showed that UNBOUNDED simultaneous portal sessions on
+ * one provider account flood the automation worker (Chromium spawn EAGAIN,
+ * closed browsers, 480s timeouts). The automation service itself supports
+ * bounded concurrency, so RedArt allows a conservative 4 active HCPF
+ * submissions per account, hard-clamped to 1..4 so configuration can never
+ * raise it further. Duplicate protection does not rely on this number: it comes
+ * from idempotency keys, conditional status flips and per-rider single flight.
  */
-export const maxSubmitPerCompany = () => envInt("SUBMIT_MAX_PER_COMPANY", 1, 1, 1);
+export const maxSubmitPerCompany = () => envInt("SUBMIT_MAX_PER_COMPANY", 4, 1, 4);
 /** Max concurrent real portal submissions across ALL companies (separate accounts). */
 export const maxSubmitGlobal = () => envInt("SUBMIT_MAX_GLOBAL", 20, 1, 200);
 /** How long a leased bill stays locked to one worker. */
@@ -82,7 +83,7 @@ export const BACKOFF_MAX_MS = 30 * 60_000;
 
 /**
  * IMMEDIATE-REFILL LOOP. After a claim reconciles as finished, the freed
- * single-flight slot is refilled inside the same tick instead of waiting for
+ * freed account slot is refilled inside the same tick instead of waiting for
  * the next cron minute. These are poll/round bounds, NOT a cooldown.
  */
 export const SUBMIT_REFILL_POLL_MS = envInt("SUBMIT_REFILL_POLL_MS", 4_000, 1_000, 30_000);
@@ -354,7 +355,7 @@ export async function scheduleRetryOrFail(
 
   if (canRetry) {
     // A worker/browser failure means the whole worker is unhealthy, so wait out
-    // a cooldown before the single-flight slot is used again.
+    // a cooldown before that account slot is used again.
     const delay = infra
       ? Math.max(submitBackoffMs(attempt), submitInfraCooldownMs())
       : submitBackoffMs(attempt);
@@ -641,7 +642,7 @@ export async function runSubmissionQueueTick(
     companyId?: string | null;
     worker?: string;
     /**
-     * Keep reconciling + refilling the freed single-flight slot inside this
+     * Keep reconciling + refilling freed account slots inside this
      * tick (used by the background cron). Off by default so a UI-triggered
      * kick still returns immediately.
      */
@@ -718,7 +719,7 @@ export async function runSubmissionQueueTick(
   }
 
   // IMMEDIATE REFILL AFTER A SUCCESS.
-  // A finished claim frees the account's single-flight slot right away, so the
+  // A finished claim frees an account slot right away, so the
   // tick keeps re-reconciling and re-dispatching while its budget lasts instead
   // of leaving the slot idle until the next cron minute. There is deliberately
   // NO success cooldown here — backoff only ever comes from a real worker or
