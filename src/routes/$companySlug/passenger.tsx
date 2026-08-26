@@ -5,7 +5,7 @@ import { getCompanySlug } from "@/lib/companyContext";
 import { CompanyLinkRequired } from "@/components/CompanyLinkRequired";
 
 import { useServerFn } from "@tanstack/react-start";
-import { Home, PlusCircle, Newspaper, Sparkles, UserCircle2, LogOut, Trophy } from "lucide-react";
+import { Home, PlusCircle, Newspaper, Sparkles, UserCircle2, LogOut, Trophy, Gamepad2 } from "lucide-react";
 import { BrandMark, BrandWordmark } from "@/components/Brand";
 
 
@@ -26,6 +26,7 @@ const TABS = [
   { to: "/passenger", label: "Rides", icon: Home },
   { to: "/passenger/apply", label: "Book", icon: PlusCircle },
   { to: "/passenger/rewards", label: "Rewards", icon: Trophy },
+  { to: "/passenger/games", label: "Games", icon: Gamepad2 },
   { to: "/passenger/events", label: "Events", icon: Sparkles },
   { to: "/passenger/news", label: "News", icon: Newspaper },
   { to: "/passenger/profile", label: "Profile", icon: UserCircle2 },
@@ -156,7 +157,7 @@ function PassengerLayout() {
         <Outlet />
       </main>
       {!isBooking && (
-      <nav className="fleet-bottom-nav fixed bottom-3 left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center justify-around p-1.5">
+      <nav className="fleet-bottom-nav fixed bottom-3 left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center gap-1 overflow-x-auto p-1.5">
         {TABS.map((t) => {
           const active = loc.pathname === t.to;
           const Icon = t.icon;
@@ -165,7 +166,7 @@ function PassengerLayout() {
               key={t.to}
               to={t.to}
               className={cn(
-                "flex flex-1 flex-col items-center gap-0.5 rounded-full py-2 text-[11px] font-medium transition-all",
+                "flex min-w-[3.25rem] flex-1 flex-col items-center gap-0.5 rounded-full py-2 text-[10px] font-medium transition-all",
                 active
                   ? "bg-primary text-primary-foreground shadow-soft scale-[1.02]"
                   : "text-muted-foreground hover:text-foreground",

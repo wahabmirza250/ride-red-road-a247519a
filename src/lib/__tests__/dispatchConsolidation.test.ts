@@ -4,10 +4,11 @@ import { readFileSync } from "node:fs";
 const read = (p: string) => readFileSync(p, "utf8");
 
 describe("dispatch consolidation (games preserved)", () => {
-  it("admin navigation has a single Dispatch destination and no Planner or Games entries", () => {
+  it("admin navigation has one Dispatch destination, no Planner, and visible Games access", () => {
     const nav = read("src/routes/$companySlug/_authenticated/route.tsx");
     expect(nav).not.toMatch(/"\/planner"/);
     expect(nav).toMatch(/\{ to: "\/games", label: "Games", icon: Gamepad2 \}/);
+    expect(nav).toMatch(/<AppLink[\s\S]*?to="\/games"[\s\S]*?aria-label="Games"/);
     expect(nav).toMatch(/\{ to: "\/live-ops", label: "Dispatch"/);
   });
 
@@ -28,6 +29,8 @@ describe("dispatch consolidation (games preserved)", () => {
     expect(passenger).toMatch(/createFileRoute\("\/\$companySlug\/passenger\/games"\)/);
     expect(passenger).not.toMatch(/redirect\(/);
     expect(passenger).toMatch(/listPublicGames/);
+    const passengerShell = read("src/routes/$companySlug/passenger.tsx");
+    expect(passengerShell).toMatch(/\{ to: "\/passenger\/games", label: "Games", icon: Gamepad2 \}/);
   });
 
   it("dispatch app exposes Plan as an internal tab", () => {

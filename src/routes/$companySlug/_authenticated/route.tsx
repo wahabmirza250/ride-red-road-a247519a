@@ -245,6 +245,14 @@ function AuthenticatedLayout() {
             <CompanyLogo className="h-6" />
           </div>
           <div className="flex items-center gap-1">
+            <AppLink
+              to="/games"
+              aria-label="Games"
+              title="Games"
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <Gamepad2 className="h-4 w-4" />
+            </AppLink>
             {isAdmin && <NotificationBell />}
             <button
               onClick={toggleTheme}
