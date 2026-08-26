@@ -119,7 +119,7 @@ const TABS: {
 }[] = [
   {
     key: "pending_review",
-    label: "Pending Review",
+    label: "Review",
     statuses: ["pending_review"],
     countKeys: ["pending_review"],
   },
@@ -131,16 +131,15 @@ const TABS: {
   },
   {
     key: "medical_review",
-    label: "Needs Medical Review",
+    label: "Medical Review",
     statuses: ["pending_review"],
     countKeys: [],
   },
   {
-    // Anything the robot is actively working on ("submitting"), waiting its
-    // turn for the portal session ("queued"), plus claims it already filled in
-    // and handed back for a human portal submit.
+    // Anything the robot is actively working on, waiting its turn for a
+    // submission slot, or handed back for verification.
     key: "awaiting_portal",
-    label: "Awaiting Portal Submission",
+    label: "Processing",
     statuses: ["submitting", "queued", "pending_submit"],
     countKeys: ["submitting", "queued", "pending_submit"],
   },
@@ -171,6 +170,15 @@ const TABS: {
     countKeys: [],
   },
 ];
+
+const PRIMARY_KEYS: TabKey[] = [
+  "pending_review",
+  "ready_to_submit",
+  "awaiting_portal",
+  "submitted",
+];
+const SECONDARY_KEYS: TabKey[] = ["medical_review", "claims_history", "payroll", "denied"];
+
 
 
 
