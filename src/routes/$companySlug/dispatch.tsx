@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { AppLink } from "@/lib/appLink";
 import { useEffect } from "react";
-import { Radio, LogOut, Sun, Moon, Loader2, Waypoints, CalendarClock, History } from "lucide-react";
+import { Radio, LogOut, Sun, Moon, Loader2, Waypoints, CalendarClock, History, ClipboardList } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,8 @@ export const Route = createFileRoute("/$companySlug/dispatch")({
 });
 
 const NAV = [
-  { to: "/dispatch", label: "Board", icon: Radio, exact: true },
+  { to: "/dispatch", label: "Today", icon: Radio, exact: true },
+  { to: "/dispatch/plan", label: "Plan", icon: ClipboardList, exact: false },
   { to: "/dispatch/routes", label: "Routes", icon: Waypoints, exact: false },
   { to: "/dispatch/schedule", label: "Schedule", icon: CalendarClock, exact: false },
   { to: "/dispatch/history", label: "History", icon: History, exact: false },

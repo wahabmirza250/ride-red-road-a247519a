@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   CalendarClock,
   Newspaper,
-  Gamepad2,
   Trophy,
   LogOut,
   FileSignature,
