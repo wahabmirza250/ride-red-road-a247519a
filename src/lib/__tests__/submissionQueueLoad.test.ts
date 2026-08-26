@@ -18,7 +18,8 @@ vi.mock("@/lib/billingHelpers", async () => {
     ROBOT_BASE_URL: "https://example.invalid",
     logAudit: vi.fn(async () => {}),
     looksLikeRetryableTimeout: (m: string) => /timed out|timeout/i.test(String(m ?? "")),
-    looksLikePossiblySubmittedTimeout: (m: string) =>
+    hasExplicitPreSubmitFailureEvidence: (m: string) => /pre_submit|submit_reached\s*[:=]\s*false|stage\s*[:=]\s*(login|launch|step1)/i.test(String(m ?? "")),
+  looksLikePossiblySubmittedTimeout: (m: string) =>
       /SubmitClaimProf3|after clicking (?:Submit|Confirm)/i.test(String(m ?? "")) &&
       /timed out|timeout|closed/i.test(String(m ?? "")),
     startRobotSubmission: vi.fn(async (_sb: any, args: any) => {

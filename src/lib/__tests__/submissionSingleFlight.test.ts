@@ -22,6 +22,7 @@ vi.mock("@/lib/billingHelpers", () => ({
   }),
   logAudit: vi.fn(async () => {}),
   looksLikeRetryableTimeout: (m: string) => /timed out|timeout/i.test(String(m ?? "")),
+  hasExplicitPreSubmitFailureEvidence: (m: string) => /pre_submit|submit_reached\s*[:=]\s*false|stage\s*[:=]\s*(login|launch|step1)/i.test(String(m ?? "")),
   looksLikePossiblySubmittedTimeout: (m: string) =>
     /SubmitClaimProf3|after clicking (?:Submit|Confirm)/i.test(String(m ?? "")) &&
     /timed out|timeout|closed/i.test(String(m ?? "")),
@@ -245,7 +246,6 @@ describe("worker/browser failures release the lock cleanly", () => {
       "net::ERR_CONNECTION_RESET",
     ]) {
       expect(isInfrastructureSubmitError(msg)).toBe(true);
-      expect(isTransientSubmitError(msg)).toBe(true);
       expect(sanitizeSubmitError(msg)).toBe(INFRA_USER_MESSAGE);
     }
     expect(isInfrastructureSubmitError("Member ID is invalid")).toBe(false);

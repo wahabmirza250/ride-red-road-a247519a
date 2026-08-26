@@ -927,16 +927,54 @@ export function looksLikeNoServiceLinesFailure(raw: string | null | undefined): 
 /** Status parked on a trip whose claim may already exist at the portal. */
 export const UNVERIFIED_SUBMIT_STATUS = "SUBMITTED_UNVERIFIED";
 
+/**
+ * EXPLICIT PRE-SUBMIT FAILURE EVIDENCE.
+ *
+ * The ONLY thing that makes a failed portal run automatically retryable. The
+ * worker/result must state, in machine-verifiable form, that the session died
+ * BEFORE any Submit/Confirm boundary — e.g. a stage marker, `submit_reached=false`,
+ * or a browser/launch level failure that means no page was ever driven.
+ *
+ * A bare "Job timed out after 480s" carries NO such evidence: the run could have
+ * died anywhere, including after Submit. Those are parked, never re-queued.
+ */
+const PRE_SUBMIT_EVIDENCE_PATTERNS = [
+  /\bstage\s*[:=]\s*["']?(?:launch|startup|login|signin|search|member_lookup|eligibility|step\s*1|step1|form_fill|navigate)\b/i,
+  /\bsubmit_reached\s*[:=]\s*(?:false|0|no)\b/i,
+  /\breached_submit\s*[:=]\s*(?:false|0|no)\b/i,
+  /\bpre[_-]?submit(?:_failure)?\b/i,
+  /failed before (?:the )?(?:Submit|Confirm)/i,
+  /never (?:reached|clicked) (?:the )?(?:Submit|Confirm)/i,
+  /browserType\.launch/i,
+  /\bpage\.goto\b/i,
+  /\b(?:EAGAIN|ENOMEM|resource temporarily unavailable)\b/i,
+  /timed out (?:while )?(?:on|during|at) (?:the )?(?:portal )?(?:login|sign[- ]?in)\b/i,
+];
+
+export function hasExplicitPreSubmitFailureEvidence(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  const t = String(raw);
+  // Anything that even hints the run reached Submit/Confirm disqualifies it,
+  // unless the message explicitly states the boundary was never crossed.
+  const explicitlyBefore =
+    /failed before (?:the )?(?:Submit|Confirm)/i.test(t) ||
+    /never (?:reached|clicked) (?:the )?(?:Submit|Confirm)/i.test(t) ||
+    /\b(?:submit_reached|reached_submit)\s*[:=]\s*(?:false|0|no)\b/i.test(t);
+  if (looksLikePossiblySubmittedTimeout(t)) return false;
+  if (/submit|confirm/i.test(t) && !explicitlyBefore) return false;
+  return PRE_SUBMIT_EVIDENCE_PATTERNS.some((re) => re.test(t));
+}
+
 /** Max automatic retries the reconciler will fire for a timed-out bill. */
 export const MAX_AUTO_TIMEOUT_RETRIES = 2;
 
 /**
  * TRANSIENT TIMEOUT (safe to retry automatically).
  *
- * Only pure timeouts qualify: the portal session died without the claim being
- * submitted, so running it again with the SAME data can succeed. Data problems
- * (required field, member/Medicaid ID lookup failures, validation errors) are
- * explicitly excluded — retrying those with identical data only wastes a slot.
+ * A timeout alone is NOT enough. The message must also carry explicit
+ * pre-Submit failure evidence, proving HCPF could not have received the claim.
+ * Data problems (required field, member/Medicaid ID lookup failures, validation
+ * errors) stay excluded.
  */
 export function looksLikeRetryableTimeout(raw: string | null | undefined): boolean {
   if (!raw) return false;
@@ -952,10 +990,12 @@ export function looksLikeRetryableTimeout(raw: string | null | undefined): boole
     looksLikePossiblySubmittedTimeout(t) ||
     /date .*future/i.test(t);
   if (dataProblem) return false;
-  return (
+  const timedOut =
     /timed out/i.test(t) ||
     /timeout \d+ms exceeded/i.test(t) ||
     /navigation timeout/i.test(t) ||
-    /ETIMEDOUT/i.test(t)
-  );
+    /ETIMEDOUT/i.test(t);
+  if (!timedOut) return false;
+  return hasExplicitPreSubmitFailureEvidence(t);
 }
+
