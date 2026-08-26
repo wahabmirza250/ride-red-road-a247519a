@@ -338,13 +338,13 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     return <div className="p-6 text-sm text-muted-foreground">Billing staff only.</div>;
   }
 
+  const secondaryActive = SECONDARY_KEYS.includes(tab);
+  const secondaryLabel = TABS.find((t) => t.key === tab)?.label ?? "More tools";
+
   return (
     <div className={embedded ? "space-y-4" : "surface-red space-y-6"}>
       {!embedded && (
-        <PageHeader
-          title="Medicaid Billing"
-          description="Review driver-submitted trips, batch-send them to the automation robot, then confirm the state's receipt number after human portal submission."
-        />
+        <PageHeader title="Medicaid Billing" description={BILLING_PAGE_DESCRIPTION} />
       )}
 
       {!defaultPortal && (
@@ -370,28 +370,52 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
 
       <SubmissionQueuePanel />
 
-      <DoneClaimsSection />
+      {/* Primary workflow: four obvious stages, with everything else tucked
+          into an unobtrusive More menu so the main path stays scannable. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+          <TabsList className="justify-start overflow-x-auto flex-nowrap">
+            {PRIMARY_KEYS.map((key) => {
+              const t = TABS.find((x) => x.key === key)!;
+              const c = countFor(key);
+              return (
+                <TabsTrigger key={key} value={key} className="shrink-0 whitespace-nowrap">
+                  {t.label}
+                  {c !== null && (
+                    <span className="ml-2 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-semibold text-foreground/80">
+                      {c}
+                    </span>
+                  )}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
 
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              variant={secondaryActive ? "secondary" : "ghost"}
+              className="rounded-full text-muted-foreground data-[state=open]:text-foreground"
+            >
+              {secondaryActive ? secondaryLabel : "More tools"}
+              <ChevronDown className="ml-1 h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {SECONDARY_KEYS.map((key) => {
+              const t = TABS.find((x) => x.key === key)!;
+              return (
+                <DropdownMenuItem key={key} onSelect={() => setTab(key)}>
+                  {t.label}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
-
-
-      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap sm:flex-wrap">
-          {TABS.map((t) => {
-            const c = countFor(t.key);
-            return (
-              <TabsTrigger key={t.key} value={t.key} className="shrink-0 whitespace-nowrap">
-                {t.label}
-                {c !== null && (
-                  <span className="ml-2 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-semibold text-foreground/80">
-                    {c}
-                  </span>
-                )}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-      </Tabs>
 
       {tab === "claims_history" ? (
         <ClaimsHistoryTab />
