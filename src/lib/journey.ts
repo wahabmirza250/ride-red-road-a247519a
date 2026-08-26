@@ -85,14 +85,13 @@ export function createJourney(input: {
       .slice()
       .sort((a, b) => a.sequence - b.sequence)
       .map((s) => ({
+        ...s,
         odometer: null,
         signature_data_url: null,
         signer_name: null,
         notes: s.notes ?? null,
-        status: s.completed_at ? "done" : (s.status ?? "pending"),
         arrived_at: s.arrived_at ?? null,
         completed_at: s.completed_at ?? null,
-        ...s,
         status: s.completed_at ? "done" : (s.status ?? "pending"),
       })) as JourneyStop[],
     events: [],
