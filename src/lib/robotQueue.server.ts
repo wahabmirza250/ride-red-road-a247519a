@@ -11,6 +11,8 @@
  *     one pass, dispatching the oldest queued records in parallel
  */
 import { startRobotSubmission, logAudit } from "@/lib/billingHelpers";
+import { envInt } from "@/lib/submissionQueueEnv";
+
 
 /**
  * The automation service hard-kills a job at 480s. Anything older than this is
