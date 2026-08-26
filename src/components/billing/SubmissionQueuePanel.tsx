@@ -32,6 +32,7 @@ import {
   type SubmissionQueueState,
 } from "@/lib/submissionQueue.functions";
 import { ThroughputBadge } from "@/components/billing/DoneClaimsSection";
+import { SUBMISSIONS_PAUSED_MESSAGE } from "@/lib/billingUiCopy";
 import { throughputSummary, type DoneClaim } from "@/lib/submissionThroughput";
 
 type DoneFeedShape = {
