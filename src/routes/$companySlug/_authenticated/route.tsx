@@ -48,8 +48,7 @@ export const Route = createFileRoute("/$companySlug/_authenticated")({
 const ADMIN_NAV_GROUPS = [
   [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/live-ops", label: "Live Ops", icon: Radio },
-    { to: "/planner", label: "Planner", icon: CalendarClock },
+    { to: "/live-ops", label: "Dispatch", icon: Radio },
   ],
   [
     { to: "/trips", label: "Trips", icon: RouteIcon },
@@ -76,10 +75,7 @@ const ADMIN_NAV_GROUPS = [
     { to: "/news-feed", label: "News Feed", icon: Megaphone },
     { to: "/news", label: "News", icon: Newspaper },
   ],
-  [
-    { to: "/games", label: "Games", icon: Gamepad2 },
-    { to: "/rewards-settings", label: "Rewards", icon: Trophy },
-  ],
+  [{ to: "/rewards-settings", label: "Rewards", icon: Trophy }],
 ] as const;
 
 const ADMIN_NAV = ADMIN_NAV_GROUPS.flat();
