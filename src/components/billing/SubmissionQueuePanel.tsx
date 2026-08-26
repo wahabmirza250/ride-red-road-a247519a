@@ -3,14 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
-  Activity,
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   Loader2,
   PauseCircle,
   PlayCircle,
-  Send,
   Server,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +30,7 @@ import {
   type SubmissionQueueState,
 } from "@/lib/submissionQueue.functions";
 import { ThroughputBadge } from "@/components/billing/DoneClaimsSection";
+import { SUBMISSIONS_PAUSED_MESSAGE } from "@/lib/billingUiCopy";
 import { throughputSummary, type DoneClaim } from "@/lib/submissionThroughput";
 
 type DoneFeedShape = {
@@ -110,33 +109,44 @@ export function SubmissionQueuePanel() {
   const HealthIcon =
     health.level === "paused" ? PauseCircle : health.level === "warning" ? AlertTriangle : CheckCircle2;
 
+  const paused = !!state.data?.paused;
+  const verifying = done.data?.counters.verifying ?? 0;
+
   return (
-    <div className="rounded-2xl border border-border bg-surface/60 p-3 shadow-soft">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-[220px] space-y-0.5">
-          <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
-            <Send className="h-4 w-4 text-muted-foreground" />
-            Submission automation
+    <div className="rounded-2xl border border-border bg-surface/60 px-3 py-2.5 shadow-soft">
+      {/* DEFAULT VIEW: one calm status strip. Everything technical lives
+          behind Details so a normal biller never has to read it. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+              tone,
+            )}
+          >
+            <HealthIcon className="h-3 w-3" />
+            {paused ? "Automation paused" : "Automation running"}
+          </span>
+          <span className="text-muted-foreground">
+            <span className="tabular-nums font-medium text-foreground">{t.processing}</span>{" "}
+            processing
+            <span className="px-1.5 opacity-50">·</span>
+            <span className="tabular-nums font-medium text-foreground">{t.queued}</span> queued
+            <span className="px-1.5 opacity-50">·</span>
             <span
               className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                tone,
+                "tabular-nums font-medium",
+                t.needsAttention > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground",
               )}
             >
-              <HealthIcon className="h-3 w-3" />
-              {health.label}
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Sends approved bills to the state portal.{" "}
-            {state.data?.paused
-              ? `Paused — ${state.data.pause_reason ?? "resume to start sending again."} Claim status checking is unaffected.`
-              : "Runs in the background; pausing here stops new submissions only."}
-          </p>
+              {t.needsAttention}
+            </span>{" "}
+            needs attention
+          </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {state.data?.paused ? (
+        <div className="flex flex-wrap items-center gap-1">
+          {paused ? (
             <Button
               size="sm"
               variant="outline"
@@ -148,52 +158,61 @@ export function SubmissionQueuePanel() {
               ) : (
                 <PlayCircle className="mr-1 h-3.5 w-3.5" />
               )}
-              Resume new submissions
+              Resume
             </Button>
           ) : (
-            <Button size="sm" variant="outline" onClick={() => setPauseOpen(true)}>
+            <Button size="sm" variant="ghost" onClick={() => setPauseOpen(true)}>
               <PauseCircle className="mr-1 h-3.5 w-3.5" />
-              Pause new submissions
+              Pause
             </Button>
           )}
           <Button
             size="sm"
             variant="ghost"
+            className="text-muted-foreground"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-label="Toggle queue details"
           >
-            <Activity className="mr-1 h-3.5 w-3.5" />
             Details
             <ChevronDown className={cn("ml-1 h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
           </Button>
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat label="Queued" value={t.queued} />
-        <Stat label="Processing" value={t.processing} />
-        <Stat label="Verifying" value={done.data?.counters.verifying ?? 0} />
-        <Stat label="Needs attention" value={t.needsAttention} warn={t.needsAttention > 0} />
-        <Stat label="Done" value={done.data?.counters.done ?? t.submittedLastHour} />
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <ThroughputBadge
-          avg={tp.avgSecondsPerClaim}
-          perHour={tp.claimsPerHour}
-          eta={tp.etaSeconds}
-          pending={t.queued + t.processing}
-        />
-        {t.retrying > 0 && (
-          <span className="text-[11px] text-muted-foreground">{t.retrying} retrying after a transport error</span>
-        )}
-      </div>
-
+      {/* Exactly ONE pause explanation anywhere on the page. */}
+      {paused && (
+        <p className="mt-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          {SUBMISSIONS_PAUSED_MESSAGE}
+        </p>
+      )}
 
       {open && (
         <div className="mt-3 space-y-3 border-t border-border pt-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <Stat label="Queued" value={t.queued} />
+            <Stat label="Processing" value={t.processing} />
+            <Stat label="Verifying" value={verifying} />
+            <Stat label="Needs attention" value={t.needsAttention} warn={t.needsAttention > 0} />
+            <Stat label="Done" value={done.data?.counters.done ?? t.submittedLastHour} />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <ThroughputBadge
+              avg={tp.avgSecondsPerClaim}
+              perHour={tp.claimsPerHour}
+              eta={tp.etaSeconds}
+              pending={t.queued + t.processing}
+            />
+            {t.retrying > 0 && (
+              <span className="text-[11px] text-muted-foreground">
+                {t.retrying} retrying after a transport error
+              </span>
+            )}
+          </div>
+
           <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
+
             <Detail label="Oldest queued" value={ageLabel(t.oldestQueuedAt)} />
             <Detail label="Average submit time" value={durationLabel(t.avgSubmitMs)} />
             <Detail
