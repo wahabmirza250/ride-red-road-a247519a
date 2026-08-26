@@ -1,66 +1,52 @@
-# Walla billing / payroll / compliance upgrade
+# Billing incident status: record 9b572f05 / trip e43f78c8
 
-This is a large build (7 feature areas, ~6 new tables, 2 storage buckets, new PDF output). I want your sign-off on the shape before I start writing migrations, because several pieces touch the live HCPF submission path.
+Read-only inspection only. No data was modified, nothing was submitted, enqueued, retried or resumed.
 
-Nothing in the current submission queue, single-flight locking, claim statuses, driver pay math (`src/lib/payPlans.ts`), or tenant isolation changes. Everything below is additive.
+## What the production data shows
 
-## Phase 1 — Payroll from Claim History
+Timeline for this bill (account `acct:hfc-colorado:londonalfieri22`, service date 08/14/2020):
 
-New table `payroll_items` (company-scoped): driver, source kind (`claim` | `manual` | `adjustment`), ref trip id, service date, passenger, description, amount, category, payroll status (`not_added` | `added` | `paid`), payout id, created_by, notes, timestamps.
+```text
+15:16:34  queued_for_batch_submit   batch d615464c… (12 bills)
+15:41:49  robot_payload_prepared    mode=confirm_submit, click_submit=true
+15:41:50  robot_started_from_queue  (attempt 1)
+15:50:01  auto_retry_timeout        "Portal timed out — automatic retry 1 of 2 queued.
+                                     Portal detail: Job timed out after 480s."
+16:11:06  robot_payload_prepared    mode=confirm_submit, click_submit=true  (attempt 2)
+16:11:06  robot_started_from_queue
+16:12:22  last robot status check   robot_last_status = running
+16:20:15  queue tick                paused, 0 leased / 0 started
+```
 
-- Unique partial index on `(company_id, ref_id)` where kind = `claim` → the same claim can never be added to payroll twice, enforced in the database, not the UI.
-- Claim History gains: driver grouping, filters (date range, passenger, claim status, payroll status), and columns for billed amount, driver pay amount, payroll status badge, paid date, and source.
-- **Claim status and payroll status stay independent.** A Medicaid-Paid claim starts at `Not Added`; nothing infers `Paid`.
-- Multi-select rows → "Add to Payroll" (idempotent server fn; concurrent billers collapse onto one row).
-- Per-driver summary header: total claims, Paid/Submitted/Denied/Needs-Attention counts, payroll-eligible, already-paid, remaining.
+Current state:
+- Bill: `status = submitting`, `auto_retry_count = 1`, no `state_confirmation_number`, no `submit_last_error`, lease started 16:11:05, heartbeat 16:11:05.
+- Trip: `robot_job_id = trip-e43f78c8-…-full-1787760665936-1787760666266`, `robot_last_status = running`, `portal_status = not_sent`, no `robot_confirmation_number`, no `submitted_confirmation`, `submitted_at` null.
+- Batch d615464c has 12 bills; exactly 1 (this one) is still `submitting`.
+- Queue is paused with reason "Production billing incident containment…", last tick did nothing.
 
-## Phase 2 — Manual payroll items + PDF
+## Answer to the two questions
 
-- "+ Manual Payroll Item" dialog (company, driver, date, optional passenger, description, amount, category, notes), MANUAL badge, created_by/audit row in `billing_audit_log`-style `payroll_audit_log`.
-- Negative amounts allowed only under kind `adjustment` so existing payout math can't be silently inverted.
-- Print Payroll + Download PDF for a driver/period and for a payout batch: company header, driver, period, claim rows, manual items, totals, adjustments, final payable, generated timestamp. Print-optimized route like the existing `payroll.$driverId` print page.
+1. **Did the retry reach Submit/Confirm?** Unknown, and the database contains no evidence either way. The retry was dispatched in `confirm_submit` mode with `click_submit = true`, so it was capable of pressing Submit/Confirm; the job never reported a terminal outcome (`running` since 16:12:22, no error message recorded). This is an ambiguous outcome, not a proven pre-Submit failure.
+2. **Any confirmation?** No. No confirmation number exists anywhere for this bill or trip (`state_confirmation_number`, `robot_confirmation_number`, `submitted_confirmation` all null; `portal_status = not_sent`, which only reflects that our side never recorded a send, not the portal's truth).
 
-## Phase 3 — Same member + same service date warning
+Because the outcome is ambiguous, this bill must be resolved by the read-only portal claim search / submitted-unverified path — it must not be resubmitted. Attempt 1 was auto-retried purely on the string "Job timed out after 480s", which is exactly the behaviour the safety patch removes; a duplicate claim at HCPF is therefore possible and only a read-only lookup can rule it out.
 
-- Pre-queue check: same company + same Medicaid member + same DOS with more than one trip → non-blocking warning banner in the review/submit path: "Multiple trips found for this member on this service date."
-- No automatic modifier, no automatic merge, no change to claim creation. Blocking nothing; biller decides.
+## Safety patch verification
 
-## Phase 4 — Denied / resubmission workflow
+The patch from commit `05d28ecd` ("Hardened timeout retry logic") is present and current in the codebase:
+- `src/lib/billingHelpers.ts:954` — `hasExplicitPreSubmitFailureEvidence()`; `looksLikeRetryableTimeout()` now requires it.
+- `src/lib/submissionQueue.server.ts:106` — timeout-like errors without that evidence are not transient.
+- Under the patched rule, "Job timed out after 480s" yields no evidence, so the 15:50 auto-retry would not have happened.
 
-New table `claim_resubmissions` + `claim_service_line_modifiers`.
+Note: `05d28ecd` is the latest commit but has **not** been deployed (publish was deliberately withheld), so production still runs the old rule while the queue stays paused.
 
-- "Prepare Resubmission" from a denied claim creates a NEW draft linked to the original; the original claim row, HCPF claim ID, denial reason, and history are immutable.
-- Draft edit mode allows per-service-line modifiers, with `76 — Repeat Procedure by Same MD` offered as a manual choice only. **Never auto-applied.**
-- Every modifier add/remove writes actor, timestamp, optional reason.
-- Unique index on `(original_trip_id, status in draft/active)` → two billers or a double-click cannot create two live resubmissions.
-- Queue path reuses the existing account-scoped single-flight queue unchanged.
+## Proposed next step (nothing executed yet)
 
-## Phase 5 — Driver documents & compliance
+When you are ready, the safe sequence is:
 
-New table `driver_insurance_docs` + private storage bucket `driver-docs`.
+1. Keep the queue paused; keep worker-2 disabled.
+2. Run a **read-only** HCPF claim search for member `…3706`, DOS 08/14/2020, this provider account, to determine whether one, two, or zero claims exist.
+3. Depending on the result, record the outcome on the existing bill through the submitted-unverified reconciliation path (or clear it to needs_fix if the portal has nothing) — preserving the original job id, idempotency key `acct:hfc-colorado:londonalfieri22|e43f78c8-…|2020-08-14|v1`, account lock and audit trail.
+4. Only after that, deploy the patched build and resume the queue.
 
-- Fields: insurer, policy number, vehicle, effective/expiration date, file, notes, status (`pending` | `verified` | `rejected`).
-- Derived state: Valid / Expiring Soon / Expired, with dashboard alerts at 30/14/7 days.
-- Driver can upload and replace their own; admin verifies. RLS: driver sees own, admin/dispatch sees own company only.
-
-## Phase 6 — Vehicle expenses & maintenance
-
-New table `vehicle_expenses` + reuse of the receipts bucket.
-
-- Driver mobile upload: vehicle, date, category (Oil Change, Tires, Repair, Inspection, Maintenance, Car Wash, Fuel, Other), amount, odometer, vendor, notes, receipt file.
-- Admin view: history and totals by vehicle / driver / date range / category.
-- Original receipt path preserved; owner recorded; strict company scoping.
-
-## Phase 7 — Tests and verification
-
-New/extended tests for: duplicate payroll prevention, manual item audit, claim/payroll status separation, same-member same-date warning, resubmission linkage, service-line modifier persistence, duplicate resubmission prevention, insurance expiry buckets, maintenance receipt ownership/tenant isolation, role permissions. Full suite + typecheck must be green. No live HCPF claim is submitted at any point.
-
-## Technical notes
-
-- All new public tables get GRANTs + RLS scoped through the existing `current_user_company_id()` / `has_role()` helpers.
-- Claim History moves to server-side pagination + filtering; the current 500-row unpaginated fetch does not scale to payroll use.
-- Existing components are extended (`ClaimsHistoryTab`, `BillingWorkspace`, driver profile) rather than replaced, so the design system and dark mode carry over.
-
-## Sequencing
-
-I'll ship Phase 1+2 first (migration → server fns → UI → tests), then 3+4, then 5+6, running the full suite after each group. Say the word and I'll start with the Phase 1 migration.
+Tell me which of these you want me to prepare, and whether step 2 should be a code path I add or a lookup you run manually.
