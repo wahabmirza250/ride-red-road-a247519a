@@ -22,7 +22,6 @@ import {
   Ban,
   Trash2,
   Pencil,
-  ChevronDown,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/nemt/PageHeader";
@@ -30,7 +29,6 @@ import { StatusPill } from "@/components/nemt/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -65,12 +63,6 @@ import { DeniedClaimsTab } from "@/components/billing/DeniedClaimsTab";
 import { FixBillDialog } from "@/components/billing/FixBillDialog";
 import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
 import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   BILLING_PAGE_DESCRIPTION,
   WAITING_FOR_SLOT_MESSAGE,
