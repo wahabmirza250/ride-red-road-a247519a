@@ -54,6 +54,7 @@ import { Route as CompanySlugDriverEarningsRouteImport } from './routes/$company
 import { Route as CompanySlugDispatchSigninRouteImport } from './routes/$companySlug/dispatch.signin'
 import { Route as CompanySlugDispatchScheduleRouteImport } from './routes/$companySlug/dispatch.schedule'
 import { Route as CompanySlugDispatchRoutesRouteImport } from './routes/$companySlug/dispatch.routes'
+import { Route as CompanySlugDispatchPlanRouteImport } from './routes/$companySlug/dispatch.plan'
 import { Route as CompanySlugDispatchHistoryRouteImport } from './routes/$companySlug/dispatch.history'
 import { Route as CompanySlugBillingSigninRouteImport } from './routes/$companySlug/billing.signin'
 import { Route as CompanySlugBillingSettingsRouteImport } from './routes/$companySlug/billing.settings'
@@ -342,6 +343,11 @@ const CompanySlugDispatchRoutesRoute =
     path: '/routes',
     getParentRoute: () => CompanySlugDispatchRoute,
   } as any)
+const CompanySlugDispatchPlanRoute = CompanySlugDispatchPlanRouteImport.update({
+  id: '/plan',
+  path: '/plan',
+  getParentRoute: () => CompanySlugDispatchRoute,
+} as any)
 const CompanySlugDispatchHistoryRoute =
   CompanySlugDispatchHistoryRouteImport.update({
     id: '/history',
@@ -639,6 +645,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/billing/settings': typeof CompanySlugBillingSettingsRoute
   '/$companySlug/billing/signin': typeof CompanySlugBillingSigninRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
+  '/$companySlug/dispatch/plan': typeof CompanySlugDispatchPlanRoute
   '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesRouteWithChildren
   '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
   '/$companySlug/dispatch/signin': typeof CompanySlugDispatchSigninRoute
@@ -722,6 +729,7 @@ export interface FileRoutesByTo {
   '/$companySlug/billing/settings': typeof CompanySlugBillingSettingsRoute
   '/$companySlug/billing/signin': typeof CompanySlugBillingSigninRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
+  '/$companySlug/dispatch/plan': typeof CompanySlugDispatchPlanRoute
   '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
   '/$companySlug/dispatch/signin': typeof CompanySlugDispatchSigninRoute
   '/$companySlug/driver/earnings': typeof CompanySlugDriverEarningsRoute
@@ -811,6 +819,7 @@ export interface FileRoutesById {
   '/$companySlug/billing/settings': typeof CompanySlugBillingSettingsRoute
   '/$companySlug/billing/signin': typeof CompanySlugBillingSigninRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
+  '/$companySlug/dispatch/plan': typeof CompanySlugDispatchPlanRoute
   '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesRouteWithChildren
   '/$companySlug/dispatch/schedule': typeof CompanySlugDispatchScheduleRoute
   '/$companySlug/dispatch/signin': typeof CompanySlugDispatchSigninRoute
@@ -901,6 +910,7 @@ export interface FileRouteTypes {
     | '/$companySlug/billing/settings'
     | '/$companySlug/billing/signin'
     | '/$companySlug/dispatch/history'
+    | '/$companySlug/dispatch/plan'
     | '/$companySlug/dispatch/routes'
     | '/$companySlug/dispatch/schedule'
     | '/$companySlug/dispatch/signin'
@@ -984,6 +994,7 @@ export interface FileRouteTypes {
     | '/$companySlug/billing/settings'
     | '/$companySlug/billing/signin'
     | '/$companySlug/dispatch/history'
+    | '/$companySlug/dispatch/plan'
     | '/$companySlug/dispatch/schedule'
     | '/$companySlug/dispatch/signin'
     | '/$companySlug/driver/earnings'
@@ -1072,6 +1083,7 @@ export interface FileRouteTypes {
     | '/$companySlug/billing/settings'
     | '/$companySlug/billing/signin'
     | '/$companySlug/dispatch/history'
+    | '/$companySlug/dispatch/plan'
     | '/$companySlug/dispatch/routes'
     | '/$companySlug/dispatch/schedule'
     | '/$companySlug/dispatch/signin'
@@ -1451,6 +1463,13 @@ declare module '@tanstack/react-router' {
       path: '/routes'
       fullPath: '/$companySlug/dispatch/routes'
       preLoaderRoute: typeof CompanySlugDispatchRoutesRouteImport
+      parentRoute: typeof CompanySlugDispatchRoute
+    }
+    '/$companySlug/dispatch/plan': {
+      id: '/$companySlug/dispatch/plan'
+      path: '/plan'
+      fullPath: '/$companySlug/dispatch/plan'
+      preLoaderRoute: typeof CompanySlugDispatchPlanRouteImport
       parentRoute: typeof CompanySlugDispatchRoute
     }
     '/$companySlug/dispatch/history': {
@@ -1885,6 +1904,7 @@ const CompanySlugDispatchRoutesRouteWithChildren =
 
 interface CompanySlugDispatchRouteChildren {
   CompanySlugDispatchHistoryRoute: typeof CompanySlugDispatchHistoryRoute
+  CompanySlugDispatchPlanRoute: typeof CompanySlugDispatchPlanRoute
   CompanySlugDispatchRoutesRoute: typeof CompanySlugDispatchRoutesRouteWithChildren
   CompanySlugDispatchScheduleRoute: typeof CompanySlugDispatchScheduleRoute
   CompanySlugDispatchSigninRoute: typeof CompanySlugDispatchSigninRoute
@@ -1893,6 +1913,7 @@ interface CompanySlugDispatchRouteChildren {
 
 const CompanySlugDispatchRouteChildren: CompanySlugDispatchRouteChildren = {
   CompanySlugDispatchHistoryRoute: CompanySlugDispatchHistoryRoute,
+  CompanySlugDispatchPlanRoute: CompanySlugDispatchPlanRoute,
   CompanySlugDispatchRoutesRoute: CompanySlugDispatchRoutesRouteWithChildren,
   CompanySlugDispatchScheduleRoute: CompanySlugDispatchScheduleRoute,
   CompanySlugDispatchSigninRoute: CompanySlugDispatchSigninRoute,

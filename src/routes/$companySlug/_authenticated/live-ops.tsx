@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { PlanRidesPanel } from "@/components/dispatch/PlanRidesPanel";
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -10,8 +11,49 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAutoAssign, setAutoAssign } from "@/lib/settings.functions";
 
 export const Route = createFileRoute("/$companySlug/_authenticated/live-ops")({
-  component: LiveOps,
+  validateSearch: (search: Record<string, unknown>): { tab?: "today" | "plan" } => ({
+    tab: search.tab === "plan" ? "plan" : undefined,
+  }),
+  component: DispatchWorkspace,
 });
+
+/**
+ * Single Dispatch destination for admins: live operations today, plus the ride
+ * planning workflow that used to live on its own top-level Planner page.
+ */
+function DispatchWorkspace() {
+  const search = useSearch({ strict: false }) as { tab?: string };
+  const [tab, setTab] = useState<"today" | "plan">(search.tab === "plan" ? "plan" : "today");
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Dispatch</h1>
+        <p className="text-sm text-muted-foreground">
+          Live operations and ride planning in one workspace.
+        </p>
+      </div>
+      <div className="inline-flex rounded-xl border border-border bg-surface p-1 text-sm">
+        {([
+          { id: "today", label: "Today" },
+          { id: "plan", label: "Plan rides" },
+        ] as const).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            aria-current={tab === t.id ? "page" : undefined}
+            className={`rounded-lg px-4 py-1.5 font-medium transition ${
+              tab === t.id ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tab === "today" ? <LiveOps /> : <PlanRidesPanel />}
+    </div>
+  );
+}
 
 const DEFAULT_CENTER: [number, number] = [39.7392, -104.9903]; // Denver
 const DEFAULT_ZOOM = 11;
@@ -147,12 +189,9 @@ function LiveOps() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Live Ops</h1>
-        <p className="text-sm text-muted-foreground">
-          Real-time drivers + active ride requests. Updates automatically.
-        </p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Real-time drivers and active ride requests. Updates automatically.
+      </p>
       <AutoAssignCard />
       <div className="grid grid-cols-3 gap-3">
         {[
