@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Navigation, Route as RouteIcon, Check, Loader2, Users } from "lucide-react";
+import { Navigation, Route as RouteIcon, Check, Loader2, Map as MapIcon, Users } from "lucide-react";
 import { getMyActiveRoute, completeRouteStop } from "@/lib/routes.functions";
+import { openNavigation } from "@/lib/mapsDeepLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
