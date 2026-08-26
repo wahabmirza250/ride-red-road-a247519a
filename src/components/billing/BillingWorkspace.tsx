@@ -1166,10 +1166,10 @@ function AwaitingPortalTab({
                     </Button>
                     <button
                       type="button"
-                      className="text-[11px] text-muted-foreground underline underline-offset-2"
+                      className="text-[11px] text-muted-foreground/70 underline underline-offset-2 hover:text-muted-foreground"
                       onClick={() => setConfirmFor(r)}
                     >
-                      Submitted manually? Enter claim number
+                      Fallback: enter claim number manually
                     </button>
                   </>
                 )}
