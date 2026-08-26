@@ -46,7 +46,7 @@ beforeEach(() => {
 
 describe("limits", () => {
   it("clamps to safe defaults", () => {
-    expect(maxSubmitPerCompany()).toBe(1); // strict single flight per provider
+    expect(maxSubmitPerCompany()).toBe(4); // controlled per-account concurrency
     expect(maxSubmitGlobal()).toBe(20);
     expect(maxSubmitAttempts()).toBe(3);
   });

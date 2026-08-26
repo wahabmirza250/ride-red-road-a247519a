@@ -161,7 +161,7 @@ describe("immediate refill after a successful claim", () => {
     settleQueue.push({ checked: 0, settled: 0 });
     settleQueue.push({ checked: 1, settled: 1, apply: () => { a.status = "submitted"; } });
     const tick = await runSubmissionQueueTick(supabase, { actorId: null });
-    expect(tick.started).toBe(1);
-    expect(started).toEqual(["1"]);
+    expect(tick.started).toBe(2);
+    expect(started).toEqual(["1", "2"]);
   });
 });

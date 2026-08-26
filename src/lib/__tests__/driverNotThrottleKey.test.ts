@@ -16,8 +16,8 @@ describe("same-driver different-passenger bills", () => {
     const keys = rows.map(riderKeyOf);
     expect(new Set(keys).size).toBe(6);
     expect(keys.every((k) => !String(k).toLowerCase().includes("kidane"))).toBe(true);
-    // Strict single flight: these six bills queue behind one another instead of
-    // opening six portal sessions.
-    expect(MAX_CONCURRENT_ROBOT_JOBS).toBe(1);
+    // Controlled account capacity: distinct passengers may run in parallel, but
+    // never more than the per-account cap at once.
+    expect(MAX_CONCURRENT_ROBOT_JOBS).toBe(4);
   });
 });
