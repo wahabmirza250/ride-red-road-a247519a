@@ -69,6 +69,7 @@ import {
   processingStateLabel,
   queuedToastMessage,
 } from "@/lib/billingUiCopy";
+import { ClaimProgressCell } from "@/components/billing/ClaimProgressCell";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
 
