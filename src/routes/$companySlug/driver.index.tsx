@@ -406,8 +406,10 @@ function DriverHome() {
       if (error) return toast.error(error.message);
       setDriver({ ...driver, status: "available", current_lat: pos.lat, current_lng: pos.lng });
       setGeoError(null);
-      try { await clockInFn({ data: {} }); toast.success("You're online — clocked in"); }
-      catch (e) { toast.error(e instanceof Error ? e.message : "Could not clock in"); }
+      // Going online also starts the shift when one isn't running; starting is
+      // safe to repeat and never creates a second shift.
+      try { await clockInFn({ data: {} }); toast.success("You're online"); }
+      catch (e) { toast.error(e instanceof Error ? e.message : "Could not start your shift"); }
       void refreshStats();
     } else {
       const { error } = await supabase.from("drivers")
@@ -421,8 +423,9 @@ function DriverHome() {
       if (error) return toast.error(error.message);
       setDriver({ ...driver, status: "offline", current_lat: null, current_lng: null });
       setGeoError(null); setSpeedMph(null); lastFixRef.current = null;
-      try { await clockOutFn({ data: {} }); toast.success("Clocked out"); }
-      catch (e) { toast.error(e instanceof Error ? e.message : "Could not clock out"); }
+      // The shift keeps running until the driver ends it, so hours are never
+      // lost by toggling availability.
+      toast.success("You're offline");
       void refreshStats();
     }
   }
