@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   CalendarClock,
   Newspaper,
+  Gamepad2,
   Trophy,
   LogOut,
   FileSignature,
@@ -74,7 +75,10 @@ const ADMIN_NAV_GROUPS = [
     { to: "/news-feed", label: "News Feed", icon: Megaphone },
     { to: "/news", label: "News", icon: Newspaper },
   ],
-  [{ to: "/rewards-settings", label: "Rewards", icon: Trophy }],
+  [
+    { to: "/games", label: "Games", icon: Gamepad2 },
+    { to: "/rewards-settings", label: "Rewards", icon: Trophy },
+  ],
 ] as const;
 
 const ADMIN_NAV = ADMIN_NAV_GROUPS.flat();
