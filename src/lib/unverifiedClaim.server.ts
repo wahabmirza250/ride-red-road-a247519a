@@ -83,12 +83,27 @@ async function searchPortalClaim(args: {
       }),
     });
   } catch (e: any) {
-    return { ok: false, claim: null, status: null, detail: `lookup unreachable: ${e?.message ?? e}` };
+    return {
+      ok: false,
+      claim: null,
+      status: null,
+      detail: `lookup unreachable: ${e?.message ?? e}`,
+      unsupported: true,
+    };
   }
 
   const text = await res.text().catch(() => "");
   if (!res.ok) {
-    return { ok: false, claim: null, status: null, detail: `lookup HTTP ${res.status}: ${text.slice(0, 200)}` };
+    // 404/405/501 means the automation service has no read-only search route at
+    // all: no claim was checked. Never report that as "nothing found yet".
+    const unsupported = res.status === 404 || res.status === 405 || res.status === 501;
+    return {
+      ok: false,
+      claim: null,
+      status: null,
+      detail: `lookup HTTP ${res.status}: ${text.slice(0, 200)}`,
+      ...(unsupported ? { unsupported: true } : {}),
+    };
   }
   let body: any = {};
   try {
