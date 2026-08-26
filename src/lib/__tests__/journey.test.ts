@@ -187,6 +187,7 @@ describe("mileage evidence", () => {
 });
 
 describe("route recovery after a refresh", () => {
+  beforeAll(installStorage);
   beforeEach(() => clearJourney("co1", "d1"));
 
   it("restores arrivals, readings and signatures for the same driver", () => {
