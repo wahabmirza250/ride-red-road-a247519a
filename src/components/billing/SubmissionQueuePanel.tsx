@@ -212,11 +212,8 @@ export function SubmissionQueuePanel() {
             )}
           </div>
 
-
-
-      {open && (
-        <div className="mt-3 space-y-3 border-t border-border pt-3">
           <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
+
             <Detail label="Oldest queued" value={ageLabel(t.oldestQueuedAt)} />
             <Detail label="Average submit time" value={durationLabel(t.avgSubmitMs)} />
             <Detail
