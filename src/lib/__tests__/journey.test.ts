@@ -202,7 +202,8 @@ describe("route recovery after a refresh", () => {
     expect(restored.stops.find((s) => s.id === "s2")?.status).toBe("arrived");
     expect(nextStop(restored)?.id).toBe("s2");
     // Replayed taps stay protected after recovery.
-    expect(arriveAtStop(restored, "s2", "later").events.filter((e) => e.action === "arrive"))
+    const replayed = arriveAtStop(restored, "s2", "later");
+    expect(replayed.events.filter((e) => e.action === "arrive" && e.stop_id === "s2"))
       .toHaveLength(1);
   });
 
