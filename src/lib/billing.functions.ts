@@ -1076,7 +1076,7 @@ export const setDefaultBillingPortal = createServerFn({ method: "POST" })
 /* ---------- SUBMISSION QUEUE + CANCEL ---------- */
 
 /**
- * Queue visibility for the "Awaiting Portal Submission" / in-flight lists.
+ * Queue visibility for the "Processing" / in-flight lists.
  * The automation service runs up to MAX_CONCURRENT_ROBOT_JOBS portal sessions
  * per account at once, so EVERY `submitting` record is genuinely running —
  * never label one of them "queued" just because another job started first.
