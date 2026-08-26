@@ -57,10 +57,8 @@ function BillingLayout() {
     <div className="surface-red fleet-shell min-h-screen pb-24 lg:pb-0">
       <header className="glass sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <ReceiptText className="h-4 w-4" />
-          </span>
-          <span className="truncate text-sm font-semibold">RedArt Billing</span>
+          <BrandMark className="h-8 w-8 shrink-0" />
+          <span className="truncate text-sm font-semibold tracking-tight">RedArt Billing</span>
           <CompanyLogo />
         </div>
         <nav className="hidden items-center gap-1 lg:flex">
