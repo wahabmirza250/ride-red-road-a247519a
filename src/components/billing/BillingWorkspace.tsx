@@ -827,7 +827,7 @@ function ReadyToSubmitTab({
       });
       if (res?.queued) {
         toast.info(
-          `Trip ${id.slice(0, 8)}… is queued behind ${res.ahead + 1} submission(s). It starts automatically — the portal only allows one at a time.`,
+          `Trip ${id.slice(0, 8)}… — ${queuedToastMessage(res.ahead ?? 0)}`,
         );
       }
       return "ok" as const;
