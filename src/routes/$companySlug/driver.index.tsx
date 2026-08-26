@@ -32,6 +32,7 @@ import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { driverCreatePassenger, driverSearchPassengers } from "@/lib/passenger.functions";
 import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
 import { clockIn, clockOut, getShiftStats, addShiftMiles } from "@/lib/shifts.functions";
+import { formatHours } from "@/lib/shiftTime";
 import { recordTripMedia } from "@/lib/tripMedia.functions";
 import { addTripStop, markStopArrived, markStopDeparted, updateTripAddress } from "@/lib/tripStops.functions";
 import { ActiveJourneyCard } from "@/components/driver/ActiveJourneyCard";
