@@ -192,6 +192,15 @@ const PRIMARY_KEYS: TabKey[] = [
 ];
 const SECONDARY_KEYS: TabKey[] = ["medical_review", "claims_history", "payroll", "denied"];
 
+/** One short, plain-English hint per stage so the rail reads like a pipeline. */
+const STAGE_HINTS: Partial<Record<TabKey, string>> = {
+  pending_review: "Check the paper bill",
+  ready_to_submit: "Send to the state portal",
+  awaiting_portal: "Working at the portal",
+  submitted: "Claim number saved",
+};
+
+
 
 
 
