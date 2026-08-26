@@ -22,7 +22,7 @@ export function googleMapsDirectionsUrl(dest: NavigationDestination): string | n
  * Opens Google Maps directly from the user's tap.
  *
  * A same-window universal-link navigation is intentional: iOS standalone
- * PWAs and embedded Android webviews often block or retain `window.open()`
+ * PWAs and embedded Android webviews often block or retain popup windows.
  * popups. Assigning the top-level location synchronously is reliable, invokes
  * the installed Maps app when the OS supports it, and otherwise opens Google
  * Maps in the browser. The PWA remains in its previous state when the driver
