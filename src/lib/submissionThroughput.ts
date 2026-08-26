@@ -44,7 +44,7 @@ export function completionTimestamps(rows: Pick<DoneClaim, "completedAt">[]): nu
 /**
  * Rolling seconds-per-claim. Measured as elapsed wall clock across the most
  * recent completions divided by the number of intervals, which is the only
- * honest reading of end-to-end throughput for a single-flight account lane.
+ * honest reading of end-to-end throughput for one account lane.
  */
 export function rollingAvgSecondsPerClaim(
   timesMs: number[],

@@ -10,7 +10,7 @@
  *     company:<company id>                fallback (one implicit account)
  *
  * Consequences that must stay true:
- *   - Many billers in one company => one shared account queue, single flight.
+ *   - Many billers in one company => one shared account queue with a bounded number of active submissions.
  *   - Different companies => different account keys => fully parallel.
  *   - If a company ever configures a second portal login, its bills split into
  *     two independent queues with no code change.

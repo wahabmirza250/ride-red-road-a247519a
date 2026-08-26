@@ -31,7 +31,7 @@ describe("per-passenger dispatch pacing", () => {
 
     const res = await dispatchNextQueued(supabase, "actor", "co1");
 
-    // Strict single flight: one company gets exactly one live portal session.
+    // Controlled capacity: one company never exceeds its account cap.
     expect(res.startedIds.length).toBeLessThanOrEqual(maxSubmitPerCompany());
     const aCount = started.filter((s) => s.trip.rider_id === "riderA").length;
     expect(aCount).toBeLessThanOrEqual(MAX_CONCURRENT_JOBS_PER_RIDER);
@@ -39,25 +39,34 @@ describe("per-passenger dispatch pacing", () => {
     expect(records.filter((r) => r.status === "queued").length).toBeGreaterThan(0);
   });
 
-  it("releases the next bill only after the live job reaches a terminal state", async () => {
+  it("releases the same rider's next bill only after the live job is terminal", async () => {
     const records = [
       makeRecord("1", { riderId: "riderA", status: "submitting", jobId: "job1" }),
       makeRecord("2", { riderId: "riderA" }),
-      makeRecord("3", { riderId: "riderB" }),
     ];
     const { supabase } = makeFakeDb(records);
 
-    // A session is live for this provider account: nothing new may start.
+    // A session is live for this rider: their next bill may not start.
     let res = await dispatchNextQueued(supabase, "actor", "co1");
     expect(res.startedIds).toEqual([]);
     expect(started.length).toBe(0);
 
-    // The live job finishes → exactly one queued bill goes.
+    // The live job finishes → the queued bill for that rider goes.
     records[0]!.status = "submitted";
     records[0]!.medicaid_trips.robot_job_id = null;
     res = await dispatchNextQueued(supabase, "actor", "co1");
-    expect(res.startedIds.length).toBe(1);
+    expect(res.startedIds).toEqual(["2"]);
     expect(started.length).toBe(1);
+  });
+
+  it("runs different riders concurrently up to the account cap", async () => {
+    const records = Array.from({ length: 6 }, (_, i) =>
+      makeRecord(String(i + 1), { riderId: `rider-${i}` }),
+    );
+    const { supabase } = makeFakeDb(records);
+    const res = await dispatchNextQueued(supabase, "actor", "co1");
+    expect(res.startedIds.length).toBe(maxSubmitPerCompany());
+    expect(new Set(started.map((s) => s.trip.rider_id)).size).toBe(maxSubmitPerCompany());
   });
 });
 

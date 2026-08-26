@@ -102,7 +102,7 @@ describe("three billers, one company, one HCPF account", () => {
     expect(records.every((r) => Boolean(r.submit_idempotency_key))).toBe(true);
     expect(batches.length).toBe(3);
 
-    // Three simultaneous dispatchers still open ONE portal session.
+    // Three simultaneous dispatchers never exceed the account cap.
     const runs = await Promise.all([
       dispatchLeasedSubmissions(supabase, "biller-a", { worker: "a" }),
       dispatchLeasedSubmissions(supabase, "biller-b", { worker: "b" }),
@@ -110,9 +110,10 @@ describe("three billers, one company, one HCPF account", () => {
     ]);
     const startedIds = runs.flatMap((r) => r.startedIds);
     expect(startedIds.length).toBe(maxSubmitPerCompany());
+    expect(new Set(startedIds).size).toBe(startedIds.length);
     expect(new Set(started).size).toBe(started.length);
-    expect(records.filter((r) => r.status === "submitting").length).toBe(1);
-    expect(records.filter((r) => r.status === "queued").length).toBe(5);
+    expect(records.filter((r) => r.status === "submitting").length).toBe(maxSubmitPerCompany());
+    expect(records.filter((r) => r.status === "queued").length).toBe(6 - maxSubmitPerCompany());
   });
 
   it("re-clicking a queued bill never creates a second job", async () => {
@@ -182,10 +183,12 @@ describe("100-bill batch", () => {
     failNext = "Indicates a required field.";
     const first = await dispatchLeasedSubmissions(supabase, null, { worker: "w1" });
     expect(first.failed).toBe(1);
-    expect(started.length).toBe(0);
+    // The rest of that pass still ran: one bad bill never blocks the account.
+    expect(first.started).toBe(maxSubmitPerCompany() - 1);
+    expect(records.filter((r) => r.status === "needs_fix").length).toBe(1);
 
     const second = await dispatchLeasedSubmissions(supabase, null, { worker: "w2" });
-    expect(second.started).toBe(1);
+    expect(second.started).toBe(1); // the freed slot is refilled
     expect(records.filter((r) => r.status === "needs_fix").length).toBe(1);
   });
 });

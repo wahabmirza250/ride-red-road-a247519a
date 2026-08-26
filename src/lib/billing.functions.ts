@@ -1124,8 +1124,8 @@ export const listSubmissionQueue = createServerFn({ method: "GET" })
         queue_state = "awaiting_review";
         queue_label = "Captured — waiting for your review";
       } else if (r.status === "queued") {
-        // Strict single flight: at most ONE bill is processing per provider
-        // account, so everything else is honestly labelled as queued.
+        // Controlled account capacity: a bounded number of bills process per
+        // provider account, so everything else is honestly labelled as queued.
         const ahead = (aheadInQueue ?? 0) + running.length;
         queue_state = "queued";
         queue_label =
@@ -1133,7 +1133,7 @@ export const listSubmissionQueue = createServerFn({ method: "GET" })
             ? `Queued — ${ahead} job${ahead === 1 ? "" : "s"} ahead on the portal account`
             : "Queued — starting shortly";
       } else {
-        // The single active submission for this provider account.
+        // An actively running submission on this provider account.
         queue_state = "running";
         queue_label = "Processing at the portal now";
       }
