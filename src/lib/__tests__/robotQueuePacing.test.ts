@@ -9,6 +9,7 @@ vi.mock("@/lib/billingHelpers", () => ({
   }),
   logAudit: vi.fn(async () => {}),
   looksLikeRetryableTimeout: () => false,
+  hasExplicitPreSubmitFailureEvidence: (m: string) => /pre_submit|submit_reached\s*[:=]\s*false|stage\s*[:=]\s*(login|launch|step1)/i.test(String(m ?? "")),
   looksLikePossiblySubmittedTimeout: () => false,
 }));
 
