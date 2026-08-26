@@ -51,7 +51,14 @@ async function searchPortalClaim(args: {
   portalId: string | null;
   memberId: string;
   serviceDateISO: string | null;
-}): Promise<{ ok: boolean; claim: string | null; status: string | null; detail: string }> {
+}): Promise<{
+  ok: boolean;
+  claim: string | null;
+  status: string | null;
+  detail: string;
+  /** The lookup capability itself is missing/unreachable — nothing was checked. */
+  unsupported?: boolean;
+}> {
   const serviceDate = portalDate(args.serviceDateISO);
   let res: Response;
   try {
@@ -76,12 +83,27 @@ async function searchPortalClaim(args: {
       }),
     });
   } catch (e: any) {
-    return { ok: false, claim: null, status: null, detail: `lookup unreachable: ${e?.message ?? e}` };
+    return {
+      ok: false,
+      claim: null,
+      status: null,
+      detail: `lookup unreachable: ${e?.message ?? e}`,
+      unsupported: true,
+    };
   }
 
   const text = await res.text().catch(() => "");
   if (!res.ok) {
-    return { ok: false, claim: null, status: null, detail: `lookup HTTP ${res.status}: ${text.slice(0, 200)}` };
+    // 404/405/501 means the automation service has no read-only search route at
+    // all: no claim was checked. Never report that as "nothing found yet".
+    const unsupported = res.status === 404 || res.status === 405 || res.status === 501;
+    return {
+      ok: false,
+      claim: null,
+      status: null,
+      detail: `lookup HTTP ${res.status}: ${text.slice(0, 200)}`,
+      ...(unsupported ? { unsupported: true } : {}),
+    };
   }
   let body: any = {};
   try {
@@ -188,6 +210,20 @@ export async function resolveUnverifiedClaim(
       found.claim ? `claim ${found.claim}` : found.ok ? "no matching claim yet" : found.detail
     }`,
   );
+
+  // No lookup capability = no evidence either way. Say so plainly and hand it
+  // to a human with the exact search terms; never imply the portal was checked
+  // and never let it drift toward a resubmit.
+  if (found.unsupported) {
+    const msg =
+      `CANNOT VERIFY AUTOMATICALLY: the automation service has no read-only claim search available ` +
+      `(${found.detail}). The Confirm click may have created a claim. Search the portal manually ` +
+      `(Claims → Search Claims) for member ${memberId} on ${portalDate(trip.pickup_at)} and record the ` +
+      `claim number here. Do NOT resubmit until you have checked.`;
+    await flagForHuman(supabase, rec.id, trip.id, actorId, msg, nowIso);
+    return { pending: false, status: "NEEDS_HUMAN_LOOKUP", message: msg };
+  }
+
 
   if (found.claim) {
     const message = `Resolved automatically by a read-only portal search: claim #${found.claim}${
