@@ -734,7 +734,9 @@ export async function runSubmissionQueueTick(
   }
 
   const staleLocksReleased = await releaseStaleSubmissionLocks(supabase);
-  const recovered = await recoverOrphanedSubmissions(supabase, opts.companyId ?? null);
+  const recovered =
+    (await recoverOrphanedSubmissions(supabase, opts.companyId ?? null)) +
+    (await recoverStuckInFlightSubmissions(supabase, opts.companyId ?? null));
 
   // Read-only fleet liveness. Only meaningful with a real multi-worker fleet,
   // and it never touches HCPF — just the automation service's own /health.
