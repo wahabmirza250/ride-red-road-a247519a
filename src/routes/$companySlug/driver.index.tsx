@@ -891,28 +891,27 @@ function DriverHome() {
               (mirrors the pickup Fill-Form step) so the driver captures the
               photo + reading in the same flow as the signature. */}
 
-          {/* Linear Uber-style sequence: Navigate → Arrive → Start ride →
-              Complete form. Exactly ONE primary button per step, and every
-              step stays inside the app. */}
+          {/* Linear trip sequence. Navigation hands off directly to Google
+              Maps; Route Overview remains available in the RedArt map. */}
           <div className="space-y-2 pt-2">
             {tripStatus === "assigned" && (
               <Button
                 className="h-14 w-full rounded-full bg-primary text-base"
                 onClick={() => {
+                  openNavigation();
                   void setStatus("driver_en_route_to_pickup");
-                  setNavOpen(true);
                 }}
               >
-                <Navigation className="mr-2 h-5 w-5" /> Navigate to pickup
+                <Navigation className="mr-2 h-5 w-5" /> Start Navigation
               </Button>
             )}
             {tripStatus === "driver_en_route_to_pickup" && (
               <div className="space-y-2">
                 <Button
                   className="h-14 w-full rounded-full bg-primary text-base"
-                  onClick={() => setNavOpen(true)}
+                  onClick={openNavigation}
                 >
-                  <Navigation className="mr-2 h-5 w-5" /> Resume navigation
+                  <Navigation className="mr-2 h-5 w-5" /> Start Navigation
                 </Button>
                 <Button
                   variant="outline"
@@ -928,7 +927,6 @@ function DriverHome() {
                 className="h-14 w-full rounded-full bg-emerald-500 text-base hover:bg-emerald-600"
                 onClick={() => {
                   void setStatus("in_progress");
-                  setNavOpen(true);
                 }}
               >
                 <CheckCircle2 className="mr-2 h-5 w-5" /> Start ride
@@ -938,9 +936,9 @@ function DriverHome() {
               <div className="space-y-2">
                 <Button
                   className="h-14 w-full rounded-full bg-primary text-base"
-                  onClick={() => setNavOpen(true)}
+                  onClick={openNavigation}
                 >
-                  <Navigation className="mr-2 h-5 w-5" /> Navigate to dropoff
+                  <Navigation className="mr-2 h-5 w-5" /> Start Navigation
                 </Button>
                 <Button
                   className="h-12 w-full rounded-full bg-emerald-500 text-base hover:bg-emerald-600"
@@ -1081,7 +1079,7 @@ function DriverHome() {
         submitLabel="Save & capture signature"
       />
 
-      {/* Full-screen in-app turn-by-turn navigation (no external handoff). */}
+      {/* In-app route overview; its Start Navigation action also hands off to Google Maps. */}
       {active && (
         <InAppNavigation
           open={navOpen}

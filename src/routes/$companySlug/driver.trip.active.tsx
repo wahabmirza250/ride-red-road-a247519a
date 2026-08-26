@@ -57,6 +57,7 @@ import {
   type TripAction,
 } from "@/lib/driverTripLifecycle";
 import { submitDriverTripToBilling, downloadPdf, type GeneratedPdf } from "@/lib/driverTripSubmit";
+import { openNavigation } from "@/lib/mapsDeepLink";
 
 export const Route = createFileRoute("/$companySlug/driver/trip/active")({
   validateSearch: (search) => ({
@@ -425,7 +426,8 @@ function ActiveTripScreen() {
             destination={destCoords}
             destinationLabel={dest?.address}
             destinationKind={dest?.kind ?? "pickup"}
-            onStartNavigation={destCoords ? () => setNavOpen(true) : undefined}
+            onStartNavigation={dest ? () => openNavigation({ ...destCoords, address: dest.address }) : undefined}
+            onRouteOverview={destCoords ? () => setNavOpen(true) : undefined}
           />
         )}
 
@@ -616,7 +618,7 @@ function ActiveTripScreen() {
 
           {showMap && destCoords && (
             <Button variant="outline" className="h-12 w-full text-sm" onClick={() => setNavOpen(true)}>
-              <Navigation className="mr-2 h-4 w-4" /> Turn-by-turn in app
+              <Navigation className="mr-2 h-4 w-4" /> Route Overview
             </Button>
           )}
           <Button
