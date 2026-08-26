@@ -55,15 +55,16 @@ describe("configured limits", () => {
     expect(MAX_CONCURRENT_JOBS_PER_RIDER).toBe(1);
   });
 
-  it("hard-clamps configuration to 1..4", () => {
+  it("hard-clamps configuration to 1..8 (the automation service's own ceiling)", () => {
     const prev = process.env["SUBMIT_MAX_PER_COMPANY"];
     process.env["SUBMIT_MAX_PER_COMPANY"] = "50";
-    expect(maxSubmitPerCompany()).toBe(4);
+    expect(maxSubmitPerCompany()).toBe(8);
     process.env["SUBMIT_MAX_PER_COMPANY"] = "0";
     expect(maxSubmitPerCompany()).toBe(1);
     if (prev === undefined) delete process.env["SUBMIT_MAX_PER_COMPANY"];
     else process.env["SUBMIT_MAX_PER_COMPANY"] = prev;
   });
+
 });
 
 describe("dispatch invariants", () => {
