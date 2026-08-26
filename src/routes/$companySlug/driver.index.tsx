@@ -662,26 +662,59 @@ function DriverHome() {
   const showOffers = !active && online;
 
   return (
-    <div className="space-y-4">
-      {/* Header: status + earnings dashboard */}
-      <div className="flex items-center justify-between rounded-2xl border border-border bg-surface p-5 shadow-soft">
-        <div>
-          <div className="text-sm text-muted-foreground">Status</div>
-          <div className="text-lg font-semibold">
-            {online ? "Online — clocked in" : "Offline — clocked out"}
+    <div className="space-y-5">
+      {/* Today: shift control first, everything else supports it */}
+      <section className="overflow-hidden rounded-3xl border border-border bg-surface shadow-soft">
+        <div className="flex items-start justify-between gap-3 p-5">
+          <div className="min-w-0">
+            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+              Today
+            </div>
+            <div className="mt-1 text-4xl font-bold tabular-nums leading-none">
+              {formatHours(liveElapsedHours)}
+            </div>
+            <div className="mt-1.5 text-xs text-muted-foreground">
+              Hours Today · {onShift ? "Shift running" : "No shift running"}
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={toggleOnline}
+            aria-label={online ? "Go offline" : "Go online"}
+            className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border transition ${
+              online
+                ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-600"
+                : "border-border bg-surface-muted text-muted-foreground"
+            }`}
+          >
+            <Power className="h-6 w-6" />
+          </button>
         </div>
-        <Button onClick={toggleOnline}
-          className={`h-14 w-14 rounded-full ${online ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}>
-          <Power className="h-6 w-6" />
-        </Button>
-      </div>
+
+        <div className="px-5 pb-5">
+          <Button
+            onClick={() => void (onShift ? endShiftNow() : startShiftNow())}
+            disabled={shiftBusy}
+            variant={onShift ? "outline" : "default"}
+            className="h-14 w-full rounded-2xl text-base font-semibold"
+          >
+            {shiftBusy ? (
+              <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Saving…</>
+            ) : onShift ? (
+              "End Shift"
+            ) : (
+              "Start Shift"
+            )}
+          </Button>
+        </div>
+      </section>
 
       <StatsGrid
         todayHours={liveElapsedHours} todayMiles={stats.today_miles}
         todayEarnings={liveEarnings} hourlyRate={stats.hourly_rate}
-        speedMph={online ? speedMph : null} onShift={online}
+        speedMph={online ? speedMph : null} onShift={onShift}
       />
+
 
       <InProgressTrips />
 
