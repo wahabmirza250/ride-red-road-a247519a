@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigation, Loader2 } from "lucide-react";
 import { loadGoogleMapsDark, DARK_MAP_STYLE, LIGHT_MAP_STYLE } from "@/lib/googleMapsDark";
-import { computeDriveRoute } from "@/lib/mapsRoute.functions";
+import { useLiveEta } from "@/lib/useLiveEta";
 import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 
@@ -15,15 +15,14 @@ type Props = {
   destination?: LatLng | null;
   destinationLabel?: string;
   destinationKind?: "pickup" | "dropoff" | "stop";
-  /** Handoff to the device's maps app for spoken turn-by-turn. */
+  /** Opens Google Maps with driving directions to this stop. */
   onStartNavigation?: () => void;
 };
 
 /**
- * Embedded, branded live map for the driver's active trip.
- * Shows the route from the driver's current position to the next stop, a live
- * driver pin, and live distance / ETA. This is the default in-app view — the
- * external maps app is an explicit, separate handoff.
+ * Route preview for the driver's current stop: the driving line, the live
+ * driver pin and an arrival time that keeps up with the vehicle. Driving
+ * directions open in Google Maps from the one clear button below the map.
  */
 export function ActiveTripMap({
   driver,
@@ -37,11 +36,11 @@ export function ActiveTripMap({
   const driverMarkerRef = useRef<google.maps.Marker | null>(null);
   const destMarkerRef = useRef<google.maps.Marker | null>(null);
   const lineRef = useRef<google.maps.Polyline | null>(null);
-  const lastRouteKeyRef = useRef<string>("");
   const [ready, setReady] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [eta, setEta] = useState<{ distance: string; duration: string } | null>(null);
   const { theme } = useTheme();
+
+  const eta = useLiveEta(driver ?? null, destination ?? null, true);
 
   const destColor = destinationKind === "dropoff" ? "#ef4444" : "#22c55e";
 
@@ -73,16 +72,14 @@ export function ActiveTripMap({
     mapRef.current?.setOptions({ styles: theme === "dark" ? DARK_MAP_STYLE : LIGHT_MAP_STYLE });
   }, [theme]);
 
-  // Markers + route + ETA.
+  // Markers.
   useEffect(() => {
     const g = window.google;
     const map = mapRef.current;
     if (!ready || !g || !map) return;
 
     if (destination) {
-      if (!destMarkerRef.current) {
-        destMarkerRef.current = new g.maps.Marker({ map });
-      }
+      if (!destMarkerRef.current) destMarkerRef.current = new g.maps.Marker({ map });
       destMarkerRef.current.setOptions({
         position: destination,
         title: destinationLabel ?? "Next stop",
@@ -118,45 +115,35 @@ export function ActiveTripMap({
       });
     }
 
-    if (!driver && destination) {
-      map.setCenter(destination);
+    if (!driver && destination) map.setCenter(destination);
+  }, [ready, driver, destination, destinationLabel, destColor]);
+
+  // Route line follows the current estimate.
+  useEffect(() => {
+    const g = window.google;
+    const map = mapRef.current;
+    if (!ready || !g || !map) return;
+    if (!eta.polyline) {
+      lineRef.current?.setPath([]);
       return;
     }
-    if (!driver || !destination) return;
-
-    // Only re-request directions when the driver has moved meaningfully.
-    const key = `${driver.lat.toFixed(3)},${driver.lng.toFixed(3)}|${destination.lat.toFixed(4)},${destination.lng.toFixed(4)}`;
-    if (key === lastRouteKeyRef.current) return;
-    lastRouteKeyRef.current = key;
-
-    // Route + ETA come from the Routes API (server-side, via the connector
-    // gateway) — the browser key is not authorized for the Directions service.
-    computeDriveRoute({ data: { from: driver, to: destination } })
-      .then((route) => {
-        // Ignore stale responses (a newer request has since been issued).
-        if (!route || lastRouteKeyRef.current !== key || !mapRef.current) return;
-        setEta({ distance: route.distanceText, duration: route.durationText });
-        const path = g.maps.geometry.encoding.decodePath(route.polyline);
-        if (!lineRef.current) {
-          lineRef.current = new g.maps.Polyline({
-            map,
-            strokeColor: "#f59e0b",
-            strokeOpacity: 0.95,
-            strokeWeight: 5,
-          });
-        }
-        lineRef.current.setPath(path);
-        const bounds = new g.maps.LatLngBounds();
-        path.forEach((p) => bounds.extend(p));
-        bounds.extend(driver);
-        bounds.extend(destination);
-        map.fitBounds(bounds, 48);
-      })
-      .catch(() => {
-        // Allow a retry on the next position update.
-        lastRouteKeyRef.current = "";
+    const path = g.maps.geometry.encoding.decodePath(eta.polyline);
+    if (!lineRef.current) {
+      lineRef.current = new g.maps.Polyline({
+        map,
+        strokeColor: "#f59e0b",
+        strokeOpacity: 0.95,
+        strokeWeight: 5,
       });
-  }, [ready, driver, destination, destinationLabel, destColor]);
+    }
+    lineRef.current.setPath(path);
+    const bounds = new g.maps.LatLngBounds();
+    path.forEach((p) => bounds.extend(p));
+    if (driver) bounds.extend(driver);
+    if (destination) bounds.extend(destination);
+    if (!bounds.isEmpty()) map.fitBounds(bounds, 48);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, eta.polyline]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface">
@@ -177,22 +164,19 @@ export function ActiveTripMap({
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
         <div>
           <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
-            {destinationKind === "dropoff" ? "To dropoff" : destinationKind === "stop" ? "To next stop" : "To pickup"}
+            {destinationKind === "dropoff" ? "To drop-off" : destinationKind === "stop" ? "To next stop" : "To pickup"}
           </div>
-          <div className="text-sm font-semibold">
-            {eta ? `${eta.distance} · ${eta.duration}` : "Calculating…"}
-          </div>
+          <div className="text-sm font-semibold">{eta.label}</div>
           {destinationLabel && (
             <div className="max-w-[16rem] truncate text-xs text-muted-foreground">{destinationLabel}</div>
           )}
         </div>
         {onStartNavigation && (
           <Button
-            variant="outline"
-            className="h-10 rounded-full text-xs font-semibold"
+            className="h-11 rounded-full px-5 text-sm font-semibold"
             onClick={onStartNavigation}
           >
-            <Navigation className="mr-2 h-4 w-4" /> Start Turn-by-Turn Navigation
+            <Navigation className="mr-2 h-4 w-4" /> Start Navigation
           </Button>
         )}
       </div>
