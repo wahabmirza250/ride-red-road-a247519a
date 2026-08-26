@@ -294,6 +294,62 @@ export async function recoverOrphanedSubmissions(
   return orphans.length;
 }
 
+/**
+ * STUCK-FOREVER GUARD.
+ *
+ * A bill that really started a robot job but never reached a terminal outcome
+ * (worker restarted, connection lost, poll never answered) must not sit in
+ * `submitting` indefinitely. Past the absolute ceiling it is classified exactly
+ * like a lost job: Needs Verification via the read-only portal search, never an
+ * automatic retry, with the job id / idempotency key / account key preserved.
+ */
+export async function recoverStuckInFlightSubmissions(
+  supabase: any,
+  companyId?: string | null,
+): Promise<number> {
+  const { exceededInFlightCeiling, INFLIGHT_CEILING_VERIFY_MESSAGE } = await import(
+    "@/lib/robotJobLost"
+  );
+  const { routeToNeedsVerification } = await import("@/lib/robotJobLost.server");
+
+  let q = supabase
+    .from("billing_records")
+    .select(
+      `id, trip_id, requires_human_step, updated_at,
+       medicaid_trips!inner(id, robot_job_id, robot_job_started_at, robot_last_status)`,
+    )
+    .eq("status", "submitting");
+  if (companyId) q = q.eq("company_id", companyId);
+  const { data, error } = await q;
+  if (error) return 0;
+
+  const now = Date.now();
+  let n = 0;
+  for (const r of data ?? []) {
+    const trip: any = r.medicaid_trips ?? {};
+    if (!trip.robot_job_id) continue; // handled by recoverOrphanedSubmissions
+    const robotStatus = String(trip.robot_last_status ?? "");
+    // Already routed to verification / a human: leave the evidence alone.
+    if (robotStatus === "SUBMITTED_UNVERIFIED" || robotStatus === "NEEDS_HUMAN_LOOKUP") continue;
+    if (r.requires_human_step) continue;
+    const started = trip.robot_job_started_at ?? r.updated_at ?? null;
+    if (!exceededInFlightCeiling(started, now)) continue;
+
+    await routeToNeedsVerification(supabase, {
+      recordId: r.id,
+      tripId: trip.id,
+      actorId: null,
+      message: INFLIGHT_CEILING_VERIFY_MESSAGE,
+      failureCode: "inflight_ceiling_unverified",
+      auditAction: "submission_inflight_ceiling_needs_verification",
+      nowIso: new Date(now).toISOString(),
+    });
+    n++;
+  }
+  return n;
+}
+
+
 /* ---------------- Leasing ------------------------------------------------ */
 
 export type SubmissionLease = {
