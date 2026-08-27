@@ -72,6 +72,8 @@ import {
 } from "@/lib/billingUiCopy";
 import { ClaimProgressCell } from "@/components/billing/ClaimProgressCell";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
+const BILLING_PAGE_SIZE = 100;
+
 import { needsFixSummary } from "@/lib/needsFixCategory";
 import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
@@ -224,14 +226,23 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
 
   const activeTab = TABS.find((t) => t.key === tab)!;
 
+  // PERF: page the list instead of loading every matching bill. Counts stay
+  // exact (they come from head-count queries), and "Load more" widens the page.
+  const [pageSize, setPageSize] = useState(BILLING_PAGE_SIZE);
+  useEffect(() => setPageSize(BILLING_PAGE_SIZE), [tab]);
+
   const rows = useQuery({
-    queryKey: ["billing_list", tab],
+    queryKey: ["billing_list", tab, pageSize],
     queryFn: async () => {
       try {
-        return await listFn({ data: { statuses: activeTab.statuses } });
+        return await listFn({
+          data: { statuses: activeTab.statuses, limit: pageSize, offset: 0 },
+        });
       } catch {
         // Edge server functions can fail on custom domains — read directly instead.
-        return await listBillingRecordsClient(activeTab.statuses as string[]);
+        return await listBillingRecordsClient(activeTab.statuses as string[], {
+          limit: pageSize,
+        });
       }
     },
     enabled: canBill,
@@ -453,6 +464,21 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
           onOpen={setSelectedId}
           onPreviewPdf={setPdfPreview}
         />
+      )}
+
+      {(rows.data?.length ?? 0) >= pageSize && (
+        <div className="flex justify-center py-4">
+          <Button
+            variant="outline"
+            onClick={() => setPageSize((n) => n + BILLING_PAGE_SIZE)}
+            disabled={rows.isFetching}
+          >
+            {rows.isFetching ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            Load more ({rows.data?.length ?? 0} shown)
+          </Button>
+        </div>
       )}
 
       <BillingDetailSheet id={selectedId} onClose={() => setSelectedId(null)} />
