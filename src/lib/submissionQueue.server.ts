@@ -37,8 +37,10 @@ import {
   PORTAL_STEP1_USER_MESSAGE,
   isAccountBusyPreSubmitError,
   isPreSubmitPacingCondition,
+  isFleetUnavailable,
   ACCOUNT_BUSY_USER_MESSAGE,
   LAUNCH_BUSY_USER_MESSAGE,
+  INFRA_USER_MESSAGE,
 } from "@/lib/submitErrors";
 
 import {
@@ -470,6 +472,7 @@ export async function scheduleRetryOrFail(
   // tenant columns are untouched.
   if (!ambiguous && !step1 && isPreSubmitPacingCondition(error)) {
     const busy = isAccountBusyPreSubmitError(error);
+    const fleetDown = !busy && isFleetUnavailable(error);
     const delayMs = busy ? SUBMIT_REFILL_POLL_MS : submitInfraCooldownMs();
     await supabase
       .from("billing_records")
@@ -481,10 +484,14 @@ export async function scheduleRetryOrFail(
         submit_locked_until: null,
         submit_worker: null,
         submit_last_error: error.slice(0, 500),
-        submission_error: busy ? ACCOUNT_BUSY_USER_MESSAGE : LAUNCH_BUSY_USER_MESSAGE,
+        submission_error: busy
+          ? ACCOUNT_BUSY_USER_MESSAGE
+          : fleetDown
+            ? INFRA_USER_MESSAGE
+            : LAUNCH_BUSY_USER_MESSAGE,
         requires_human_step: false,
         failure_stage: failure.stage,
-        failure_code: busy ? "account_busy" : "worker_capacity",
+        failure_code: busy ? "account_busy" : fleetDown ? "worker_unavailable" : "worker_capacity",
       })
       .eq("id", id);
     await logAudit(
