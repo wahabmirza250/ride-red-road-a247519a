@@ -79,6 +79,18 @@ const LAUNCH_FAILURE_PATTERNS = [
   /spawn\s+\S*\s*EAGAIN/i,
   /EAGAIN[^\n]*(?:spawn|launch|thread)/i,
   /Resource temporarily unavailable[^\n]*(?:launch|spawn|thread)?/i,
+  // No page ever existed → no portal interaction could have happened.
+  /(?:browser|context)?\.?newPage\b/i,
+  /Failed to create (?:a )?(?:new )?page/i,
+];
+
+/**
+ * Explicit worker statement that nothing reached the portal. Only trusted when
+ * the same message carries no post-Submit/Confirm uncertainty.
+ */
+const NOTHING_SUBMITTED_PATTERNS = [
+  /nothing was submitted/i,
+  /submit_reached\s*[:=]\s*false/i,
 ];
 
 /** Worker/browser-level failure: safe to retry later, never proof of a claim. */
@@ -89,11 +101,20 @@ export function isInfrastructureSubmitError(msg: string | null | undefined): boo
   return INFRA_PATTERNS.some((re) => re.test(s));
 }
 
+/** Post-Submit/Confirm uncertainty — quarantined, never auto-recovered. */
+export function isAmbiguousOutcomeMessage(msg: string | null | undefined): boolean {
+  if (!msg) return false;
+  return AMBIGUOUS_PATTERNS.some((re) => re.test(String(msg)));
+}
+
 /** Single-flight pacing: the account was busy, nothing was submitted. */
 export function isAccountBusyPreSubmitError(msg: string | null | undefined): boolean {
   if (!msg) return false;
   const s = String(msg);
-  return ACCOUNT_BUSY_PATTERNS.some((re) => re.test(s));
+  if (ACCOUNT_BUSY_PATTERNS.some((re) => re.test(s))) return true;
+  // Legacy account-busy rows whose only marker is the explicit statement.
+  if (isAmbiguousOutcomeMessage(s)) return false;
+  return NOTHING_SUBMITTED_PATTERNS.some((re) => re.test(s));
 }
 
 /** Browser never launched: provably pre-submit, safe to requeue without burn. */
@@ -109,6 +130,7 @@ export function isBrowserLaunchFailure(msg: string | null | undefined): boolean 
 export function isPreSubmitPacingCondition(msg: string | null | undefined): boolean {
   return isAccountBusyPreSubmitError(msg) || isBrowserLaunchFailure(msg);
 }
+
 
 export const INFRA_USER_MESSAGE =
   "Submission worker temporarily unavailable — queued for safe retry.";
