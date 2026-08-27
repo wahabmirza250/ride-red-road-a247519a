@@ -186,8 +186,8 @@ export function classifySubmitFailure(
     return { stage: "portal_step1", code: "portal_step1_required_field" };
   if (AMBIGUOUS_PATTERNS.some((re) => re.test(s)))
     return { stage: "portal_submit", code: "ambiguous_outcome" };
-  if (/already running on this account|single.?flight|account is busy/i.test(s))
-    return { stage: "dispatch", code: "account_busy" };
+  if (isAccountBusyPreSubmitError(s)) return { stage: "dispatch", code: "account_busy" };
+  if (isBrowserLaunchFailure(s)) return { stage: "dispatch", code: "worker_capacity" };
   if (/required|missing|invalid|must be|not configured|no provider/i.test(s) && !isInfrastructureSubmitError(s))
     return { stage: "preflight", code: "missing_required_data" };
   if (isInfrastructureSubmitError(s)) return { stage: "worker", code: "worker_unavailable" };
