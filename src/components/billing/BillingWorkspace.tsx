@@ -72,6 +72,7 @@ import {
 } from "@/lib/billingUiCopy";
 import { ClaimProgressCell } from "@/components/billing/ClaimProgressCell";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
+import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
 
 import { MedicalReviewTab } from "@/components/billing/MedicalReviewTab";
@@ -234,8 +235,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     },
     enabled: canBill,
     // A robot job can settle at any moment; never show a frozen snapshot.
-    refetchInterval: 10000,
-    refetchIntervalInBackground: true,
+    // PERF: background polling of the full list was hammering the API every
+    // 10s per open tab. Poll less often, and never while the tab is hidden.
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
 
@@ -249,8 +252,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       }
     },
     enabled: canBill,
-    refetchInterval: 10000,
-    refetchIntervalInBackground: true,
+    // PERF: background polling of the full list was hammering the API every
+    // 10s per open tab. Poll less often, and never while the tab is hidden.
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
 
@@ -743,6 +748,8 @@ function PendingReviewTab({
             <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
               <PdfCell
                 pdfUrl={r.pdf_url}
+                hasPdf={(r as any).has_pdf}
+                tripId={r.trip_id}
                 passengerName={r.passenger_name}
                 onPreview={onPreviewPdf}
               />
@@ -1060,6 +1067,10 @@ function ReadyToSubmitTab({
               <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                 <PdfCell
                   pdfUrl={r.pdf_url}
+                  hasPdf={(r as any).has_pdf}
+                  tripId={r.trip_id}
+                hasPdf={(r as any).has_pdf}
+                tripId={r.trip_id}
                   passengerName={r.passenger_name}
                   onPreview={onPreviewPdf}
                 />
@@ -1095,8 +1106,10 @@ function AwaitingPortalTab({
   const queue = useQuery({
     queryKey: ["submission_queue"],
     queryFn: () => queueFn() as Promise<any[]>,
-    refetchInterval: 10000,
-    refetchIntervalInBackground: true,
+    // PERF: background polling of the full list was hammering the API every
+    // 10s per open tab. Poll less often, and never while the tab is hidden.
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
@@ -1176,6 +1189,10 @@ function AwaitingPortalTab({
               <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-col sm:items-end">
                 <PdfCell
                   pdfUrl={r.pdf_url}
+                  hasPdf={(r as any).has_pdf}
+                  tripId={r.trip_id}
+                hasPdf={(r as any).has_pdf}
+                tripId={r.trip_id}
                   passengerName={r.passenger_name}
                   onPreview={onPreviewPdf}
                 />
@@ -1494,6 +1511,12 @@ function SubmittedTab({
                 <div className="flex items-center gap-1">
                   <PdfCell
                     pdfUrl={r.pdf_url}
+                    hasPdf={(r as any).has_pdf}
+                    tripId={r.trip_id}
+                  hasPdf={(r as any).has_pdf}
+                  tripId={r.trip_id}
+                hasPdf={(r as any).has_pdf}
+                tripId={r.trip_id}
                     passengerName={r.passenger_name}
                     onPreview={onPreviewPdf}
                   />
