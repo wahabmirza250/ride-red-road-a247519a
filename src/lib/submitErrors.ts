@@ -137,6 +137,8 @@ export function sanitizeSubmitError(msg: string | null | undefined): string {
   const raw = String(msg ?? "").trim();
   if (!raw) return "Submission could not be started. It is queued for a safe retry.";
   if (isPortalStep1ValidationFailure(raw)) return PORTAL_STEP1_USER_MESSAGE;
+  if (isAccountBusyPreSubmitError(raw)) return ACCOUNT_BUSY_USER_MESSAGE;
+  if (isBrowserLaunchFailure(raw)) return LAUNCH_BUSY_USER_MESSAGE;
   if (isInfrastructureSubmitError(raw)) return INFRA_USER_MESSAGE;
 
   const firstLine =
