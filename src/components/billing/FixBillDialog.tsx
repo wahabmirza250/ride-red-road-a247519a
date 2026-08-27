@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updateBillForFix } from "@/lib/billFix.functions";
+import { ViewScannedFormButton } from "@/components/billing/ViewScannedFormButton";
+
 import {
   getBillingRecord,
   regenerateBillingPdf,
