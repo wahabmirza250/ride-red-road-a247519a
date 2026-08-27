@@ -372,15 +372,28 @@ export function BillingDetailSheet({
             )}
 
             {detail.data?.pdf_url ? (
-              <PdfViewer
-                url={detail.data.pdf_url}
-                onRegenerate={() => regeneratePdf.mutate()}
-                regenerating={regeneratePdf.isPending}
-                canRegenerate={!!detail.data?.signature_url}
-              />
+              <>
+                <ViewScannedFormButton
+                  className="w-full"
+                  tripId={trip?.id ?? null}
+                  pdfUrl={detail.data.pdf_url}
+                  passengerName={rider?.full_name ?? null}
+                />
+                <PdfViewer
+                  url={detail.data.pdf_url}
+                  onRegenerate={() => regeneratePdf.mutate()}
+                  regenerating={regeneratePdf.isPending}
+                  canRegenerate={!!detail.data?.signature_url}
+                />
+              </>
             ) : (
               <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
-                No stored PDF for this trip yet.
+                No stored PDF was loaded for this trip.
+                <ViewScannedFormButton
+                  className="mt-2 w-full"
+                  tripId={trip?.id ?? null}
+                  passengerName={rider?.full_name ?? null}
+                />
                 {detail.data?.signature_url && (
                   <Button
                     variant="outline"
@@ -395,6 +408,7 @@ export function BillingDetailSheet({
                 )}
               </div>
             )}
+
 
             {/* Actions */}
             <div className="space-y-3 border-t pt-4">
