@@ -145,3 +145,53 @@ export async function handleLostRobotJob(
     nowIso: new Date(now).toISOString(),
   });
 }
+
+/**
+ * QUARANTINE (server writer).
+ *
+ * Take a bill OUT of the active `submitting` queue state because automation is
+ * finished with it and a human must verify at the portal. Evidence — robot job
+ * id, idempotency key, account key, confirmation fields, attempt counters and
+ * the audit trail — is never cleared. Only the worker lease and the retry
+ * schedule are released, and `submit_next_attempt_at` is left null so nothing
+ * can ever pick it back up automatically.
+ */
+export async function quarantineForHumanVerification(
+  supabase: any,
+  args: {
+    recordId: string;
+    tripId?: string | null;
+    actorId: string | null;
+    message: string;
+    failureCode?: string;
+    auditAction?: string;
+    nowIso?: string;
+  },
+): Promise<LostJobOutcome> {
+  const nowIso = args.nowIso ?? new Date().toISOString();
+  await supabase
+    .from("billing_records")
+    .update({
+      // Out of the active queue: never `submitting`, never `queued`.
+      status: "needs_fix",
+      requires_human_step: true,
+      submission_error: args.message,
+      submit_last_error: args.message,
+      fix_notes: args.message,
+      failure_stage: "verification",
+      failure_code: args.failureCode ?? "needs_human_verification",
+      // Release the app-side lease only. No automatic retry is ever scheduled.
+      submit_locked_until: null,
+      submit_worker: null,
+      submit_next_attempt_at: null,
+    })
+    .eq("id", args.recordId);
+  await logAudit(
+    supabase,
+    args.recordId,
+    args.actorId,
+    args.auditAction ?? "quarantined_needs_human_verification",
+    args.message,
+  );
+  return { pending: false, status: "NEEDS_HUMAN_LOOKUP", message: args.message };
+}
