@@ -3661,8 +3661,11 @@ export type Database = {
           id: string
           last_used_at: string | null
           login_email: string
+          password_fingerprint: string | null
           password_last4: string | null
+          password_len: number | null
           password_secret_id: string | null
+          password_updated_at: string | null
           portal_id: string
           portal_name: string
           state: string
@@ -3674,8 +3677,11 @@ export type Database = {
           id?: string
           last_used_at?: string | null
           login_email: string
+          password_fingerprint?: string | null
           password_last4?: string | null
+          password_len?: number | null
           password_secret_id?: string | null
+          password_updated_at?: string | null
           portal_id: string
           portal_name: string
           state: string
@@ -3687,8 +3693,11 @@ export type Database = {
           id?: string
           last_used_at?: string | null
           login_email?: string
+          password_fingerprint?: string | null
           password_last4?: string | null
+          password_len?: number | null
           password_secret_id?: string | null
+          password_updated_at?: string | null
           portal_id?: string
           portal_name?: string
           state?: string
@@ -4403,11 +4412,16 @@ export type Database = {
       get_portal_credential_for_submission: {
         Args: { _company_id?: string; _portal_id: string }
         Returns: {
+          fingerprint_matches: boolean
           login_email: string
           login_password: string
+          password_fingerprint: string
+          password_len: number
+          password_updated_at: string
           portal_id: string
           portal_name: string
           state: string
+          stored_fingerprint: string
         }[]
       }
       get_public_trip_track: { Args: { _trip_id: string }; Returns: Json }
@@ -4459,6 +4473,20 @@ export type Database = {
         }[]
       }
       owner_unscoped: { Args: never; Returns: boolean }
+      portal_credential_fingerprint: {
+        Args: { _company_id?: string; _portal_id: string }
+        Returns: {
+          last_used_at: string
+          live_fingerprint: string
+          login_email: string
+          matches: boolean
+          password_fingerprint: string
+          password_last4: string
+          password_len: number
+          password_updated_at: string
+          portal_id: string
+        }[]
+      }
       record_robot_worker_health: {
         Args: {
           _base_url: string
