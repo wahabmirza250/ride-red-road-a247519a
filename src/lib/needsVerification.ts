@@ -97,7 +97,8 @@ export function requiresManualVerification(rec: VerificationCandidate): boolean 
   // verification case — that stays an ordinary recoverable queue case.
   if (rec.requires_human_step) {
     if (msgs.length && msgs.every((m) => isPreSubmitPacingCondition(m))) return false;
-    if (code === "worker_capacity" || code === "account_busy") return false;
+    if (code === "worker_capacity" || code === "account_busy" || code === "portal_navigation")
+      return false;
     return true;
   }
   return false;
