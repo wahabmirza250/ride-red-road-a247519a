@@ -343,8 +343,26 @@ export async function reconcileInFlight(
   const outcomes = await Promise.all(
     targets.map(async (r: any) => {
       const robotStatus = String(r.medicaid_trips?.robot_last_status ?? "");
-      // Already handed to a human — stop the automatic lookups.
-      if (robotStatus === "NEEDS_HUMAN_LOOKUP") return false;
+      // Already handed to a human — stop the automatic lookups AND take the
+      // bill out of the active `submitting` state so it can never sit there
+      // silently holding a queue slot. Evidence/audit history are preserved.
+      if (robotStatus === "NEEDS_HUMAN_LOOKUP") {
+        try {
+          const { quarantineForHumanVerification } = await import("@/lib/robotJobLost.server");
+          const { QUARANTINE_MESSAGE } = await import("@/lib/robotJobLost");
+          await quarantineForHumanVerification(supabase, {
+            recordId: r.id,
+            tripId: r.trip_id ?? r.medicaid_trips?.id ?? null,
+            actorId,
+            message: r.medicaid_trips?.robot_last_message || QUARANTINE_MESSAGE,
+            failureCode: "needs_human_lookup",
+            auditAction: "submitting_quarantine_recovered",
+          });
+          return true;
+        } catch {
+          return false;
+        }
+      }
       try {
         // Confirm was clicked but the page timed out: treat as still in flight
         // and keep running read-only portal searches until the claim turns up.
