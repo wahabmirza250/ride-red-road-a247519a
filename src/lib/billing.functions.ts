@@ -1116,6 +1116,38 @@ export const upsertPortalCredential = createServerFn({ method: "POST" })
     return { id };
   });
 
+/**
+ * Safe credential diagnostic: proves what the pipeline will hand the robot
+ * without ever exposing the password. Returns length, last 4 and a one-way
+ * fingerprint of both the stored marker and the live decrypted secret.
+ */
+export const getPortalCredentialFingerprint = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ portal_id: z.string().min(1) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertBilling(supabase, userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(userId);
+    const { data: rows, error } = await supabase.rpc("portal_credential_fingerprint", {
+      _portal_id: data.portal_id,
+      _company_id: companyId,
+    });
+    if (error) throw new Error(error.message);
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    return (row ?? null) as null | {
+      portal_id: string;
+      login_email: string;
+      password_len: number | null;
+      password_last4: string | null;
+      password_fingerprint: string | null;
+      live_fingerprint: string | null;
+      matches: boolean | null;
+      password_updated_at: string | null;
+      last_used_at: string | null;
+    };
+  });
+
 export const deletePortalCredential = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
