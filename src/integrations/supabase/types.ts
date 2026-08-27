@@ -4367,6 +4367,12 @@ export type Database = {
         Returns: boolean
       }
       company_is_active: { Args: { _company_id: string }; Returns: boolean }
+      company_of_ride_request: {
+        Args: { _request_id: string }
+        Returns: string
+      }
+      company_of_route: { Args: { _route_id: string }; Returns: string }
+      company_of_trip: { Args: { _trip_id: string }; Returns: string }
       copy_passenger_ssn_to_rider: {
         Args: { _passenger_id: string; _rider_id: string }
         Returns: undefined
