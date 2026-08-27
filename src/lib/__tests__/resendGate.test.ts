@@ -17,11 +17,19 @@ describe("corrected-resubmission gate", () => {
   it("corrected data with stale failure flags can be resent", () => {
     const d = canResendAfterCorrection({
       status: "needs_fix",
-      requires_human_step: true,
+      requires_human_step: false,
       submission_error: "Missing driver name on the trip report",
       failure_code: "missing_required_data",
     });
     expect(d.allowed).toBe(true);
+    // The same row flagged for human verification is blocked instead.
+    expect(
+      canResendAfterCorrection({
+        status: "needs_fix",
+        requires_human_step: true,
+        submission_error: "Missing driver name on the trip report",
+      }).allowed,
+    ).toBe(false);
     expect(blockingReasonLabel({ status: "needs_fix", submission_error: "Missing driver name" })).toBe(
       "Needs a data correction before it can be sent again.",
     );

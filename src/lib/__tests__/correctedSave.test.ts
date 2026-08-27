@@ -3,7 +3,8 @@ import { decideCorrectedSave, firstPreflightReason } from "@/lib/correctedSave";
 
 const clean = {
   status: "needs_fix",
-  requires_human_step: true,
+  // A plain data problem: no human-verification flag (that is now its own state).
+  requires_human_step: false,
   submission_error: "Playwright: TimeoutError at page.click(...) huge stack",
   state_confirmation_number: null,
   robot_confirmation_number: null,
@@ -12,6 +13,11 @@ const clean = {
 };
 
 describe("corrected-save preflight decision", () => {
+  it("never unblocks a bill flagged for manual HCPF verification", () => {
+    const out = decideCorrectedSave({ ...clean, requires_human_step: true }, { ok: true, issues: [] });
+    expect(out.kind).toBe("blocked");
+  });
+
   it("moves to Ready to Submit when preflight passes and there is no claim evidence", () => {
     const out = decideCorrectedSave(clean, { ok: true, issues: [] });
     expect(out.kind).toBe("ready");
