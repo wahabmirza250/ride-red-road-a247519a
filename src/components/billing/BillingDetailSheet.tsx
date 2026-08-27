@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { sanitizeSubmitError } from "@/lib/submitErrors";
+import { blockingReasonLabel, canResendAfterCorrection } from "@/lib/resendGate";
+import { markCorrectedReadyToSubmit } from "@/lib/billFix.functions";
 import {
   Sheet,
   SheetContent,
@@ -52,6 +54,7 @@ export function BillingDetailSheet({
   const checkRobotFn = useServerFn(checkRobotJobStatus);
   const startRobotFn = useServerFn(startRobotForRecord);
   const markSubmittedFn = useServerFn(markPortalSubmitted);
+  const markCorrectedFn = useServerFn(markCorrectedReadyToSubmit);
 
   const [fixNotes, setFixNotes] = useState("");
   const [rejectReason, setRejectReason] = useState("");
@@ -98,6 +101,15 @@ export function BillingDetailSheet({
 
 
 
+
+  const markCorrected = useMutation({
+    mutationFn: () => markCorrectedFn({ data: { id: id! } }),
+    onSuccess: () => {
+      toast.success("Moved back to Ready to Submit — audit history kept");
+      invalidate();
+    },
+    onError: (e: any) => toast.error(sanitizeSubmitError(e?.message)),
+  });
 
   const stateApprove = useMutation({
     mutationFn: () => markApprovedFn({ data: { id: id! } }),
@@ -200,6 +212,12 @@ export function BillingDetailSheet({
   }, [open, id, robotIsRunning]);
 
 
+  const recAny: any = rec ?? null;
+  const blocked =
+    !!recAny && (recAny.requires_human_step || recAny.status === "needs_fix");
+  const resendDecision = blocked ? canResendAfterCorrection(recAny) : null;
+  const resendReason = blocked ? (blockingReasonLabel(recAny) ?? "Blocked") : null;
+
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
@@ -216,6 +234,35 @@ export function BillingDetailSheet({
           </div>
         ) : (
           <div className="mt-4 space-y-4 text-sm">
+            {resendDecision && (
+              <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3 text-xs">
+                <div className="font-medium">{resendReason}</div>
+                {resendDecision.allowed ? (
+                  <>
+                    <p className="text-muted-foreground">
+                      Once the data issue is corrected, move this bill back to Ready to Submit.
+                      Only the current blocking flags are cleared — the audit history is kept.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={markCorrected.isPending}
+                      onClick={() => markCorrected.mutate()}
+                    >
+                      {markCorrected.isPending ? (
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="mr-1 h-4 w-4" />
+                      )}
+                      Corrected — move to Ready to Submit
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground">{resendDecision.reason}</p>
+                )}
+              </div>
+            )}
+
             {rec.requires_human_step && (
               <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
