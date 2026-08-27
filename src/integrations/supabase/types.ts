@@ -1017,6 +1017,7 @@ export type Database = {
           actor_id: string | null
           actor_name: string | null
           actor_role: string | null
+          company_id: string | null
           created_at: string
           data: Json
           driver_id: string | null
@@ -1031,6 +1032,7 @@ export type Database = {
           actor_id?: string | null
           actor_name?: string | null
           actor_role?: string | null
+          company_id?: string | null
           created_at?: string
           data?: Json
           driver_id?: string | null
@@ -1045,6 +1047,7 @@ export type Database = {
           actor_id?: string | null
           actor_name?: string | null
           actor_role?: string | null
+          company_id?: string | null
           created_at?: string
           data?: Json
           driver_id?: string | null
@@ -4367,6 +4370,7 @@ export type Database = {
         Returns: boolean
       }
       company_is_active: { Args: { _company_id: string }; Returns: boolean }
+      company_of_driver: { Args: { _driver_id: string }; Returns: string }
       company_of_ride_request: {
         Args: { _request_id: string }
         Returns: string
