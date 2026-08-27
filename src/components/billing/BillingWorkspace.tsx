@@ -72,6 +72,7 @@ import {
 } from "@/lib/billingUiCopy";
 import { ClaimProgressCell } from "@/components/billing/ClaimProgressCell";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
+import { needsFixSummary } from "@/lib/needsFixCategory";
 import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
 
@@ -1043,12 +1044,19 @@ function ReadyToSubmitTab({
                 ) : (
                   <StatusPill status="approved" />
                 )}
-                {r.submission_error && !isRunning && (
-                  <div className="mt-1 flex items-start gap-1 text-xs text-destructive">
-                    <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-                    <span>{sanitizeSubmitError(r.submission_error)}</span>
-                  </div>
-                )}
+                {r.submission_error && !isRunning && (() => {
+                  // Category + next action, never a raw robot/Playwright trace.
+                  const s = needsFixSummary(r as any);
+                  return (
+                    <div className="mt-1 flex items-start gap-1 text-xs text-destructive">
+                      <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                      <span>
+                        <span className="font-medium">{s.label}</span>
+                        <span className="block text-muted-foreground">{s.nextAction}</span>
+                      </span>
+                    </div>
+                  );
+                })()}
                 {!isRunning && (
                   <Button
                     size="sm"
