@@ -422,6 +422,28 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
     const unverified = tripRow?.robot_last_status === UNVERIFIED_SUBMIT_STATUS;
     const isResubmit = !!priorClaim || unverified;
 
+    // Needs Verification is a HARD block that acknowledge_duplicate cannot
+    // bypass: a claim may already exist at HCPF for this bill.
+    {
+      const { requiresManualVerification, VERIFICATION_BLOCK_REASON } = await import(
+        "@/lib/needsVerification"
+      );
+      if (
+        data.mode === "full" &&
+        requiresManualVerification({
+          status: rec.status,
+          requires_human_step: (rec as any).requires_human_step,
+          submission_error: (rec as any).submission_error,
+          state_confirmation_number: (rec as any).state_confirmation_number ?? null,
+          robot_confirmation_number: tripRow?.robot_confirmation_number ?? null,
+          submitted_confirmation: tripRow?.submitted_confirmation ?? null,
+          robot_last_status: tripRow?.robot_last_status ?? null,
+        })
+      ) {
+        throw new Error(VERIFICATION_BLOCK_REASON);
+      }
+    }
+
     // Duplicate-submission guard. Not a hard block: suspended claims legitimately
     // need to be corrected and resubmitted, so the UI must show an explicit
     // warning and send acknowledge_duplicate once the biller confirms.
@@ -591,6 +613,10 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
       .in("id", data.ids);
     if (recErr) throw new Error(recErr.message);
 
+    const { requiresManualVerification: requiresManualVerificationFn } = await import(
+      "@/lib/needsVerification"
+    );
+
     const allowed = ["approved", "needs_fix", "pending_submit", "queued"];
     const skipped: Array<{ id: string; reason: string; code: SkipCode; claim?: string | null }> = [];
     const duplicates: string[] = [];
@@ -609,6 +635,23 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
         trip?.robot_confirmation_number ?? trip?.submitted_confirmation ?? null;
       const unverified = trip?.robot_last_status === UNVERIFIED_SUBMIT_STATUS;
       const isResubmit = !!priorClaim || unverified;
+
+      if (
+        requiresManualVerificationFn({
+          status: rec.status,
+          requires_human_step: (rec as any).requires_human_step,
+          robot_confirmation_number: trip?.robot_confirmation_number ?? null,
+          submitted_confirmation: trip?.submitted_confirmation ?? null,
+          robot_last_status: trip?.robot_last_status ?? null,
+        })
+      ) {
+        skipped.push({
+          id: rec.id as string,
+          code: "needs_verification",
+          reason: "awaiting manual HCPF verification",
+        });
+        continue;
+      }
 
       if (isResubmit && !data.acknowledge_duplicate) {
         duplicates.push(rec.id as string);
