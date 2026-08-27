@@ -48,8 +48,8 @@ export const listBillingRecords = createServerFn({ method: "POST" })
 
     const statuses = data.statuses ?? (data.status ? [data.status] : []);
     if (!statuses.length) throw new Error("statuses required");
-    const limit = data.limit ?? 200;
-    const offset = data.offset ?? 0;
+    const { pageRange } = await import("@/lib/billingPage");
+    const page = pageRange(data.limit, data.offset);
 
     const { data: rows, error } = await supabase
       .from("billing_records")
@@ -65,7 +65,7 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       )
       .in("status", statuses)
       .order("updated_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+      .range(page.from, page.to);
     if (error) throw new Error(error.message);
 
     const driverIds = Array.from(

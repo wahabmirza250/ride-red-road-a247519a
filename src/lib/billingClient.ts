@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseBrowser";
+import { pageRange } from "@/lib/billingPage";
 
 /**
  * Browser-side fallbacks for the billing dashboard.
@@ -11,8 +12,7 @@ export async function listBillingRecordsClient(
   statuses: string[],
   opts: { limit?: number; offset?: number } = {},
 ) {
-  const limit = opts.limit ?? 200;
-  const offset = opts.offset ?? 0;
+  const page = pageRange(opts.limit, opts.offset);
   const { data: rows, error } = await supabase
     .from("billing_records")
     .select(
@@ -27,7 +27,7 @@ export async function listBillingRecordsClient(
     )
     .in("status", statuses)
     .order("updated_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .range(page.from, page.to);
   if (error) throw new Error(error.message);
 
   const driverIds = Array.from(

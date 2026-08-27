@@ -72,6 +72,7 @@ import {
 } from "@/lib/billingUiCopy";
 import { ClaimProgressCell } from "@/components/billing/ClaimProgressCell";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
+import { BILLING_PAGE_SIZE } from "@/lib/billingPage";
 import { needsFixSummary } from "@/lib/needsFixCategory";
 import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
@@ -88,8 +89,6 @@ import {
 } from "@/lib/billingClient";
 import { friendlyErrorMessage } from "@/lib/errorMessage";
 
-/** PERF: rows fetched per page in the billing workspace. */
-const BILLING_PAGE_SIZE = 100;
 
 /** A server-function call that died at the edge rejects with the HTML error shell. */
 function looksLikeEdgeFailure(e: unknown): boolean {
