@@ -206,6 +206,7 @@ export function sanitizeSubmitError(msg: string | null | undefined): string {
   if (isPortalStep1ValidationFailure(raw)) return PORTAL_STEP1_USER_MESSAGE;
   if (isAccountBusyPreSubmitError(raw)) return ACCOUNT_BUSY_USER_MESSAGE;
   if (isBrowserLaunchFailure(raw)) return LAUNCH_BUSY_USER_MESSAGE;
+  if (isFleetUnavailable(raw)) return INFRA_USER_MESSAGE;
   if (isInfrastructureSubmitError(raw)) return INFRA_USER_MESSAGE;
 
   const firstLine =
@@ -258,6 +259,7 @@ export function classifySubmitFailure(
     return { stage: "portal_submit", code: "ambiguous_outcome" };
   if (isAccountBusyPreSubmitError(s)) return { stage: "dispatch", code: "account_busy" };
   if (isBrowserLaunchFailure(s)) return { stage: "dispatch", code: "worker_capacity" };
+  if (isFleetUnavailable(s)) return { stage: "dispatch", code: "worker_unavailable" };
   if (/required|missing|invalid|must be|not configured|no provider/i.test(s) && !isInfrastructureSubmitError(s))
     return { stage: "preflight", code: "missing_required_data" };
   if (isInfrastructureSubmitError(s)) return { stage: "worker", code: "worker_unavailable" };
