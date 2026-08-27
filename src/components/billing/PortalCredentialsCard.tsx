@@ -436,3 +436,42 @@ function CredentialDialog({
     </DialogContent>
   );
 }
+
+/**
+ * Safe credential diagnostic. Proves the login the automation will receive is
+ * byte-identical to what was saved, using length / last 4 / a one-way
+ * fingerprint. The password itself is never fetched into the browser.
+ */
+function VerifyCredentialButton({ portalId }: { portalId: string }) {
+  const verifyFn = useServerFn(getPortalCredentialFingerprint);
+  const verify = useMutation({
+    mutationFn: () => verifyFn({ data: { portal_id: portalId } }),
+    onSuccess: (row: any) => {
+      if (!row) {
+        toast.error("No saved login found for this portal");
+        return;
+      }
+      const summary = `${row.password_len ?? "?"} characters · ends ${row.password_last4 ?? "····"} · fingerprint ${row.live_fingerprint ?? "—"}`;
+      if (row.matches === false) {
+        toast.error(`Stored login failed its integrity check — re-save the password. ${summary}`);
+      } else {
+        toast.success(`Saved login verified: ${summary}`);
+      }
+    },
+    onError: (e: unknown) =>
+      toast.error(friendlyErrorMessage(e, "Could not verify the saved login")),
+  });
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="ghost"
+      className="shrink-0 text-xs"
+      disabled={verify.isPending}
+      onClick={() => verify.mutate()}
+    >
+      {verify.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Verify"}
+    </Button>
+  );
+}
