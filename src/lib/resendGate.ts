@@ -13,6 +13,10 @@
  * browser launch failure), plain validation failures — is recoverable.
  */
 import { isAmbiguousOutcomeMessage, isPreSubmitPacingCondition } from "@/lib/submitErrors";
+import {
+  VERIFICATION_BLOCK_REASON,
+  requiresManualVerification,
+} from "@/lib/needsVerification";
 
 export const UNVERIFIED_STATUS = "SUBMITTED_UNVERIFIED";
 
@@ -47,12 +51,10 @@ export function canResendAfterCorrection(rec: ResendCandidate): ResendDecision {
       allowed: false,
       reason: "This claim already has a portal claim number — it can't be resent from here.",
     };
-  if (isQuarantinedOutcome(rec))
-    return {
-      allowed: false,
-      reason:
-        "The portal outcome for this bill was never verified — it stays quarantined until verification finishes.",
-    };
+  // Needs Verification is its own state: no edit, resubmit or move-to-ready
+  // until a human reconciles the bill against HCPF.
+  if (requiresManualVerification(rec) || isQuarantinedOutcome(rec))
+    return { allowed: false, reason: VERIFICATION_BLOCK_REASON };
   if (LIVE_STATUSES.has(String(rec.status ?? "")))
     return { allowed: false, reason: "This bill is already waiting in the submission queue." };
   return { allowed: true, reason: "Corrected data can be sent back to Ready to Submit." };
@@ -64,6 +66,7 @@ export function blockingReasonLabel(rec: ResendCandidate): string | null {
   const msg = rec.submission_error ?? rec.submit_last_error ?? null;
   if (isPreSubmitPacingCondition(msg))
     return "Waiting for automation capacity — nothing was submitted.";
-  if (isQuarantinedOutcome(rec)) return "Outcome not verified — awaiting portal verification.";
+  if (requiresManualVerification(rec) || isQuarantinedOutcome(rec))
+    return "Needs verification — check HCPF before any further action.";
   return "Needs a data correction before it can be sent again.";
 }

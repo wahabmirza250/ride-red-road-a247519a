@@ -56,10 +56,12 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       .select(
         `id, trip_id, status, reviewed_at, fix_notes, rejection_reason,
          submitted_at, state_confirmation_number, submission_error,
+         submit_last_error, failure_code,
          requires_human_step, updated_at,
          medicaid_trips!inner(
            id, pickup_at, pickup_address, dropoff_address, driver_id, paper_driver_name, state_pdf_path,
            robot_job_id, robot_last_status, robot_last_message, robot_job_started_at,
+           robot_confirmation_number, submitted_confirmation,
            riders(full_name, medicaid_id)
          )`,
       )
@@ -100,6 +102,8 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       submitted_at: r.submitted_at,
       state_confirmation_number: r.state_confirmation_number,
       submission_error: r.submission_error,
+      submit_last_error: r.submit_last_error ?? null,
+      failure_code: r.failure_code ?? null,
       requires_human_step: r.requires_human_step,
       updated_at: r.updated_at,
       passenger_name: r.medicaid_trips?.riders?.full_name ?? null,
@@ -118,6 +122,8 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       pdf_url: null as string | null,
       robot_job_id: r.medicaid_trips?.robot_job_id ?? null,
       robot_last_status: r.medicaid_trips?.robot_last_status ?? null,
+      robot_confirmation_number: r.medicaid_trips?.robot_confirmation_number ?? null,
+      submitted_confirmation: r.medicaid_trips?.submitted_confirmation ?? null,
       robot_last_message: r.medicaid_trips?.robot_last_message ?? null,
       robot_job_started_at: r.medicaid_trips?.robot_job_started_at ?? null,
     }));
@@ -416,6 +422,28 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
     const unverified = tripRow?.robot_last_status === UNVERIFIED_SUBMIT_STATUS;
     const isResubmit = !!priorClaim || unverified;
 
+    // Needs Verification is a HARD block that acknowledge_duplicate cannot
+    // bypass: a claim may already exist at HCPF for this bill.
+    {
+      const { requiresManualVerification, VERIFICATION_BLOCK_REASON } = await import(
+        "@/lib/needsVerification"
+      );
+      if (
+        data.mode === "full" &&
+        requiresManualVerification({
+          status: rec.status,
+          requires_human_step: (rec as any).requires_human_step,
+          submission_error: (rec as any).submission_error,
+          state_confirmation_number: (rec as any).state_confirmation_number ?? null,
+          robot_confirmation_number: tripRow?.robot_confirmation_number ?? null,
+          submitted_confirmation: tripRow?.submitted_confirmation ?? null,
+          robot_last_status: tripRow?.robot_last_status ?? null,
+        })
+      ) {
+        throw new Error(VERIFICATION_BLOCK_REASON);
+      }
+    }
+
     // Duplicate-submission guard. Not a hard block: suspended claims legitimately
     // need to be corrected and resubmitted, so the UI must show an explicit
     // warning and send acknowledge_duplicate once the biller confirms.
@@ -585,6 +613,10 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
       .in("id", data.ids);
     if (recErr) throw new Error(recErr.message);
 
+    const { requiresManualVerification: requiresManualVerificationFn } = await import(
+      "@/lib/needsVerification"
+    );
+
     const allowed = ["approved", "needs_fix", "pending_submit", "queued"];
     const skipped: Array<{ id: string; reason: string; code: SkipCode; claim?: string | null }> = [];
     const duplicates: string[] = [];
@@ -603,6 +635,23 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
         trip?.robot_confirmation_number ?? trip?.submitted_confirmation ?? null;
       const unverified = trip?.robot_last_status === UNVERIFIED_SUBMIT_STATUS;
       const isResubmit = !!priorClaim || unverified;
+
+      if (
+        requiresManualVerificationFn({
+          status: rec.status,
+          requires_human_step: (rec as any).requires_human_step,
+          robot_confirmation_number: trip?.robot_confirmation_number ?? null,
+          submitted_confirmation: trip?.submitted_confirmation ?? null,
+          robot_last_status: trip?.robot_last_status ?? null,
+        })
+      ) {
+        skipped.push({
+          id: rec.id as string,
+          code: "needs_verification",
+          reason: "awaiting manual HCPF verification",
+        });
+        continue;
+      }
 
       if (isResubmit && !data.acknowledge_duplicate) {
         duplicates.push(rec.id as string);

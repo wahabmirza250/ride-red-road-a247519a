@@ -7,6 +7,7 @@
  */
 import { isAmbiguousOutcomeMessage, isPreSubmitPacingCondition } from "@/lib/submitErrors";
 import { UNVERIFIED_STATUS } from "@/lib/resendGate";
+import { requiresManualVerification } from "@/lib/needsVerification";
 
 export type NeedsFixCategory =
   | "submitted"
@@ -47,14 +48,15 @@ export function needsFixSummary(rec: NeedsFixInput): NeedsFixSummary {
   const msg = rec.submission_error ?? rec.submit_last_error ?? null;
 
   if (
+    requiresManualVerification(rec) ||
     (rec.robot_last_status ?? "") === UNVERIFIED_STATUS ||
     rec.failure_code === "ambiguous_outcome" ||
     (isAmbiguousOutcomeMessage(msg) && !isPreSubmitPacingCondition(msg))
   )
     return {
       category: "unverified",
-      label: "Outcome not verified",
-      nextAction: "Verification runs automatically — do not resend.",
+      label: "Needs verification",
+      nextAction: "Check HCPF manually — editing and resending are blocked.",
       editable: false,
     };
 

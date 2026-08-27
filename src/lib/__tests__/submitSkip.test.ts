@@ -46,7 +46,7 @@ describe("skip / duplicate-protection labels", () => {
     }
     // Corrected bill with no claim evidence can go back to Ready to Submit.
     expect(
-      canResendAfterCorrection({ status: "needs_fix", requires_human_step: true, submission_error: "Missing driver" })
+      canResendAfterCorrection({ status: "needs_fix", requires_human_step: false, submission_error: "Missing driver" })
         .allowed,
     ).toBe(true);
   });
