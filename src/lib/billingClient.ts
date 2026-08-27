@@ -71,14 +71,31 @@ export async function listBillingRecordsClient(statuses: string[]) {
   });
 }
 
+const COUNT_STATUSES = [
+  "pending_review",
+  "approved",
+  "queued",
+  "submitting",
+  "pending_submit",
+  "submitted",
+  "needs_fix",
+  "rejected",
+  "paid",
+];
+
 export async function getBillingCountsClient() {
-  const { data, error } = await supabase.from("billing_records").select("status");
-  if (error) throw new Error(error.message);
+  // PERF: head counts only — no rows transferred.
   const counts: Record<string, number> = {};
-  for (const row of data ?? []) {
-    const s = (row as any).status;
-    counts[s] = (counts[s] ?? 0) + 1;
-  }
+  await Promise.all(
+    COUNT_STATUSES.map(async (s) => {
+      const { count, error } = await supabase
+        .from("billing_records")
+        .select("id", { count: "exact", head: true })
+        .eq("status", s as never);
+      if (error) throw new Error(error.message);
+      counts[s] = count ?? 0;
+    }),
+  );
   return counts;
 }
 
