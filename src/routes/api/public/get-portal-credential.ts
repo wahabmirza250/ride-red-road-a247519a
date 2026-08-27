@@ -42,8 +42,17 @@ export const Route = createFileRoute("/api/public/get-portal-credential")({
 
         // Validate query params
         const url = new URL(request.url);
-        const portal_id = url.searchParams.get("portal_id");
-        const company_id = url.searchParams.get("company_id");
+        // Normalize the portal id the same way it is stored on save: stray
+        // whitespace/newlines or casing from a hosting env var must not turn a
+        // configured credential into a 404.
+        const portal_id = (url.searchParams.get("portal_id") ?? "")
+          .trim()
+          .replace(/^["']|["']$/g, "")
+          .toLowerCase();
+        const company_id = (url.searchParams.get("company_id") ?? "")
+          .trim()
+          .replace(/^["']|["']$/g, "")
+          .toLowerCase();
 
         if (!portal_id) {
           return json({ error: "portal_id query parameter is required" }, 400);
