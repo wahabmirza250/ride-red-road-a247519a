@@ -174,6 +174,7 @@ export type SubmitFailureCode =
   | "worker_unavailable"
   | "network"
   | "account_busy"
+  | "worker_capacity"
   | "portal_rejected"
   | "unknown";
 
