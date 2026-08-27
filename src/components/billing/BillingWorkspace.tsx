@@ -1069,8 +1069,6 @@ function ReadyToSubmitTab({
                   pdfUrl={r.pdf_url}
                   hasPdf={(r as any).has_pdf}
                   tripId={r.trip_id}
-                hasPdf={(r as any).has_pdf}
-                tripId={r.trip_id}
                   passengerName={r.passenger_name}
                   onPreview={onPreviewPdf}
                 />
@@ -1191,8 +1189,6 @@ function AwaitingPortalTab({
                   pdfUrl={r.pdf_url}
                   hasPdf={(r as any).has_pdf}
                   tripId={r.trip_id}
-                hasPdf={(r as any).has_pdf}
-                tripId={r.trip_id}
                   passengerName={r.passenger_name}
                   onPreview={onPreviewPdf}
                 />
@@ -1513,10 +1509,6 @@ function SubmittedTab({
                     pdfUrl={r.pdf_url}
                     hasPdf={(r as any).has_pdf}
                     tripId={r.trip_id}
-                  hasPdf={(r as any).has_pdf}
-                  tripId={r.trip_id}
-                hasPdf={(r as any).has_pdf}
-                tripId={r.trip_id}
                     passengerName={r.passenger_name}
                     onPreview={onPreviewPdf}
                   />
