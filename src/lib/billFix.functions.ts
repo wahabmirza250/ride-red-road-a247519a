@@ -154,31 +154,103 @@ export const updateBillForFix = createServerFn({ method: "POST" })
       if (tErr) throw new Error(`Could not update the trip: ${tErr.message}`);
     }
 
-    // ---- put it back in the submittable queue ----
-    const { error: bErr } = await supabase
+    // ---- re-run the real submission preflight against the SAVED data ----
+    // Never blindly mark ready: read the corrected row back, re-check it, and
+    // only clear stale blocking flags when both the safety gate and the
+    // preflight agree. Nothing is enqueued here.
+    const { getRobotSubmissionDiagnostic } = await import("@/lib/billingHelpers");
+    const { decideCorrectedSave } = await import("@/lib/correctedSave");
+
+    const { data: fresh, error: fErr } = await supabase
       .from("billing_records")
-      .update({
-        status: "approved",
-        submission_error: null,
-        fix_notes: null,
-        // Corrected data = a fresh start for the automatic timeout retries.
-        auto_retry_count: 0,
-        requires_human_step: false,
-        reviewed_by: userId,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", data.id);
-    if (bErr) throw new Error(bErr.message);
+      .select(
+        `id, status, requires_human_step, submission_error, submit_last_error,
+         failure_code, failure_stage, state_confirmation_number,
+         medicaid_trips!inner(*, riders(full_name, medicaid_id, dob, phone, address, last_4_ssn))`,
+      )
+      .eq("id", data.id)
+      .single();
+    if (fErr) throw new Error(fErr.message);
+
+    const freshTrip: any = (fresh as any).medicaid_trips;
+    const preflight = await getRobotSubmissionDiagnostic(supabase, {
+      billingRecordId: data.id,
+      trip: freshTrip,
+      providerUserId: userId,
+      mode: "full",
+    });
+
+    const outcome = decideCorrectedSave(
+      {
+        status: fresh.status,
+        requires_human_step: fresh.requires_human_step,
+        submission_error: fresh.submission_error,
+        submit_last_error: (fresh as any).submit_last_error,
+        failure_code: (fresh as any).failure_code,
+        state_confirmation_number: fresh.state_confirmation_number,
+        robot_confirmation_number: freshTrip?.robot_confirmation_number ?? null,
+        submitted_confirmation: freshTrip?.submitted_confirmation ?? null,
+        robot_last_status: freshTrip?.robot_last_status ?? null,
+      },
+      preflight,
+    );
+
+    if (outcome.kind === "ready") {
+      const { error: bErr } = await supabase
+        .from("billing_records")
+        .update({
+          status: "approved",
+          // Clear ONLY the current stale blocking flags/messages. History
+          // stays in billing_audit_log; job ids / idempotency / account keys
+          // on the trip are untouched.
+          submission_error: null,
+          submit_last_error: null,
+          fix_notes: null,
+          failure_code: null,
+          failure_stage: null,
+          auto_retry_count: 0,
+          submit_next_attempt_at: null,
+          requires_human_step: false,
+          reviewed_by: userId,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", data.id);
+      if (bErr) throw new Error(bErr.message);
+    } else if (outcome.kind === "needs_fix") {
+      // Replace stale robot traces with one concise, current reason.
+      const { error: bErr } = await supabase
+        .from("billing_records")
+        .update({
+          status: "needs_fix",
+          submission_error: outcome.reason,
+          fix_notes: outcome.reason,
+          requires_human_step: false,
+          reviewed_by: userId,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", data.id);
+      if (bErr) throw new Error(bErr.message);
+    }
+    // outcome.kind === "blocked": the edit is saved, but the safety state
+    // (real claim / ambiguous outcome / live in queue) is left exactly as is.
 
     await logAudit(
       supabase,
       data.id,
       userId,
       "edited",
-      changes.length ? changes.join(" · ") : "No field changes",
+      `${changes.length ? changes.join(" · ") : "No field changes"} — preflight: ${outcome.reason}`,
     );
 
-    return { ok: true, changes, merged, rider_id: riderId };
+    return {
+      ok: true,
+      changes,
+      merged,
+      rider_id: riderId,
+      outcome: outcome.kind,
+      reason: outcome.reason,
+      ready: outcome.kind === "ready",
+    };
   });
 
 /**
