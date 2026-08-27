@@ -500,8 +500,20 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
 
     } catch (e: any) {
       const raw = e?.message ?? "Failed to start automation";
-      const { sanitizeSubmitError } = await import("@/lib/submitErrors");
+      const { sanitizeSubmitError, isPreSubmitPacingCondition } = await import("@/lib/submitErrors");
       const msg = sanitizeSubmitError(raw);
+
+      // PRE-SUBMIT PACING (account busy / browser never launched): nothing was
+      // sent, so the bill stays queued for capacity — never Needs Fix, never a
+      // human-step flag.
+      if (isPreSubmitPacingCondition(raw)) {
+        await supabase
+          .from("billing_records")
+          .update({ status: "queued", submission_error: msg, requires_human_step: false })
+          .eq("id", data.id);
+        await logAudit(supabase, data.id, userId, "submit_paced", raw.slice(0, 400));
+        return { ok: true, queued: true, ahead: null, paced: true };
+      }
 
       await supabase
         .from("billing_records")
@@ -513,6 +525,7 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
           requires_human_step: true,
         })
         .eq("id", data.id);
+
       await logAudit(supabase, data.id, userId, "robot_start_failed", raw.slice(0, 400));
       throw new Error(msg);
     }

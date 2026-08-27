@@ -180,3 +180,78 @@ export const updateBillForFix = createServerFn({ method: "POST" })
 
     return { ok: true, changes, merged, rider_id: riderId };
   });
+
+/**
+ * EXPLICIT "corrected — send again" action.
+ *
+ * Clears only the CURRENT blocking flags/messages (requires_human_step,
+ * submission_error, submit_last_error, failure stage/code, retry counters) and
+ * puts the bill back to Ready to Submit. Historical audit rows are never
+ * deleted; the action itself is audited.
+ */
+export const markCorrectedReadyToSubmit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), note: z.string().trim().max(500).optional() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertBilling(supabase, userId);
+
+    const { canResendAfterCorrection } = await import("@/lib/resendGate");
+
+    const { data: rec, error } = await supabase
+      .from("billing_records")
+      .select(
+        `id, status, requires_human_step, submission_error, submit_last_error,
+         failure_code, failure_stage, state_confirmation_number,
+         medicaid_trips!inner(id, robot_last_status, robot_confirmation_number, submitted_confirmation)`,
+      )
+      .eq("id", data.id)
+      .single();
+    if (error) throw new Error(error.message);
+
+    const trip: any = (rec as any).medicaid_trips;
+    const decision = canResendAfterCorrection({
+      status: rec.status,
+      requires_human_step: rec.requires_human_step,
+      submission_error: rec.submission_error,
+      submit_last_error: rec.submit_last_error,
+      failure_code: rec.failure_code,
+      state_confirmation_number: rec.state_confirmation_number,
+      robot_confirmation_number: trip?.robot_confirmation_number ?? null,
+      submitted_confirmation: trip?.submitted_confirmation ?? null,
+      robot_last_status: trip?.robot_last_status ?? null,
+    });
+    if (!decision.allowed) throw new Error(decision.reason);
+
+    const { error: uErr } = await supabase
+      .from("billing_records")
+      .update({
+        status: "approved",
+        requires_human_step: false,
+        submission_error: null,
+        submit_last_error: null,
+        fix_notes: null,
+        failure_code: null,
+        failure_stage: null,
+        auto_retry_count: 0,
+        submit_next_attempt_at: null,
+        reviewed_by: userId,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", data.id);
+    if (uErr) throw new Error(uErr.message);
+
+    await logAudit(
+      supabase,
+      data.id,
+      userId,
+      "corrected_ready_to_submit",
+      `Biller confirmed the data issue is corrected; blocking flags cleared (previous error: ${
+        rec.submission_error ?? rec.submit_last_error ?? "none"
+      }).${data.note ? ` Note: ${data.note}` : ""}`,
+    );
+
+    return { ok: true };
+  });
