@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updateBillForFix } from "@/lib/billFix.functions";
+import { ViewScannedFormButton } from "@/components/billing/ViewScannedFormButton";
+
 import {
   getBillingRecord,
   regenerateBillingPdf,
@@ -170,6 +172,14 @@ export function FixBillDialog({
                 {err}
               </div>
             )}
+
+            <ViewScannedFormButton
+              className="w-full"
+              tripId={(detail.data as any)?.trip?.id ?? null}
+              pdfUrl={(detail.data as any)?.pdf_url ?? null}
+              passengerName={form.full_name || null}
+            />
+
 
             <div className="space-y-1.5">
               <Label htmlFor="fix-mid">Medicaid ID</Label>
