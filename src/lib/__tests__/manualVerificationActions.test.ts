@@ -38,7 +38,7 @@ function fakeSupabase(record: Row) {
   return api as any;
 }
 
-const baseRecord = () => ({
+const baseRecord = (): any => ({
   id: "rec-1",
   status: "needs_fix",
   trip_id: "trip-1",
