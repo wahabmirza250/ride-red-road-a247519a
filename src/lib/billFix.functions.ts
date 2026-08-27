@@ -37,11 +37,12 @@ export const updateBillForFix = createServerFn({ method: "POST" })
     const { data: rec, error } = await supabase
       .from("billing_records")
       .select(
-        `id, status, trip_id,
+        `id, status, trip_id, requires_human_step, submission_error, submit_last_error,
+         failure_code, state_confirmation_number,
          medicaid_trips!inner(
            id, company_id, rider_id, pickup_at, pickup_address, dropoff_address,
            odometer_start, odometer_end, miles, robot_confirmation_number,
-           submitted_confirmation,
+           submitted_confirmation, robot_last_status,
            riders(id, full_name, medicaid_id, dob, phone)
          )`,
       )
@@ -51,6 +52,27 @@ export const updateBillForFix = createServerFn({ method: "POST" })
 
     const trip = (rec as any).medicaid_trips;
     const rider = trip?.riders;
+
+    // Needs Verification is a hard block: a claim may already exist at HCPF,
+    // so no field edit may happen until a human reconciles the bill.
+    const { requiresManualVerification, VERIFICATION_BLOCK_REASON } = await import(
+      "@/lib/needsVerification"
+    );
+    if (
+      requiresManualVerification({
+        status: rec.status,
+        requires_human_step: (rec as any).requires_human_step,
+        submission_error: (rec as any).submission_error,
+        submit_last_error: (rec as any).submit_last_error,
+        failure_code: (rec as any).failure_code,
+        state_confirmation_number: (rec as any).state_confirmation_number,
+        robot_confirmation_number: trip?.robot_confirmation_number ?? null,
+        submitted_confirmation: trip?.submitted_confirmation ?? null,
+        robot_last_status: trip?.robot_last_status ?? null,
+      })
+    ) {
+      throw new Error(VERIFICATION_BLOCK_REASON);
+    }
 
     if (trip?.robot_confirmation_number || trip?.submitted_confirmation) {
       throw new Error(

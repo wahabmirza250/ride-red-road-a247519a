@@ -56,10 +56,12 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       .select(
         `id, trip_id, status, reviewed_at, fix_notes, rejection_reason,
          submitted_at, state_confirmation_number, submission_error,
+         submit_last_error, failure_code,
          requires_human_step, updated_at,
          medicaid_trips!inner(
            id, pickup_at, pickup_address, dropoff_address, driver_id, paper_driver_name, state_pdf_path,
            robot_job_id, robot_last_status, robot_last_message, robot_job_started_at,
+           robot_confirmation_number, submitted_confirmation,
            riders(full_name, medicaid_id)
          )`,
       )
@@ -100,6 +102,8 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       submitted_at: r.submitted_at,
       state_confirmation_number: r.state_confirmation_number,
       submission_error: r.submission_error,
+      submit_last_error: r.submit_last_error ?? null,
+      failure_code: r.failure_code ?? null,
       requires_human_step: r.requires_human_step,
       updated_at: r.updated_at,
       passenger_name: r.medicaid_trips?.riders?.full_name ?? null,
@@ -118,6 +122,8 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       pdf_url: null as string | null,
       robot_job_id: r.medicaid_trips?.robot_job_id ?? null,
       robot_last_status: r.medicaid_trips?.robot_last_status ?? null,
+      robot_confirmation_number: r.medicaid_trips?.robot_confirmation_number ?? null,
+      submitted_confirmation: r.medicaid_trips?.submitted_confirmation ?? null,
       robot_last_message: r.medicaid_trips?.robot_last_message ?? null,
       robot_job_started_at: r.medicaid_trips?.robot_job_started_at ?? null,
     }));
