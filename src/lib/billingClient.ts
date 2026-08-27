@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseBrowser";
+import { pageRange } from "@/lib/billingPage";
 
 /**
  * Browser-side fallbacks for the billing dashboard.
@@ -7,7 +8,11 @@ import { supabase } from "@/lib/supabaseBrowser";
  * have full RLS access to these tables, so we can read the same data directly.
  */
 
-export async function listBillingRecordsClient(statuses: string[]) {
+export async function listBillingRecordsClient(
+  statuses: string[],
+  opts: { limit?: number; offset?: number } = {},
+) {
+  const page = pageRange(opts.limit, opts.offset);
   const { data: rows, error } = await supabase
     .from("billing_records")
     .select(
@@ -21,7 +26,8 @@ export async function listBillingRecordsClient(statuses: string[]) {
        )`,
     )
     .in("status", statuses)
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false })
+    .range(page.from, page.to);
   if (error) throw new Error(error.message);
 
   const driverIds = Array.from(

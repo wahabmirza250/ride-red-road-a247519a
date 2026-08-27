@@ -36,6 +36,9 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       .object({
         statuses: z.array(StatusEnum).min(1).optional(),
         status: StatusEnum.optional(),
+        // PERF: page the list instead of shipping every matching bill.
+        limit: z.number().int().min(1).max(500).optional(),
+        offset: z.number().int().min(0).optional(),
       })
       .parse(d),
   )
@@ -45,6 +48,8 @@ export const listBillingRecords = createServerFn({ method: "POST" })
 
     const statuses = data.statuses ?? (data.status ? [data.status] : []);
     if (!statuses.length) throw new Error("statuses required");
+    const { pageRange } = await import("@/lib/billingPage");
+    const page = pageRange(data.limit, data.offset);
 
     const { data: rows, error } = await supabase
       .from("billing_records")
@@ -59,7 +64,8 @@ export const listBillingRecords = createServerFn({ method: "POST" })
          )`,
       )
       .in("status", statuses)
-      .order("updated_at", { ascending: false });
+      .order("updated_at", { ascending: false })
+      .range(page.from, page.to);
     if (error) throw new Error(error.message);
 
     const driverIds = Array.from(
