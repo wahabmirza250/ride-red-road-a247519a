@@ -15,7 +15,11 @@ import {
   UNVERIFIED_SUBMIT_STATUS,
 } from "@/lib/billingHelpers";
 import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
-import { isPortalStep1ValidationFailure, PORTAL_STEP1_USER_MESSAGE } from "@/lib/submitErrors";
+import {
+  isPortalStep1ValidationFailure,
+  isPreSubmitPacingCondition,
+  PORTAL_STEP1_USER_MESSAGE,
+} from "@/lib/submitErrors";
 
 export type ReconcileResult = {
   pending: boolean;
@@ -427,6 +431,22 @@ export async function reconcileRobotJob(
       // Non-terminal: the sweep keeps checking until the claim is found or a
       // human is flagged after the retry budget runs out.
       return { pending: true, status: UNVERIFIED_SUBMIT_STATUS, message: warn };
+    }
+
+    // PRE-SUBMIT WORKER CAPACITY — NOT A SUBMISSION FAILURE.
+    // The browser never launched / the first page never opened, so the portal
+    // was never reached and no claim can exist. Requeue with no attempt burnt
+    // and no Needs Fix. Ambiguity (Submit/Confirm, SUBMITTED_UNVERIFIED,
+    // NEEDS_HUMAN_LOOKUP) is already excluded by the guards above and inside
+    // `isPreSubmitPacingCondition`.
+    if (isPreSubmitPacingCondition(errMsg) && !knownConfirmation && !billingConfirmation) {
+      const { requeueForWorkerCapacity } = await import("@/lib/capacityRequeue.server");
+      return await requeueForWorkerCapacity(supabase, {
+        recordId: rec.id,
+        tripId: trip.id,
+        actorId: userId,
+        detail: errMsg,
+      });
     }
 
 

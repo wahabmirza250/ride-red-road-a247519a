@@ -58,13 +58,14 @@ export function needsFixSummary(rec: NeedsFixInput): NeedsFixSummary {
       editable: false,
     };
 
-  if (isPreSubmitPacingCondition(msg))
+  if (isPreSubmitPacingCondition(msg) || rec.failure_code === "worker_capacity")
     return {
       category: "capacity",
-      label: "Waiting for automation capacity",
-      nextAction: "Nothing was submitted — it returns to the queue by itself.",
+      label: "Robot capacity busy — waiting for a worker",
+      nextAction: "Nothing was submitted and no attempt was used — it starts again automatically.",
       editable: false,
     };
+
 
   if (/duplicate/i.test(msg ?? ""))
     return {

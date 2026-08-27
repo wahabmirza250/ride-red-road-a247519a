@@ -74,15 +74,23 @@ const ACCOUNT_BUSY_PATTERNS = [
  */
 const LAUNCH_FAILURE_PATTERNS = [
   /browserType\.launch/i,
-  /Failed to launch (?:the )?(?:browser|chromium)/i,
+  /Failed to launch (?:the )?(?:browser|chromium|zygote)/i,
+  /zygote/i,
   /pthread_create/i,
   /spawn\s+\S*\s*EAGAIN/i,
-  /EAGAIN[^\n]*(?:spawn|launch|thread)/i,
-  /Resource temporarily unavailable[^\n]*(?:launch|spawn|thread)?/i,
+  /EAGAIN[^\n]*(?:spawn|launch|thread|fork)/i,
+  /(?:spawn|launch|thread|fork)[^\n]*EAGAIN/i,
+  /Resource temporarily unavailable/i,
   // No page ever existed → no portal interaction could have happened.
   /(?:browser|context)?\.?newPage\b/i,
-  /Failed to create (?:a )?(?:new )?page/i,
+  /newContext\b/i,
+  /Failed to create (?:a )?(?:new )?(?:page|context|browser)/i,
+  // "Target closed"/"browser has been closed" ONLY while still launching or
+  // creating the first page — never a bare closed-target message.
+  /(?:launch|newPage|newContext)[^\n]*(?:Target (?:closed|page[^\n]*closed)|browser has been closed|context or browser has been closed)/i,
+  /before any portal interaction/i,
 ];
+
 
 /**
  * Explicit worker statement that nothing reached the portal. Only trusted when
@@ -116,11 +124,23 @@ export function isAccountBusyPreSubmitError(msg: string | null | undefined): boo
   return NOTHING_SUBMITTED_PATTERNS.some((re) => re.test(s));
 }
 
+/**
+ * States that prove automation already got far enough that a claim might
+ * exist. A capacity classification is never allowed on top of these.
+ */
+const POST_SUBMIT_EVIDENCE_PATTERNS = [
+  /SUBMITTED_UNVERIFIED/i,
+  /NEEDS_HUMAN_LOOKUP/i,
+  /claim (?:id|number)\s*[:#]/i,
+  /after (?:login|signing in)[^\n]*(?:navigat|portal)/i,
+];
+
 /** Browser never launched: provably pre-submit, safe to requeue without burn. */
 export function isBrowserLaunchFailure(msg: string | null | undefined): boolean {
   if (!msg) return false;
   const s = String(msg);
   if (AMBIGUOUS_PATTERNS.some((re) => re.test(s))) return false;
+  if (POST_SUBMIT_EVIDENCE_PATTERNS.some((re) => re.test(s))) return false;
   if (PORTAL_STEP1_PATTERNS.some((re) => re.test(s))) return false;
   return LAUNCH_FAILURE_PATTERNS.some((re) => re.test(s));
 }
@@ -132,11 +152,12 @@ export function isPreSubmitPacingCondition(msg: string | null | undefined): bool
 
 
 export const INFRA_USER_MESSAGE =
-  "Submission worker temporarily unavailable — queued for safe retry.";
+  "Automation is temporarily busy — this bill stays queued for a safe retry.";
 export const ACCOUNT_BUSY_USER_MESSAGE =
   "Waiting for a submission slot on this provider account — nothing was submitted.";
 export const LAUNCH_BUSY_USER_MESSAGE =
-  "Waiting for automation capacity — nothing was submitted; this bill stays queued.";
+  "Robot capacity busy — waiting for a worker. Nothing was submitted; this bill stays queued.";
+
 export const AMBIGUOUS_USER_MESSAGE =
   "The portal outcome could not be verified — awaiting verification. This bill was NOT resubmitted automatically.";
 export const PORTAL_STEP1_USER_MESSAGE =
