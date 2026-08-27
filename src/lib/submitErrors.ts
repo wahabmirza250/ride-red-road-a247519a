@@ -126,11 +126,15 @@ export function isAccountBusyPreSubmitError(msg: string | null | undefined): boo
 
 /**
  * States that prove automation already got far enough that a claim might
- * exist. A capacity classification is never allowed on top of these.
+ * exist, or that a job was already accepted by a worker. A capacity
+ * classification is never allowed on top of these.
  */
 const POST_SUBMIT_EVIDENCE_PATTERNS = [
   /SUBMITTED_UNVERIFIED/i,
   /NEEDS_HUMAN_LOOKUP/i,
+  /JOB_NOT_FOUND/i,
+  /job (?:was )?lost|no longer knows about this job/i,
+  /worker stopped before the automation service confirmed/i,
   /claim (?:id|number)\s*[:#]/i,
   /after (?:login|signing in)[^\n]*(?:navigat|portal)/i,
 ];
@@ -145,18 +149,39 @@ export function isBrowserLaunchFailure(msg: string | null | undefined): boolean 
   return LAUNCH_FAILURE_PATTERNS.some((re) => re.test(s));
 }
 
+/**
+ * FLEET HEALTH (pre-dispatch): no healthy robot accepted the job at all. This
+ * is the ONLY case that may use "worker unavailable" wording.
+ */
+const FLEET_UNAVAILABLE_PATTERNS = [
+  /No healthy submission robot/i,
+  /no (?:robot )?worker (?:is )?available/i,
+];
+
+export function isFleetUnavailable(msg: string | null | undefined): boolean {
+  if (!msg) return false;
+  const s = String(msg);
+  if (AMBIGUOUS_PATTERNS.some((re) => re.test(s))) return false;
+  if (POST_SUBMIT_EVIDENCE_PATTERNS.some((re) => re.test(s))) return false;
+  return FLEET_UNAVAILABLE_PATTERNS.some((re) => re.test(s));
+}
+
 /** Pre-submit conditions that must requeue without consuming an attempt. */
 export function isPreSubmitPacingCondition(msg: string | null | undefined): boolean {
-  return isAccountBusyPreSubmitError(msg) || isBrowserLaunchFailure(msg);
+  return (
+    isAccountBusyPreSubmitError(msg) || isBrowserLaunchFailure(msg) || isFleetUnavailable(msg)
+  );
 }
 
 
+/** Fleet-health copy — never used for browser/portal capacity failures. */
 export const INFRA_USER_MESSAGE =
-  "Automation is temporarily busy — this bill stays queued for a safe retry.";
+  "No submission worker is available right now — this bill stays queued and retries automatically.";
 export const ACCOUNT_BUSY_USER_MESSAGE =
   "Waiting for a submission slot on this provider account — nothing was submitted.";
 export const LAUNCH_BUSY_USER_MESSAGE =
   "Robot capacity busy — waiting for a worker. Nothing was submitted; this bill stays queued.";
+
 
 export const AMBIGUOUS_USER_MESSAGE =
   "The portal outcome could not be verified — awaiting verification. This bill was NOT resubmitted automatically.";
