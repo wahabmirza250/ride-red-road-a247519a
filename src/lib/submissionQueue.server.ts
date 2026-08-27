@@ -37,6 +37,7 @@ import {
   PORTAL_STEP1_USER_MESSAGE,
   isAccountBusyPreSubmitError,
   isPreSubmitPacingCondition,
+  PORTAL_NAV_USER_MESSAGE,
   isFleetUnavailable,
   ACCOUNT_BUSY_USER_MESSAGE,
   LAUNCH_BUSY_USER_MESSAGE,
@@ -51,6 +52,7 @@ import {
   ROBOT_JOB_STALE_MS,
 } from "@/lib/robotQueue.server";
 
+import { isPortalNavigationFailure } from "@/lib/portalNavigation";
 import { loadFleet, effectiveGlobalLimit } from "@/lib/robotFleet.server";
 
 /* ---------------- Env-backed, clamped scaling limits ---------------- */
@@ -471,7 +473,8 @@ export async function scheduleRetryOrFail(
   // burnt and is never shown as a rejection. Idempotency key, account key and
   // tenant columns are untouched.
   if (!ambiguous && !step1 && isPreSubmitPacingCondition(error)) {
-    const busy = isAccountBusyPreSubmitError(error);
+    const navFail = isPortalNavigationFailure(error);
+    const busy = !navFail && isAccountBusyPreSubmitError(error);
     const fleetDown = !busy && isFleetUnavailable(error);
     const delayMs = busy ? SUBMIT_REFILL_POLL_MS : submitInfraCooldownMs();
     await supabase
@@ -484,14 +487,22 @@ export async function scheduleRetryOrFail(
         submit_locked_until: null,
         submit_worker: null,
         submit_last_error: error.slice(0, 500),
-        submission_error: busy
-          ? ACCOUNT_BUSY_USER_MESSAGE
-          : fleetDown
-            ? INFRA_USER_MESSAGE
-            : LAUNCH_BUSY_USER_MESSAGE,
+        submission_error: navFail
+          ? PORTAL_NAV_USER_MESSAGE
+          : busy
+            ? ACCOUNT_BUSY_USER_MESSAGE
+            : fleetDown
+              ? INFRA_USER_MESSAGE
+              : LAUNCH_BUSY_USER_MESSAGE,
         requires_human_step: false,
         failure_stage: failure.stage,
-        failure_code: busy ? "account_busy" : fleetDown ? "worker_unavailable" : "worker_capacity",
+        failure_code: navFail
+          ? "portal_navigation"
+          : busy
+            ? "account_busy"
+            : fleetDown
+              ? "worker_unavailable"
+              : "worker_capacity",
       })
       .eq("id", id);
     await logAudit(
@@ -499,7 +510,9 @@ export async function scheduleRetryOrFail(
       id,
       actorId,
       "submission_paced",
-      busy
+      navFail
+        ? "The HCPF portal menu never rendered before the Claims step (pre-submit). Nothing was submitted; the bill stays queued and no attempt was consumed."
+        : busy
         ? "Provider account was already running a portal session. Nothing was submitted; the bill stays queued and no attempt was consumed."
         : `Automation host had no capacity to launch a browser (pre-submit). Nothing was submitted; requeued in ${Math.round(delayMs / 1000)}s with no attempt consumed.`,
     );

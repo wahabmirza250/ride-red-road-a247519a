@@ -16,6 +16,7 @@
  * Raw Playwright/Chromium text is diagnostics, not a user message: it is kept in
  * `submit_last_error` / the audit log and never rendered in a toast or table.
  */
+import { isPortalNavigationFailure, PORTAL_NAV_USER_MESSAGE } from "@/lib/portalNavigation";
 
 const INFRA_PATTERNS = [
   /EAGAIN/i,
@@ -169,7 +170,10 @@ export function isFleetUnavailable(msg: string | null | undefined): boolean {
 /** Pre-submit conditions that must requeue without consuming an attempt. */
 export function isPreSubmitPacingCondition(msg: string | null | undefined): boolean {
   return (
-    isAccountBusyPreSubmitError(msg) || isBrowserLaunchFailure(msg) || isFleetUnavailable(msg)
+    isAccountBusyPreSubmitError(msg) ||
+    isBrowserLaunchFailure(msg) ||
+    isFleetUnavailable(msg) ||
+    isPortalNavigationFailure(msg)
   );
 }
 
@@ -179,6 +183,7 @@ export const INFRA_USER_MESSAGE =
   "No submission worker is available right now — this bill stays queued and retries automatically.";
 export const ACCOUNT_BUSY_USER_MESSAGE =
   "Waiting for a submission slot on this provider account — nothing was submitted.";
+export { PORTAL_NAV_USER_MESSAGE };
 export const LAUNCH_BUSY_USER_MESSAGE =
   "Robot capacity busy — waiting for a worker. Nothing was submitted; this bill stays queued.";
 
@@ -205,6 +210,7 @@ export function sanitizeSubmitError(msg: string | null | undefined): string {
   if (!raw) return "Submission could not be started. It is queued for a safe retry.";
   if (isPortalStep1ValidationFailure(raw)) return PORTAL_STEP1_USER_MESSAGE;
   if (isAccountBusyPreSubmitError(raw)) return ACCOUNT_BUSY_USER_MESSAGE;
+  if (isPortalNavigationFailure(raw)) return PORTAL_NAV_USER_MESSAGE;
   if (isBrowserLaunchFailure(raw)) return LAUNCH_BUSY_USER_MESSAGE;
   if (isFleetUnavailable(raw)) return INFRA_USER_MESSAGE;
   if (isInfrastructureSubmitError(raw)) return INFRA_USER_MESSAGE;
@@ -232,6 +238,7 @@ export type SubmitFailureStage =
   | "preflight"
   | "dispatch"
   | "portal_step1"
+  | "portal_navigation"
   | "portal_submit"
   | "worker"
   | "reconcile"
@@ -245,6 +252,7 @@ export type SubmitFailureCode =
   | "network"
   | "account_busy"
   | "worker_capacity"
+  | "portal_navigation"
   | "portal_rejected"
   | "unknown";
 
@@ -257,6 +265,7 @@ export function classifySubmitFailure(
     return { stage: "portal_step1", code: "portal_step1_required_field" };
   if (AMBIGUOUS_PATTERNS.some((re) => re.test(s)))
     return { stage: "portal_submit", code: "ambiguous_outcome" };
+  if (isPortalNavigationFailure(s)) return { stage: "portal_navigation", code: "portal_navigation" };
   if (isAccountBusyPreSubmitError(s)) return { stage: "dispatch", code: "account_busy" };
   if (isBrowserLaunchFailure(s)) return { stage: "dispatch", code: "worker_capacity" };
   if (isFleetUnavailable(s)) return { stage: "dispatch", code: "worker_unavailable" };

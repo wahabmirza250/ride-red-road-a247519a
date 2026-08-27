@@ -6,6 +6,7 @@
  * next action.
  */
 import { isAmbiguousOutcomeMessage, isPreSubmitPacingCondition } from "@/lib/submitErrors";
+import { isPortalNavigationFailure } from "@/lib/portalNavigation";
 import { UNVERIFIED_STATUS } from "@/lib/resendGate";
 import { requiresManualVerification } from "@/lib/needsVerification";
 
@@ -57,6 +58,14 @@ export function needsFixSummary(rec: NeedsFixInput): NeedsFixSummary {
       category: "unverified",
       label: "Needs verification",
       nextAction: "Check HCPF manually — editing and resending are blocked.",
+      editable: false,
+    };
+
+  if (isPortalNavigationFailure(msg) || rec.failure_code === "portal_navigation")
+    return {
+      category: "capacity",
+      label: "Portal menu did not load — waiting to retry",
+      nextAction: "Nothing was submitted and no attempt was used — it starts again automatically.",
       editable: false,
     };
 

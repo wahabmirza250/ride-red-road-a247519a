@@ -1,3 +1,4 @@
+import { CLAIMS_NAV_SPEC } from "@/lib/portalNavigation";
 /**
  * SERVER-SIDE HELPERS for the billing workflow.
  *
@@ -639,6 +640,9 @@ export async function startRobotSubmission(
 
   const payload = {
     id: jobId,
+    // Pre-submit navigation hardening: redundant strategies for login → Claims.
+    // Additive; workers that do not read it keep their existing behaviour.
+    navigation: CLAIMS_NAV_SPEC,
     job_id: jobId,
     medicaid_trip_id: trip.id,
     provider_id: providerUserId,
