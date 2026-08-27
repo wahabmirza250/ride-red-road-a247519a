@@ -1,6 +1,7 @@
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 import { DuplicateSubmitDialog } from "@/components/billing/DuplicateSubmitDialog";
 import { parseDuplicateClaimError, type DuplicateClaimInfo } from "@/lib/duplicateSubmit";
+import { describeSkip, summarizeSkips, type SkipEntry } from "@/lib/submitSkip";
 import { sanitizeSubmitError } from "@/lib/submitErrors";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -856,7 +857,11 @@ function ReadyToSubmitTab({
       }
 
       if (res?.skipped?.length) {
-        toast.message(`${res.skipped.length} skipped: ${res.skipped[0].reason}`);
+        const entries = res.skipped as SkipEntry[];
+        const first = describeSkip(entries[0]);
+        toast.message(`${entries.length} not sent — ${summarizeSkips(entries)}`, {
+          description: first.detail,
+        });
       }
       if (!res?.queued && !res?.skipped?.length) toast.message("Nothing to submit.");
     } catch (e: any) {
