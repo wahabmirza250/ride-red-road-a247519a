@@ -171,6 +171,14 @@ export function FixBillDialog({
               </div>
             )}
 
+            <ViewScannedFormButton
+              className="w-full"
+              tripId={(detail.data as any)?.trip?.id ?? null}
+              pdfUrl={(detail.data as any)?.pdf_url ?? null}
+              passengerName={form.full_name || null}
+            />
+
+
             <div className="space-y-1.5">
               <Label htmlFor="fix-mid">Medicaid ID</Label>
               <Input
