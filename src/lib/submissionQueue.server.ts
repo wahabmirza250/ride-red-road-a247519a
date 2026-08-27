@@ -36,7 +36,6 @@ import {
   isPortalStep1ValidationFailure,
   PORTAL_STEP1_USER_MESSAGE,
   isAccountBusyPreSubmitError,
-  isBrowserLaunchFailure,
   isPreSubmitPacingCondition,
   ACCOUNT_BUSY_USER_MESSAGE,
   LAUNCH_BUSY_USER_MESSAGE,
@@ -712,6 +711,7 @@ export async function dispatchLeasedSubmissions(
           actorId: provider ?? actorId,
         });
         if (outcome === "retry") retried++;
+        else if (outcome === "paced") paced++; // pre-submit pacing: stays queued
         else failed++;
         return null;
       }
