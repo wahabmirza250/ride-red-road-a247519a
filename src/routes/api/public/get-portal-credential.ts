@@ -100,12 +100,57 @@ export const Route = createFileRoute("/api/public/get-portal-credential")({
           return json({ error: "Credential lookup failed" }, 500);
         }
 
+        // Integrity gate: the decrypted secret must be byte-identical to the
+        // one that was saved (compared through a one-way fingerprint — the
+        // password itself is never logged, hashed client-side, or returned in
+        // diagnostics). A mismatch means a stale/rotated secret pointer, so we
+        // refuse rather than hand the robot a password HCPF will reject.
+        if (row.fingerprint_matches === false) {
+          console.error("get-portal-credential fingerprint mismatch", {
+            portal_id,
+            company_id,
+            stored_fingerprint: row.stored_fingerprint,
+            live_fingerprint: row.password_fingerprint,
+            password_len: row.password_len,
+          });
+          return json(
+            {
+              error:
+                "Saved portal login failed its integrity check — re-save the password in Billing settings",
+              code: "CREDENTIAL_FINGERPRINT_MISMATCH",
+            },
+            409,
+          );
+        }
+
+        // Whitespace never reaches the portal form.
+        const login_email = String(row.login_email ?? "").trim();
+        const login_password = String(row.login_password).replace(/^[\s]+|[\s]+$/g, "");
+
+        // Fingerprint-only mode: proves which secret is being served without
+        // ever transmitting the password.
+        if (url.searchParams.get("verify") === "1") {
+          return json({
+            portal_id: row.portal_id,
+            login_email,
+            password_len: login_password.length,
+            password_fingerprint: row.password_fingerprint,
+            stored_fingerprint: row.stored_fingerprint,
+            fingerprint_matches: row.fingerprint_matches !== false,
+            password_updated_at: row.password_updated_at,
+          });
+        }
+
         return json({
           portal_id: row.portal_id,
           portal_name: row.portal_name,
           state: row.state,
-          login_email: row.login_email,
-          login_password: row.login_password,
+          login_email,
+          login_password,
+          // one-way, safe to log on the robot side
+          password_len: login_password.length,
+          password_fingerprint: row.password_fingerprint,
+          password_updated_at: row.password_updated_at,
         });
       },
     },
