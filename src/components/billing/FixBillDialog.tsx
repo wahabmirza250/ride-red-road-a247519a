@@ -127,19 +127,25 @@ export function FixBillDialog({
       } catch {
         /* PDF regeneration is best-effort; the robot regenerates on submit */
       }
-      if (resubmit) {
+      if (resubmit && (res as any)?.ready) {
         await submitFn({ data: { ids: [id!], acknowledge_duplicate: false } as never });
       }
       return { res, resubmit };
     },
     onSuccess: ({ res, resubmit }) => {
-      toast.success(
-        resubmit
-          ? "Saved and resubmitted — the bill is back in the submission queue."
-          : res?.merged
-            ? "Saved and merged onto the existing member record."
-            : "Saved — the bill is back in Ready to Submit.",
-      );
+      // The server re-runs the real preflight on the saved data; report what
+      // it actually decided instead of assuming "ready".
+      if (res?.ready) {
+        toast.success(
+          resubmit
+            ? "Saved and resubmitted — the bill is back in the submission queue."
+            : res?.merged
+              ? "Saved and merged onto the existing member record — ready to submit."
+              : "Saved — the bill is back in Ready to Submit.",
+        );
+      } else {
+        toast.warning(res?.reason ?? "Saved, but this bill still needs a correction.");
+      }
       qc.invalidateQueries({ queryKey: ["billing_list"] });
       qc.invalidateQueries({ queryKey: ["billing_counts"] });
       qc.invalidateQueries({ queryKey: ["billing_queue"] });
