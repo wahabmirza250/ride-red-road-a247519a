@@ -74,6 +74,7 @@ import { ClaimProgressCell } from "@/components/billing/ClaimProgressCell";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
 import { BILLING_PAGE_SIZE } from "@/lib/billingPage";
 import { needsFixSummary } from "@/lib/needsFixCategory";
+import { requiresManualVerification } from "@/lib/needsVerification";
 import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
 
@@ -1083,20 +1084,27 @@ function ReadyToSubmitTab({
                     </div>
                   );
                 })()}
-                {!isRunning && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-2 h-7 rounded-full px-3 text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFixId(r.id);
-                    }}
-                  >
-                    <Pencil className="mr-1 h-3 w-3" />
-                    Edit &amp; fix
-                  </Button>
-                )}
+                {!isRunning &&
+                  (requiresManualVerification(r as any) ? (
+                    // Ambiguous outcome: no editing until the bill is
+                    // reconciled against HCPF in the detail panel.
+                    <div className="mt-2 text-xs text-amber-600">
+                      Needs verification — open the bill to check HCPF.
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 h-7 rounded-full px-3 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFixId(r.id);
+                      }}
+                    >
+                      <Pencil className="mr-1 h-3 w-3" />
+                      Edit &amp; fix
+                    </Button>
+                  ))}
               </td>
               <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                 <PdfCell
