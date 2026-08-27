@@ -405,7 +405,7 @@ async function releaseLease(supabase: any, id: string) {
 export async function scheduleRetryOrFail(
   supabase: any,
   args: { id: string; tripId: string; attempt: number; error: string; actorId: string | null },
-): Promise<"retry" | "failed"> {
+): Promise<"retry" | "failed" | "paced"> {
   const { id, attempt, error, actorId } = args;
   const nextAttempt = attempt + 1;
   const ambiguous = isAmbiguousSubmitError(error);
@@ -417,6 +417,45 @@ export async function scheduleRetryOrFail(
   // short sentence, never a Playwright stack trace.
   const userMsg = sanitizeSubmitError(error);
   const failure = classifySubmitFailure(error);
+
+  // PRE-SUBMIT PACING — NOT A FAILURE.
+  // The single-flight boundary (account already busy) and a browser that never
+  // launched both happen strictly before any HCPF page exists, so no claim can
+  // have been created. The bill goes straight back to `queued` with NO attempt
+  // burnt and is never shown as a rejection. Idempotency key, account key and
+  // tenant columns are untouched.
+  if (!ambiguous && !step1 && isPreSubmitPacingCondition(error)) {
+    const busy = isAccountBusyPreSubmitError(error);
+    const delayMs = busy ? SUBMIT_REFILL_POLL_MS : submitInfraCooldownMs();
+    await supabase
+      .from("billing_records")
+      .update({
+        status: "queued",
+        // submit_attempt_count deliberately NOT incremented.
+        submit_next_attempt_at: new Date(Date.now() + delayMs).toISOString(),
+        submit_heartbeat_at: null,
+        submit_locked_until: null,
+        submit_worker: null,
+        submit_last_error: error.slice(0, 500),
+        submission_error: busy ? ACCOUNT_BUSY_USER_MESSAGE : LAUNCH_BUSY_USER_MESSAGE,
+        requires_human_step: false,
+        failure_stage: failure.stage,
+        failure_code: busy ? "account_busy" : "worker_capacity",
+      })
+      .eq("id", id);
+    await logAudit(
+      supabase,
+      id,
+      actorId,
+      "submission_paced",
+      busy
+        ? "Provider account was already running a portal session. Nothing was submitted; the bill stays queued and no attempt was consumed."
+        : `Automation host had no capacity to launch a browser (pre-submit). Nothing was submitted; requeued in ${Math.round(delayMs / 1000)}s with no attempt consumed.`,
+    );
+    return "paced";
+  }
+
+
 
   if (canRetry) {
     // A worker/browser failure means the whole worker is unhealthy, so wait out
