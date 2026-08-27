@@ -15,7 +15,11 @@ import {
   UNVERIFIED_SUBMIT_STATUS,
 } from "@/lib/billingHelpers";
 import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
-import { isPortalStep1ValidationFailure, PORTAL_STEP1_USER_MESSAGE } from "@/lib/submitErrors";
+import {
+  isPortalStep1ValidationFailure,
+  isPreSubmitPacingCondition,
+  PORTAL_STEP1_USER_MESSAGE,
+} from "@/lib/submitErrors";
 
 export type ReconcileResult = {
   pending: boolean;
