@@ -346,7 +346,12 @@ export async function recoverStuckInFlightSubmissions(
 
     // TERMINAL HUMAN STATE: automation is done with this bill. It must not stay
     // counted as active `submitting` — quarantine it now, keeping all evidence.
-    if (isQuarantinedRobotStatus(robotStatus) || r.requires_human_step) {
+    // Rows still owned by the bounded read-only portal search are exempt until
+    // the ceiling below.
+    if (
+      isQuarantinedRobotStatus(robotStatus) ||
+      (r.requires_human_step && !isActiveVerifyRobotStatus(robotStatus))
+    ) {
       await quarantineForHumanVerification(supabase, {
         recordId: r.id,
         tripId: trip.id ?? r.trip_id,
