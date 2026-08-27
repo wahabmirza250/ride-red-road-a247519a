@@ -429,6 +429,22 @@ export async function reconcileRobotJob(
       return { pending: true, status: UNVERIFIED_SUBMIT_STATUS, message: warn };
     }
 
+    // PRE-SUBMIT WORKER CAPACITY — NOT A SUBMISSION FAILURE.
+    // The browser never launched / the first page never opened, so the portal
+    // was never reached and no claim can exist. Requeue with no attempt burnt
+    // and no Needs Fix. Ambiguity (Submit/Confirm, SUBMITTED_UNVERIFIED,
+    // NEEDS_HUMAN_LOOKUP) is already excluded by the guards above and inside
+    // `isPreSubmitPacingCondition`.
+    if (isPreSubmitPacingCondition(errMsg) && !knownConfirmation && !billingConfirmation) {
+      const { requeueForWorkerCapacity } = await import("@/lib/capacityRequeue.server");
+      return await requeueForWorkerCapacity(supabase, {
+        recordId: rec.id,
+        tripId: trip.id,
+        actorId: userId,
+        detail: errMsg,
+      });
+    }
+
 
     // TRANSIENT TIMEOUT: nothing was submitted and the data is fine, so put the
     // bill straight back into the normal queue (same concurrency + same-passenger
