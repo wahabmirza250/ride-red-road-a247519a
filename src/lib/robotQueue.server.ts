@@ -330,7 +330,7 @@ export async function reconcileInFlight(
 
   let q = supabase
     .from("billing_records")
-    .select(`id, medicaid_trips!inner(robot_job_id, robot_last_status)`)
+    .select(`id, trip_id, medicaid_trips!inner(id, robot_job_id, robot_last_status, robot_last_message)`)
     .eq("status", "submitting")
     .order("updated_at", { ascending: true });
   if (companyId) q = q.eq("company_id", companyId);
