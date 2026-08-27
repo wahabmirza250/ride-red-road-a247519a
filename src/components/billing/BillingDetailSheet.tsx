@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { sanitizeSubmitError } from "@/lib/submitErrors";
 import { blockingReasonLabel, canResendAfterCorrection } from "@/lib/resendGate";
 import { markCorrectedReadyToSubmit } from "@/lib/billFix.functions";
+import { requiresManualVerification } from "@/lib/needsVerification";
+import { ManualVerificationPanel } from "@/components/billing/ManualVerificationPanel";
 import {
   Sheet,
   SheetContent,
@@ -215,8 +217,25 @@ export function BillingDetailSheet({
 
 
   const recAny: any = rec ?? null;
+  // Ambiguous / interrupted outcomes are their OWN state: every ordinary
+  // action is hidden until a human reconciles the bill against HCPF.
+  const needsVerification =
+    !!recAny &&
+    requiresManualVerification({
+      status: recAny.status,
+      requires_human_step: recAny.requires_human_step,
+      submission_error: recAny.submission_error,
+      submit_last_error: recAny.submit_last_error,
+      failure_code: recAny.failure_code,
+      state_confirmation_number: recAny.state_confirmation_number,
+      robot_confirmation_number: trip?.robot_confirmation_number ?? null,
+      submitted_confirmation: trip?.submitted_confirmation ?? null,
+      robot_last_status: trip?.robot_last_status ?? null,
+    });
   const blocked =
-    !!recAny && (recAny.requires_human_step || recAny.status === "needs_fix");
+    !needsVerification &&
+    !!recAny &&
+    (recAny.requires_human_step || recAny.status === "needs_fix");
   const resendDecision = blocked ? canResendAfterCorrection(recAny) : null;
   const resendReason = blocked ? (blockingReasonLabel(recAny) ?? "Blocked") : null;
 
@@ -236,6 +255,21 @@ export function BillingDetailSheet({
           </div>
         ) : (
           <div className="mt-4 space-y-4 text-sm">
+            {needsVerification && (
+              <ManualVerificationPanel
+                recordId={id!}
+                data={{
+                  submission_error: recAny?.submission_error,
+                  submit_last_error: recAny?.submit_last_error,
+                  medicaid_id: rider?.medicaid_id ?? null,
+                  passenger_name: rider?.full_name ?? null,
+                  service_date: trip?.pickup_at ?? null,
+                  provider_account: recAny?.submit_account_key ?? null,
+                  robot_job_id: trip?.robot_job_id ?? null,
+                }}
+              />
+            )}
+
             {resendDecision && (
               <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3 text-xs">
                 <div className="font-medium">{resendReason}</div>
@@ -265,7 +299,7 @@ export function BillingDetailSheet({
               </div>
             )}
 
-            {rec.requires_human_step && (
+            {rec.requires_human_step && !needsVerification && (
               <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div className="text-xs">
@@ -280,7 +314,7 @@ export function BillingDetailSheet({
                 </div>
               </div>
             )}
-            {rec.submission_error && !rec.requires_human_step && (
+            {rec.submission_error && !rec.requires_human_step && !needsVerification && (
               <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-destructive">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div className="text-xs">
@@ -443,7 +477,8 @@ export function BillingDetailSheet({
                 </>
               )}
 
-              {(rec.status === "approved" ||
+              {!needsVerification &&
+                (rec.status === "approved" ||
                 rec.status === "needs_fix" ||
                 rec.status === "submitting") && (
                 <>
@@ -483,7 +518,7 @@ export function BillingDetailSheet({
                 </>
               )}
 
-              {rec.status === "pending_submit" && (
+              {!needsVerification && rec.status === "pending_submit" && (
                 <div className="space-y-3">
                   <div className="rounded-xl border border-border bg-surface/60 p-3 text-xs text-muted-foreground">
                     This claim is waiting to be sent. Submitting runs the whole job in
