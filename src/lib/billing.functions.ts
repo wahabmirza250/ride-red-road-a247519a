@@ -587,7 +587,7 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
     if (recErr) throw new Error(recErr.message);
 
     const allowed = ["approved", "needs_fix", "pending_submit", "queued"];
-    const skipped: Array<{ id: string; reason: string }> = [];
+    const skipped: Array<{ id: string; reason: string; code: SkipCode; claim?: string | null }> = [];
     const duplicates: string[] = [];
     const companies = new Set<string | null>();
     const candidates: Array<{
@@ -607,15 +607,39 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
 
       if (isResubmit && !data.acknowledge_duplicate) {
         duplicates.push(rec.id as string);
-        skipped.push({ id: rec.id as string, reason: "already has a claim — submit it individually to confirm" });
+        // A real claim number is terminal evidence; an unverified outcome is
+        // NOT a submitted claim and must never be labelled as one.
+        skipped.push(
+          priorClaim
+            ? {
+                id: rec.id as string,
+                code: "submitted_claim",
+                claim: priorClaim,
+                reason: `already submitted as claim #${priorClaim}`,
+              }
+            : {
+                id: rec.id as string,
+                code: "unverified_outcome",
+                claim: null,
+                reason: "previous attempt reached the portal but was never verified",
+              },
+        );
         continue;
       }
       if ((rec as any).requires_human_step) {
-        skipped.push({ id: rec.id as string, reason: "needs verification before retry" });
+        skipped.push({
+          id: rec.id as string,
+          code: "needs_verification",
+          reason: "needs verification before retry",
+        });
         continue;
       }
       if (!allowed.includes(rec.status as string) && !(isResubmit && data.acknowledge_duplicate)) {
-        skipped.push({ id: rec.id as string, reason: `status "${rec.status}"` });
+        skipped.push({
+          id: rec.id as string,
+          code: "not_submittable",
+          reason: `status "${rec.status}"`,
+        });
         continue;
       }
       try {
@@ -628,7 +652,7 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
       } catch (e) {
         // STEP-1 FAIL CLOSED: this bill is parked, the batch keeps going.
         const msg = e instanceof Error ? e.message : "Submission blocked: required claim data is missing.";
-        skipped.push({ id: rec.id as string, reason: msg });
+        skipped.push({ id: rec.id as string, code: "missing_data", reason: msg });
         await supabase
           .from("billing_records")
           .update({
@@ -642,6 +666,7 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
           .eq("id", rec.id);
         continue;
       }
+
       candidates.push({
         id: rec.id as string,
         companyId: trip?.company_id ?? null,
