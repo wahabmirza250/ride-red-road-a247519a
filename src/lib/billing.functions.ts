@@ -80,25 +80,11 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       );
     }
 
-    const pdfUrls = await Promise.all(
-      (rows ?? []).map(async (r: any) => {
-        const path: string | null = r.medicaid_trips?.state_pdf_path ?? null;
-        if (!path) return null;
-        const slash = path.lastIndexOf("/");
-        const folder = slash >= 0 ? path.slice(0, slash) : "";
-        const filename = slash >= 0 ? path.slice(slash + 1) : path;
-        const { data: listed } = await supabase.storage
-          .from("state-pdfs")
-          .list(folder, { search: filename, limit: 1 });
-        if (!listed?.some((f) => f.name === filename)) return null;
-        const { data: signed } = await supabase.storage
-          .from("state-pdfs")
-          .createSignedUrl(path, 60 * 15);
-        return signed?.signedUrl ?? null;
-      }),
-    );
-
-    return (rows ?? []).map((r: any, i: number) => ({
+    // PERF: never sign a PDF per row here. Signing (plus a storage `list`
+    // existence probe) was 2 storage round-trips per bill — ~266 calls for a
+    // 133-row list. The list only needs to know whether a form exists; the
+    // signed URL is minted lazily when a biller actually opens one.
+    return (rows ?? []).map((r: any) => ({
       id: r.id,
       trip_id: r.trip_id,
       status: r.status,
@@ -122,7 +108,8 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       pickup_at: r.medicaid_trips?.pickup_at,
       pickup_address: r.medicaid_trips?.pickup_address,
       dropoff_address: r.medicaid_trips?.dropoff_address,
-      pdf_url: pdfUrls[i],
+      has_pdf: !!r.medicaid_trips?.state_pdf_path,
+      pdf_url: null as string | null,
       robot_job_id: r.medicaid_trips?.robot_job_id ?? null,
       robot_last_status: r.medicaid_trips?.robot_last_status ?? null,
       robot_last_message: r.medicaid_trips?.robot_last_message ?? null,
@@ -135,14 +122,19 @@ export const getBillingCounts = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     await assertBilling(supabase, userId);
-    const { data, error } = await supabase
-      .from("billing_records")
-      .select("status")
-      .in("status", ALL_STATUSES as unknown as string[]);
-    if (error) throw new Error(error.message);
+    // PERF: head counts only — no row payload crosses the wire.
+    const results = await Promise.all(
+      (ALL_STATUSES as unknown as string[]).map(async (s) => {
+        const { count, error } = await supabase
+          .from("billing_records")
+          .select("id", { count: "exact", head: true })
+          .eq("status", s);
+        if (error) throw new Error(error.message);
+        return [s, count ?? 0] as const;
+      }),
+    );
     const counts: Record<string, number> = {};
-    for (const s of ALL_STATUSES) counts[s] = 0;
-    for (const row of data ?? []) counts[(row as any).status] = (counts[(row as any).status] ?? 0) + 1;
+    for (const [s, c] of results) counts[s] = c;
     return counts;
   });
 

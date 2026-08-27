@@ -72,6 +72,8 @@ import {
 } from "@/lib/billingUiCopy";
 import { ClaimProgressCell } from "@/components/billing/ClaimProgressCell";
 import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/DriverGroups";
+import { needsFixSummary } from "@/lib/needsFixCategory";
+import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
 
 import { MedicalReviewTab } from "@/components/billing/MedicalReviewTab";
@@ -234,8 +236,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     },
     enabled: canBill,
     // A robot job can settle at any moment; never show a frozen snapshot.
-    refetchInterval: 10000,
-    refetchIntervalInBackground: true,
+    // PERF: background polling of the full list was hammering the API every
+    // 10s per open tab. Poll less often, and never while the tab is hidden.
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
 
@@ -249,8 +253,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       }
     },
     enabled: canBill,
-    refetchInterval: 10000,
-    refetchIntervalInBackground: true,
+    // PERF: background polling of the full list was hammering the API every
+    // 10s per open tab. Poll less often, and never while the tab is hidden.
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
 
@@ -562,30 +568,66 @@ function DeleteControls({
 
 
 
+/**
+ * PERF: the list no longer ships signed PDF URLs (that was two storage calls
+ * per row). The scanned form is signed on demand, only when a biller clicks.
+ */
 function PdfCell({
   pdfUrl,
+  hasPdf,
+  tripId,
   passengerName,
   onPreview,
 }: {
-  pdfUrl: string | null;
+  pdfUrl?: string | null;
+  hasPdf?: boolean;
+  tripId?: string | null;
   passengerName: string | null;
   onPreview: (p: { url: string; filename: string }) => void;
 }) {
-  if (!pdfUrl) return <span className="text-xs text-muted-foreground">—</span>;
+  const signFn = useServerFn(getStatePdfUrl);
+  const [busy, setBusy] = useState(false);
   const filename = `trip-${(passengerName ?? "rider").replace(/\s+/g, "_")}.pdf`;
+
+  if (!pdfUrl && !hasPdf) return <span className="text-xs text-muted-foreground">—</span>;
+
+  async function resolve(): Promise<string | null> {
+    if (pdfUrl) return pdfUrl;
+    if (!tripId) return null;
+    setBusy(true);
+    try {
+      const res: any = await signFn({ data: { trip_id: tripId } });
+      return (res?.url as string) ?? null;
+    } catch {
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="flex gap-1">
       <Button
         size="sm"
         variant="outline"
-        onClick={() => onPreview({ url: pdfUrl, filename })}
+        disabled={busy}
+        onClick={async () => {
+          const url = await resolve();
+          if (url) onPreview({ url, filename });
+          else toast.error("Could not open the scanned form.");
+        }}
       >
         <Eye className="mr-1 h-3.5 w-3.5" /> View
       </Button>
       <Button
         size="sm"
         variant="outline"
-        onClick={() => downloadPdf(pdfUrl, filename)}
+        disabled={busy}
+        onClick={async () => {
+          const url = await resolve();
+          if (url) downloadPdf(url, filename);
+          else toast.error("Could not open the scanned form.");
+        }}
       >
         <FileDown className="mr-1 h-3.5 w-3.5" /> PDF
       </Button>
@@ -707,6 +749,8 @@ function PendingReviewTab({
             <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
               <PdfCell
                 pdfUrl={r.pdf_url}
+                hasPdf={(r as any).has_pdf}
+                tripId={r.trip_id}
                 passengerName={r.passenger_name}
                 onPreview={onPreviewPdf}
               />
@@ -1000,12 +1044,19 @@ function ReadyToSubmitTab({
                 ) : (
                   <StatusPill status="approved" />
                 )}
-                {r.submission_error && !isRunning && (
-                  <div className="mt-1 flex items-start gap-1 text-xs text-destructive">
-                    <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-                    <span>{sanitizeSubmitError(r.submission_error)}</span>
-                  </div>
-                )}
+                {r.submission_error && !isRunning && (() => {
+                  // Category + next action, never a raw robot/Playwright trace.
+                  const s = needsFixSummary(r as any);
+                  return (
+                    <div className="mt-1 flex items-start gap-1 text-xs text-destructive">
+                      <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                      <span>
+                        <span className="font-medium">{s.label}</span>
+                        <span className="block text-muted-foreground">{s.nextAction}</span>
+                      </span>
+                    </div>
+                  );
+                })()}
                 {!isRunning && (
                   <Button
                     size="sm"
@@ -1024,6 +1075,8 @@ function ReadyToSubmitTab({
               <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                 <PdfCell
                   pdfUrl={r.pdf_url}
+                  hasPdf={(r as any).has_pdf}
+                  tripId={r.trip_id}
                   passengerName={r.passenger_name}
                   onPreview={onPreviewPdf}
                 />
@@ -1059,8 +1112,10 @@ function AwaitingPortalTab({
   const queue = useQuery({
     queryKey: ["submission_queue"],
     queryFn: () => queueFn() as Promise<any[]>,
-    refetchInterval: 10000,
-    refetchIntervalInBackground: true,
+    // PERF: background polling of the full list was hammering the API every
+    // 10s per open tab. Poll less often, and never while the tab is hidden.
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
@@ -1140,6 +1195,8 @@ function AwaitingPortalTab({
               <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-col sm:items-end">
                 <PdfCell
                   pdfUrl={r.pdf_url}
+                  hasPdf={(r as any).has_pdf}
+                  tripId={r.trip_id}
                   passengerName={r.passenger_name}
                   onPreview={onPreviewPdf}
                 />
@@ -1458,6 +1515,8 @@ function SubmittedTab({
                 <div className="flex items-center gap-1">
                   <PdfCell
                     pdfUrl={r.pdf_url}
+                    hasPdf={(r as any).has_pdf}
+                    tripId={r.trip_id}
                     passengerName={r.passenger_name}
                     onPreview={onPreviewPdf}
                   />

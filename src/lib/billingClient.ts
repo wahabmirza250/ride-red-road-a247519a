@@ -36,18 +36,8 @@ export async function listBillingRecordsClient(statuses: string[]) {
     profiles = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p]));
   }
 
-  const pdfUrls = await Promise.all(
-    (rows ?? []).map(async (r: any) => {
-      const path: string | null = r.medicaid_trips?.state_pdf_path ?? null;
-      if (!path) return null;
-      const { data: signed } = await supabase.storage
-        .from("state-pdfs")
-        .createSignedUrl(path, 60 * 15);
-      return signed?.signedUrl ?? null;
-    }),
-  );
-
-  return (rows ?? []).map((r: any, i: number) => {
+  // PERF: no per-row signed URLs — the form is signed lazily on open.
+  return (rows ?? []).map((r: any) => {
     const prof = profiles[r.medicaid_trips?.driver_id];
     return {
       id: r.id,
@@ -71,7 +61,8 @@ export async function listBillingRecordsClient(statuses: string[]) {
       pickup_at: r.medicaid_trips?.pickup_at,
       pickup_address: r.medicaid_trips?.pickup_address,
       dropoff_address: r.medicaid_trips?.dropoff_address,
-      pdf_url: pdfUrls[i],
+      has_pdf: !!r.medicaid_trips?.state_pdf_path,
+      pdf_url: null as string | null,
       robot_job_id: r.medicaid_trips?.robot_job_id ?? null,
       robot_last_status: r.medicaid_trips?.robot_last_status ?? null,
       robot_last_message: r.medicaid_trips?.robot_last_message ?? null,
@@ -80,14 +71,30 @@ export async function listBillingRecordsClient(statuses: string[]) {
   });
 }
 
+const COUNT_STATUSES = [
+  "pending_review",
+  "approved",
+  "queued",
+  "submitting",
+  "pending_submit",
+  "submitted",
+  "needs_fix",
+  "rejected",
+];
+
 export async function getBillingCountsClient() {
-  const { data, error } = await supabase.from("billing_records").select("status");
-  if (error) throw new Error(error.message);
+  // PERF: head counts only — no rows transferred.
   const counts: Record<string, number> = {};
-  for (const row of data ?? []) {
-    const s = (row as any).status;
-    counts[s] = (counts[s] ?? 0) + 1;
-  }
+  await Promise.all(
+    COUNT_STATUSES.map(async (s) => {
+      const { count, error } = await supabase
+        .from("billing_records")
+        .select("id", { count: "exact", head: true })
+        .eq("status", s as never);
+      if (error) throw new Error(error.message);
+      counts[s] = count ?? 0;
+    }),
+  );
   return counts;
 }
 
