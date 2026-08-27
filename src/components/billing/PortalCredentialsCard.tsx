@@ -255,6 +255,7 @@ export function PortalCredentialsCard() {
                   </div>
                   <span className="shrink-0 text-xs text-muted-foreground">Edit</span>
                 </button>
+                <VerifyCredentialButton portalId={c.portal_id} />
                 <Button
                   type="button"
                   size="icon"
