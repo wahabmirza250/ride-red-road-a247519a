@@ -1091,7 +1091,9 @@ export const upsertPortalCredential = createServerFn({ method: "POST" })
         portal_name: z.string().min(1),
         state: z.string().min(2),
         login_email: z.string().min(1),
-        login_password: z.string().min(1),
+        // Empty means "keep the saved password" (the database function
+        // enforces that a brand-new credential must supply one).
+        login_password: z.string(),
         company_id: z.string().uuid().nullable().optional(),
       })
       .parse(d),
