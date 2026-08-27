@@ -52,6 +52,7 @@ import {
   ROBOT_JOB_STALE_MS,
 } from "@/lib/robotQueue.server";
 
+import { isPortalNavigationFailure } from "@/lib/portalNavigation";
 import { loadFleet, effectiveGlobalLimit } from "@/lib/robotFleet.server";
 
 /* ---------------- Env-backed, clamped scaling limits ---------------- */
