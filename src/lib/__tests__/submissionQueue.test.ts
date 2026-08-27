@@ -277,3 +277,91 @@ describe("scheduleRetryOrFail", () => {
     expect(rec.requires_human_step).toBe(true);
   });
 });
+
+/**
+ * PRE-SUBMIT PACING (single-flight boundary + browser launch failure).
+ *
+ * Nothing reached HCPF in either case, so the bill must go back to `queued`
+ * with no attempt burnt and must never appear as a rejection / Needs Fix.
+ */
+describe("pre-submit pacing never burns an attempt", () => {
+  const ACCOUNT_BUSY =
+    "Another portal session is already running on this provider account — the automation service is temporarily unavailable for this bill. Nothing was submitted; it stays queued.";
+
+  it("requeues an account-busy dispatch failure with no attempt and no human flag", async () => {
+    const rec = makeRecord("1", { riderId: "rA" });
+    const { supabase } = makeFakeDb([rec]);
+    failNext = ACCOUNT_BUSY;
+    const res = await dispatchLeasedSubmissions(supabase, "actor");
+    expect(res.failed).toBe(0);
+    expect(res.retried).toBe(0);
+    expect(res.paced).toBe(1);
+    expect(rec.status).toBe("queued");
+    expect(rec.submit_attempt_count).toBe(0);
+    expect(rec.requires_human_step).toBe(false);
+    expect(rec.submit_locked_until).toBeNull();
+    expect(rec.submission_error).not.toMatch(/reject|fail/i);
+    expect(rec.failure_code).toBe("account_busy");
+  });
+
+  it("stays queued across repeated account-busy dispatches (never needs_fix)", async () => {
+    const rec = makeRecord("1", { riderId: "rA" });
+    const { supabase } = makeFakeDb([rec]);
+    for (let i = 0; i < 5; i++) {
+      rec.submit_next_attempt_at = new Date(Date.now() - 1000).toISOString();
+      failNext = ACCOUNT_BUSY;
+      await dispatchLeasedSubmissions(supabase, "actor");
+    }
+    expect(rec.status).toBe("queued");
+    expect(rec.submit_attempt_count).toBe(0);
+    expect(rec.requires_human_step).toBe(false);
+  });
+
+  it("scheduleRetryOrFail reports 'paced' for the account-busy message", async () => {
+    const rec = makeRecord("1", { riderId: "rA" });
+    const { supabase } = makeFakeDb([rec]);
+    const out = await scheduleRetryOrFail(supabase, {
+      id: "1",
+      tripId: "t1",
+      attempt: 2, // already near the attempt ceiling — still must not fail
+      error: ACCOUNT_BUSY,
+      actorId: null,
+    });
+    expect(out).toBe("paced");
+    expect(rec.status).toBe("queued");
+    expect(rec.submit_attempt_count).toBe(0);
+  });
+
+  it("treats a browser-launch EAGAIN as pre-submit capacity, queued with backoff", async () => {
+    const rec = makeRecord("1", { riderId: "rA" });
+    const { supabase } = makeFakeDb([rec]);
+    const out = await scheduleRetryOrFail(supabase, {
+      id: "1",
+      tripId: "t1",
+      attempt: 0,
+      error: "browserType.launch: spawn chrome EAGAIN (pthread_create failed)",
+      actorId: null,
+    });
+    expect(out).toBe("paced");
+    expect(rec.status).toBe("queued");
+    expect(rec.submit_attempt_count).toBe(0);
+    expect(rec.requires_human_step).toBe(false);
+    expect(new Date(rec.submit_next_attempt_at!).getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("still parks an ambiguous post-Submit timeout even if it mentions launch text", async () => {
+    const rec = makeRecord("1", { riderId: "rA" });
+    const { supabase } = makeFakeDb([rec]);
+    const out = await scheduleRetryOrFail(supabase, {
+      id: "1",
+      tripId: "t1",
+      attempt: 0,
+      error:
+        "Timeout after clicking SubmitClaimProf3; browserType.launch recovery failed",
+      actorId: null,
+    });
+    expect(out).toBe("failed");
+    expect(rec.status).toBe("needs_fix");
+    expect(rec.requires_human_step).toBe(true);
+  });
+});

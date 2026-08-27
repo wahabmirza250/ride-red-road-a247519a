@@ -43,6 +43,8 @@ import {
   isInfrastructureSubmitError,
   sanitizeSubmitError,
   INFRA_USER_MESSAGE,
+  LAUNCH_BUSY_USER_MESSAGE,
+  isBrowserLaunchFailure,
   PORTAL_STEP1_USER_MESSAGE,
 } from "@/lib/submitErrors";
 
@@ -261,7 +263,10 @@ describe("worker/browser failures release the lock cleanly", () => {
       "net::ERR_CONNECTION_RESET",
     ]) {
       expect(isInfrastructureSubmitError(msg)).toBe(true);
-      expect(sanitizeSubmitError(msg)).toBe(INFRA_USER_MESSAGE);
+      // Launch/spawn failures are provably pre-submit and now read as pacing.
+      expect(sanitizeSubmitError(msg)).toBe(
+        isBrowserLaunchFailure(msg) ? LAUNCH_BUSY_USER_MESSAGE : INFRA_USER_MESSAGE,
+      );
     }
     expect(isInfrastructureSubmitError("Member ID is invalid")).toBe(false);
   });
@@ -274,9 +279,12 @@ describe("worker/browser failures release the lock cleanly", () => {
 
     const res = await dispatchLeasedSubmissions(supabase, "actor");
     expect(res.started).toBe(0);
-    expect(res.retried).toBe(1);
+    // A browser that never launched is pre-submit capacity, not a burnt attempt.
+    expect(res.retried).toBe(0);
+    expect(res.paced).toBe(1);
+    expect(rec.submit_attempt_count).toBe(0);
     expect(rec.status).toBe("queued");
-    expect(rec.submission_error).toBe(INFRA_USER_MESSAGE);
+    expect(rec.submission_error).toBe(LAUNCH_BUSY_USER_MESSAGE);
     expect(String(rec.submit_last_error)).toContain("spawn EAGAIN");
     // Lock released, and the next attempt waits out a cooldown.
     expect(rec.submit_locked_until).toBeNull();

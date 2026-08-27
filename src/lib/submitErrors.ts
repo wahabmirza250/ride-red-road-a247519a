@@ -49,6 +49,38 @@ const PORTAL_STEP1_PATTERNS = [
   /\* Indicates a required field/i,
 ];
 
+/**
+ * PRE-SUBMIT PACING, NOT A FAILURE.
+ *
+ * The single-flight boundary refuses to open a second portal session for one
+ * provider account. Nothing was sent, no browser was even opened, so the bill
+ * is not "rejected": it simply was not this bill's turn. These rows must stay
+ * `queued` with NO attempt burnt and never surface as Needs Fix.
+ */
+const ACCOUNT_BUSY_PATTERNS = [
+  /already running on this (?:provider )?account/i,
+  /account is busy/i,
+  /single.?flight/i,
+];
+
+/**
+ * BROWSER LAUNCH FAILURE — explicitly pre-submit.
+ *
+ * `browserType.launch` / `spawn EAGAIN` / `pthread_create` failures happen
+ * before any page exists, so no HCPF page was ever opened and no claim can
+ * have been created. It is a host-capacity (pacing) condition, safe to requeue
+ * with a cooldown and no attempt burn. Anything that also smells ambiguous
+ * (mentions Submit/Confirm) is deliberately excluded below.
+ */
+const LAUNCH_FAILURE_PATTERNS = [
+  /browserType\.launch/i,
+  /Failed to launch (?:the )?(?:browser|chromium)/i,
+  /pthread_create/i,
+  /spawn\s+\S*\s*EAGAIN/i,
+  /EAGAIN[^\n]*(?:spawn|launch|thread)/i,
+  /Resource temporarily unavailable[^\n]*(?:launch|spawn|thread)?/i,
+];
+
 /** Worker/browser-level failure: safe to retry later, never proof of a claim. */
 export function isInfrastructureSubmitError(msg: string | null | undefined): boolean {
   if (!msg) return false;
@@ -57,12 +89,38 @@ export function isInfrastructureSubmitError(msg: string | null | undefined): boo
   return INFRA_PATTERNS.some((re) => re.test(s));
 }
 
+/** Single-flight pacing: the account was busy, nothing was submitted. */
+export function isAccountBusyPreSubmitError(msg: string | null | undefined): boolean {
+  if (!msg) return false;
+  const s = String(msg);
+  return ACCOUNT_BUSY_PATTERNS.some((re) => re.test(s));
+}
+
+/** Browser never launched: provably pre-submit, safe to requeue without burn. */
+export function isBrowserLaunchFailure(msg: string | null | undefined): boolean {
+  if (!msg) return false;
+  const s = String(msg);
+  if (AMBIGUOUS_PATTERNS.some((re) => re.test(s))) return false;
+  if (PORTAL_STEP1_PATTERNS.some((re) => re.test(s))) return false;
+  return LAUNCH_FAILURE_PATTERNS.some((re) => re.test(s));
+}
+
+/** Pre-submit conditions that must requeue without consuming an attempt. */
+export function isPreSubmitPacingCondition(msg: string | null | undefined): boolean {
+  return isAccountBusyPreSubmitError(msg) || isBrowserLaunchFailure(msg);
+}
+
 export const INFRA_USER_MESSAGE =
   "Submission worker temporarily unavailable — queued for safe retry.";
+export const ACCOUNT_BUSY_USER_MESSAGE =
+  "Waiting for a submission slot on this provider account — nothing was submitted.";
+export const LAUNCH_BUSY_USER_MESSAGE =
+  "Waiting for automation capacity — nothing was submitted; this bill stays queued.";
 export const AMBIGUOUS_USER_MESSAGE =
   "The portal outcome could not be verified — awaiting verification. This bill was NOT resubmitted automatically.";
 export const PORTAL_STEP1_USER_MESSAGE =
   "Portal Step 1 validation failed — do not retry automatically.";
+
 
 /** Portal Step 1 rebuilt/posted back with a missing required field. */
 export function isPortalStep1ValidationFailure(msg: string | null | undefined): boolean {
@@ -79,6 +137,8 @@ export function sanitizeSubmitError(msg: string | null | undefined): string {
   const raw = String(msg ?? "").trim();
   if (!raw) return "Submission could not be started. It is queued for a safe retry.";
   if (isPortalStep1ValidationFailure(raw)) return PORTAL_STEP1_USER_MESSAGE;
+  if (isAccountBusyPreSubmitError(raw)) return ACCOUNT_BUSY_USER_MESSAGE;
+  if (isBrowserLaunchFailure(raw)) return LAUNCH_BUSY_USER_MESSAGE;
   if (isInfrastructureSubmitError(raw)) return INFRA_USER_MESSAGE;
 
   const firstLine =
@@ -116,6 +176,7 @@ export type SubmitFailureCode =
   | "worker_unavailable"
   | "network"
   | "account_busy"
+  | "worker_capacity"
   | "portal_rejected"
   | "unknown";
 
@@ -128,8 +189,8 @@ export function classifySubmitFailure(
     return { stage: "portal_step1", code: "portal_step1_required_field" };
   if (AMBIGUOUS_PATTERNS.some((re) => re.test(s)))
     return { stage: "portal_submit", code: "ambiguous_outcome" };
-  if (/already running on this account|single.?flight|account is busy/i.test(s))
-    return { stage: "dispatch", code: "account_busy" };
+  if (isAccountBusyPreSubmitError(s)) return { stage: "dispatch", code: "account_busy" };
+  if (isBrowserLaunchFailure(s)) return { stage: "dispatch", code: "worker_capacity" };
   if (/required|missing|invalid|must be|not configured|no provider/i.test(s) && !isInfrastructureSubmitError(s))
     return { stage: "preflight", code: "missing_required_data" };
   if (isInfrastructureSubmitError(s)) return { stage: "worker", code: "worker_unavailable" };
