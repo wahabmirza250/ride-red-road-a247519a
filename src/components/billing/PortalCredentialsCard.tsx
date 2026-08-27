@@ -34,6 +34,7 @@ import {
 import {
   deletePortalCredential,
   getBillingSettings,
+  getPortalCredentialFingerprint,
   listPortalCredentials,
   setDefaultBillingPortal,
   upsertPortalCredential,
