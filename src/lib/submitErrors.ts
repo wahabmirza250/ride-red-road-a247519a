@@ -74,15 +74,23 @@ const ACCOUNT_BUSY_PATTERNS = [
  */
 const LAUNCH_FAILURE_PATTERNS = [
   /browserType\.launch/i,
-  /Failed to launch (?:the )?(?:browser|chromium)/i,
+  /Failed to launch (?:the )?(?:browser|chromium|zygote)/i,
+  /zygote/i,
   /pthread_create/i,
   /spawn\s+\S*\s*EAGAIN/i,
-  /EAGAIN[^\n]*(?:spawn|launch|thread)/i,
-  /Resource temporarily unavailable[^\n]*(?:launch|spawn|thread)?/i,
+  /EAGAIN[^\n]*(?:spawn|launch|thread|fork)/i,
+  /(?:spawn|launch|thread|fork)[^\n]*EAGAIN/i,
+  /Resource temporarily unavailable/i,
   // No page ever existed → no portal interaction could have happened.
   /(?:browser|context)?\.?newPage\b/i,
-  /Failed to create (?:a )?(?:new )?page/i,
+  /newContext\b/i,
+  /Failed to create (?:a )?(?:new )?(?:page|context|browser)/i,
+  // "Target closed"/"browser has been closed" ONLY while still launching or
+  // creating the first page — never a bare closed-target message.
+  /(?:launch|newPage|newContext)[^\n]*(?:Target (?:closed|page[^\n]*closed)|browser has been closed|context or browser has been closed)/i,
+  /before any portal interaction/i,
 ];
+
 
 /**
  * Explicit worker statement that nothing reached the portal. Only trusted when
