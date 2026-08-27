@@ -562,30 +562,66 @@ function DeleteControls({
 
 
 
+/**
+ * PERF: the list no longer ships signed PDF URLs (that was two storage calls
+ * per row). The scanned form is signed on demand, only when a biller clicks.
+ */
 function PdfCell({
   pdfUrl,
+  hasPdf,
+  tripId,
   passengerName,
   onPreview,
 }: {
-  pdfUrl: string | null;
+  pdfUrl?: string | null;
+  hasPdf?: boolean;
+  tripId?: string | null;
   passengerName: string | null;
   onPreview: (p: { url: string; filename: string }) => void;
 }) {
-  if (!pdfUrl) return <span className="text-xs text-muted-foreground">—</span>;
+  const signFn = useServerFn(getStatePdfUrl);
+  const [busy, setBusy] = useState(false);
   const filename = `trip-${(passengerName ?? "rider").replace(/\s+/g, "_")}.pdf`;
+
+  if (!pdfUrl && !hasPdf) return <span className="text-xs text-muted-foreground">—</span>;
+
+  async function resolve(): Promise<string | null> {
+    if (pdfUrl) return pdfUrl;
+    if (!tripId) return null;
+    setBusy(true);
+    try {
+      const res: any = await signFn({ data: { trip_id: tripId } });
+      return (res?.url as string) ?? null;
+    } catch {
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="flex gap-1">
       <Button
         size="sm"
         variant="outline"
-        onClick={() => onPreview({ url: pdfUrl, filename })}
+        disabled={busy}
+        onClick={async () => {
+          const url = await resolve();
+          if (url) onPreview({ url, filename });
+          else toast.error("Could not open the scanned form.");
+        }}
       >
         <Eye className="mr-1 h-3.5 w-3.5" /> View
       </Button>
       <Button
         size="sm"
         variant="outline"
-        onClick={() => downloadPdf(pdfUrl, filename)}
+        disabled={busy}
+        onClick={async () => {
+          const url = await resolve();
+          if (url) downloadPdf(url, filename);
+          else toast.error("Could not open the scanned form.");
+        }}
       >
         <FileDown className="mr-1 h-3.5 w-3.5" /> PDF
       </Button>
