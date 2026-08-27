@@ -42,8 +42,17 @@ export const Route = createFileRoute("/api/public/get-portal-credential")({
 
         // Validate query params
         const url = new URL(request.url);
-        const portal_id = url.searchParams.get("portal_id");
-        const company_id = url.searchParams.get("company_id");
+        // Normalize the portal id the same way it is stored on save: stray
+        // whitespace/newlines or casing from a hosting env var must not turn a
+        // configured credential into a 404.
+        const portal_id = (url.searchParams.get("portal_id") ?? "")
+          .trim()
+          .replace(/^["']|["']$/g, "")
+          .toLowerCase();
+        const company_id = (url.searchParams.get("company_id") ?? "")
+          .trim()
+          .replace(/^["']|["']$/g, "")
+          .toLowerCase();
 
         if (!portal_id) {
           return json({ error: "portal_id query parameter is required" }, 400);
@@ -83,11 +92,22 @@ export const Route = createFileRoute("/api/public/get-portal-credential")({
 
         const row: any = Array.isArray(data) ? data[0] : data;
         if (!row) {
+          // Fail closed, but say WHICH company/portal missed and which portal
+          // ids that company does have configured. Never leaks another
+          // company's data: the list is scoped to the requested company_id.
+          const { data: configured } = await supabaseAdmin
+            .from("state_portal_credentials" as any)
+            .select("portal_id")
+            .eq("company_id", company_id);
+          const available = (configured ?? []).map((r: any) => r.portal_id);
           return json(
             {
               error:
                 "No portal login configured for this company — add one in Team & apps first",
               code: "NO_PORTAL_CREDENTIAL",
+              requested_portal_id: portal_id,
+              requested_company_id: company_id,
+              configured_portal_ids: available,
             },
             404,
           );
