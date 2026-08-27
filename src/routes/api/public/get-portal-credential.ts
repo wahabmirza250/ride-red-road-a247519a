@@ -81,7 +81,7 @@ export const Route = createFileRoute("/api/public/get-portal-credential")({
           return json({ error: "Credential lookup failed" }, 500);
         }
 
-        const row = Array.isArray(data) ? data[0] : data;
+        const row: any = Array.isArray(data) ? data[0] : data;
         if (!row) {
           return json(
             {
