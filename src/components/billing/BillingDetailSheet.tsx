@@ -18,6 +18,8 @@ import { Loader2, FileDown, Check, X, AlertCircle, RefreshCw, Bot } from "lucide
 import { StatusPill } from "@/components/nemt/StatusPill";
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 import { PdfInlineViewer } from "@/components/PdfInlineViewer";
+import { ViewScannedFormButton } from "@/components/billing/ViewScannedFormButton";
+
 import { DuplicateSubmitDialog } from "@/components/billing/DuplicateSubmitDialog";
 import { parseDuplicateClaimError, type DuplicateClaimInfo } from "@/lib/duplicateSubmit";
 
