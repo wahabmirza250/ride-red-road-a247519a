@@ -36,18 +36,8 @@ export async function listBillingRecordsClient(statuses: string[]) {
     profiles = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p]));
   }
 
-  const pdfUrls = await Promise.all(
-    (rows ?? []).map(async (r: any) => {
-      const path: string | null = r.medicaid_trips?.state_pdf_path ?? null;
-      if (!path) return null;
-      const { data: signed } = await supabase.storage
-        .from("state-pdfs")
-        .createSignedUrl(path, 60 * 15);
-      return signed?.signedUrl ?? null;
-    }),
-  );
-
-  return (rows ?? []).map((r: any, i: number) => {
+  // PERF: no per-row signed URLs — the form is signed lazily on open.
+  return (rows ?? []).map((r: any) => {
     const prof = profiles[r.medicaid_trips?.driver_id];
     return {
       id: r.id,
