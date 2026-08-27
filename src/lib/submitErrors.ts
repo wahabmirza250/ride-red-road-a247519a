@@ -90,7 +90,6 @@ const LAUNCH_FAILURE_PATTERNS = [
  */
 const NOTHING_SUBMITTED_PATTERNS = [
   /nothing was submitted/i,
-  /submit_reached\s*[:=]\s*false/i,
 ];
 
 /** Worker/browser-level failure: safe to retry later, never proof of a claim. */
