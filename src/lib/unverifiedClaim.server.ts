@@ -299,9 +299,17 @@ async function flagForHuman(
       robot_last_checked_at: nowIso,
     })
     .eq("id", tripId);
-  await supabase
-    .from("billing_records")
-    .update({ submission_error: msg, requires_human_step: true })
-    .eq("id", recordId);
-  await logAudit(supabase, recordId, actorId, "unverified_claim_needs_human", msg);
+  // Automation is finished with this bill: it must leave the active
+  // `submitting` state immediately, or it silently occupies a queue slot
+  // forever. Evidence and audit history are preserved by the writer.
+  const { quarantineForHumanVerification } = await import("@/lib/robotJobLost.server");
+  await quarantineForHumanVerification(supabase, {
+    recordId,
+    tripId,
+    actorId,
+    message: msg,
+    failureCode: "needs_human_lookup",
+    auditAction: "unverified_claim_needs_human",
+    nowIso,
+  });
 }

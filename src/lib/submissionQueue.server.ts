@@ -315,16 +315,22 @@ export async function recoverStuckInFlightSubmissions(
   supabase: any,
   companyId?: string | null,
 ): Promise<number> {
-  const { exceededInFlightCeiling, INFLIGHT_CEILING_VERIFY_MESSAGE } = await import(
-    "@/lib/robotJobLost"
+  const {
+    exceededInFlightCeiling,
+    isQuarantinedRobotStatus,
+    isActiveVerifyRobotStatus,
+    INFLIGHT_CEILING_VERIFY_MESSAGE,
+    QUARANTINE_MESSAGE,
+  } = await import("@/lib/robotJobLost");
+  const { routeToNeedsVerification, quarantineForHumanVerification } = await import(
+    "@/lib/robotJobLost.server"
   );
-  const { routeToNeedsVerification } = await import("@/lib/robotJobLost.server");
 
   let q = supabase
     .from("billing_records")
     .select(
-      `id, trip_id, requires_human_step, updated_at,
-       medicaid_trips!inner(id, robot_job_id, robot_job_started_at, robot_last_status)`,
+      `id, trip_id, requires_human_step, submission_error, updated_at,
+       medicaid_trips!inner(id, robot_job_id, robot_job_started_at, robot_last_status, robot_last_message)`,
     )
     .eq("status", "submitting");
   if (companyId) q = q.eq("company_id", companyId);
@@ -335,13 +341,52 @@ export async function recoverStuckInFlightSubmissions(
   let n = 0;
   for (const r of data ?? []) {
     const trip: any = r.medicaid_trips ?? {};
-    if (!trip.robot_job_id) continue; // handled by recoverOrphanedSubmissions
     const robotStatus = String(trip.robot_last_status ?? "");
-    // Already routed to verification / a human: leave the evidence alone.
-    if (robotStatus === "SUBMITTED_UNVERIFIED" || robotStatus === "NEEDS_HUMAN_LOOKUP") continue;
-    if (r.requires_human_step) continue;
     const started = trip.robot_job_started_at ?? r.updated_at ?? null;
+
+    // TERMINAL HUMAN STATE: automation is done with this bill. It must not stay
+    // counted as active `submitting` — quarantine it now, keeping all evidence.
+    // Rows still owned by the bounded read-only portal search are exempt until
+    // the ceiling below.
+    if (
+      isQuarantinedRobotStatus(robotStatus) ||
+      (r.requires_human_step && !isActiveVerifyRobotStatus(robotStatus))
+    ) {
+      await quarantineForHumanVerification(supabase, {
+        recordId: r.id,
+        tripId: trip.id ?? r.trip_id,
+        actorId: null,
+        message:
+          trip.robot_last_message || r.submission_error || QUARANTINE_MESSAGE,
+        failureCode: "needs_human_verification",
+        auditAction: "submitting_quarantine_recovered",
+        nowIso: new Date(now).toISOString(),
+      });
+      n++;
+      continue;
+    }
+
+    if (!trip.robot_job_id) continue; // handled by recoverOrphanedSubmissions
+
+    // Still being resolved automatically (read-only portal search / lost-job
+    // confirmation window) — but only until the absolute ceiling.
+    if (isActiveVerifyRobotStatus(robotStatus) && !exceededInFlightCeiling(started, now)) continue;
     if (!exceededInFlightCeiling(started, now)) continue;
+
+    if (isActiveVerifyRobotStatus(robotStatus)) {
+      // Ambiguous and out of time: hand to a human instead of holding a slot.
+      await quarantineForHumanVerification(supabase, {
+        recordId: r.id,
+        tripId: trip.id ?? r.trip_id,
+        actorId: null,
+        message: INFLIGHT_CEILING_VERIFY_MESSAGE,
+        failureCode: "inflight_ceiling_unverified",
+        auditAction: "submitting_quarantine_recovered",
+        nowIso: new Date(now).toISOString(),
+      });
+      n++;
+      continue;
+    }
 
     await routeToNeedsVerification(supabase, {
       recordId: r.id,

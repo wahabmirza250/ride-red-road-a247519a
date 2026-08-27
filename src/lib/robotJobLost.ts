@@ -87,3 +87,48 @@ export const INFLIGHT_CEILING_VERIFY_MESSAGE =
   "This submission never reported a final result and has exceeded the maximum " +
   "processing time. It was NOT retried, because a claim may already exist at " +
   "HCPF. An automatic read-only portal search will verify it — do NOT resubmit.";
+
+/**
+ * QUARANTINED ROBOT STATES.
+ *
+ * These are terminal-for-automation outcomes: a human must look at the portal.
+ * A bill in any of these states must NEVER be counted as actively `submitting`
+ * (it would occupy a queue slot and sit silently forever) and must NEVER be
+ * automatically retried.
+ */
+export const QUARANTINE_ROBOT_STATUSES = ["NEEDS_HUMAN_LOOKUP"] as const;
+
+/** Robot states that are still legitimately being worked automatically. */
+export const ACTIVE_VERIFY_ROBOT_STATUSES = [
+  "SUBMITTED_UNVERIFIED",
+  JOB_NOT_FOUND_STATUS,
+] as const;
+
+export function isQuarantinedRobotStatus(status: string | null | undefined): boolean {
+  return (QUARANTINE_ROBOT_STATUSES as readonly string[]).includes(String(status ?? ""));
+}
+
+export function isActiveVerifyRobotStatus(status: string | null | undefined): boolean {
+  return (ACTIVE_VERIFY_ROBOT_STATUSES as readonly string[]).includes(String(status ?? ""));
+}
+
+/**
+ * Should this in-flight row be pulled out of `submitting`?
+ * Quarantined states leave immediately; an automatic-verification state only
+ * leaves once it blows through the absolute ceiling.
+ */
+export function shouldLeaveSubmitting(input: {
+  robotStatus: string | null | undefined;
+  requiresHumanStep?: boolean | null;
+  startedAt?: string | number | null;
+  now?: number;
+}): boolean {
+  const now = input.now ?? Date.now();
+  if (isQuarantinedRobotStatus(input.robotStatus)) return true;
+  if (input.requiresHumanStep) return true;
+  return exceededInFlightCeiling(input.startedAt ?? null, now);
+}
+
+export const QUARANTINE_MESSAGE =
+  "This bill needs a manual portal check, so it was taken out of the submission " +
+  "queue. Nothing was resubmitted and all portal evidence was kept.";
