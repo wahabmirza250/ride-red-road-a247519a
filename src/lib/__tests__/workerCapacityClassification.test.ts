@@ -28,6 +28,8 @@ const NOT_CAPACITY = [
   "NEEDS_HUMAN_LOOKUP — a human must check the portal",
   "Still on Step 1 after clicking Continue. Errors: * Indicates a required field.",
   "Portal navigation after login timed out on the claims page",
+  "JOB_NOT_FOUND — the automation service no longer knows about this job",
+  "The worker stopped before the automation service confirmed this job.",
 ];
 
 describe("pre-submit worker capacity classification", () => {
@@ -46,6 +48,20 @@ describe("pre-submit worker capacity classification", () => {
     expect(isBrowserLaunchFailure(msg)).toBe(false);
     expect(isPreSubmitPacingCondition(msg)).toBe(false);
     expect(needsFixSummary({ submission_error: msg }).category).not.toBe("capacity");
+  });
+});
+
+describe("fleet health vs browser capacity copy", () => {
+  it("uses worker-unavailable copy only when no robot accepted the job", async () => {
+    const { isFleetUnavailable, sanitizeSubmitError, INFRA_USER_MESSAGE, classifySubmitFailure } =
+      await import("@/lib/submitErrors");
+    const fleet = "No healthy submission robot is available right now — the bill stays queued and will retry.";
+    expect(isFleetUnavailable(fleet)).toBe(true);
+    expect(sanitizeSubmitError(fleet)).toBe(INFRA_USER_MESSAGE);
+    expect(classifySubmitFailure(fleet)).toEqual({ stage: "dispatch", code: "worker_unavailable" });
+    // Browser capacity must NOT borrow the fleet-health wording.
+    expect(sanitizeSubmitError("browserType.launch: spawn EAGAIN")).not.toBe(INFRA_USER_MESSAGE);
+    expect(isFleetUnavailable("browserType.launch: spawn EAGAIN")).toBe(false);
   });
 });
 
