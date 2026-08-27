@@ -31,11 +31,16 @@ export type ChildRowTenant = {
   routeCompanyId?: string | null;
   /** company_of_ride_request(request_id) */
   requestCompanyId?: string | null;
+  /** company_of_driver(driver_id) */
+  driverCompanyId?: string | null;
 };
 
-/** COALESCE(company_of_trip(...), company_of_route(...), company_of_ride_request(...)) */
+
+/** COALESCE over every parent lookup used by the restrictive policies. */
 export function resolveRowCompanyId(row: ChildRowTenant): string | null {
-  return row.tripCompanyId ?? row.routeCompanyId ?? row.requestCompanyId ?? null;
+  return (
+    row.tripCompanyId ?? row.routeCompanyId ?? row.requestCompanyId ?? row.driverCompanyId ?? null
+  );
 }
 
 /**
@@ -49,7 +54,38 @@ export function tenantPolicyAllows(ctx: TenantContext, row: ChildRowTenant): boo
   return rowCompany === ctx.userCompanyId;
 }
 
+/**
+ * dispatch_events carries its own stamped company_id. Legacy rows that predate
+ * the column and reference no parent at all carry no tenant data, so they stay
+ * readable; everything else is company-scoped. Writes are always scoped.
+ */
+export function dispatchEventPolicyAllows(
+  ctx: TenantContext,
+  event: { companyId: string | null },
+  mode: "read" | "write" = "read",
+): boolean {
+  if (ctx.ownerUnscoped) return true;
+  if (event.companyId === null) return mode === "read";
+  return !!ctx.userCompanyId && event.companyId === ctx.userCompanyId;
+}
+
+/** company_id stamped on insert from whichever parent reference the event has. */
+export function resolveDispatchEventCompanyId(
+  event: ChildRowTenant,
+  actorCompanyId: string | null,
+): string | null {
+  return (
+    event.requestCompanyId ??
+    event.tripCompanyId ??
+    event.routeCompanyId ??
+    event.driverCompanyId ??
+    actorCompanyId ??
+    null
+  );
+}
+
 /** service_role bypasses RLS: internal worker flows keep full access. */
 export function serviceRoleBypassesTenantPolicy(): true {
   return true;
 }
+
