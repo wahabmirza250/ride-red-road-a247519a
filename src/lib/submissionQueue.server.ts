@@ -40,6 +40,7 @@ import {
   isFleetUnavailable,
   ACCOUNT_BUSY_USER_MESSAGE,
   LAUNCH_BUSY_USER_MESSAGE,
+  INFRA_USER_MESSAGE,
 } from "@/lib/submitErrors";
 
 import {
