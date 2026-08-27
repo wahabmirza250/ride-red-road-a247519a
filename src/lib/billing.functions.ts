@@ -23,6 +23,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateStateFormPdf, type Leg } from "@/lib/medicaidPdf";
 import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
 import { duplicateClaimError } from "@/lib/duplicateSubmit";
+import type { SkipCode } from "@/lib/submitSkip";
 
 
 
@@ -700,7 +701,16 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
       label: `Batch of ${candidates.length}`,
     });
     duplicates.push(...batch.duplicates);
-    for (const f of batch.failed) skipped.push({ id: f.id, reason: f.reason });
+    // Idempotency collapse: the bill is already queued/sending. No evidence of
+    // a submitted claim, so this must never look like "already submitted".
+    for (const d of batch.duplicates)
+      skipped.push({
+        id: d,
+        code: "already_queued",
+        reason: "already queued or sending — the duplicate request was ignored",
+      });
+    for (const f of batch.failed)
+      skipped.push({ id: f.id, code: "enqueue_failed", reason: f.reason });
 
     // Best-effort immediate kick so the first bill starts without waiting for
     // the next tick. Bounded by the same leases: it can never exceed the caps,
