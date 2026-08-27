@@ -80,7 +80,6 @@ const COUNT_STATUSES = [
   "submitted",
   "needs_fix",
   "rejected",
-  "paid",
 ];
 
 export async function getBillingCountsClient() {
