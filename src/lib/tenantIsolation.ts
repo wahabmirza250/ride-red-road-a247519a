@@ -89,3 +89,43 @@ export function serviceRoleBypassesTenantPolicy(): true {
   return true;
 }
 
+
+/**
+ * ride_requests access. `ride_requests.passenger_id` is a FK to auth.users(id),
+ * so the passenger policy predicate `passenger_id = auth.uid()` compares the
+ * correct column: a passenger only ever sees their own requests. Staff roles
+ * (admin / dispatch) keep their existing access, and the RESTRICTIVE
+ * `tenant_isolation` policy on the table additionally confines every signed-in
+ * caller to their own company_id.
+ */
+export type RideRequestRow = { passengerUserId: string | null; companyId: string | null };
+export type RideRequestActor = TenantContext & {
+  userId: string;
+  roles?: ReadonlyArray<"passenger" | "admin" | "dispatch" | "driver">;
+};
+
+export function rideRequestPolicyAllows(actor: RideRequestActor, row: RideRequestRow): boolean {
+  // RESTRICTIVE tenant_isolation runs first for everyone.
+  if (!actor.ownerUnscoped) {
+    if (!row.companyId || !actor.userCompanyId) return false;
+    if (row.companyId !== actor.userCompanyId) return false;
+  }
+  const roles = actor.roles ?? [];
+  if (roles.includes("admin") || roles.includes("dispatch")) return true;
+  // Passenger permissive policy: own rows only, matched on the auth user id.
+  return !!row.passengerUserId && row.passengerUserId === actor.userId;
+}
+
+/**
+ * billing_settings holds per-company billing configuration (e.g. default portal).
+ * Admin / biller reads are additionally confined to their own company by the
+ * RESTRICTIVE tenant_isolation policy.
+ */
+export function billingSettingsPolicyAllows(
+  ctx: TenantContext,
+  row: { companyId: string | null },
+): boolean {
+  if (ctx.ownerUnscoped) return true;
+  if (!row.companyId || !ctx.userCompanyId) return false;
+  return row.companyId === ctx.userCompanyId;
+}
