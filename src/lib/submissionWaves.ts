@@ -7,6 +7,9 @@
  * As bills in the wave reach a terminal outcome, the next ones are released
  * automatically until the batch is exhausted.
  *
+ * A wave size is a MAXIMUM, never a fixed batch: when fewer than `waveSize`
+ * items remain, ALL of them are taken (47 runs as 20, 20, 7; 13 runs as 13).
+ *
  * A wave is NOT a concurrency setting. Real portal concurrency is still decided
  * by the per-account cap, the fleet capacity and the one-live-claim-per-rider
  * rule. The wave only limits how much of a batch is *eligible* at once, so the
