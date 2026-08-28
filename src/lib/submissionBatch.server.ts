@@ -21,6 +21,28 @@ import { resolveAccountKey } from "@/lib/submissionAccount.server";
 import { logAudit } from "@/lib/billingHelpers";
 import { DEFAULT_WAVE_SIZE, clampWaveSize, splitIntoWaves } from "@/lib/submissionWaves";
 import { countWave, holdBeyondFirstWave } from "@/lib/submissionWaves.server";
+import { autoPilotStatusLabel, resolveAutoPilotDefault } from "@/lib/autoPilot";
+
+/**
+ * Company-level Auto Pilot preference. New batches inherit it; when a company
+ * has never expressed one, Auto Pilot is ON.
+ */
+export async function resolveCompanyAutoPilot(
+  supabase: any,
+  companyId: string | null,
+): Promise<boolean> {
+  if (!companyId) return resolveAutoPilotDefault(undefined);
+  try {
+    const { data } = await supabase
+      .from("billing_settings")
+      .select("auto_pilot_default")
+      .eq("company_id", companyId)
+      .maybeSingle();
+    return resolveAutoPilotDefault(data?.auto_pilot_default);
+  } catch {
+    return resolveAutoPilotDefault(undefined);
+  }
+}
 
 export type BatchCandidate = {
   id: string;
@@ -40,6 +62,8 @@ export type BatchEnqueueResult = {
   waveSize: number;
   /** Enqueued but held back for a later wave. */
   held: string[];
+  /** Whether the next wave will be released automatically. */
+  autoPilot: boolean;
 };
 
 const ACTIVE_STATUSES = new Set(["queued", "submitting"]);
@@ -52,6 +76,7 @@ async function createBatch(
     label: string | null;
     total: number;
     waveSize: number;
+    autoPilot: boolean;
   },
 ): Promise<string | null> {
   try {
@@ -63,6 +88,7 @@ async function createBatch(
         label: args.label,
         total_requested: args.total,
         wave_size: args.waveSize,
+        auto_pilot: args.autoPilot,
       })
       .select("id")
       .maybeSingle();
@@ -91,16 +117,20 @@ export async function enqueueSubmissionBatch(
     failed: [],
     waveSize: clampWaveSize(args.waveSize ?? DEFAULT_WAVE_SIZE),
     held: [],
+    autoPilot: true,
   };
   if (candidates.length === 0) return result;
 
   const companyId = candidates[0]?.companyId ?? null;
+  const autoPilot = await resolveCompanyAutoPilot(supabase, companyId);
+  result.autoPilot = autoPilot;
   result.batchId = await createBatch(supabase, {
     companyId,
     actorId,
     label: args.label ?? null,
     total: candidates.length,
     waveSize: result.waveSize,
+    autoPilot,
   });
 
   // One account-key lookup per company in the batch (usually exactly one).
@@ -231,6 +261,8 @@ export type BatchProgress = {
   wave_size: number;
   completed: number;
   wave_label: string;
+  auto_pilot: boolean;
+  auto_pilot_label: string;
   claim_ids: Array<{ id: string; claim_id: string }>;
   done: boolean;
 };
@@ -240,7 +272,7 @@ export async function getBatchProgress(supabase: any, batchId: string): Promise<
   const [{ data: batch }, { data: rows }] = await Promise.all([
     supabase
       .from("submission_batches")
-      .select("id, label, created_at, total_requested, wave_size")
+      .select("id, label, created_at, total_requested, wave_size, auto_pilot")
       .eq("id", batchId)
       .maybeSingle(),
     supabase
@@ -273,6 +305,8 @@ export async function getBatchProgress(supabase: any, batchId: string): Promise<
     wave_size: clampWaveSize(batch?.wave_size ?? DEFAULT_WAVE_SIZE),
     completed: waves.completed,
     wave_label: waveProgressLabel(waves),
+    auto_pilot: batch?.auto_pilot !== false,
+    auto_pilot_label: autoPilotStatusLabel(batch?.auto_pilot !== false, waves.waiting),
     claim_ids,
     done: false,
   };
