@@ -34,7 +34,7 @@ export const getPayPlanSettings = createServerFn({ method: "POST" })
 
     const [company, { data: drivers }] = await Promise.all([
       loadCompanyPaySettings(s, companyId),
-      s.from("drivers").select("id, user_id").eq("company_id", companyId),
+      s.from("drivers").select("id, user_id").eq("company_id", companyId).is("merged_into", null),
     ]);
     const rows = (drivers ?? []) as { id: string; user_id: string | null }[];
     const plans = await loadPayPlans(s, companyId, rows.map((d) => d.id));
