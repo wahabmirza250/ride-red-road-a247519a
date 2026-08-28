@@ -192,11 +192,38 @@ export async function mergeDriverRecords(
     }
   }
 
+  // Pay settings: the kept driver's own saved rate always wins. The
+  // duplicate's rate is only carried over when the keeper has none, so a merge
+  // can never wipe or silently change a configured percentage.
+  for (const t of DRIVER_PAY_TABLES) {
+    if (!plan.counts[t]) continue;
+    const { data: existing } = await s
+      .from(t)
+      .select("driver_id")
+      .eq("driver_id", plan.keeper.id)
+      .maybeSingle();
+    if (existing) continue;
+    const { data, error } = await s
+      .from(t)
+      .update({ driver_id: plan.keeper.id })
+      .eq("driver_id", plan.duplicate.id)
+      .select("driver_id");
+    if (error) throw new Error(`Could not move ${t}: ${error.message}`);
+    moved[t] = (data ?? []).length;
+    total += moved[t];
+  }
+
   // The duplicate row is retired, never deleted: audit history keeps pointing
-  // at a real record, and a mistake stays reversible.
+  // at a real record, and a mistake stays reversible. `merged_into` is what
+  // payroll and the drivers list use to treat the pair as one person.
   await s
     .from("drivers")
-    .update({ status: "offline", unit_number: null })
+    .update({
+      status: "offline",
+      unit_number: null,
+      merged_into: plan.keeper.id,
+      merged_at: new Date().toISOString(),
+    })
     .eq("id", plan.duplicate.id);
 
   // Audit trail: payroll_audit_log allows company-scoped, item-less entries.
