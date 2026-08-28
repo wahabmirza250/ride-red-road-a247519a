@@ -17,6 +17,7 @@ import {
   type PayPlan,
 } from "@/lib/payPlans";
 import { collectWork, loadPayPlans, type DriverWork } from "@/lib/payrollSources.server";
+import { activeDrivers } from "@/lib/canonicalDriver";
 
 /** ADMIN ONLY — payout / "clear pay" system. Never expose to dispatch.
  *  Returns the caller's company so every query can be scoped to it: the
@@ -71,6 +72,7 @@ async function loadDrivers(s: Sb, companyId: string | null, driverId?: string) {
       ...d,
       name: `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim() || (p?.email ?? "Driver"),
       email: (p?.email as string | null) ?? null,
+      phone: (p?.phone as string | null) ?? null,
     };
   });
 }
@@ -79,6 +81,7 @@ export type PayrollRow = {
   driver_id: string;
   name: string;
   email: string | null;
+  phone: string | null;
   status: string;
   plan: PayPlan;
   plan_label: string;
@@ -165,6 +168,7 @@ export const getPayrollPeriod = createServerFn({ method: "POST" })
         driver_id: d.id,
         name: d.name,
         email: d.email,
+        phone: d.phone,
         status: String(d.status),
         plan: plan.plan,
         plan_label: PLAN_LABEL[plan.plan],
