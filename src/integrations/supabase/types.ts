@@ -308,6 +308,7 @@ export type Database = {
       }
       billing_settings: {
         Row: {
+          auto_pilot_default: boolean
           company_id: string | null
           created_at: string
           default_portal_id: string | null
@@ -315,6 +316,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_pilot_default?: boolean
           company_id?: string | null
           created_at?: string
           default_portal_id?: string | null
@@ -322,6 +324,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_pilot_default?: boolean
           company_id?: string | null
           created_at?: string
           default_portal_id?: string | null
@@ -3719,6 +3722,7 @@ export type Database = {
       }
       submission_batches: {
         Row: {
+          auto_pilot: boolean
           company_id: string | null
           created_at: string
           created_by: string | null
@@ -3731,6 +3735,7 @@ export type Database = {
           wave_size: number
         }
         Insert: {
+          auto_pilot?: boolean
           company_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -3743,6 +3748,7 @@ export type Database = {
           wave_size?: number
         }
         Update: {
+          auto_pilot?: boolean
           company_id?: string | null
           created_at?: string
           created_by?: string | null

@@ -12,6 +12,7 @@ import {
   waveReleaseCount,
   type WaveCounts,
 } from "@/lib/submissionWaves";
+import { shouldAutoPromote } from "@/lib/autoPilot";
 
 type Sb = any;
 
@@ -82,7 +83,9 @@ export async function promoteBatchWave(
 }
 
 /**
- * Release the next wave of every batch that still has held work.
+ * Release the next wave of every batch that still has held work AND has Auto
+ * Pilot ON. Batches with Auto Pilot OFF are skipped entirely: their held rows
+ * keep waiting untouched until a biller releases them.
  * Company-scoped when a company id is supplied.
  */
 export async function promoteDueWaves(
@@ -106,15 +109,44 @@ export async function promoteDueWaves(
 
   const { data: batches } = await supabase
     .from("submission_batches")
-    .select("id, wave_size")
+    .select("id, wave_size, auto_pilot")
     .in("id", batchIds);
-  const sizeOf = new Map<string, number>(
-    (batches ?? []).map((b: any) => [String(b.id), clampWaveSize(b.wave_size ?? DEFAULT_WAVE_SIZE)]),
-  );
+  const byId = new Map<string, any>((batches ?? []).map((b: any) => [String(b.id), b]));
 
   let released = 0;
+  let considered = 0;
   for (const id of batchIds) {
-    released += await promoteBatchWave(supabase, id, sizeOf.get(id) ?? DEFAULT_WAVE_SIZE);
+    const batch = byId.get(id);
+    if (!shouldAutoPromote(batch)) continue; // Auto Pilot OFF — hold safely.
+    considered++;
+    released += await promoteBatchWave(
+      supabase,
+      id,
+      clampWaveSize(batch?.wave_size ?? DEFAULT_WAVE_SIZE),
+    );
   }
-  return { batches: batchIds.length, released };
+  return { batches: considered, released };
 }
+
+/**
+ * Biller-initiated "Continue next wave" for ONE batch. Identical mechanics to
+ * the automatic path (it only clears the hold flag on legitimate `queued` rows
+ * of this batch) and it ignores the Auto Pilot flag by design.
+ */
+export async function releaseNextWaveManually(
+  supabase: Sb,
+  batchId: string,
+): Promise<{ released: number }> {
+  const { data: batch } = await supabase
+    .from("submission_batches")
+    .select("id, wave_size")
+    .eq("id", batchId)
+    .maybeSingle();
+  const released = await promoteBatchWave(
+    supabase,
+    batchId,
+    clampWaveSize(batch?.wave_size ?? DEFAULT_WAVE_SIZE),
+  );
+  return { released };
+}
+
