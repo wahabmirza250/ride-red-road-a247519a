@@ -10,22 +10,24 @@ import { pageRange } from "@/lib/billingPage";
 
 export async function listBillingRecordsClient(
   statuses: string[],
-  opts: { limit?: number; offset?: number } = {},
+  opts: { limit?: number; offset?: number; includeArchived?: boolean } = {},
 ) {
   const page = pageRange(opts.limit, opts.offset);
-  const { data: rows, error } = await supabase
+  let query = supabase
     .from("billing_records")
     .select(
       `id, trip_id, status, reviewed_at, fix_notes, rejection_reason,
        submitted_at, state_confirmation_number, submission_error,
-       requires_human_step, updated_at,
+       requires_human_step, updated_at, attention_archived_at, attention_archive_reason,
        medicaid_trips!inner(
          id, pickup_at, pickup_address, dropoff_address, driver_id, paper_driver_name, state_pdf_path,
          robot_job_id, robot_last_status, robot_last_message, robot_job_started_at,
          riders(full_name, medicaid_id)
        )`,
     )
-    .in("status", statuses)
+    .in("status", statuses);
+  if (!opts.includeArchived) query = query.is("attention_archived_at", null);
+  const { data: rows, error } = await query
     .order("updated_at", { ascending: false })
     .range(page.from, page.to);
   if (error) throw new Error(error.message);

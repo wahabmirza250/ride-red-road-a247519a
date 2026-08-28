@@ -63,6 +63,7 @@ import { DeniedClaimsTab } from "@/components/billing/DeniedClaimsTab";
 
 import { FixBillDialog } from "@/components/billing/FixBillDialog";
 import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
+import { AttentionArchiveControls } from "@/components/billing/AttentionArchiveControls";
 import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
 import {
   BILLING_PAGE_DESCRIPTION,
@@ -232,17 +233,28 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
   const [pageSize, setPageSize] = useState(BILLING_PAGE_SIZE);
   useEffect(() => setPageSize(BILLING_PAGE_SIZE), [tab]);
 
+  // Needs Attention archive: resolved errors stay in history and audit, but
+  // disappear from the active worklist unless the biller asks to see them.
+  const [showArchived, setShowArchived] = useState(false);
+  useEffect(() => setShowArchived(false), [tab]);
+
   const rows = useQuery({
-    queryKey: ["billing_list", tab, pageSize],
+    queryKey: ["billing_list", tab, pageSize, showArchived],
     queryFn: async () => {
       try {
         return await listFn({
-          data: { statuses: activeTab.statuses, limit: pageSize, offset: 0 },
+          data: {
+            statuses: activeTab.statuses,
+            limit: pageSize,
+            offset: 0,
+            include_archived: showArchived,
+          },
         });
       } catch {
         // Edge server functions can fail on custom domains — read directly instead.
         return await listBillingRecordsClient(activeTab.statuses as string[], {
           limit: pageSize,
+          includeArchived: showArchived,
         });
       }
     },
@@ -452,6 +464,8 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
           rows={rows.data ?? []}
           onOpen={setSelectedId}
           onPreviewPdf={setPdfPreview}
+          showArchived={showArchived}
+          onToggleArchived={() => setShowArchived((v) => !v)}
         />
       ) : tab === "awaiting_portal" ? (
         <AwaitingPortalTab
@@ -796,10 +810,14 @@ function ReadyToSubmitTab({
   rows,
   onOpen,
   onPreviewPdf,
+  showArchived = false,
+  onToggleArchived,
 }: {
   rows: any[];
   onOpen: (id: string) => void;
   onPreviewPdf: (p: { url: string; filename: string }) => void;
+  showArchived?: boolean;
+  onToggleArchived?: () => void;
 }) {
   const qc = useQueryClient();
   const startFn = useServerFn(startRobotForRecord);
@@ -981,6 +999,13 @@ function ReadyToSubmitTab({
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <AttentionArchiveControls
+            rows={rows}
+            selectedIds={[...selected]}
+            showArchived={showArchived}
+            onToggleArchived={onToggleArchived}
+            onDone={() => setSelected(new Set())}
+          />
           <DeleteControls
             selectedIds={[...selected]}
             allIds={selectableIds}
@@ -1044,6 +1069,11 @@ function ReadyToSubmitTab({
                 {r.submitted_at ? formatDateTime(r.submitted_at) : "Not submitted"}
               </td>
               <td className="px-4 py-3">
+                {r.attention_archived_at && (
+                  <div className="mb-1 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    Archived
+                  </div>
+                )}
                 {r.requires_human_step ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-xs font-medium text-violet-600">
                     {processingStateLabel(r.status, { requiresHumanStep: true })}

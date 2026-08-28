@@ -872,6 +872,16 @@ export async function runSubmissionQueueTick(
     opts.companyId ?? null,
   );
 
+  // AUTOMATIC WAVES. Bills held back from a large batch become eligible as the
+  // current wave drains. This changes eligibility only — per-account capacity,
+  // fleet limits and one-live-claim-per-rider still decide real concurrency.
+  try {
+    const { promoteDueWaves } = await import("@/lib/submissionWaves.server");
+    await promoteDueWaves(supabase, { companyId: opts.companyId ?? null });
+  } catch {
+    /* wave promotion is best-effort; held bills simply wait for the next tick */
+  }
+
   const budget = SUBMIT_RUN_BUDGET_MS();
   let dispatch = {
     leased: 0,
@@ -907,6 +917,14 @@ export async function runSubmissionQueueTick(
     // Nothing left in flight AND nothing settled → the lane is idle, stop early.
     if (again.checked === 0 && again.settled === 0) break;
     if (again.settled <= 0) continue;
+
+    // A settled bill may have completed a wave slot — release the next one.
+    try {
+      const { promoteDueWaves } = await import("@/lib/submissionWaves.server");
+      await promoteDueWaves(supabase, { companyId: opts.companyId ?? null });
+    } catch {
+      /* best effort */
+    }
 
     const more = await dispatchLeasedSubmissions(supabase, opts.actorId ?? null, {
       companyId: opts.companyId ?? null,

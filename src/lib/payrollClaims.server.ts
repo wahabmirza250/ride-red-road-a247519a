@@ -4,7 +4,7 @@
  * This module only reads; it never writes payouts.
  */
 
-import { resolvePayPlan, type ResolvedPayPlan } from "@/lib/payPlans";
+import { mergeDriverPayConfig, resolvePayPlan, type ResolvedPayPlan } from "@/lib/payPlans";
 import { loadCompanyPaySettings } from "@/lib/payrollSources.server";
 
 type Sb = import("@supabase/supabase-js").SupabaseClient;
@@ -83,11 +83,13 @@ export async function resolveDriverPayForClaims(
           hourly_rate: old.hourly_rate ?? null,
           commission_percentage: old.payout_percentage ?? null,
           per_trip_amount: null,
-          commission_base: old.pay_type === "commission" ? "paid_claims" : null,
+          commission_base: (old.pay_type === "commission" ? "paid_claims" : null) as any,
           per_trip_source: null,
         }
       : null;
-    resolved.set(id, resolvePayPlan(company ?? {}, planOf.get(id) ?? fallback));
+    // Merge, never replace: a partially-filled modern override must not drop a
+    // percentage that is really saved on the legacy row.
+    resolved.set(id, resolvePayPlan(company ?? {}, mergeDriverPayConfig(planOf.get(id), fallback)));
   }
 
   const { computeClaimTotals } = await import("@/lib/claimAmount.server");

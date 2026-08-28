@@ -19,6 +19,8 @@
 import { buildIdempotencyKey, versionOfKey } from "@/lib/submissionIdempotency";
 import { resolveAccountKey } from "@/lib/submissionAccount.server";
 import { logAudit } from "@/lib/billingHelpers";
+import { DEFAULT_WAVE_SIZE, clampWaveSize, splitIntoWaves } from "@/lib/submissionWaves";
+import { countWave, holdBeyondFirstWave } from "@/lib/submissionWaves.server";
 
 export type BatchCandidate = {
   id: string;
@@ -34,13 +36,23 @@ export type BatchEnqueueResult = {
   enqueued: string[];
   duplicates: string[];
   failed: Array<{ id: string; reason: string }>;
+  /** Bills eligible at once; the rest are released automatically in waves. */
+  waveSize: number;
+  /** Enqueued but held back for a later wave. */
+  held: string[];
 };
 
 const ACTIVE_STATUSES = new Set(["queued", "submitting"]);
 
 async function createBatch(
   supabase: any,
-  args: { companyId: string | null; actorId: string | null; label: string | null; total: number },
+  args: {
+    companyId: string | null;
+    actorId: string | null;
+    label: string | null;
+    total: number;
+    waveSize: number;
+  },
 ): Promise<string | null> {
   try {
     const { data } = await supabase
@@ -50,6 +62,7 @@ async function createBatch(
         created_by: args.actorId,
         label: args.label,
         total_requested: args.total,
+        wave_size: args.waveSize,
       })
       .select("id")
       .maybeSingle();
@@ -66,10 +79,19 @@ export async function enqueueSubmissionBatch(
     actorId: string | null;
     candidates: BatchCandidate[];
     label?: string | null;
+    /** How many bills of this batch may be eligible at once (default 20). */
+    waveSize?: number;
   },
 ): Promise<BatchEnqueueResult> {
   const { candidates, actorId } = args;
-  const result: BatchEnqueueResult = { batchId: null, enqueued: [], duplicates: [], failed: [] };
+  const result: BatchEnqueueResult = {
+    batchId: null,
+    enqueued: [],
+    duplicates: [],
+    failed: [],
+    waveSize: clampWaveSize(args.waveSize ?? DEFAULT_WAVE_SIZE),
+    held: [],
+  };
   if (candidates.length === 0) return result;
 
   const companyId = candidates[0]?.companyId ?? null;
@@ -78,6 +100,7 @@ export async function enqueueSubmissionBatch(
     actorId,
     label: args.label ?? null,
     total: candidates.length,
+    waveSize: result.waveSize,
   });
 
   // One account-key lookup per company in the batch (usually exactly one).
@@ -163,6 +186,19 @@ export async function enqueueSubmissionBatch(
     }),
   );
 
+  // AUTOMATIC WAVES. Everything selected is already durably queued; only the
+  // first wave is made eligible for leasing. The scheduler releases the next
+  // slice as bills reach terminal outcomes, so a 100-bill batch runs itself
+  // without ever making more than `waveSize` bills eligible at once.
+  const enqueuedInOrder = candidates
+    .map((c) => c.id)
+    .filter((id) => result.enqueued.includes(id));
+  const { hold } = splitIntoWaves(enqueuedInOrder, result.waveSize);
+  if (hold.length) {
+    await holdBeyondFirstWave(supabase, hold);
+    result.held = hold;
+  }
+
   if (result.batchId) {
     try {
       await supabase
@@ -190,6 +226,11 @@ export type BatchProgress = {
   verifying: number;
   submitted: number;
   needs_attention: number;
+  /** Enqueued but held for a later wave. */
+  waiting: number;
+  wave_size: number;
+  completed: number;
+  wave_label: string;
   claim_ids: Array<{ id: string; claim_id: string }>;
   done: boolean;
 };
@@ -199,12 +240,12 @@ export async function getBatchProgress(supabase: any, batchId: string): Promise<
   const [{ data: batch }, { data: rows }] = await Promise.all([
     supabase
       .from("submission_batches")
-      .select("id, label, created_at, total_requested")
+      .select("id, label, created_at, total_requested, wave_size")
       .eq("id", batchId)
       .maybeSingle(),
     supabase
       .from("billing_records")
-      .select("id, status, requires_human_step, state_confirmation_number")
+      .select("id, status, requires_human_step, state_confirmation_number, submit_wave_hold")
       .eq("submit_batch_id", batchId),
   ]);
 
@@ -215,21 +256,27 @@ export async function getBatchProgress(supabase: any, batchId: string): Promise<
 
   const count = (fn: (r: any) => boolean) => list.filter(fn).length;
   const verifying = count((r: any) => r.requires_human_step && r.status === "needs_fix");
+  const waves = countWave(list);
+  const { waveProgressLabel, isWaveBatchDone } = await import("@/lib/submissionWaves");
 
   const progress: BatchProgress = {
     batchId,
     label: batch?.label ?? null,
     created_at: batch?.created_at ?? null,
     total_requested: Number(batch?.total_requested ?? list.length),
-    queued: count((r: any) => r.status === "queued"),
+    queued: count((r: any) => r.status === "queued" && !r.submit_wave_hold),
     processing: count((r: any) => r.status === "submitting"),
     verifying,
     submitted: count((r: any) => ["submitted", "paid", "approved"].includes(String(r.status))),
     needs_attention: count((r: any) => r.status === "needs_fix") - verifying,
+    waiting: waves.waiting,
+    wave_size: clampWaveSize(batch?.wave_size ?? DEFAULT_WAVE_SIZE),
+    completed: waves.completed,
+    wave_label: waveProgressLabel(waves),
     claim_ids,
     done: false,
   };
   progress.needs_attention = Math.max(0, progress.needs_attention);
-  progress.done = progress.queued === 0 && progress.processing === 0;
+  progress.done = isWaveBatchDone(waves);
   return progress;
 }
