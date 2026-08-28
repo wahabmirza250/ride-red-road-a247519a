@@ -175,13 +175,12 @@ describe("100-bill batch", () => {
     expect(batch.enqueued.length).toBe(100);
     expect(Date.now() - t0).toBeLessThan(4000);
 
-    // AUTOMATIC WAVES: all 100 are durably enqueued, but only the first wave of
-    // 20 is eligible; the other 80 wait and are released as slots free up.
+    // NO WAVE GATE: all 100 are durably queued and eligible right away; real
+    // portal concurrency is still bounded by the leasing caps below.
     const progress = await getBatchProgress(supabase, batch.batchId!);
-    expect(progress.queued).toBe(20);
-    expect(progress.waiting).toBe(80);
-    expect(progress.queued + progress.waiting).toBe(100);
+    expect(progress.queued).toBe(100);
     expect(progress.done).toBe(false);
+
 
     // The first bill fails hard on data; the queue keeps moving.
     failNext = "Indicates a required field.";

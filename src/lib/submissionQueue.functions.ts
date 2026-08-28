@@ -255,47 +255,16 @@ export const getSubmissionDoneFeed = createServerFn({ method: "POST" })
 
 
 /**
- * AUTO PILOT emergency toggle for ONE batch. New batches are always ON, so this
- * is never part of the normal workflow. Turning it OFF never cancels, pauses or alters anything that
- * is already released or submitting — it only stops promotion of held
- * future-wave rows. Turning it ON only promotes legitimate queued held rows of
- * that batch; nothing in Needs Attention or awaiting verification is retried.
+ * Release any bill a previous build left parked behind a wave gate. Kept as a
+ * one-click repair for ops; it only clears the hold on legitimate `queued`
+ * rows and never touches anything that is submitting or awaiting verification.
  */
-export const setBatchAutoPilot = createServerFn({ method: "POST" })
+export const releaseHeldSubmissions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z
-      .object({
-        batch_id: z.string().uuid(),
-        enabled: z.boolean(),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ context }) => {
     const { supabase, userId } = context;
     await assertBillingOrAdmin(supabase, userId);
-
-    const { error } = await supabase
-      .from("submission_batches")
-      .update({ auto_pilot: data.enabled, updated_at: new Date().toISOString() })
-      .eq("id", data.batch_id);
-    if (error) throw new Error(error.message);
-
-    let released = 0;
-    if (data.enabled) {
-      const { releaseNextWaveManually } = await import("@/lib/submissionWaves.server");
-      released = (await releaseNextWaveManually(supabase, data.batch_id)).released;
-    }
-    return { ok: true, auto_pilot: data.enabled, released };
+    const { releaseStrandedHolds } = await import("@/lib/submissionWaves.server");
+    return await releaseStrandedHolds(supabase);
   });
 
-/** Manual "Continue next wave" — releases the next up-to-N held rows of a batch. */
-export const continueNextWave = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ batch_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    await assertBillingOrAdmin(supabase, userId);
-    const { releaseNextWaveManually } = await import("@/lib/submissionWaves.server");
-    return await releaseNextWaveManually(supabase, data.batch_id);
-  });

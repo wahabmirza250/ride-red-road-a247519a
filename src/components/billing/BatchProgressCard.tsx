@@ -1,28 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { toast } from "sonner";
-import {
-  Loader2,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  ShieldQuestion,
-  X,
-  Rocket,
-  PlayCircle,
-} from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle, Clock, ShieldQuestion, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
-import {
-  continueNextWave,
-  getSubmissionBatchProgress,
-  setBatchAutoPilot,
-} from "@/lib/submissionQueue.functions";
+import { getSubmissionBatchProgress } from "@/lib/submissionQueue.functions";
 
 /**
- * Live progress for one "Submit batch" click. Purely presentational: it polls a
+ * Live progress for one "Submit" click. Purely presentational: it polls a
  * read-only, RLS-scoped summary and never shows worker or browser internals.
+ * There is no toggle and no manual step — everything selected is already
+ * queued and starts on its own.
  */
 export function BatchProgressCard({
   batchId,
@@ -31,63 +17,32 @@ export function BatchProgressCard({
   batchId: string;
   onDismiss: () => void;
 }) {
-  const qc = useQueryClient();
   const progressFn = useServerFn(getSubmissionBatchProgress);
-  const autoPilotFn = useServerFn(setBatchAutoPilot);
-  const nextWaveFn = useServerFn(continueNextWave);
   const { data } = useQuery({
     queryKey: ["submission_batch", batchId],
     queryFn: () => progressFn({ data: { batch_id: batchId } }) as any,
     refetchInterval: (q: any) => (q.state.data?.done ? false : 5000),
   });
 
-  const invalidate = () =>
-    void qc.invalidateQueries({ queryKey: ["submission_batch", batchId] });
-
-  const autoPilot = useMutation({
-    mutationFn: (enabled: boolean) => autoPilotFn({ data: { batch_id: batchId, enabled } }) as any,
-    onSuccess: (_r, enabled) => {
-      toast.success(
-        enabled
-          ? "Auto Pilot ON — the next wave starts automatically."
-          : "Auto Pilot OFF — bills already sent keep running; the rest wait.",
-      );
-      invalidate();
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not change Auto Pilot"),
-  });
-
-  const nextWave = useMutation({
-    mutationFn: () => nextWaveFn({ data: { batch_id: batchId } }) as any,
-    onSuccess: (r: any) => {
-      toast.success(`Released ${r?.released ?? 0} more bill(s).`);
-      invalidate();
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not release the next wave"),
-  });
-
   const p = data as any;
   const total = Number(p?.total_requested ?? 0);
   const submitted = Number(p?.submitted ?? 0);
   const completed = Number(p?.completed ?? submitted);
-  const waiting = Number(p?.waiting ?? 0);
-  const waveSize = Number(p?.wave_size ?? 20);
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
-  const autoOn = p?.auto_pilot !== false;
-  const currentWave = Number(p?.queued ?? 0) + Number(p?.processing ?? 0);
+  const sending = Number(p?.queued ?? 0) + Number(p?.processing ?? 0);
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold">
-            Batch progress{total ? ` — ${completed} of ${total} completed` : ""}
+            Submitting to the robot{total ? ` — ${completed} of ${total} done` : ""}
           </div>
           <div className="mt-0.5 text-xs text-muted-foreground">
-            {p?.wave_label ?? `Automatic waves of up to ${waveSize}`}
+            {p?.wave_label ?? "Everything selected is queued and starts automatically."}
           </div>
         </div>
-        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onDismiss} aria-label="Hide batch progress">
+        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onDismiss} aria-label="Hide progress">
           <X className="h-4 w-4" />
         </Button>
       </div>
@@ -96,55 +51,16 @@ export function BatchProgressCard({
         <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
       </div>
 
-      {/* AUTO PILOT — status first. ON is the normal, automatic workflow, so
-          nothing here asks the biller to act. */}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2">
-        <div className="flex items-center gap-2 text-xs">
-          <Rocket className={cn("h-4 w-4", autoOn ? "text-primary" : "text-muted-foreground")} />
-          <span className={cn(autoOn ? "text-muted-foreground" : "font-medium text-amber-600")}>
-            {p?.auto_pilot_label ??
-              (autoOn
-                ? "Auto Pilot ON — next wave starts automatically"
-                : "OFF — waiting after current wave")}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {!autoOn && waiting > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={nextWave.isPending}
-              onClick={() => nextWave.mutate()}
-            >
-              {nextWave.isPending ? (
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <PlayCircle className="mr-1 h-3.5 w-3.5" />
-              )}
-              Continue next wave
-            </Button>
-          )}
-          <Switch
-            checked={autoOn}
-            disabled={autoPilot.isPending}
-            onCheckedChange={(v) => autoPilot.mutate(v)}
-            aria-label="Auto Pilot"
-          />
-        </div>
-      </div>
-
       <div className="mt-2 text-xs text-muted-foreground">
-        Current wave: <span className="font-medium text-foreground">{currentWave}</span> of up to{" "}
-        {waveSize} · <span className="font-medium text-foreground">{waiting}</span> waiting for the
-        next waves
+        <span className="font-medium text-foreground">{sending}</span> still sending — you can keep
+        working, this keeps running on its own.
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
-        <Chip icon={<Clock className="h-3 w-3" />} label="Queued" value={p?.queued ?? 0} tone="sky" />
-        <Chip icon={<Clock className="h-3 w-3" />} label="Next waves" value={waiting} tone="slate" />
+        <Chip icon={<Clock className="h-3 w-3" />} label="Waiting" value={p?.queued ?? 0} tone="sky" />
         <Chip
           icon={<Loader2 className="h-3 w-3 animate-spin" />}
-          label="Processing"
+          label="Sending"
           value={p?.processing ?? 0}
           tone="amber"
         />
@@ -162,7 +78,7 @@ export function BatchProgressCard({
         />
         <Chip
           icon={<AlertTriangle className="h-3 w-3" />}
-          label="Needs attention"
+          label="Needs fix"
           value={p?.needs_attention ?? 0}
           tone="rose"
         />
@@ -181,10 +97,10 @@ export function BatchProgressCard({
         </div>
       )}
 
-      {p?.done && (p?.queued ?? 0) === 0 && (
+      {p?.done && (
         <div className="mt-3 text-xs text-muted-foreground">
-          Batch finished processing. Anything in “Needs attention” or “Verifying” is waiting on a
-          person — nothing is retried automatically.
+          Finished. Anything in “Needs fix” or “Verifying” is waiting on a person — nothing is
+          retried automatically.
         </div>
       )}
     </div>
