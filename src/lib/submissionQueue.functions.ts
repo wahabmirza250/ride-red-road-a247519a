@@ -253,3 +253,60 @@ export const getSubmissionDoneFeed = createServerFn({ method: "POST" })
     return getDoneFeed(supabase, { limit: data?.limit });
   });
 
+
+/**
+ * AUTO PILOT toggle for one batch (and, optionally, the company default for
+ * new batches). Turning it OFF never cancels, pauses or alters anything that
+ * is already released or submitting — it only stops promotion of held
+ * future-wave rows. Turning it ON only promotes legitimate queued held rows of
+ * that batch; nothing in Needs Attention or awaiting verification is retried.
+ */
+export const setBatchAutoPilot = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        batch_id: z.string().uuid(),
+        enabled: z.boolean(),
+        set_company_default: z.boolean().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertBillingOrAdmin(supabase, userId);
+
+    const { error } = await supabase
+      .from("submission_batches")
+      .update({ auto_pilot: data.enabled, updated_at: new Date().toISOString() })
+      .eq("id", data.batch_id);
+    if (error) throw new Error(error.message);
+
+    if (data.set_company_default) {
+      const { data: companyId } = await supabase.rpc("current_user_company_id");
+      if (companyId) {
+        await supabase
+          .from("billing_settings")
+          .update({ auto_pilot_default: data.enabled, updated_at: new Date().toISOString() })
+          .eq("company_id", companyId);
+      }
+    }
+
+    let released = 0;
+    if (data.enabled) {
+      const { releaseNextWaveManually } = await import("@/lib/submissionWaves.server");
+      released = (await releaseNextWaveManually(supabase, data.batch_id)).released;
+    }
+    return { ok: true, auto_pilot: data.enabled, released };
+  });
+
+/** Manual "Continue next wave" — releases the next up-to-N held rows of a batch. */
+export const continueNextWave = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ batch_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertBillingOrAdmin(supabase, userId);
+    const { releaseNextWaveManually } = await import("@/lib/submissionWaves.server");
+    return await releaseNextWaveManually(supabase, data.batch_id);
+  });
