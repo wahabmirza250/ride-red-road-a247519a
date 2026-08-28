@@ -1,8 +1,24 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, CheckCircle2, AlertTriangle, Clock, ShieldQuestion, X } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  ShieldQuestion,
+  X,
+  Rocket,
+  PlayCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getSubmissionBatchProgress } from "@/lib/submissionQueue.functions";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
+import {
+  continueNextWave,
+  getSubmissionBatchProgress,
+  setBatchAutoPilot,
+} from "@/lib/submissionQueue.functions";
 
 /**
  * Live progress for one "Submit batch" click. Purely presentational: it polls a
@@ -15,11 +31,39 @@ export function BatchProgressCard({
   batchId: string;
   onDismiss: () => void;
 }) {
+  const qc = useQueryClient();
   const progressFn = useServerFn(getSubmissionBatchProgress);
+  const autoPilotFn = useServerFn(setBatchAutoPilot);
+  const nextWaveFn = useServerFn(continueNextWave);
   const { data } = useQuery({
     queryKey: ["submission_batch", batchId],
     queryFn: () => progressFn({ data: { batch_id: batchId } }) as any,
     refetchInterval: (q: any) => (q.state.data?.done ? false : 5000),
+  });
+
+  const invalidate = () =>
+    void qc.invalidateQueries({ queryKey: ["submission_batch", batchId] });
+
+  const autoPilot = useMutation({
+    mutationFn: (enabled: boolean) => autoPilotFn({ data: { batch_id: batchId, enabled } }) as any,
+    onSuccess: (_r, enabled) => {
+      toast.success(
+        enabled
+          ? "Auto Pilot ON — the next wave starts automatically."
+          : "Auto Pilot OFF — bills already sent keep running; the rest wait.",
+      );
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not change Auto Pilot"),
+  });
+
+  const nextWave = useMutation({
+    mutationFn: () => nextWaveFn({ data: { batch_id: batchId } }) as any,
+    onSuccess: (r: any) => {
+      toast.success(`Released ${r?.released ?? 0} more bill(s).`);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not release the next wave"),
   });
 
   const p = data as any;
@@ -29,6 +73,8 @@ export function BatchProgressCard({
   const waiting = Number(p?.waiting ?? 0);
   const waveSize = Number(p?.wave_size ?? 20);
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const autoOn = p?.auto_pilot !== false;
+  const currentWave = Number(p?.queued ?? 0) + Number(p?.processing ?? 0);
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-4">
@@ -48,6 +94,50 @@ export function BatchProgressCard({
 
       <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
         <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+      </div>
+
+      {/* AUTO PILOT — one obvious control, no clutter. */}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <Rocket className={cn("h-4 w-4", autoOn ? "text-primary" : "text-muted-foreground")} />
+          <div className="text-xs">
+            <div className="font-semibold">Auto Pilot {autoOn ? "ON" : "OFF"}</div>
+            <div className="text-muted-foreground">
+              {p?.auto_pilot_label ??
+                (autoOn
+                  ? "Next wave starts automatically"
+                  : "Waiting after current wave")}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {!autoOn && waiting > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={nextWave.isPending}
+              onClick={() => nextWave.mutate()}
+            >
+              {nextWave.isPending ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <PlayCircle className="mr-1 h-3.5 w-3.5" />
+              )}
+              Continue next wave
+            </Button>
+          )}
+          <Switch
+            checked={autoOn}
+            disabled={autoPilot.isPending}
+            onCheckedChange={(v) => autoPilot.mutate(v)}
+            aria-label="Auto Pilot"
+          />
+        </div>
+      </div>
+
+      <div className="mt-2 text-xs text-muted-foreground">
+        Current wave: <span className="font-medium text-foreground">{currentWave}</span> of up to{" "}
+        {waveSize} · <span className="font-medium text-foreground">{waiting}</span> waiting
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
