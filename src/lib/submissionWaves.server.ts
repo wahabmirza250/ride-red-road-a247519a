@@ -12,6 +12,7 @@ import {
   waveReleaseCount,
   type WaveCounts,
 } from "@/lib/submissionWaves";
+import { shouldAutoPromote } from "@/lib/autoPilot";
 
 type Sb = any;
 
