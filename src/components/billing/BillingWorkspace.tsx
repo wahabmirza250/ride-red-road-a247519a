@@ -65,6 +65,8 @@ import { FixBillDialog } from "@/components/billing/FixBillDialog";
 import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
 import { AttentionArchiveControls } from "@/components/billing/AttentionArchiveControls";
 import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
+import { AutoPilotButton } from "@/components/billing/AutoPilotButton";
+
 import {
   BILLING_PAGE_DESCRIPTION,
   WAITING_FOR_SLOT_MESSAGE,
@@ -435,7 +437,9 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         }))}
         secondaryActiveLabel={secondaryActive ? secondaryLabel : null}
         onSelectSecondary={(k) => setTab(k as TabKey)}
+        trailing={<AutoPilotButton />}
       />
+
 
 
 
