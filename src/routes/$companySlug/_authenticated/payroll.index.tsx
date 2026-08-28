@@ -28,6 +28,7 @@ import {
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { PayPlanSettingsDialog } from "@/components/payroll/PayPlanSettingsDialog";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
+import { filterDrivers } from "@/lib/canonicalDriver";
 import { saveDriverPayPlan } from "@/lib/payPlanAdmin.functions";
 import {
   addManualHours,
