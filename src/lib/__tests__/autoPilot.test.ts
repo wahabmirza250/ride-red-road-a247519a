@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  AUTO_PILOT_NEW_BATCH_DEFAULT,
   autoPilotStatusLabel,
-  resolveAutoPilotDefault,
   shouldAutoPromote,
 } from "@/lib/autoPilot";
 import { splitIntoWaves } from "@/lib/submissionWaves";
@@ -88,14 +88,8 @@ const makeBatch = (n: number, autoPilot: boolean, activeStatuses: string[] = [])
 };
 
 describe("auto pilot preference", () => {
-  it("defaults to ON when a company has no stored preference", () => {
-    expect(resolveAutoPilotDefault(undefined)).toBe(true);
-    expect(resolveAutoPilotDefault(null)).toBe(true);
-  });
-
-  it("preserves an existing safer company preference", () => {
-    expect(resolveAutoPilotDefault(false)).toBe(false);
-    expect(resolveAutoPilotDefault(true)).toBe(true);
+  it("always starts NEW batches ON — review happens before Submit Batch", () => {
+    expect(AUTO_PILOT_NEW_BATCH_DEFAULT).toBe(true);
   });
 
   it("treats a missing batch flag as ON but an explicit false as OFF", () => {
@@ -128,7 +122,7 @@ describe("auto pilot promotion", () => {
     expect(JSON.stringify(db.bills.filter((b: any) => !b.submit_wave_hold))).toBe(before);
   });
 
-  it("OFF still allows a biller to continue the next wave manually", async () => {
+  it("keeps a manual release available as an emergency fallback when OFF", async () => {
     const db = makeBatch(27, false);
     const r = await releaseNextWaveManually(db, "b1");
     expect(r.released).toBe(20);

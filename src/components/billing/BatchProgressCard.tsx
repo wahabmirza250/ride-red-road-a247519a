@@ -96,19 +96,17 @@ export function BatchProgressCard({
         <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
       </div>
 
-      {/* AUTO PILOT — one obvious control, no clutter. */}
+      {/* AUTO PILOT — status first. ON is the normal, automatic workflow, so
+          nothing here asks the biller to act. */}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-xs">
           <Rocket className={cn("h-4 w-4", autoOn ? "text-primary" : "text-muted-foreground")} />
-          <div className="text-xs">
-            <div className="font-semibold">Auto Pilot {autoOn ? "ON" : "OFF"}</div>
-            <div className="text-muted-foreground">
-              {p?.auto_pilot_label ??
-                (autoOn
-                  ? "Next wave starts automatically"
-                  : "Waiting after current wave")}
-            </div>
-          </div>
+          <span className={cn(autoOn ? "text-muted-foreground" : "font-medium text-amber-600")}>
+            {p?.auto_pilot_label ??
+              (autoOn
+                ? "Auto Pilot ON — next wave starts automatically"
+                : "OFF — waiting after current wave")}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           {!autoOn && waiting > 0 && (
@@ -137,7 +135,8 @@ export function BatchProgressCard({
 
       <div className="mt-2 text-xs text-muted-foreground">
         Current wave: <span className="font-medium text-foreground">{currentWave}</span> of up to{" "}
-        {waveSize} · <span className="font-medium text-foreground">{waiting}</span> waiting
+        {waveSize} · <span className="font-medium text-foreground">{waiting}</span> waiting for the
+        next waves
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
