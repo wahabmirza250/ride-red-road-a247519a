@@ -55,6 +55,33 @@ describe("automatic waves", () => {
     expect(c).toEqual({ total: 6, waiting: 2, active: 2, completed: 2 });
   });
 
+  it("takes ALL remaining items when fewer than a full wave are left (47 => 20,20,7)", () => {
+    // A wave is a MAXIMUM, not a fixed size.
+    let remaining = Array.from({ length: 47 }, (_, i) => `b${i}`);
+    const waves: number[] = [];
+    while (remaining.length) {
+      const { release, hold } = splitIntoWaves(remaining, 20);
+      waves.push(release.length);
+      remaining = hold;
+    }
+    expect(waves).toEqual([20, 20, 7]);
+  });
+
+  it("runs a batch smaller than the wave size in a single wave (13 => 13)", () => {
+    const ids = Array.from({ length: 13 }, (_, i) => `b${i}`);
+    const { release, hold } = splitIntoWaves(ids, 20);
+    expect(release).toHaveLength(13);
+    expect(hold).toEqual([]);
+    expect(waveReleaseCount(0, 20)).toBeGreaterThanOrEqual(13);
+  });
+
+  it("refills with everything left when the tail is shorter than a wave", () => {
+    // 7 held, 0 active → all 7 become eligible at once, not padded to 20.
+    const room = waveReleaseCount(0, 20);
+    const tail = Array.from({ length: 7 }, (_, i) => `t${i}`);
+    expect(tail.slice(0, room)).toHaveLength(7);
+  });
+
   it("reports progress in human terms and finishes only when nothing is left", () => {
     const mid = { total: 100, waiting: 80, active: 20, completed: 0 };
     expect(waveProgressLabel(mid)).toContain("processing next wave");
