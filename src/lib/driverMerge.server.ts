@@ -19,7 +19,7 @@ type Sb = any;
 export const DRIVER_ROW_TABLES = [
   "trips",
   "driver_shifts",
-  "driver_pay_plans",
+  
   "driver_payouts",
   "driver_payout_items",
   "driver_claim_payouts",
