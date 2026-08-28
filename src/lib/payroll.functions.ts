@@ -48,16 +48,21 @@ function validPeriod(from: string, to: string) {
 
 type Sb = import("@supabase/supabase-js").SupabaseClient;
 
-/** Drivers of the caller's company with display names, in one query pair. */
+/** Drivers of the caller's company with display names, in one query pair.
+ *  Duplicate profiles that an admin merged away (`merged_into`) are excluded:
+ *  their work already belongs to the canonical driver, so listing them would
+ *  pay the same person twice. */
 async function loadDrivers(s: Sb, companyId: string | null, driverId?: string) {
-  let q: any = s.from("drivers").select("id, user_id, status");
+  let q: any = s.from("drivers").select("id, user_id, status, merged_into");
   if (companyId) q = q.eq("company_id", companyId);
   if (driverId) q = q.eq("id", driverId);
   const { data: drivers } = await q;
-  const rows = (drivers ?? []) as { id: string; user_id: string | null; status: string }[];
+  const rows = activeDrivers(
+    (drivers ?? []) as { id: string; user_id: string | null; status: string; merged_into?: string | null }[],
+  );
   const userIds = rows.map((d) => d.user_id).filter(Boolean) as string[];
   const { data: profiles } = userIds.length
-    ? await s.from("profiles").select("id, first_name, last_name, email").in("id", userIds)
+    ? await s.from("profiles").select("id, first_name, last_name, email, phone").in("id", userIds)
     : { data: [] as any[] };
   const pOf = new Map((profiles ?? []).map((p: any) => [p.id, p]));
   return rows.map((d) => {
