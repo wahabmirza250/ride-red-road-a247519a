@@ -148,7 +148,8 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
     const q = search.trim().toLowerCase();
     let list = allRows;
     if (!showAll && !q) list = list.filter(hasActivity);
-    if (q) list = list.filter((r) => r.name.toLowerCase().includes(q));
+    // Name, email or phone — one box, no filters.
+    if (q) list = filterDrivers(list.map((r) => ({ ...r, id: r.driver_id })), q);
     return list;
   }, [allRows, search, showAll]);
   const round2 = (n: number) => Math.round(n * 100) / 100;
