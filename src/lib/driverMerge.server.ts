@@ -42,6 +42,14 @@ export const DRIVER_ROW_TABLES = [
 /** Tables whose `driver_id` holds the driver's auth user id. */
 export const DRIVER_USER_TABLES = ["medicaid_trips", "messages"] as const;
 
+/**
+ * Pay-setting tables keyed one-row-per-driver (`driver_id` is the primary
+ * key). A blanket re-parent would collide, so the duplicate's saved rate is
+ * only adopted when the kept driver has no rate of its own — an existing,
+ * valid percentage is never overwritten.
+ */
+export const DRIVER_PAY_TABLES = ["driver_pay_plans", "driver_pay"] as const;
+
 export type MergePlan = {
   keeper: DriverIdentity;
   duplicate: DriverIdentity;
