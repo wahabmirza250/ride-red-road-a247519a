@@ -1,37 +1,21 @@
 /**
- * Wave orchestration (server-only). See `submissionWaves.ts` for the rules.
+ * BATCH COUNTING + LEGACY HOLD REPAIR (server-only).
  *
- * Nothing here ever touches a bill that is `submitting`, and nothing here ever
- * changes status, idempotency keys, account keys or attempt counters. Releasing
- * a wave only clears the hold flag and the far-future eligibility timestamp.
+ * Nothing in the app parks bills any more. This module only:
+ *   1. counts a batch for the progress card, and
+ *   2. RELEASES any row a previous build left held, so queued work can never
+ *      be stranded behind a wave gate.
+ *
+ * Releasing never changes status, idempotency keys, account keys or attempt
+ * counters, and never touches a row that is `submitting`.
  */
-import {
-  DEFAULT_WAVE_SIZE,
-  WAVE_HOLD_UNTIL,
-  clampWaveSize,
-  waveReleaseCount,
-  type WaveCounts,
-} from "@/lib/submissionWaves";
-import { shouldAutoPromote } from "@/lib/autoPilot";
+import { WAVE_HOLD_UNTIL, type WaveCounts } from "@/lib/submissionWaves";
 
 type Sb = any;
 
-/** Park every id beyond the first wave. Called right after a batch enqueue. */
-export async function holdBeyondFirstWave(
-  supabase: Sb,
-  ids: string[],
-): Promise<number> {
-  if (!ids.length) return 0;
-  const { error } = await supabase
-    .from("billing_records")
-    .update({ submit_wave_hold: true, submit_next_attempt_at: WAVE_HOLD_UNTIL })
-    .in("id", ids)
-    .eq("status", "queued");
-  if (error) return 0;
-  return ids.length;
-}
-
-export function countWave(rows: Array<{ status?: string | null; submit_wave_hold?: boolean | null }>): WaveCounts {
+export function countWave(
+  rows: Array<{ status?: string | null; submit_wave_hold?: boolean | null }>,
+): WaveCounts {
   let waiting = 0;
   let active = 0;
   let completed = 0;
@@ -45,108 +29,33 @@ export function countWave(rows: Array<{ status?: string | null; submit_wave_hold
 }
 
 /**
- * Release the next slice of ONE batch. Returns how many bills became eligible.
- * Idempotent and safe to call from every scheduler tick.
+ * Make every still-held queued bill eligible again. Idempotent, safe to call
+ * from every scheduler tick, and scoped to one company when asked.
  */
-export async function promoteBatchWave(
-  supabase: Sb,
-  batchId: string,
-  waveSize = DEFAULT_WAVE_SIZE,
-): Promise<number> {
-  const { data: rows, error } = await supabase
-    .from("billing_records")
-    .select("id, status, submit_wave_hold, created_at")
-    .eq("submit_batch_id", batchId);
-  if (error || !rows?.length) return 0;
-
-  const counts = countWave(rows);
-  if (counts.waiting === 0) return 0;
-
-  const room = waveReleaseCount(counts.active, waveSize);
-  if (room <= 0) return 0;
-
-  const next = rows
-    .filter((r: any) => r.submit_wave_hold && String(r.status) === "queued")
-    .sort((a: any, b: any) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")))
-    .slice(0, room)
-    .map((r: any) => r.id as string);
-  if (!next.length) return 0;
-
-  const { data: released } = await supabase
-    .from("billing_records")
-    .update({ submit_wave_hold: false, submit_next_attempt_at: null })
-    .in("id", next)
-    .eq("status", "queued")
-    .eq("submit_wave_hold", true)
-    .select("id");
-  return (released ?? []).length;
-}
-
-/**
- * Release the next wave of every batch that still has held work AND has Auto
- * Pilot ON. Batches with Auto Pilot OFF are skipped entirely: their held rows
- * keep waiting untouched until a biller releases them.
- * Company-scoped when a company id is supplied.
- */
-export async function promoteDueWaves(
+export async function releaseStrandedHolds(
   supabase: Sb,
   opts: { companyId?: string | null } = {},
-): Promise<{ batches: number; released: number }> {
+): Promise<{ released: number }> {
   let q = supabase
     .from("billing_records")
-    .select("submit_batch_id")
-    .eq("submit_wave_hold", true)
+    .update({ submit_wave_hold: false, submit_next_attempt_at: null })
     .eq("status", "queued")
-    .not("submit_batch_id", "is", null);
+    .eq("submit_wave_hold", true);
   if (opts.companyId) q = q.eq("company_id", opts.companyId);
-  const { data, error } = await q;
-  if (error) return { batches: 0, released: 0 };
-
-  const batchIds: string[] = [
-    ...new Set((data ?? []).map((r: any) => String(r.submit_batch_id))),
-  ] as string[];
-  if (!batchIds.length) return { batches: 0, released: 0 };
-
-  const { data: batches } = await supabase
-    .from("submission_batches")
-    .select("id, wave_size, auto_pilot")
-    .in("id", batchIds);
-  const byId = new Map<string, any>((batches ?? []).map((b: any) => [String(b.id), b]));
-
-  let released = 0;
-  let considered = 0;
-  for (const id of batchIds) {
-    const batch = byId.get(id);
-    if (!shouldAutoPromote(batch)) continue; // Auto Pilot OFF — hold safely.
-    considered++;
-    released += await promoteBatchWave(
-      supabase,
-      id,
-      clampWaveSize(batch?.wave_size ?? DEFAULT_WAVE_SIZE),
-    );
-  }
-  return { batches: considered, released };
+  const { data, error } = await q.select("id");
+  if (error) return { released: 0 };
+  return { released: (data ?? []).length };
 }
 
-/**
- * Biller-initiated "Continue next wave" for ONE batch. Identical mechanics to
- * the automatic path (it only clears the hold flag on legitimate `queued` rows
- * of this batch) and it ignores the Auto Pilot flag by design.
- */
-export async function releaseNextWaveManually(
+/** Backwards-compatible name used by the queue tick. */
+export const promoteDueWaves = async (
   supabase: Sb,
-  batchId: string,
-): Promise<{ released: number }> {
-  const { data: batch } = await supabase
-    .from("submission_batches")
-    .select("id, wave_size")
-    .eq("id", batchId)
-    .maybeSingle();
-  const released = await promoteBatchWave(
-    supabase,
-    batchId,
-    clampWaveSize(batch?.wave_size ?? DEFAULT_WAVE_SIZE),
-  );
-  return { released };
-}
+  opts: { companyId?: string | null } = {},
+): Promise<{ batches: number; released: number }> => {
+  const { released } = await releaseStrandedHolds(supabase, opts);
+  return { batches: released > 0 ? 1 : 0, released };
+};
 
+/** Any bill parked with the far-future timestamp is, by definition, stranded. */
+export const isStrandedHold = (row: { status?: string | null; submit_next_attempt_at?: string | null }) =>
+  String(row.status ?? "") === "queued" && String(row.submit_next_attempt_at ?? "") === WAVE_HOLD_UNTIL;
