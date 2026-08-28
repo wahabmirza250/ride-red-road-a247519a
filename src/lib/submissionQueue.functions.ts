@@ -255,8 +255,8 @@ export const getSubmissionDoneFeed = createServerFn({ method: "POST" })
 
 
 /**
- * AUTO PILOT toggle for one batch (and, optionally, the company default for
- * new batches). Turning it OFF never cancels, pauses or alters anything that
+ * AUTO PILOT emergency toggle for ONE batch. New batches are always ON, so this
+ * is never part of the normal workflow. Turning it OFF never cancels, pauses or alters anything that
  * is already released or submitting — it only stops promotion of held
  * future-wave rows. Turning it ON only promotes legitimate queued held rows of
  * that batch; nothing in Needs Attention or awaiting verification is retried.
@@ -268,7 +268,6 @@ export const setBatchAutoPilot = createServerFn({ method: "POST" })
       .object({
         batch_id: z.string().uuid(),
         enabled: z.boolean(),
-        set_company_default: z.boolean().optional(),
       })
       .parse(d),
   )
@@ -281,16 +280,6 @@ export const setBatchAutoPilot = createServerFn({ method: "POST" })
       .update({ auto_pilot: data.enabled, updated_at: new Date().toISOString() })
       .eq("id", data.batch_id);
     if (error) throw new Error(error.message);
-
-    if (data.set_company_default) {
-      const { data: companyId } = await supabase.rpc("current_user_company_id");
-      if (companyId) {
-        await supabase
-          .from("billing_settings")
-          .update({ auto_pilot_default: data.enabled, updated_at: new Date().toISOString() })
-          .eq("company_id", companyId);
-      }
-    }
 
     let released = 0;
     if (data.enabled) {
