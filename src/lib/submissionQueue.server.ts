@@ -872,15 +872,28 @@ export async function runSubmissionQueueTick(
     opts.companyId ?? null,
   );
 
-  // AUTOMATIC WAVES. Bills held back from a large batch become eligible as the
-  // current wave drains. This changes eligibility only — per-account capacity,
-  // fleet limits and one-live-claim-per-rider still decide real concurrency.
+  // SAFETY NET: release anything an older build parked behind a wave gate, so
+  // queued work can never sit invisible.
   try {
     const { promoteDueWaves } = await import("@/lib/submissionWaves.server");
     await promoteDueWaves(supabase, { companyId: opts.companyId ?? null });
   } catch {
-    /* wave promotion is best-effort; held bills simply wait for the next tick */
+    /* best effort */
   }
+
+  // AUTO PILOT. If a run is active, top its wave up with the next eligible
+  // bills through the normal safe submit path. This is what makes "press once
+  // and walk away" work without a browser open.
+  try {
+    const { feedAutoPilot } = await import("@/lib/autoPilot.server");
+    await feedAutoPilot(supabase, {
+      companyId: opts.companyId ?? null,
+      userId: opts.actorId ?? null,
+    });
+  } catch {
+    /* a feeding hiccup must never break a tick; the next one retries */
+  }
+
 
   const budget = SUBMIT_RUN_BUDGET_MS();
   let dispatch = {
