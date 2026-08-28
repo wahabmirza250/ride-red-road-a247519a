@@ -435,7 +435,9 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         }))}
         secondaryActiveLabel={secondaryActive ? secondaryLabel : null}
         onSelectSecondary={(k) => setTab(k as TabKey)}
+        trailing={<AutoPilotButton />}
       />
+
 
 
 
