@@ -10,9 +10,9 @@ Target project (mirror, empty): `pycvnhjzfjdyegjmvchs`
 - Generator: `scripts/build_target_bootstrap.py`
 
 ## Exceptions applied in the combined file
-1. `20260819155525_821bb0d5-77f3-46b1-83c3-f63bb5cad4d2.sql` — cron.schedule/net.http_post block commented out (would point the mirror at the production endpoint with the production anon key). Extensions `pg_cron`/`pg_net` are still created.
+1. `20260819155525_821bb0d5-77f3-46b1-83c3-f63bb5cad4d2.sql` - cron.schedule/net.http_post block commented out (would point the mirror at the production endpoint with the production anon key). Extensions `pg_cron`/`pg_net` are still created.
 2. Vault-backed secrets (SSN, portal credentials) are referenced by functions but their values are not migrated; re-enter on target.
-3. Storage buckets are not created by SQL — create the 15 private buckets on the target first.
+3. Storage buckets are not created by SQL - create the 15 private buckets on the target first.
 4. No auth.users rows, no application data, no credentials are included.
 
 ## Migrations, in execution order

@@ -1,5 +1,5 @@
 -- =====================================================================
--- RedArt — TARGET BOOTSTRAP (schema only, generated, DO NOT EDIT BY HAND)
+-- RedArt - TARGET BOOTSTRAP (schema only, generated, DO NOT EDIT BY HAND)
 -- Generated from supabase/migrations/*.sql in chronological filename order.
 -- Regenerate with: python3 scripts/build_target_bootstrap.py
 --
@@ -39,7 +39,7 @@
 --   2. vault.create_secret / vault.decrypted_secrets are referenced inside
 --      several SECURITY DEFINER functions (SSN + portal-credential storage).
 --      Those function bodies compile fine on a fresh project, but the secrets
---      themselves are NOT migrated — vault contents must be re-entered on the
+--      themselves are NOT migrated - vault contents must be re-entered on the
 --      target by a human. No plaintext secret appears in this file.
 --   3. Policies on storage.objects are included; they are inert until the
 --      matching buckets exist (see PREREQUISITES).
