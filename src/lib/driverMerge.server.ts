@@ -19,7 +19,7 @@ type Sb = any;
 export const DRIVER_ROW_TABLES = [
   "trips",
   "driver_shifts",
-  "driver_pay_plans",
+  
   "driver_payouts",
   "driver_payout_items",
   "driver_claim_payouts",
@@ -41,6 +41,14 @@ export const DRIVER_ROW_TABLES = [
 
 /** Tables whose `driver_id` holds the driver's auth user id. */
 export const DRIVER_USER_TABLES = ["medicaid_trips", "messages"] as const;
+
+/**
+ * Pay-setting tables keyed one-row-per-driver (`driver_id` is the primary
+ * key). A blanket re-parent would collide, so the duplicate's saved rate is
+ * only adopted when the kept driver has no rate of its own — an existing,
+ * valid percentage is never overwritten.
+ */
+export const DRIVER_PAY_TABLES = ["driver_pay_plans", "driver_pay"] as const;
 
 export type MergePlan = {
   keeper: DriverIdentity;
@@ -121,6 +129,10 @@ export async function previewDriverMerge(
       }
     }
   }
+  for (const t of DRIVER_PAY_TABLES) {
+    const n = await countRows(s, t, "driver_id", duplicate.id);
+    if (n > 0) counts[t] = n; // adopted only if the keeper has no saved rate
+  }
   return {
     keeper,
     duplicate,
@@ -180,11 +192,38 @@ export async function mergeDriverRecords(
     }
   }
 
+  // Pay settings: the kept driver's own saved rate always wins. The
+  // duplicate's rate is only carried over when the keeper has none, so a merge
+  // can never wipe or silently change a configured percentage.
+  for (const t of DRIVER_PAY_TABLES) {
+    if (!plan.counts[t]) continue;
+    const { data: existing } = await s
+      .from(t)
+      .select("driver_id")
+      .eq("driver_id", plan.keeper.id)
+      .maybeSingle();
+    if (existing) continue;
+    const { data, error } = await s
+      .from(t)
+      .update({ driver_id: plan.keeper.id })
+      .eq("driver_id", plan.duplicate.id)
+      .select("driver_id");
+    if (error) throw new Error(`Could not move ${t}: ${error.message}`);
+    moved[t] = (data ?? []).length;
+    total += moved[t];
+  }
+
   // The duplicate row is retired, never deleted: audit history keeps pointing
-  // at a real record, and a mistake stays reversible.
+  // at a real record, and a mistake stays reversible. `merged_into` is what
+  // payroll and the drivers list use to treat the pair as one person.
   await s
     .from("drivers")
-    .update({ status: "offline", unit_number: null })
+    .update({
+      status: "offline",
+      unit_number: null,
+      merged_into: plan.keeper.id,
+      merged_at: new Date().toISOString(),
+    })
     .eq("id", plan.duplicate.id);
 
   // Audit trail: payroll_audit_log allows company-scoped, item-less entries.

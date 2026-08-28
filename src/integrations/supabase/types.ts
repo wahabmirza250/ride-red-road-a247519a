@@ -1819,6 +1819,8 @@ export type Database = {
           id: string
           last_location_at: string | null
           license_number: string | null
+          merged_at: string | null
+          merged_into: string | null
           photo_url: string | null
           rating: number
           status: Database["public"]["Enums"]["driver_status"]
@@ -1848,6 +1850,8 @@ export type Database = {
           id?: string
           last_location_at?: string | null
           license_number?: string | null
+          merged_at?: string | null
+          merged_into?: string | null
           photo_url?: string | null
           rating?: number
           status?: Database["public"]["Enums"]["driver_status"]
@@ -1877,6 +1881,8 @@ export type Database = {
           id?: string
           last_location_at?: string | null
           license_number?: string | null
+          merged_at?: string | null
+          merged_into?: string | null
           photo_url?: string | null
           rating?: number
           status?: Database["public"]["Enums"]["driver_status"]
@@ -1899,6 +1905,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drivers_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
         ]

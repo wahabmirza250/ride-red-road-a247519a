@@ -165,7 +165,7 @@ export const getEarningsSummary = createServerFn({ method: "POST" })
     await assertAdmin(context.supabase, context.userId);
     const s = context.supabase;
     const [{ data: drivers }, { data: pays }, { data: shifts }] = await Promise.all([
-      s.from("drivers").select("id, user_id, status"),
+      s.from("drivers").select("id, user_id, status").is("merged_into", null),
       s.from("driver_pay").select("driver_id, hourly_rate"),
       s
         .from("driver_shifts")

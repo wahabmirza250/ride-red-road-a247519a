@@ -34,7 +34,7 @@ export async function resolveDriverPayForClaims(
   const out = new Map<string, ClaimDriverPay>();
   if (!trips.length) return out;
 
-  let dq = s.from("drivers").select("id, user_id, company_id");
+  let dq = s.from("drivers").select("id, user_id, company_id").is("merged_into", null);
   if (companyId) dq = dq.eq("company_id", companyId);
   const { data: drivers } = await dq;
   const driverRows = (drivers ?? []) as any[];

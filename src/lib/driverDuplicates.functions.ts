@@ -25,7 +25,9 @@ export const listDuplicateDrivers = createServerFn({ method: "POST" })
     const { data: drivers, error } = await supabase
       .from("drivers")
       .select("id, user_id, company_id, created_at, total_trips")
-      .eq("company_id", companyId);
+      .eq("company_id", companyId)
+      // Already-merged duplicates are resolved history, not open candidates.
+      .is("merged_into", null);
     if (error) throw new Error(error.message);
 
     const userIds = (drivers ?? []).map((d: any) => d.user_id).filter(Boolean) as string[];

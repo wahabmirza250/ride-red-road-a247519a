@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, Star, Trash2, Camera, Car } from "lucide-react";
+import { Plus, Loader2, Star, Trash2, Camera, Car, Search } from "lucide-react";
 import { toast } from "sonner";
 import { createDriver, deleteDriver } from "@/lib/admin.functions";
 import { useServerFn } from "@tanstack/react-start";
@@ -32,6 +32,7 @@ import { DriverPayPanel } from "@/components/admin/DriverPayPanel";
 import { DriverActivityPanel } from "@/components/admin/DriverActivityPanel";
 import { GasReceiptsPanel } from "@/components/expenses/GasReceiptsPanel";
 import { DuplicateDriversPanel } from "@/components/admin/DuplicateDriversPanel";
+import { filterDrivers } from "@/lib/canonicalDriver";
 
 export const Route = createFileRoute("/$companySlug/_authenticated/drivers")({
   component: DriversPage,
@@ -46,6 +47,7 @@ type DriverRow = {
   vehicle_year: number | null;
   vehicle_plate: string | null;
   vehicle_color: string | null;
+  merged_into: string | null;
   photo_url: string | null;
   vehicle_photo_path: string | null;
   status: "available" | "busy" | "offline";
@@ -80,10 +82,13 @@ function useDrivers() {
         : { data: [] as ProfileRow[] };
       const map = new Map<string, ProfileRow>();
       (profs ?? []).forEach((p) => map.set(p.id, p));
-      return (drivers ?? []).map((d) => ({
-        ...(d as DriverRow),
-        profile: map.get(d.user_id) ?? null,
-      }));
+      return (drivers ?? [])
+        // A driver merged into another profile is history, not a live driver.
+        .filter((d) => !(d as DriverRow).merged_into)
+        .map((d) => ({
+          ...(d as DriverRow),
+          profile: map.get(d.user_id) ?? null,
+        }));
     },
   });
 }
@@ -92,6 +97,18 @@ function DriversPage() {
   const drivers = useDrivers();
   const [openNew, setOpenNew] = useState(false);
   const [edit, setEdit] = useState<DriverWithProfile | null>(null);
+  const [search, setSearch] = useState("");
+
+  const visible = filterDrivers(
+    (drivers.data ?? []).map((d) => ({
+      ...d,
+      first_name: d.profile?.first_name ?? null,
+      last_name: d.profile?.last_name ?? null,
+      email: d.profile?.email ?? null,
+      phone: d.profile?.phone ?? null,
+    })),
+    search,
+  );
 
   return (
     <div className="space-y-6">
@@ -110,6 +127,21 @@ function DriversPage() {
         }
       />
 
+      <div className="relative max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          placeholder="Search name, email, phone, driver ID, licence, plate…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      {search.trim() && (
+        <p className="-mt-3 text-xs text-muted-foreground">
+          Showing {visible.length} of {drivers.data?.length ?? 0} drivers.
+        </p>
+      )}
+
       <DuplicateDriversPanel />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -118,7 +150,7 @@ function DriversPage() {
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
         )}
-        {drivers.data?.map((d) => (
+        {visible.map((d) => (
           <button
             key={d.id}
             onClick={() => setEdit(d)}
@@ -171,9 +203,11 @@ function DriversPage() {
             </div>
           </button>
         ))}
-        {!drivers.isLoading && !drivers.data?.length && (
+        {!drivers.isLoading && !visible.length && (
           <div className="col-span-full rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-            No drivers yet. Add your first driver above.
+            {search.trim()
+              ? `No driver matches “${search.trim()}”.`
+              : "No drivers yet. Add your first driver above."}
           </div>
         )}
       </div>
