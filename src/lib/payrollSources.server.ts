@@ -19,6 +19,7 @@ import {
   type ShiftLike,
 } from "@/lib/payrollCalc";
 import {
+  mergeDriverPayConfig,
   planUsesCommission,
   planUsesHours,
   planUsesTrips,
@@ -84,11 +85,13 @@ export async function loadPayPlans(
           hourly_rate: old.hourly_rate ?? null,
           commission_percentage: old.payout_percentage ?? null,
           per_trip_amount: null,
-          commission_base: old.pay_type === "commission" ? "paid_claims" : null,
+          commission_base: (old.pay_type === "commission" ? "paid_claims" : null) as any,
           per_trip_source: null,
         }
       : null;
-    out.set(id, resolvePayPlan(company ?? {}, override ?? fallback));
+    // Merge field-by-field: a modern override never erases a percentage that
+    // was really saved on the legacy Driver Pay row.
+    out.set(id, resolvePayPlan(company ?? {}, mergeDriverPayConfig(override, fallback)));
   }
   return out;
 }

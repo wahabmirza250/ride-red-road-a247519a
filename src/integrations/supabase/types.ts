@@ -158,6 +158,9 @@ export type Database = {
       }
       billing_records: {
         Row: {
+          attention_archive_reason: string | null
+          attention_archived_at: string | null
+          attention_archived_by: string | null
           auto_retry_count: number
           company_id: string | null
           created_at: string
@@ -191,6 +194,7 @@ export type Database = {
           submit_lease_started_at: string | null
           submit_locked_until: string | null
           submit_next_attempt_at: string | null
+          submit_wave_hold: boolean
           submit_worker: string | null
           submitted_at: string | null
           trip_form_id: string | null
@@ -198,6 +202,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attention_archive_reason?: string | null
+          attention_archived_at?: string | null
+          attention_archived_by?: string | null
           auto_retry_count?: number
           company_id?: string | null
           created_at?: string
@@ -231,6 +238,7 @@ export type Database = {
           submit_lease_started_at?: string | null
           submit_locked_until?: string | null
           submit_next_attempt_at?: string | null
+          submit_wave_hold?: boolean
           submit_worker?: string | null
           submitted_at?: string | null
           trip_form_id?: string | null
@@ -238,6 +246,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attention_archive_reason?: string | null
+          attention_archived_at?: string | null
+          attention_archived_by?: string | null
           auto_retry_count?: number
           company_id?: string | null
           created_at?: string
@@ -271,6 +282,7 @@ export type Database = {
           submit_lease_started_at?: string | null
           submit_locked_until?: string | null
           submit_next_attempt_at?: string | null
+          submit_wave_hold?: boolean
           submit_worker?: string | null
           submitted_at?: string | null
           trip_form_id?: string | null
@@ -3716,6 +3728,7 @@ export type Database = {
           total_rejected: number
           total_requested: number
           updated_at: string
+          wave_size: number
         }
         Insert: {
           company_id?: string | null
@@ -3727,6 +3740,7 @@ export type Database = {
           total_rejected?: number
           total_requested?: number
           updated_at?: string
+          wave_size?: number
         }
         Update: {
           company_id?: string | null
@@ -3738,6 +3752,7 @@ export type Database = {
           total_rejected?: number
           total_requested?: number
           updated_at?: string
+          wave_size?: number
         }
         Relationships: [
           {

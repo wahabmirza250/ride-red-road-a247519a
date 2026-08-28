@@ -31,6 +31,7 @@ import { useSignedUrl } from "@/lib/signedUrl";
 import { DriverPayPanel } from "@/components/admin/DriverPayPanel";
 import { DriverActivityPanel } from "@/components/admin/DriverActivityPanel";
 import { GasReceiptsPanel } from "@/components/expenses/GasReceiptsPanel";
+import { DuplicateDriversPanel } from "@/components/admin/DuplicateDriversPanel";
 
 export const Route = createFileRoute("/$companySlug/_authenticated/drivers")({
   component: DriversPage,
@@ -108,6 +109,8 @@ function DriversPage() {
           </Dialog>
         }
       />
+
+      <DuplicateDriversPanel />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {drivers.isLoading && (

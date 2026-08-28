@@ -134,6 +134,23 @@ export const setDriverPayoutPercentage = createServerFn({ method: "POST" })
         { onConflict: "driver_id" },
       );
     if (error) throw new Error(error.message);
+
+    // KEEP BOTH STORES IN STEP. Payroll resolves a driver's plan from
+    // `driver_pay_plans`; if an override row already exists for this driver it
+    // must not keep shadowing the percentage the admin just saved here. Only an
+    // EXISTING override row is touched — no plan is invented for a driver who
+    // has none, so nothing is ever guessed.
+    const { data: existing } = await supabase
+      .from("driver_pay_plans")
+      .select("driver_id")
+      .eq("driver_id", data.driver_id)
+      .maybeSingle();
+    if (existing) {
+      await supabase
+        .from("driver_pay_plans")
+        .update({ commission_percentage: data.payout_percentage })
+        .eq("driver_id", data.driver_id);
+    }
     return { ok: true, payout_percentage: data.payout_percentage };
   });
 

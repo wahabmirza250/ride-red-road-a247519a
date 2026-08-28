@@ -39,6 +39,9 @@ export const listBillingRecords = createServerFn({ method: "POST" })
         // PERF: page the list instead of shipping every matching bill.
         limit: z.number().int().min(1).max(500).optional(),
         offset: z.number().int().min(0).optional(),
+        // Needs Attention archive: resolved rows are hidden from the active
+        // worklist but stay fully readable (and auditable) on request.
+        include_archived: z.boolean().optional(),
       })
       .parse(d),
   )
@@ -51,13 +54,14 @@ export const listBillingRecords = createServerFn({ method: "POST" })
     const { pageRange } = await import("@/lib/billingPage");
     const page = pageRange(data.limit, data.offset);
 
-    const { data: rows, error } = await supabase
+    let query = supabase
       .from("billing_records")
       .select(
         `id, trip_id, status, reviewed_at, fix_notes, rejection_reason,
          submitted_at, state_confirmation_number, submission_error,
          submit_last_error, failure_code,
          requires_human_step, updated_at,
+         attention_archived_at, attention_archive_reason,
          medicaid_trips!inner(
            id, pickup_at, pickup_address, dropoff_address, driver_id, paper_driver_name, state_pdf_path,
            robot_job_id, robot_last_status, robot_last_message, robot_job_started_at,
@@ -65,7 +69,9 @@ export const listBillingRecords = createServerFn({ method: "POST" })
            riders(full_name, medicaid_id)
          )`,
       )
-      .in("status", statuses)
+      .in("status", statuses);
+    if (!data.include_archived) query = query.is("attention_archived_at", null);
+    const { data: rows, error } = await query
       .order("updated_at", { ascending: false })
       .range(page.from, page.to);
     if (error) throw new Error(error.message);
@@ -105,6 +111,8 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       submit_last_error: r.submit_last_error ?? null,
       failure_code: r.failure_code ?? null,
       requires_human_step: r.requires_human_step,
+      attention_archived_at: r.attention_archived_at ?? null,
+      attention_archive_reason: r.attention_archive_reason ?? null,
       updated_at: r.updated_at,
       passenger_name: r.medicaid_trips?.riders?.full_name ?? null,
       medicaid_id: r.medicaid_trips?.riders?.medicaid_id ?? null,

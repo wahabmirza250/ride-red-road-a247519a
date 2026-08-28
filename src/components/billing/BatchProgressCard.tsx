@@ -25,13 +25,21 @@ export function BatchProgressCard({
   const p = data as any;
   const total = Number(p?.total_requested ?? 0);
   const submitted = Number(p?.submitted ?? 0);
-  const pct = total > 0 ? Math.round((submitted / total) * 100) : 0;
+  const completed = Number(p?.completed ?? submitted);
+  const waiting = Number(p?.waiting ?? 0);
+  const waveSize = Number(p?.wave_size ?? 20);
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="text-sm font-semibold">
-          Batch progress{total ? ` — ${submitted} of ${total} submitted` : ""}
+        <div>
+          <div className="text-sm font-semibold">
+            Batch progress{total ? ` — ${completed} of ${total} completed` : ""}
+          </div>
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            {p?.wave_label ?? `Automatic waves of up to ${waveSize}`}
+          </div>
         </div>
         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onDismiss} aria-label="Hide batch progress">
           <X className="h-4 w-4" />
@@ -44,6 +52,7 @@ export function BatchProgressCard({
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
         <Chip icon={<Clock className="h-3 w-3" />} label="Queued" value={p?.queued ?? 0} tone="sky" />
+        <Chip icon={<Clock className="h-3 w-3" />} label="Next waves" value={waiting} tone="slate" />
         <Chip
           icon={<Loader2 className="h-3 w-3 animate-spin" />}
           label="Processing"
@@ -99,6 +108,7 @@ const TONES: Record<string, string> = {
   emerald: "bg-emerald-500/10 text-emerald-600",
   violet: "bg-violet-500/10 text-violet-600",
   rose: "bg-rose-500/10 text-rose-600",
+  slate: "bg-muted text-muted-foreground",
 };
 
 function Chip({

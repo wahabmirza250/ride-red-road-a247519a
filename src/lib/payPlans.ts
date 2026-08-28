@@ -72,6 +72,47 @@ const num = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+const isSet = (v: unknown) => v !== null && v !== undefined && v !== "";
+
+/**
+ * FIELD-BY-FIELD MERGE OF THE TWO PER-DRIVER STORES.
+ *
+ * A driver's pay can be saved in two places: the modern `driver_pay_plans`
+ * override and the legacy `driver_pay` row that the Driver Pay screen writes
+ * (`payout_percentage` / `hourly_rate` / `pay_type`). Taking one row wholesale
+ * silently dropped a percentage that was really saved — e.g. an override that
+ * only set a plan shadowed the legacy 65%.
+ *
+ * The merge only ever FILLS IN missing fields; a value present on the modern
+ * override always wins, and nothing here invents a rate.
+ */
+export function mergeDriverPayConfig(
+  override: Partial<PayPlanConfig> | null | undefined,
+  legacy: Partial<PayPlanConfig> | null | undefined,
+): Partial<PayPlanConfig> | null {
+  if (!override && !legacy) return null;
+  const keys: (keyof PayPlanConfig)[] = [
+    "plan",
+    "hourly_rate",
+    "commission_percentage",
+    "per_trip_amount",
+    "commission_base",
+    "per_trip_source",
+  ];
+  const out: Record<string, unknown> = {};
+  for (const k of keys) {
+    const o = override ? (override as Record<string, unknown>)[k] : null;
+    const l = legacy ? (legacy as Record<string, unknown>)[k] : null;
+    out[k] = isSet(o) ? o : isSet(l) ? l : null;
+  }
+  // A saved percentage with no explicit base still pays on state-paid claims,
+  // which is what the legacy commission payout always did.
+  if (isSet(out["commission_percentage"]) && !isSet(out["commission_base"])) {
+    out["commission_base"] = "paid_claims";
+  }
+  return out as Partial<PayPlanConfig>;
+}
+
 /** Company defaults + per-driver override → the plan actually in force. */
 export function resolvePayPlan(
   company: Partial<PayPlanConfig> & { default_plan?: PayPlan | null } = {},
