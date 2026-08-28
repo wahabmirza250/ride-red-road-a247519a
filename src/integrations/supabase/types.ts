@@ -68,6 +68,51 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_pilot_runs: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          last_feed_at: string | null
+          last_note: string | null
+          scope_ids: Json | null
+          started_by: string | null
+          status: string
+          stopped_at: string | null
+          total_enqueued: number
+          total_requested: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          last_feed_at?: string | null
+          last_note?: string | null
+          scope_ids?: Json | null
+          started_by?: string | null
+          status?: string
+          stopped_at?: string | null
+          total_enqueued?: number
+          total_requested?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          last_feed_at?: string | null
+          last_note?: string | null
+          scope_ids?: Json | null
+          started_by?: string | null
+          status?: string
+          stopped_at?: string | null
+          total_enqueued?: number
+          total_requested?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       billing_audit_log: {
         Row: {
           action: string
