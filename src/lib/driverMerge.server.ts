@@ -129,6 +129,10 @@ export async function previewDriverMerge(
       }
     }
   }
+  for (const t of DRIVER_PAY_TABLES) {
+    const n = await countRows(s, t, "driver_id", duplicate.id);
+    if (n > 0) counts[t] = n; // adopted only if the keeper has no saved rate
+  }
   return {
     keeper,
     duplicate,
