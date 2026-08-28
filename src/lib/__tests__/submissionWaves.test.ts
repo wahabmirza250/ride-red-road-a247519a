@@ -1,50 +1,57 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_WAVE_SIZE,
+  WAVE_HOLD_UNTIL,
   clampWaveSize,
   isWaveBatchDone,
-  splitIntoWaves,
   waveProgressLabel,
-  waveReleaseCount,
 } from "@/lib/submissionWaves";
-import { countWave } from "@/lib/submissionWaves.server";
+import { countWave, isStrandedHold, releaseStrandedHolds } from "@/lib/submissionWaves.server";
+import {
+  classifyEnqueueOutcome,
+  isActiveQueueStatus,
+} from "@/lib/submissionEnqueueOutcome";
 
 const rows = (spec: Array<[string, boolean?]>) =>
   spec.map(([status, hold]) => ({ status, submit_wave_hold: Boolean(hold) }));
 
-describe("automatic waves", () => {
-  it("keeps the wave size sane", () => {
+/** Minimal fake of the two chained Supabase calls used by the repair sweep. */
+function fakeDb(records: Array<{ id: string; status: string; submit_wave_hold: boolean }>) {
+  return {
+    from() {
+      const filters: Array<(r: any) => boolean> = [];
+      let patch: any = null;
+      const api: any = {
+        update(p: any) {
+          patch = p;
+          return api;
+        },
+        eq(col: string, val: any) {
+          filters.push((r) => r[col] === val);
+          return api;
+        },
+        select() {
+          const hit = records.filter((r) => filters.every((f) => f(r)));
+          for (const r of hit) Object.assign(r, patch);
+          return Promise.resolve({ data: hit.map((r) => ({ id: r.id })), error: null });
+        },
+      };
+      return api;
+    },
+  };
+}
+
+describe("batch progress counting", () => {
+  it("keeps the display cap sane", () => {
     expect(clampWaveSize(20)).toBe(20);
     expect(clampWaveSize(0)).toBe(1);
     expect(clampWaveSize(500)).toBe(50);
     expect(clampWaveSize("nonsense")).toBe(DEFAULT_WAVE_SIZE);
   });
 
-  it("releases only the first 20 of a 100-bill batch", () => {
-    const ids = Array.from({ length: 100 }, (_, i) => `b${i}`);
-    const { release, hold } = splitIntoWaves(ids, 20);
-    expect(release).toHaveLength(20);
-    expect(hold).toHaveLength(80);
-    expect(release[0]).toBe("b0");
-    expect(hold[0]).toBe("b20");
-  });
-
-  it("never holds anything when the batch fits in one wave", () => {
-    expect(splitIntoWaves(["a", "b"], 20).hold).toEqual([]);
-  });
-
-  it("only refills the wave as slots free up", () => {
-    expect(waveReleaseCount(20, 20)).toBe(0);
-    expect(waveReleaseCount(17, 20)).toBe(3);
-    expect(waveReleaseCount(0, 20)).toBe(20);
-    // Never negative, even if more is somehow active than the wave allows.
-    expect(waveReleaseCount(25, 20)).toBe(0);
-  });
-
   it("counts held, active and completed bills separately", () => {
     const c = countWave(
       rows([
-        ["queued", true],
         ["queued", true],
         ["queued"],
         ["submitting"],
@@ -52,42 +59,69 @@ describe("automatic waves", () => {
         ["needs_fix"],
       ]),
     );
-    expect(c).toEqual({ total: 6, waiting: 2, active: 2, completed: 2 });
-  });
-
-  it("takes ALL remaining items when fewer than a full wave are left (47 => 20,20,7)", () => {
-    // A wave is a MAXIMUM, not a fixed size.
-    let remaining = Array.from({ length: 47 }, (_, i) => `b${i}`);
-    const waves: number[] = [];
-    while (remaining.length) {
-      const { release, hold } = splitIntoWaves(remaining, 20);
-      waves.push(release.length);
-      remaining = hold;
-    }
-    expect(waves).toEqual([20, 20, 7]);
-  });
-
-  it("runs a batch smaller than the wave size in a single wave (13 => 13)", () => {
-    const ids = Array.from({ length: 13 }, (_, i) => `b${i}`);
-    const { release, hold } = splitIntoWaves(ids, 20);
-    expect(release).toHaveLength(13);
-    expect(hold).toEqual([]);
-    expect(waveReleaseCount(0, 20)).toBeGreaterThanOrEqual(13);
-  });
-
-  it("refills with everything left when the tail is shorter than a wave", () => {
-    // 7 held, 0 active → all 7 become eligible at once, not padded to 20.
-    const room = waveReleaseCount(0, 20);
-    const tail = Array.from({ length: 7 }, (_, i) => `t${i}`);
-    expect(tail.slice(0, room)).toHaveLength(7);
+    expect(c).toEqual({ total: 5, waiting: 1, active: 2, completed: 2 });
   });
 
   it("reports progress in human terms and finishes only when nothing is left", () => {
-    const mid = { total: 100, waiting: 80, active: 20, completed: 0 };
-    expect(waveProgressLabel(mid)).toContain("processing next wave");
+    const mid = { total: 100, waiting: 0, active: 20, completed: 80 };
+    expect(waveProgressLabel(mid)).toContain("still sending");
     expect(isWaveBatchDone(mid)).toBe(false);
     const done = { total: 100, waiting: 0, active: 0, completed: 100 };
     expect(waveProgressLabel(done)).toBe("100 of 100 completed · batch finished");
     expect(isWaveBatchDone(done)).toBe(true);
+  });
+});
+
+describe("no queued work can be stranded", () => {
+  it("recognises a bill parked by an older build", () => {
+    expect(isStrandedHold({ status: "queued", submit_next_attempt_at: WAVE_HOLD_UNTIL })).toBe(true);
+    expect(isStrandedHold({ status: "queued", submit_next_attempt_at: null })).toBe(false);
+    expect(isStrandedHold({ status: "submitting", submit_next_attempt_at: WAVE_HOLD_UNTIL })).toBe(
+      false,
+    );
+  });
+
+  it("releases every held queued bill and never touches submitting ones", async () => {
+    const records = [
+      { id: "a", status: "queued", submit_wave_hold: true },
+      { id: "b", status: "queued", submit_wave_hold: true },
+      { id: "c", status: "submitting", submit_wave_hold: true },
+      { id: "d", status: "queued", submit_wave_hold: false },
+    ];
+    const res = await releaseStrandedHolds(fakeDb(records) as any);
+    expect(res.released).toBe(2);
+    expect(records.find((r) => r.id === "a")!.submit_wave_hold).toBe(false);
+    expect(records.find((r) => r.id === "c")!.submit_wave_hold).toBe(true);
+  });
+});
+
+describe("enqueue outcome is never a silent duplicate", () => {
+  it("treats a successful flip as enqueued", () => {
+    expect(classifyEnqueueOutcome({ updated: 1 }).kind).toBe("enqueued");
+  });
+
+  it("only calls it a duplicate with real evidence", () => {
+    expect(classifyEnqueueOutcome({ updated: 0, statusAfter: "queued" }).kind).toBe("duplicate");
+    expect(classifyEnqueueOutcome({ updated: 0, statusAfter: "submitting" }).kind).toBe("duplicate");
+    expect(classifyEnqueueOutcome({ updated: 0, errorCode: "23505" }).kind).toBe("duplicate");
+  });
+
+  it("reports a real failure instead of hiding it as a duplicate", () => {
+    const noop = classifyEnqueueOutcome({ updated: 0, statusAfter: "approved" });
+    expect(noop.kind).toBe("failed");
+    expect(noop.kind === "failed" && noop.reason).toContain("approved");
+
+    const unreadable = classifyEnqueueOutcome({ updated: 0, readable: false });
+    expect(unreadable.kind).toBe("failed");
+
+    const errored = classifyEnqueueOutcome({ updated: 0, errorMessage: "boom" });
+    expect(errored.kind).toBe("failed");
+  });
+
+  it("knows which statuses count as already in the queue", () => {
+    expect(isActiveQueueStatus("queued")).toBe(true);
+    expect(isActiveQueueStatus("submitting")).toBe(true);
+    expect(isActiveQueueStatus("approved")).toBe(false);
+    expect(isActiveQueueStatus(null)).toBe(false);
   });
 });
