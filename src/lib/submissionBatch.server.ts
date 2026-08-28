@@ -21,28 +21,7 @@ import { resolveAccountKey } from "@/lib/submissionAccount.server";
 import { logAudit } from "@/lib/billingHelpers";
 import { DEFAULT_WAVE_SIZE, clampWaveSize, splitIntoWaves } from "@/lib/submissionWaves";
 import { countWave, holdBeyondFirstWave } from "@/lib/submissionWaves.server";
-import { autoPilotStatusLabel, resolveAutoPilotDefault } from "@/lib/autoPilot";
-
-/**
- * Company-level Auto Pilot preference. New batches inherit it; when a company
- * has never expressed one, Auto Pilot is ON.
- */
-export async function resolveCompanyAutoPilot(
-  supabase: any,
-  companyId: string | null,
-): Promise<boolean> {
-  if (!companyId) return resolveAutoPilotDefault(undefined);
-  try {
-    const { data } = await supabase
-      .from("billing_settings")
-      .select("auto_pilot_default")
-      .eq("company_id", companyId)
-      .maybeSingle();
-    return resolveAutoPilotDefault(data?.auto_pilot_default);
-  } catch {
-    return resolveAutoPilotDefault(undefined);
-  }
-}
+import { AUTO_PILOT_NEW_BATCH_DEFAULT, autoPilotStatusLabel } from "@/lib/autoPilot";
 
 export type BatchCandidate = {
   id: string;
@@ -122,7 +101,8 @@ export async function enqueueSubmissionBatch(
   if (candidates.length === 0) return result;
 
   const companyId = candidates[0]?.companyId ?? null;
-  const autoPilot = await resolveCompanyAutoPilot(supabase, companyId);
+  // Reviewed batches always run themselves: 20 -> 20 -> remainder, no manual step.
+  const autoPilot = AUTO_PILOT_NEW_BATCH_DEFAULT;
   result.autoPilot = autoPilot;
   result.batchId = await createBatch(supabase, {
     companyId,
