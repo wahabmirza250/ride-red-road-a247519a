@@ -45,7 +45,7 @@ export const SYNC_BATCH_SIZE = maxGlobal();
  *  anything unfinished is released and picked up by the next tick. Kept at
  *  45s: a 100s budget outlived the request itself, so the run stats were
  *  never written back even though the checks themselves ran. */
-export const RUN_BUDGET_MS = envInt("CLAIM_STATUS_RUN_BUDGET_MS", 45_000, 10_000, 240_000);
+export const RUN_BUDGET_MS = envInt("CLAIM_STATUS_RUN_BUDGET_MS", 100_000, 10_000, 240_000);
 
 /** Manual kicks only enqueue; this ceiling exists for direct/server callers. */
 export const MANUAL_RUN_BUDGET_MS = envInt("CLAIM_STATUS_MANUAL_BUDGET_MS", 60_000, 5_000, 180_000);
@@ -161,6 +161,25 @@ export function isFinalCheckerJobState(state: string | null | undefined): boolea
   return (FINAL_CHECKER_JOB_STATES as readonly string[]).includes(String(state ?? "").toLowerCase());
 }
 
+/** Skip a tick once the checker service already has this many jobs waiting. */
+export const CHECKER_QUEUE_LIMIT = envInt("CLAIM_STATUS_CHECKER_QUEUE_LIMIT", 40, 1, 5_000);
+
+/** Read the checker service's own queue depth (never throws). */
+export async function checkerQueueDepth(
+  doFetch: typeof fetch,
+): Promise<{ active: number; queued: number } | null> {
+  try {
+    const res = await doFetch(`${CLAIM_STATUS_CHECKER_URL}/`, { method: "GET" });
+    if (!res.ok) return null;
+    const body: any = await res.json().catch(() => null);
+    if (!body || typeof body.queued !== "number") return null;
+    return { active: Number(body.active ?? 0), queued: Number(body.queued) };
+  } catch {
+    return null;
+  }
+}
+
+
 
 
 /** Look up ONE claim through the checker service (start job, poll until done). */
@@ -168,6 +187,8 @@ export async function checkOneClaim(
   companyId: string | null,
   claimNumber: string,
   doFetch: typeof fetch,
+  /** Optional hard wall-clock stop (run budget). Never poll past it. */
+  hardDeadline?: number,
 ): Promise<{ ok: true; row: LookupRow } | { ok: false; detail: string }> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const apiKey = process.env["ROBOT_API_KEY"] ?? process.env["CLAIM_STATUS_API_KEY"];
@@ -191,8 +212,12 @@ export async function checkOneClaim(
     return { ok: false, detail: `checker unreachable: ${e?.message ?? e}` };
   }
 
-  const deadline = Date.now() + CHECK_POLL_TIMEOUT_MS;
+  const deadline = Math.min(
+    Date.now() + CHECK_POLL_TIMEOUT_MS,
+    hardDeadline ?? Number.POSITIVE_INFINITY,
+  );
   while (Date.now() < deadline) {
+
     await new Promise((r) => setTimeout(r, CHECK_POLL_INTERVAL_MS));
     let body: any;
     try {
@@ -484,7 +509,7 @@ export async function claimStatusHealth(supabase: any): Promise<ClaimStatusHealt
 async function processJob(
   supabase: any,
   job: LeasedJob,
-  opts: { actorId?: string | null; fetchImpl?: typeof fetch },
+  opts: { actorId?: string | null; fetchImpl?: typeof fetch; deadline?: number },
 ): Promise<SyncClaimOutcome & { ok: boolean }> {
   const started = Date.now();
   const base = {
@@ -493,7 +518,12 @@ async function processJob(
     previous: job.status,
   };
   try {
-    const out = await checkOneClaim(job.company_id, job.claim_number, opts.fetchImpl ?? fetch);
+    const out = await checkOneClaim(
+      job.company_id,
+      job.claim_number,
+      opts.fetchImpl ?? fetch,
+      opts.deadline,
+    );
     const tookMs = Date.now() - started;
 
     if (!out.ok) {
@@ -649,10 +679,24 @@ export async function runClaimStatusSync(
     .maybeSingle();
   if (state?.paused) return { ...empty, reason: state.pause_reason ?? "Claim status sync is paused." };
 
+  // Back-pressure: the checker service runs a small browser pool with an
+  // in-memory queue. Ticks that were cancelled mid-flight used to keep
+  // enqueueing new jobs behind the ones they abandoned, so the service piled
+  // up thousands of never-served jobs and every fresh job waited behind them.
+  // If the service is already saturated, do nothing this tick.
+  const depth = await checkerQueueDepth(opts.fetchImpl ?? fetch);
+  if (depth && depth.queued > CHECKER_QUEUE_LIMIT) {
+    return {
+      ...empty,
+      reason: `Status-checking service is backed up (${depth.queued} jobs waiting, ${depth.active} running). Waiting for it to drain instead of queueing more.`,
+    };
+  }
+
   const result: SyncRunResult = { ...empty };
   const startedAt = Date.now();
   // Self-heal first: anything a crashed worker left locked becomes eligible.
   await releaseStaleLocks(supabase);
+
   try {
     const jobs = await leaseClaimStatusJobs(supabase, {
       globalLimit: opts.recordIds?.length ? opts.recordIds.length : globalCap,
@@ -670,7 +714,11 @@ export async function runClaimStatusSync(
     result.companies = new Set(jobs.map((j) => j.company_id)).size;
 
     const leftover = await runPool(jobs, { perCompany, global: globalCap, deadline }, async (job) => {
-      const outcome = await processJob(supabase, job, { actorId: opts.actorId ?? null, fetchImpl: opts.fetchImpl });
+      const outcome = await processJob(supabase, job, {
+        actorId: opts.actorId ?? null,
+        fetchImpl: opts.fetchImpl,
+        deadline,
+      });
       result.outcomes.push(outcome);
       if (!outcome.ok) result.skipped++;
       else {
