@@ -660,10 +660,24 @@ export async function runClaimStatusSync(
     .maybeSingle();
   if (state?.paused) return { ...empty, reason: state.pause_reason ?? "Claim status sync is paused." };
 
+  // Back-pressure: the checker service runs a small browser pool with an
+  // in-memory queue. Ticks that were cancelled mid-flight used to keep
+  // enqueueing new jobs behind the ones they abandoned, so the service piled
+  // up thousands of never-served jobs and every fresh job waited behind them.
+  // If the service is already saturated, do nothing this tick.
+  const depth = await checkerQueueDepth(opts.fetchImpl ?? fetch);
+  if (depth && depth.queued > CHECKER_QUEUE_LIMIT) {
+    return {
+      ...empty,
+      reason: `Status-checking service is backed up (${depth.queued} jobs waiting, ${depth.active} running). Waiting for it to drain instead of queueing more.`,
+    };
+  }
+
   const result: SyncRunResult = { ...empty };
   const startedAt = Date.now();
   // Self-heal first: anything a crashed worker left locked becomes eligible.
   await releaseStaleLocks(supabase);
+
   try {
     const jobs = await leaseClaimStatusJobs(supabase, {
       globalLimit: opts.recordIds?.length ? opts.recordIds.length : globalCap,
