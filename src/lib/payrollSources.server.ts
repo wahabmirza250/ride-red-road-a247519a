@@ -217,16 +217,20 @@ export async function collectWork(
 
   // ---- Commission: claims the STATE paid, valued by the billing engine.
   if (needClaims.length) {
-    const { data: mTrips } = await s
-      .from("medicaid_trips")
-      .select(
-        "id, company_id, vehicle_type, odometer_start, odometer_end, pickup_at, driver_id, paper_driver_name, robot_captured_claim, riders(full_name), medicaid_trip_legs(leg_index, pickup_odometer, dropoff_odometer)",
-      )
-      .gte("pickup_at", from)
-      .lte("pickup_at", to)
-      .limit(5000);
+    // Paged: the row cap silently truncated large pay periods.
+    const { selectAllPages } = await import("@/lib/dbChunk");
+    const rows = (await selectAllPages<any>(() =>
+      s
+        .from("medicaid_trips")
+        .select(
+          "id, company_id, vehicle_type, odometer_start, odometer_end, pickup_at, driver_id, paper_driver_name, robot_captured_claim, riders(full_name), medicaid_trip_legs(leg_index, pickup_odometer, dropoff_odometer)",
+        )
+        .gte("pickup_at", from)
+        .lte("pickup_at", to)
+        .order("id", { ascending: true }),
+    )) as any[];
 
-    const rows = (mTrips ?? []) as any[];
+
     const ownerOf = new Map<string, string>(); // medicaid trip id -> driver_id
     for (const t of rows) {
       const match = needClaims.find(
@@ -238,15 +242,16 @@ export async function collectWork(
     }
     const claimTripIds = [...ownerOf.keys()];
     if (claimTripIds.length) {
-      const [{ data: records }, lockedNew, { data: legacyItems }] = await Promise.all([
-        s.from("billing_records").select("trip_id, status").in("trip_id", claimTripIds),
+      // Chunked: an oversized `in(...)` filter silently returned nothing, which
+      // made state-paid claims look unpaid and zeroed commission pay.
+      const { selectIn } = await import("@/lib/dbChunk");
+      const [records, lockedNew, legacyItems] = await Promise.all([
+        selectIn<any>(s, "billing_records", "trip_id, status", "trip_id", claimTripIds),
         lockedRefs(s, "claim", claimTripIds),
-        s.from("driver_claim_payout_items").select("trip_id").in("trip_id", claimTripIds),
+        selectIn<any>(s, "driver_claim_payout_items", "trip_id", "trip_id", claimTripIds),
       ]);
-      const paid = new Set(
-        ((records ?? []) as any[]).filter((r) => r.status === "paid").map((r) => r.trip_id),
-      );
-      const legacyLocked = new Set(((legacyItems ?? []) as any[]).map((i) => i.trip_id));
+      const paid = new Set(records.filter((r) => r.status === "paid").map((r) => r.trip_id));
+      const legacyLocked = new Set(legacyItems.map((i) => i.trip_id));
       const payableRows = rows.filter(
         (t) => paid.has(t.id) && !lockedNew.has(t.id) && !legacyLocked.has(t.id) && ownerOf.has(t.id),
       );
