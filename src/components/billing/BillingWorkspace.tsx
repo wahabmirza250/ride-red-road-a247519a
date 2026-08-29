@@ -147,12 +147,16 @@ const TABS: {
   },
   {
     // Only bills that can actually be sent. Anything a human has to touch
-    // first lives in Needs Attention and is filtered out client-side.
+    // first lives in Needs Attention. IMPORTANT: fetch ONLY `approved` here.
+    // Fetching needs_fix too meant one page of results could be entirely
+    // needs_fix rows, so the tab rendered "nothing waiting" while the badge
+    // (a head count of eligible approved rows) said 19.
     key: "ready_to_submit",
     label: "Ready to Submit",
-    statuses: ["approved", "needs_fix"],
+    statuses: ["approved"],
     countKeys: ["ready_to_submit"],
   },
+
   {
     // The human worklist: failed data checks, human-step flags and uncertain
     // HCPF outcomes — worked separately from the send flow.
