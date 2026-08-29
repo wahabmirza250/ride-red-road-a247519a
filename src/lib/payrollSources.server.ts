@@ -217,16 +217,20 @@ export async function collectWork(
 
   // ---- Commission: claims the STATE paid, valued by the billing engine.
   if (needClaims.length) {
-    const { data: mTrips } = await s
-      .from("medicaid_trips")
-      .select(
-        "id, company_id, vehicle_type, odometer_start, odometer_end, pickup_at, driver_id, paper_driver_name, robot_captured_claim, riders(full_name), medicaid_trip_legs(leg_index, pickup_odometer, dropoff_odometer)",
-      )
-      .gte("pickup_at", from)
-      .lte("pickup_at", to)
-      .limit(5000);
+    // Paged: the row cap silently truncated large pay periods.
+    const { selectAllPages } = await import("@/lib/dbChunk");
+    const rows = (await selectAllPages<any>(() =>
+      s
+        .from("medicaid_trips")
+        .select(
+          "id, company_id, vehicle_type, odometer_start, odometer_end, pickup_at, driver_id, paper_driver_name, robot_captured_claim, riders(full_name), medicaid_trip_legs(leg_index, pickup_odometer, dropoff_odometer)",
+        )
+        .gte("pickup_at", from)
+        .lte("pickup_at", to)
+        .order("id", { ascending: true }),
+    )) as any[];
 
-    const rows = (mTrips ?? []) as any[];
+
     const ownerOf = new Map<string, string>(); // medicaid trip id -> driver_id
     for (const t of rows) {
       const match = needClaims.find(
