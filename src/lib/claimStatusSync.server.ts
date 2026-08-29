@@ -168,6 +168,8 @@ export async function checkOneClaim(
   companyId: string | null,
   claimNumber: string,
   doFetch: typeof fetch,
+  /** Optional hard wall-clock stop (run budget). Never poll past it. */
+  hardDeadline?: number,
 ): Promise<{ ok: true; row: LookupRow } | { ok: false; detail: string }> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const apiKey = process.env["ROBOT_API_KEY"] ?? process.env["CLAIM_STATUS_API_KEY"];
