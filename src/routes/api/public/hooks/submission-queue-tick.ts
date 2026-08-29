@@ -51,7 +51,22 @@ export const Route = createFileRoute("/api/public/hooks/submission-queue-tick")(
           });
         }
 
-        const companies = [...new Set((rows ?? []).map((r: any) => r.company_id))];
+        // Companies with an ACTIVE AUTO PILOT RUN are always ticked, even when
+        // nothing is queued or sending right now — otherwise a run that fully
+        // drains its wave has no tick left to feed the next one.
+        const { data: autoRows } = await supabaseAdmin
+          .from("auto_pilot_runs")
+          .select("company_id")
+          .eq("status", "running");
+
+
+        const companies = [
+          ...new Set([
+            ...(rows ?? []).map((r: any) => r.company_id),
+            ...(autoRows ?? []).map((r: any) => r.company_id),
+          ]),
+        ];
+
         const started = Date.now();
         const budget = SUBMIT_RUN_BUDGET_MS();
         const results: any[] = [];

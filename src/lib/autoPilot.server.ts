@@ -4,19 +4,36 @@
  * State lives in `auto_pilot_runs`, so a refresh, a new tab, a redeploy or a
  * worker restart changes nothing: the queue tick keeps feeding the run.
  */
-import { AUTO_PILOT_WAVE, isRunComplete, nextFeedSize, type AutoPilotState } from "@/lib/autoPilot";
+import {
+  AUTO_PILOT_WAVE,
+  fillWave,
+  isRunComplete,
+  nextFeedSize,
+  type AutoPilotState,
+} from "@/lib/autoPilot";
+import { requiresManualVerification } from "@/lib/needsVerification";
 import { submitSelectedRecords } from "@/lib/submitSelection.server";
 
 type Sb = any;
 
-/** Bills a biller could legitimately press Submit on right now. */
+/**
+ * Bills a biller could legitimately press Submit on right now.
+ *
+ * Bills awaiting a MANUAL HCPF verification are excluded here. They stay
+ * `approved`, so without this filter they came back at the head of every wave,
+ * were refused by the safe submit path every time, and starved the queue.
+ */
 export async function listEligibleBillIds(
   supabase: Sb,
   opts: { companyId?: string | null; scopeIds?: string[] | null; limit?: number } = {},
 ): Promise<string[]> {
   let q = supabase
     .from("billing_records")
-    .select("id")
+    .select(
+      `id, status, requires_human_step, failure_code, submission_error, submit_last_error,
+       state_confirmation_number,
+       medicaid_trips!inner(robot_last_status, robot_confirmation_number, submitted_confirmation)`,
+    )
     .in("status", ["approved", "needs_fix"])
     .not("requires_human_step", "is", true)
     .is("state_confirmation_number", null)
@@ -27,8 +44,24 @@ export async function listEligibleBillIds(
   if (opts.scopeIds?.length) q = q.in("id", opts.scopeIds);
   const { data, error } = await q;
   if (error) return [];
-  return (data ?? []).map((r: any) => r.id as string);
+  return (data ?? [])
+    .filter((r: any) => {
+      const trip = r.medicaid_trips ?? {};
+      return !requiresManualVerification({
+        status: r.status,
+        requires_human_step: r.requires_human_step,
+        failure_code: r.failure_code,
+        submission_error: r.submission_error,
+        submit_last_error: r.submit_last_error,
+        state_confirmation_number: r.state_confirmation_number,
+        robot_confirmation_number: trip.robot_confirmation_number ?? null,
+        submitted_confirmation: trip.submitted_confirmation ?? null,
+        robot_last_status: trip.robot_last_status ?? null,
+      });
+    })
+    .map((r: any) => r.id as string);
 }
+
 
 /** Queued + sending in this company lane right now. */
 export async function countInFlight(supabase: Sb, companyId: string | null): Promise<number> {
@@ -162,11 +195,23 @@ export async function feedAutoPilot(
   const actor = args.userId ?? run.started_by ?? null;
   if (!actor) return { enqueued: 0, remaining: eligible.length, finished: false };
 
-  // SAME PATH AS THE SUBMIT BUTTON — never a shortcut around preflight,
-  // idempotency or the uncertain-outcome guards.
-  const res = await submitSelectedRecords(supabase, actor, {
-    ids: eligible.slice(0, take),
-    label: `Auto Pilot wave (${take})`,
+  // TOP THE WAVE UP TO 20. Bills the safe path refuses do not consume the wave:
+  // the next untried candidates take their place. SAME PATH AS THE SUBMIT
+  // BUTTON — never a shortcut around preflight, idempotency or the
+  // uncertain-outcome guards.
+  let skippedTotal = 0;
+  const res = await fillWave({
+    eligible,
+    inFlight,
+    wave: AUTO_PILOT_WAVE,
+    submit: async (ids) => {
+      const out = await submitSelectedRecords(supabase, actor, {
+        ids,
+        label: `Auto Pilot wave (${ids.length})`,
+      });
+      skippedTotal += out.skipped.length;
+      return { queued: out.queued };
+    },
   });
 
   await supabase
@@ -174,9 +219,10 @@ export async function feedAutoPilot(
     .update({
       total_enqueued: Number(run.total_enqueued ?? 0) + res.queued,
       last_feed_at: new Date().toISOString(),
-      last_note: res.skipped.length ? `${res.skipped.length} not sent in this wave` : null,
+      last_note: skippedTotal ? `${skippedTotal} not sent in this wave` : null,
     })
     .eq("id", run.id);
+
 
   return {
     enqueued: res.queued,
