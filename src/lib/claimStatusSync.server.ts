@@ -161,6 +161,25 @@ export function isFinalCheckerJobState(state: string | null | undefined): boolea
   return (FINAL_CHECKER_JOB_STATES as readonly string[]).includes(String(state ?? "").toLowerCase());
 }
 
+/** Skip a tick once the checker service already has this many jobs waiting. */
+export const CHECKER_QUEUE_LIMIT = envInt("CLAIM_STATUS_CHECKER_QUEUE_LIMIT", 40, 1, 5_000);
+
+/** Read the checker service's own queue depth (never throws). */
+export async function checkerQueueDepth(
+  doFetch: typeof fetch,
+): Promise<{ active: number; queued: number } | null> {
+  try {
+    const res = await doFetch(`${CLAIM_STATUS_CHECKER_URL}/`, { method: "GET" });
+    if (!res.ok) return null;
+    const body: any = await res.json().catch(() => null);
+    if (!body || typeof body.queued !== "number") return null;
+    return { active: Number(body.active ?? 0), queued: Number(body.queued) };
+  } catch {
+    return null;
+  }
+}
+
+
 
 
 /** Look up ONE claim through the checker service (start job, poll until done). */
