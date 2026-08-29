@@ -78,6 +78,8 @@ import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/Driv
 import { BILLING_PAGE_SIZE } from "@/lib/billingPage";
 import { needsFixSummary } from "@/lib/needsFixCategory";
 import { requiresManualVerification } from "@/lib/needsVerification";
+import { partitionBillingRows, attentionReasonLabel } from "@/lib/needsAttention";
+
 import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
 
