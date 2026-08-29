@@ -195,11 +195,23 @@ export async function feedAutoPilot(
   const actor = args.userId ?? run.started_by ?? null;
   if (!actor) return { enqueued: 0, remaining: eligible.length, finished: false };
 
-  // SAME PATH AS THE SUBMIT BUTTON — never a shortcut around preflight,
-  // idempotency or the uncertain-outcome guards.
-  const res = await submitSelectedRecords(supabase, actor, {
-    ids: eligible.slice(0, take),
-    label: `Auto Pilot wave (${take})`,
+  // TOP THE WAVE UP TO 20. Bills the safe path refuses do not consume the wave:
+  // the next untried candidates take their place. SAME PATH AS THE SUBMIT
+  // BUTTON — never a shortcut around preflight, idempotency or the
+  // uncertain-outcome guards.
+  let skippedTotal = 0;
+  const res = await fillWave({
+    eligible,
+    inFlight,
+    wave: AUTO_PILOT_WAVE,
+    submit: async (ids) => {
+      const out = await submitSelectedRecords(supabase, actor, {
+        ids,
+        label: `Auto Pilot wave (${ids.length})`,
+      });
+      skippedTotal += out.skipped.length;
+      return { queued: out.queued };
+    },
   });
 
   await supabase
@@ -207,9 +219,10 @@ export async function feedAutoPilot(
     .update({
       total_enqueued: Number(run.total_enqueued ?? 0) + res.queued,
       last_feed_at: new Date().toISOString(),
-      last_note: res.skipped.length ? `${res.skipped.length} not sent in this wave` : null,
+      last_note: skippedTotal ? `${skippedTotal} not sent in this wave` : null,
     })
     .eq("id", run.id);
+
 
   return {
     enqueued: res.queued,
