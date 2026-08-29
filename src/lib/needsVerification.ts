@@ -36,6 +36,32 @@ export const VERIFICATION_ROBOT_STATUSES = [
 export const VERIFIED_NOT_SUBMITTED_STATUS = "VERIFIED_NOT_SUBMITTED";
 
 /**
+ * PRE-SUBMIT failures: the portal rejected or never reached the claim form, so
+ * no claim can exist. These are ordinary data corrections — they must stay
+ * editable, never quarantined behind a manual HCPF check.
+ */
+export const PRE_SUBMIT_ROBOT_STATUSES = [
+  "PORTAL_STEP1_VALIDATION_FAILED",
+  "PORTAL_VALIDATION_FAILED",
+  "VALIDATION_FAILED",
+  "LOGIN_FAILED",
+  "PORTAL_NAVIGATION_FAILED",
+] as const;
+
+/** Failure codes raised before anything was submitted. */
+export const PRE_SUBMIT_FAILURE_CODES = [
+  "missing_required_data",
+  "validation_failed",
+  "portal_validation_failed",
+  "worker_capacity",
+  "worker_unavailable",
+  "account_busy",
+  "portal_navigation",
+  "login_failed",
+] as const;
+
+
+/**
  * Text proving the job had already been ACCEPTED by a worker when it died.
  * "worker unavailable" only counts as ambiguous in this case.
  */
@@ -84,9 +110,12 @@ export function requiresManualVerification(rec: VerificationCandidate): boolean 
   const robot = String(rec.robot_last_status ?? "");
   if ((VERIFICATION_ROBOT_STATUSES as readonly string[]).includes(robot)) return true;
   if (robot === VERIFIED_NOT_SUBMITTED_STATUS) return false;
+  // The portal rejected the form before it was ever submitted — plain data fix.
+  if ((PRE_SUBMIT_ROBOT_STATUSES as readonly string[]).includes(robot)) return false;
 
   const code = String(rec.failure_code ?? "");
   if ((VERIFICATION_FAILURE_CODES as readonly string[]).includes(code)) return true;
+  if ((PRE_SUBMIT_FAILURE_CODES as readonly string[]).includes(code)) return false;
 
   const msgs = messagesOf(rec);
   const postAcceptance = msgs.some((m) => POST_ACCEPTANCE_PATTERNS.some((re) => re.test(m)));
@@ -97,10 +126,9 @@ export function requiresManualVerification(rec: VerificationCandidate): boolean 
   // verification case — that stays an ordinary recoverable queue case.
   if (rec.requires_human_step) {
     if (msgs.length && msgs.every((m) => isPreSubmitPacingCondition(m))) return false;
-    if (code === "worker_capacity" || code === "account_busy" || code === "portal_navigation")
-      return false;
     return true;
   }
+
   return false;
 }
 
