@@ -82,6 +82,8 @@ import { partitionBillingRows, attentionReasonLabel } from "@/lib/needsAttention
 
 import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
+import { BillingKpiRow } from "@/components/billing/BillingKpiRow";
+import { BillingInsights } from "@/components/billing/BillingInsights";
 
 import { MedicalReviewTab } from "@/components/billing/MedicalReviewTab";
 
@@ -195,7 +197,7 @@ const TABS: {
   },
   {
     key: "denied",
-    label: "Denied / Resubmission",
+    label: "Rejected / Denied",
     statuses: ["submitted"],
     countKeys: [],
   },
@@ -239,6 +241,19 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
   const [tab, setTab] = useState<TabKey>("pending_review");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
+
+  // Sidebar deep links (`/billing#needs_attention`) select a stage. UI only.
+  useEffect(() => {
+    const apply = () => {
+      const h = window.location.hash.replace("#", "");
+      if (h && TABS.some((t) => t.key === h)) setTab(h as TabKey);
+    };
+    apply();
+    window.addEventListener("hashchange", apply);
+    return () => window.removeEventListener("hashchange", apply);
+  }, []);
+
+
 
   const listFn = useServerFn(listBillingRecords);
   const countsFn = useServerFn(getBillingCounts);
@@ -408,11 +423,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
   const secondaryLabel = TABS.find((t) => t.key === tab)?.label ?? "More tools";
 
   return (
-    <div className={embedded ? "space-y-4" : "surface-red space-y-6"}>
-      {!embedded && (
-        <PageHeader title="Medicaid Billing" description={BILLING_PAGE_DESCRIPTION} />
-      )}
-
+    <div className={embedded ? "space-y-5" : "space-y-6"}>
       {!defaultPortal && (
         <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -426,18 +437,19 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         </div>
       )}
 
-      {defaultPortal && !embedded && (
-        <div className="text-xs text-muted-foreground">
-          Billing through <strong>{defaultPortal.name}</strong> · {defaultPortal.state}
-        </div>
-      )}
+      {/* First row: the six numbers that matter, then the overview charts. */}
+      <BillingKpiRow
+        counts={counts.data as any}
+        loading={counts.isLoading}
+        onSelect={(k) => setTab(k as TabKey)}
+      />
+      <BillingInsights counts={counts.data as any} />
 
       {isAdmin && !embedded && <BillingRatesCard />}
 
-      <SubmissionQueuePanel />
+      {tab === "awaiting_portal" && <SubmissionQueuePanel />}
 
-      {/* Primary workflow: four obvious stages read left to right, with every
-          secondary tool tucked into an unobtrusive More menu. */}
+      {/* Claims filter row — one clean segmented control that wraps. */}
       <BillingStageNav
         stages={PRIMARY_KEYS.map((key) => ({
           key,
@@ -455,6 +467,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         onSelectSecondary={(k) => setTab(k as TabKey)}
         trailing={<AutoPilotButton />}
       />
+
 
 
 

@@ -48,8 +48,9 @@ export function DeniedClaimsTab() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Preparing a resubmission creates a new draft linked to the original claim. The original
-        claim ID, status and denial reason stay exactly as they are.
+        State-denied claims. Review or edit a claim first — nothing is ever resubmitted
+        automatically. Preparing a resubmission creates a new draft; the original claim ID,
+        status and denial reason stay exactly as they are.
       </p>
 
       {q.isLoading ? (
@@ -57,61 +58,73 @@ export function DeniedClaimsTab() {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : rows.length ? (
-        <div className="overflow-x-auto rounded-xl border bg-card">
-          <table className="w-full min-w-[850px] text-sm">
-            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="p-2 text-left">Trip date</th>
-                <th className="p-2 text-left">Passenger</th>
-                <th className="p-2 text-left">Driver</th>
-                <th className="p-2 text-left">Claim ID</th>
-                <th className="p-2 text-left">Denial reason</th>
-                <th className="p-2 text-left">Resubmission</th>
-                <th className="p-2 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.trip_id} className="border-t">
-                  <td className="whitespace-nowrap p-2">
-                    {r.trip_date ? formatDate(r.trip_date) : "—"}
-                  </td>
-                  <td className="p-2">{r.passenger ?? "—"}</td>
-                  <td className="p-2">{r.driver_name ?? "—"}</td>
-                  <td className="p-2 font-mono text-xs">{r.claim_number ?? "—"}</td>
-                  <td className="max-w-[280px] truncate p-2 text-xs text-muted-foreground">
-                    {r.denial_reason ?? "—"}
-                  </td>
-                  <td className="p-2">
-                    {r.resubmission_status ? (
-                      <Badge variant="secondary">{r.resubmission_status}</Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">None</span>
-                    )}
-                  </td>
-                  <td className="p-2 text-right">
-                    <Button
-                      size="sm"
-                      variant={r.resubmission_id ? "outline" : "default"}
-                      disabled={prepare.isPending}
-                      onClick={() =>
-                        r.resubmission_id ? setOpenId(r.resubmission_id) : prepare.mutate(r.trip_id)
-                      }
-                    >
-                      <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                      {r.resubmission_id ? "Open draft" : "Prepare Resubmission"}
-                    </Button>
-                  </td>
+        <div className="bill-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1040px] text-sm">
+              <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="p-3 text-left font-medium">Claim #</th>
+                  <th className="p-3 text-left font-medium">Patient / Driver</th>
+                  <th className="p-3 text-left font-medium">Service date</th>
+                  <th className="p-3 text-left font-medium">Medicaid ID</th>
+                  <th className="p-3 text-left font-medium">Denial reason</th>
+                  <th className="p-3 text-left font-medium">Status</th>
+                  <th className="p-3 text-right font-medium">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.trip_id} className="border-t border-border/70 hover:bg-muted/30">
+                    <td className="p-3 font-mono text-xs">{r.claim_number ?? "—"}</td>
+                    <td className="p-3">
+                      <div className="truncate font-medium">{r.passenger ?? "—"}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {r.driver_name ?? "—"}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap p-3">
+                      {r.trip_date ? formatDate(r.trip_date) : "—"}
+                    </td>
+                    <td className="p-3 font-mono text-xs">{r.medicaid_id ?? "—"}</td>
+                    <td className="max-w-[300px] truncate p-3 text-xs text-muted-foreground">
+                      {r.denial_reason ?? "—"}
+                    </td>
+                    <td className="p-3">
+                      <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
+                        {r.claim_status === "denied" ? "Denied" : "Rejected"}
+                      </span>
+                      {r.resubmission_status ? (
+                        <Badge variant="secondary" className="ml-1.5">
+                          {r.resubmission_status}
+                        </Badge>
+                      ) : null}
+                    </td>
+                    <td className="p-3 text-right">
+                      <Button
+                        size="sm"
+                        variant={r.resubmission_id ? "outline" : "default"}
+                        className="rounded-full"
+                        disabled={prepare.isPending}
+                        onClick={() =>
+                          r.resubmission_id ? setOpenId(r.resubmission_id) : prepare.mutate(r.trip_id)
+                        }
+                      >
+                        <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                        {r.resubmission_id ? "View / Edit draft" : "Review & edit"}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No denied claims. 🎉
+        <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
+          No denied claims.
         </div>
       )}
+
 
       <div className="flex items-center justify-between">
         <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
