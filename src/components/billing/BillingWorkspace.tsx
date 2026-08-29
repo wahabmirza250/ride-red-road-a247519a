@@ -1169,6 +1169,12 @@ function ReadyToSubmitTab({
                     </div>
                   );
                 })()}
+                {isAttention && !r.submission_error && !isRunning && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {attentionReasonLabel(r as any)}
+                  </div>
+                )}
+
                 {!isRunning &&
                   (requiresManualVerification(r as any) ? (
                     // Ambiguous outcome: no editing until the bill is
