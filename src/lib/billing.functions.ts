@@ -155,8 +155,34 @@ export const getBillingCounts = createServerFn({ method: "GET" })
     );
     const counts: Record<string, number> = {};
     for (const [s, c] of results) counts[s] = c;
+
+    // NEEDS ATTENTION vs READY TO SUBMIT.
+    // "Ready" must only count bills a biller can actually send, so approved
+    // rows that are flagged for a human, or still carry a live blocking error,
+    // are counted in the Needs Attention stage instead. Head counts only.
+    const BLOCKED = "requires_human_step.is.true,submission_error.not.is.null";
+    const [needsFixActive, approvedTotal, approvedBlocked] = await Promise.all([
+      supabase
+        .from("billing_records")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "needs_fix")
+        .is("attention_archived_at", null),
+      supabase
+        .from("billing_records")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "approved"),
+      supabase
+        .from("billing_records")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "approved")
+        .or(BLOCKED),
+    ]);
+    const blocked = approvedBlocked.count ?? 0;
+    counts["needs_attention"] = (needsFixActive.count ?? 0) + blocked;
+    counts["ready_to_submit"] = Math.max(0, (approvedTotal.count ?? 0) - blocked);
     return counts;
   });
+
 
 
 /* ---------- DETAIL ---------- */

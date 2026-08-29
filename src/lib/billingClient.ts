@@ -103,8 +103,33 @@ export async function getBillingCountsClient() {
       counts[s] = count ?? 0;
     }),
   );
+
+  // Mirrors getBillingCounts: Needs Attention is its own stage, so approved
+  // bills that are flagged for a human (or still carry a blocking error) are
+  // not counted as Ready to Submit.
+  const BLOCKED = "requires_human_step.is.true,submission_error.not.is.null";
+  const [needsFixActive, approvedTotal, approvedBlocked] = await Promise.all([
+    supabase
+      .from("billing_records")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "needs_fix" as never)
+      .is("attention_archived_at", null),
+    supabase
+      .from("billing_records")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "approved" as never),
+    supabase
+      .from("billing_records")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "approved" as never)
+      .or(BLOCKED),
+  ]);
+  const blocked = approvedBlocked.count ?? 0;
+  counts["needs_attention"] = (needsFixActive.count ?? 0) + blocked;
+  counts["ready_to_submit"] = Math.max(0, (approvedTotal.count ?? 0) - blocked);
   return counts;
 }
+
 
 /**
  * Browser-side fallback for cancelling a submission when the server function

@@ -78,6 +78,8 @@ import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/Driv
 import { BILLING_PAGE_SIZE } from "@/lib/billingPage";
 import { needsFixSummary } from "@/lib/needsFixCategory";
 import { requiresManualVerification } from "@/lib/needsVerification";
+import { partitionBillingRows, attentionReasonLabel } from "@/lib/needsAttention";
+
 import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
 
@@ -112,6 +114,7 @@ function looksLikeEdgeFailure(e: unknown): boolean {
 type TabKey =
   | "pending_review"
   | "ready_to_submit"
+  | "needs_attention"
   | "medical_review"
   | "awaiting_portal"
   | "submitted"
@@ -141,10 +144,20 @@ const TABS: {
     countKeys: ["pending_review"],
   },
   {
+    // Only bills that can actually be sent. Anything a human has to touch
+    // first lives in Needs Attention and is filtered out client-side.
     key: "ready_to_submit",
     label: "Ready to Submit",
     statuses: ["approved", "needs_fix"],
-    countKeys: ["approved", "needs_fix"],
+    countKeys: ["ready_to_submit"],
+  },
+  {
+    // The human worklist: failed data checks, human-step flags and uncertain
+    // HCPF outcomes — worked separately from the send flow.
+    key: "needs_attention",
+    label: "Needs Attention",
+    statuses: ["approved", "needs_fix", "queued", "submitting"],
+    countKeys: ["needs_attention"],
   },
   {
     key: "medical_review",
@@ -191,6 +204,7 @@ const TABS: {
 const PRIMARY_KEYS: TabKey[] = [
   "pending_review",
   "ready_to_submit",
+  "needs_attention",
   "awaiting_portal",
   "submitted",
 ];
@@ -200,9 +214,11 @@ const SECONDARY_KEYS: TabKey[] = ["medical_review", "claims_history", "payroll",
 const STAGE_HINTS: Partial<Record<TabKey, string>> = {
   pending_review: "Check the paper bill",
   ready_to_submit: "Send to the state portal",
+  needs_attention: "A person has to fix this",
   awaiting_portal: "Working at the portal",
   submitted: "Claim number saved",
 };
+
 
 
 
@@ -465,12 +481,22 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         />
       ) : tab === "ready_to_submit" ? (
         <ReadyToSubmitTab
-          rows={rows.data ?? []}
+          rows={partitionBillingRows(rows.data ?? []).ready}
           onOpen={setSelectedId}
           onPreviewPdf={setPdfPreview}
           showArchived={showArchived}
           onToggleArchived={() => setShowArchived((v) => !v)}
         />
+      ) : tab === "needs_attention" ? (
+        <ReadyToSubmitTab
+          variant="attention"
+          rows={partitionBillingRows(rows.data ?? []).attention}
+          onOpen={setSelectedId}
+          onPreviewPdf={setPdfPreview}
+          showArchived={showArchived}
+          onToggleArchived={() => setShowArchived((v) => !v)}
+        />
+
       ) : tab === "awaiting_portal" ? (
         <AwaitingPortalTab
           rows={rows.data ?? []}
@@ -808,21 +834,28 @@ function PendingReviewTab({
   );
 }
 
-/* ------------------------------- TAB 2: Ready to Submit ------------------------------- */
+/* ------------------------------- TAB 2/3: Ready to Submit & Needs Attention ------------------------------- */
 
+/**
+ * One table serves both stages. `variant="attention"` is the human worklist:
+ * same rows and actions, different framing — every row shows why it is stuck.
+ */
 function ReadyToSubmitTab({
   rows,
   onOpen,
   onPreviewPdf,
   showArchived = false,
   onToggleArchived,
+  variant = "ready",
 }: {
   rows: any[];
   onOpen: (id: string) => void;
   onPreviewPdf: (p: { url: string; filename: string }) => void;
   showArchived?: boolean;
   onToggleArchived?: () => void;
+  variant?: "ready" | "attention";
 }) {
+
   const qc = useQueryClient();
   const startFn = useServerFn(startRobotForRecord);
   const startBatchFn = useServerFn(startRobotForRecords);
@@ -969,11 +1002,29 @@ function ReadyToSubmitTab({
     }
   }
 
+  const isAttention = variant === "attention";
+
   if (!rows.length)
-    return <EmptyState message="No approved trips waiting to be sent to the robot." />;
+    return (
+      <EmptyState
+        message={
+          isAttention
+            ? "Nothing needs attention right now."
+            : "No approved trips waiting to be sent to the robot."
+        }
+      />
+    );
 
   return (
     <div className="space-y-3">
+      {isAttention && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          These bills can&apos;t be sent yet. Fix the data on each one — when the correction
+          passes the billing check it moves back to <strong>Ready to Submit</strong> on its own.
+          Nothing here is submitted automatically.
+        </div>
+      )}
+
       <DuplicateSubmitDialog
         info={duplicate?.info ?? null}
         busy={submittingIds.size > 0}
@@ -1118,6 +1169,12 @@ function ReadyToSubmitTab({
                     </div>
                   );
                 })()}
+                {isAttention && !r.submission_error && !isRunning && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {attentionReasonLabel(r as any)}
+                  </div>
+                )}
+
                 {!isRunning &&
                   (requiresManualVerification(r as any) ? (
                     // Ambiguous outcome: no editing until the bill is
