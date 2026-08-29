@@ -106,7 +106,15 @@ export async function resolveProviderUserId(
 }
 
 
-/** Billing records whose robot jobs currently hold a live portal session. */
+/**
+ * Billing records whose robot jobs currently hold a LIVE portal session.
+ *
+ * A row can sit in `submitting` without holding any portal session at all:
+ * SUBMITTED_UNVERIFIED / JOB_NOT_FOUND are resolved by the read-only claim
+ * lookup, and NEEDS_HUMAN_LOOKUP waits for a person. Counting those as live
+ * sessions made the account look permanently busy and starved the queue, so
+ * they are excluded here. Their own status/evidence is never touched.
+ */
 export async function listActiveRobotJobs(
   supabase: any,
   opts: { companyId?: string | null; excludeRecordId?: string } = {},
@@ -114,12 +122,16 @@ export async function listActiveRobotJobs(
   let q = supabase
     .from("billing_records")
     .select(
-      `id, medicaid_trips!inner(robot_job_started_at, robot_job_id, rider_id, riders(medicaid_id))`,
+      `id, medicaid_trips!inner(robot_job_started_at, robot_job_id, robot_last_status, rider_id, riders(medicaid_id))`,
     )
     .eq("status", "submitting");
   if (opts.companyId) q = q.eq("company_id", opts.companyId);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
+
+  const { isQuarantinedRobotStatus, isActiveVerifyRobotStatus } = await import(
+    "@/lib/robotJobLost"
+  );
 
   const now = Date.now();
   const out: Array<{ id: string; startedAt: string | null; riderKey: string | null }> = [];
@@ -127,6 +139,9 @@ export async function listActiveRobotJobs(
     if (opts.excludeRecordId && r.id === opts.excludeRecordId) continue;
     const trip: any = r.medicaid_trips;
     if (!trip?.robot_job_id) continue;
+    const st = trip.robot_last_status ?? null;
+    // Awaiting human/read-only verification — no live portal session.
+    if (isQuarantinedRobotStatus(st) || isActiveVerifyRobotStatus(st)) continue;
     const started = trip.robot_job_started_at ? new Date(trip.robot_job_started_at).getTime() : 0;
     if (started && now - started > ROBOT_JOB_STALE_MS) continue; // dead job, not blocking
     out.push({
@@ -138,6 +153,7 @@ export async function listActiveRobotJobs(
   return out;
 
 }
+
 
 /** First active job, or null. Kept for callers that only need "is anything live?". */
 export async function findActiveRobotJob(
