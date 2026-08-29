@@ -171,8 +171,10 @@ describe("idempotency: double clicks, refreshes and extra tabs", () => {
     const live2 = makeRecord("3", { riderId: "rC", status: "submitting", jobId: "j3" });
     const live3 = makeRecord("4", { riderId: "rD", status: "submitting", jobId: "j4" });
     const live4 = makeRecord("5", { riderId: "rE", status: "submitting", jobId: "j5" });
+    const live5 = makeRecord("6", { riderId: "rF", status: "submitting", jobId: "j6" });
+    const live6 = makeRecord("7", { riderId: "rG", status: "submitting", jobId: "j7" });
     const next = makeRecord("2", { riderId: "rB", status: "approved" });
-    const { supabase } = makeFakeDb([live, live2, live3, live4, next]);
+    const { supabase } = makeFakeDb([live, live2, live3, live4, live5, live6, next]);
     const out = await enqueueOrStartRobot(supabase, {
       billingRecordId: "2",
       companyId: "co1",

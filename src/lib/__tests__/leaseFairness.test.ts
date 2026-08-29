@@ -51,10 +51,10 @@ describe("lease fairness across riders", () => {
 
     expect(res.started).toBe(maxSubmitPerCompany());
     const live = records.filter((r) => r.status === "submitting");
-    expect(live.length).toBe(4);
+    expect(live.length).toBe(6);
     // Distinct riders, exactly one from the same-rider run.
     const riders = live.map(riderOf);
-    expect(new Set(riders).size).toBe(4);
+    expect(new Set(riders).size).toBe(6);
     expect(riders.filter((r) => r === "same").length).toBe(1);
     // The blocked same-rider rows are untouched and still queued.
     expect(records.filter((r) => riderOf(r) === "same" && r.status === "queued").length).toBe(3);
@@ -72,7 +72,7 @@ describe("lease fairness across riders", () => {
     expect(records.filter((r) => r.status === "submitting").length).toBe(1);
   });
 
-  it("never exceeds 4 active submissions on one account across a multi-worker fleet", async () => {
+  it("never exceeds the per-account cap (default 6) across a multi-worker fleet", async () => {
     const records = Array.from({ length: 20 }, (_, i) =>
       makeRecord(String(i + 1), { riderId: `r${i}` }),
     );
@@ -86,7 +86,9 @@ describe("lease fairness across riders", () => {
         dispatchLeasedSubmissions(supabase, null, { worker: `w${i}` }),
       ),
     );
-    expect(records.filter((r) => r.status === "submitting").length).toBeLessThanOrEqual(4);
+    const liveN = records.filter((r) => r.status === "submitting").length;
+    expect(liveN).toBeLessThanOrEqual(maxSubmitPerCompany());
+    expect(liveN).toBe(6);
   });
 
   it("refills freed slots with the next distinct riders in the same wave", async () => {
@@ -96,7 +98,7 @@ describe("lease fairness across riders", () => {
     const { supabase } = makeFakeDb(records);
     await dispatchLeasedSubmissions(supabase, null, { worker: "w" });
     const firstBatch = records.filter((r) => r.status === "submitting").map((r) => r.id);
-    expect(firstBatch.length).toBe(4);
+    expect(firstBatch.length).toBe(6);
 
     // Two claims reach a terminal outcome — their slots must be reused at once.
     for (const id of firstBatch.slice(0, 2)) {
@@ -106,8 +108,8 @@ describe("lease fairness across riders", () => {
     }
     await dispatchLeasedSubmissions(supabase, null, { worker: "w" });
     const live = records.filter((r) => r.status === "submitting");
-    expect(live.length).toBe(4);
-    expect(new Set(live.map(riderOf)).size).toBe(4);
+    expect(live.length).toBe(6);
+    expect(new Set(live.map(riderOf)).size).toBe(6);
   });
 });
 

@@ -119,6 +119,9 @@ describe("atomic leasing", () => {
       makeRecord("3", { riderId: "r3" }),
       makeRecord("4", { riderId: "r4" }),
       makeRecord("5", { riderId: "r5" }),
+      makeRecord("6", { riderId: "r6" }),
+      makeRecord("7", { riderId: "r7" }),
+      makeRecord("8", { riderId: "r8" }),
     ];
     const { supabase } = makeFakeDb(records);
     const leases = await leaseSubmissionJobs(supabase, { worker: "w" });
