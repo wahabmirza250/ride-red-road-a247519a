@@ -677,41 +677,55 @@ export async function runClaimStatusSync(
     .select("paused, pause_reason")
     .eq("id", true)
     .maybeSingle();
-  if (state?.paused) return { ...empty, reason: state.pause_reason ?? "Claim status sync is paused." };
+
+  const result: SyncRunResult = { ...empty };
+  const startedAt = Date.now();
+
+  if (state?.paused) {
+    result.reason = state.pause_reason ?? "Claim status sync is paused.";
+    await recordRun(supabase, result, { startedAt, perCompany, globalCap, workerId });
+    return result;
+  }
 
   // Back-pressure: the checker service runs a small browser pool with an
   // in-memory queue. Ticks that were cancelled mid-flight used to keep
   // enqueueing new jobs behind the ones they abandoned, so the service piled
   // up thousands of never-served jobs and every fresh job waited behind them.
-  // If the service is already saturated, do nothing this tick.
+  //
+  // A saturated service used to mean "do nothing at all", which is how the
+  // checker went completely silent for a whole day: the cron fired every two
+  // minutes, returned 200 and never even recorded WHY. Now a backed-up
+  // service only narrows the tick to a single probe claim, so the moment the
+  // service drains the checker resumes by itself, and the reason is always
+  // written to the state row so the UI can show it.
   const depth = await checkerQueueDepth(opts.fetchImpl ?? fetch);
-  if (depth && depth.queued > CHECKER_QUEUE_LIMIT) {
-    return {
-      ...empty,
-      reason: `Status-checking service is backed up (${depth.queued} jobs waiting, ${depth.active} running). Waiting for it to drain instead of queueing more.`,
-    };
-  }
+  const backedUp = Boolean(depth && depth.queued > CHECKER_QUEUE_LIMIT);
+  const effGlobal = backedUp ? 1 : globalCap;
+  const effPerCompany = backedUp ? 1 : perCompany;
+  const backpressureReason = backedUp
+    ? `Status-checking service is backed up (${depth!.queued} jobs waiting, ${depth!.active} running). Only one probe claim was checked this run.`
+    : null;
 
-  const result: SyncRunResult = { ...empty };
-  const startedAt = Date.now();
   // Self-heal first: anything a crashed worker left locked becomes eligible.
   await releaseStaleLocks(supabase);
 
   try {
     const jobs = await leaseClaimStatusJobs(supabase, {
-      globalLimit: opts.recordIds?.length ? opts.recordIds.length : globalCap,
-      perCompanyLimit: opts.recordIds?.length ? opts.recordIds.length : perCompany,
+      globalLimit: opts.recordIds?.length ? opts.recordIds.length : effGlobal,
+      perCompanyLimit: opts.recordIds?.length ? opts.recordIds.length : effPerCompany,
       leaseSeconds: leaseSeconds(),
       worker: workerId,
       ...(opts.recordIds?.length ? { recordIds: opts.recordIds } : {}),
     });
 
     if (!jobs.length) {
-      result.reason = "No open claims are due for a status check.";
+      result.reason = backpressureReason ?? "No open claims are due for a status check.";
       return result;
     }
+    result.reason = backpressureReason ?? undefined;
     result.ran = true;
     result.companies = new Set(jobs.map((j) => j.company_id)).size;
+
 
     const leftover = await runPool(jobs, { perCompany, global: globalCap, deadline }, async (job) => {
       const outcome = await processJob(supabase, job, {
