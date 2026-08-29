@@ -66,7 +66,7 @@ describe("read-only lookup with no search capability", () => {
   it("never reports 'nothing found yet' when the search route does not exist", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response("Cannot POST /search-claims", { status: 404 })),
+      vi.fn(async () => new Response("Cannot POST /discover-search-claims", { status: 404 })),
     );
     const record: any = { id: "rec1" };
     const trip: any = { id: "trip1" };

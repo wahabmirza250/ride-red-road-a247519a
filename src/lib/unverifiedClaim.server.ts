@@ -62,7 +62,7 @@ async function searchPortalClaim(args: {
   const serviceDate = portalDate(args.serviceDateISO);
   let res: Response;
   try {
-    res = await fetch(`${ROBOT_BASE_URL}/search-claims`, {
+    res = await fetch(`${ROBOT_BASE_URL}/discover-search-claims`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
