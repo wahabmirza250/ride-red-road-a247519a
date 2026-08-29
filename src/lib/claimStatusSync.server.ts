@@ -42,8 +42,11 @@ export const staleLockGraceSeconds = () => envInt("CLAIM_STATUS_STALE_GRACE_SECO
 export const SYNC_BATCH_SIZE = maxGlobal();
 /** Hard wall-clock ceiling for one background tick. The cron fires every
  *  minute, so a tick must finish well inside the platform request ceiling;
- *  anything unfinished is released and picked up by the next tick. */
-export const RUN_BUDGET_MS = envInt("CLAIM_STATUS_RUN_BUDGET_MS", 100_000, 10_000, 240_000);
+ *  anything unfinished is released and picked up by the next tick. Kept at
+ *  45s: a 100s budget outlived the request itself, so the run stats were
+ *  never written back even though the checks themselves ran. */
+export const RUN_BUDGET_MS = envInt("CLAIM_STATUS_RUN_BUDGET_MS", 45_000, 10_000, 240_000);
+
 /** Manual kicks only enqueue; this ceiling exists for direct/server callers. */
 export const MANUAL_RUN_BUDGET_MS = envInt("CLAIM_STATUS_MANUAL_BUDGET_MS", 60_000, 5_000, 180_000);
 /** Fallback re-check age for rows that predate per-row scheduling. */
