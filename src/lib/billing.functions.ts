@@ -170,13 +170,16 @@ export const getBillingCounts = createServerFn({ method: "GET" })
       supabase
         .from("billing_records")
         .select("id", { count: "exact", head: true })
-        .eq("status", "approved"),
+        .eq("status", "approved")
+        .is("attention_archived_at", null),
       supabase
         .from("billing_records")
         .select("id", { count: "exact", head: true })
         .eq("status", "approved")
+        .is("attention_archived_at", null)
         .or(BLOCKED),
     ]);
+
     const blocked = approvedBlocked.count ?? 0;
     counts["needs_attention"] = (needsFixActive.count ?? 0) + blocked;
     counts["ready_to_submit"] = Math.max(0, (approvedTotal.count ?? 0) - blocked);
