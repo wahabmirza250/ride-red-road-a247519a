@@ -479,12 +479,22 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         />
       ) : tab === "ready_to_submit" ? (
         <ReadyToSubmitTab
-          rows={rows.data ?? []}
+          rows={partitionBillingRows(rows.data ?? []).ready}
           onOpen={setSelectedId}
           onPreviewPdf={setPdfPreview}
           showArchived={showArchived}
           onToggleArchived={() => setShowArchived((v) => !v)}
         />
+      ) : tab === "needs_attention" ? (
+        <ReadyToSubmitTab
+          variant="attention"
+          rows={partitionBillingRows(rows.data ?? []).attention}
+          onOpen={setSelectedId}
+          onPreviewPdf={setPdfPreview}
+          showArchived={showArchived}
+          onToggleArchived={() => setShowArchived((v) => !v)}
+        />
+
       ) : tab === "awaiting_portal" ? (
         <AwaitingPortalTab
           rows={rows.data ?? []}
