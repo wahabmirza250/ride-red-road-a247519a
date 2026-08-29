@@ -62,20 +62,20 @@ afterEach(() => {
 });
 
 describe("controlled account concurrency", () => {
-  it("caps a provider account at four live submissions", () => {
-    expect(MAX_CONCURRENT_ROBOT_JOBS).toBe(4);
-    expect(maxSubmitPerCompany()).toBe(4);
+  it("caps a provider account at six live submissions (staged ramp from 4)", () => {
+    expect(MAX_CONCURRENT_ROBOT_JOBS).toBe(6);
+    expect(maxSubmitPerCompany()).toBe(6);
   });
 
   it("starts up to the cap and releases the rest as slots free", async () => {
-    const records = Array.from({ length: 6 }, (_, i) =>
+    const records = Array.from({ length: 8 }, (_, i) =>
       makeRecord(String(i + 1), { riderId: `r${i}` }),
     );
     const { supabase } = makeFakeDb(records);
 
     const first = await dispatchLeasedSubmissions(supabase, "actor");
-    expect(first.started).toBe(4);
-    expect(records.filter((r) => r.status === "submitting").length).toBe(4);
+    expect(first.started).toBe(6);
+    expect(records.filter((r) => r.status === "submitting").length).toBe(6);
 
     // Account is full: nothing else may start.
     const second = await dispatchLeasedSubmissions(supabase, "actor");
@@ -87,7 +87,7 @@ describe("controlled account concurrency", () => {
     live.medicaid_trips.robot_job_id = null;
     const third = await dispatchLeasedSubmissions(supabase, "actor");
     expect(third.started).toBe(1);
-    expect(started.length).toBe(5);
+    expect(started.length).toBe(7);
   });
 
   it("keeps parallel dispatchers within the account cap, with no duplicates", async () => {
@@ -171,8 +171,10 @@ describe("idempotency: double clicks, refreshes and extra tabs", () => {
     const live2 = makeRecord("3", { riderId: "rC", status: "submitting", jobId: "j3" });
     const live3 = makeRecord("4", { riderId: "rD", status: "submitting", jobId: "j4" });
     const live4 = makeRecord("5", { riderId: "rE", status: "submitting", jobId: "j5" });
+    const live5 = makeRecord("6", { riderId: "rF", status: "submitting", jobId: "j6" });
+    const live6 = makeRecord("7", { riderId: "rG", status: "submitting", jobId: "j7" });
     const next = makeRecord("2", { riderId: "rB", status: "approved" });
-    const { supabase } = makeFakeDb([live, live2, live3, live4, next]);
+    const { supabase } = makeFakeDb([live, live2, live3, live4, live5, live6, next]);
     const out = await enqueueOrStartRobot(supabase, {
       billingRecordId: "2",
       companyId: "co1",

@@ -46,7 +46,7 @@ beforeEach(() => {
 
 describe("limits", () => {
   it("clamps to safe defaults", () => {
-    expect(maxSubmitPerCompany()).toBe(4); // controlled per-account concurrency
+    expect(maxSubmitPerCompany()).toBe(6); // staged ramp from 4; clamp keeps 1..8
     expect(maxSubmitGlobal()).toBe(20);
     expect(maxSubmitAttempts()).toBe(3);
   });
@@ -119,6 +119,9 @@ describe("atomic leasing", () => {
       makeRecord("3", { riderId: "r3" }),
       makeRecord("4", { riderId: "r4" }),
       makeRecord("5", { riderId: "r5" }),
+      makeRecord("6", { riderId: "r6" }),
+      makeRecord("7", { riderId: "r7" }),
+      makeRecord("8", { riderId: "r8" }),
     ];
     const { supabase } = makeFakeDb(records);
     const leases = await leaseSubmissionJobs(supabase, { worker: "w" });

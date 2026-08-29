@@ -49,9 +49,9 @@ afterEach(() => {
 });
 
 describe("configured limits", () => {
-  it("is a conservative 4 per account and 1 per rider", () => {
-    expect(maxSubmitPerCompany()).toBe(4);
-    expect(MAX_CONCURRENT_ROBOT_JOBS).toBe(4);
+  it("defaults to 6 per account (staged ramp from 4) and 1 per rider", () => {
+    expect(maxSubmitPerCompany()).toBe(6);
+    expect(MAX_CONCURRENT_ROBOT_JOBS).toBe(6);
     expect(MAX_CONCURRENT_JOBS_PER_RIDER).toBe(1);
   });
 
@@ -85,13 +85,13 @@ describe("dispatch invariants", () => {
     expect(started.length).toBe(ids.length);
   });
 
-  it("runs at most 4 claims for one company at a time", async () => {
+  it("runs at most 6 claims for one company at a time", async () => {
     const records = Array.from({ length: 15 }, (_, i) =>
       makeRecord(String(i + 1), { riderId: `r${i}` }),
     );
     const { supabase } = makeFakeDb(records);
     await dispatchLeasedSubmissions(supabase, null, { worker: "w" });
-    expect(records.filter((r) => r.status === "submitting").length).toBe(4);
+    expect(records.filter((r) => r.status === "submitting").length).toBe(6);
   });
 
   it("runs at most 1 live claim per rider", async () => {
@@ -105,14 +105,14 @@ describe("dispatch invariants", () => {
     expect(liveShared.length).toBe(1);
   });
 
-  it("runs different riders concurrently", async () => {
-    const records = Array.from({ length: 4 }, (_, i) =>
+  it("runs different riders concurrently up to the account cap", async () => {
+    const records = Array.from({ length: 6 }, (_, i) =>
       makeRecord(String(i + 1), { riderId: `rider-${i}` }),
     );
     const { supabase } = makeFakeDb(records);
     const res = await dispatchLeasedSubmissions(supabase, null, { worker: "w" });
-    expect(res.started).toBe(4);
-    expect(new Set(started.map((s) => s.trip.rider_id)).size).toBe(4);
+    expect(res.started).toBe(6);
+    expect(new Set(started.map((s) => s.trip.rider_id)).size).toBe(6);
   });
 
   it("keeps companies independent: a busy tenant never blocks another", async () => {
@@ -128,8 +128,8 @@ describe("dispatch invariants", () => {
     await dispatchLeasedSubmissions(supabase, null, { worker: "w" });
     const live = (co: string) =>
       records.filter((r) => r.company_id === co && r.status === "submitting").length;
-    expect(live("co-a")).toBe(4);
-    expect(live("co-b")).toBe(4);
+    expect(live("co-a")).toBe(6);
+    expect(live("co-b")).toBe(6);
   });
 
   it("starts zero work while the queue is paused", async () => {
