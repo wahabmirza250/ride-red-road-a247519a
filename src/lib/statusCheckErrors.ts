@@ -25,10 +25,14 @@ const INFRA_PATTERNS: RegExp[] = [
   /checker unreachable/i,
   /checker did not return a job id/i,
   /checker job timed out/i,
+  // Any failure reported by the CHECKER SERVICE itself (queue state, empty
+  // cause, crashed job) is infrastructure — the portal never answered.
+  /checker job\b/i,
   /\bhttp (429|5\d\d)\b/i,
   /target closed|browser has been closed|session closed/i,
   /playwright/i,
 ];
+
 
 export type StatusCheckFailureKind = "infra" | "portal";
 

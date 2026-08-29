@@ -135,6 +135,30 @@ export const CLAIM_STATUS_CHECKER_URL =
 export const CHECK_POLL_TIMEOUT_MS = envInt("CLAIM_STATUS_CHECK_TIMEOUT_MS", 75_000, 10_000, 180_000);
 const CHECK_POLL_INTERVAL_MS = 3_000;
 
+/**
+ * Job states the checker service uses to say "this job has finished".
+ * Everything else — `queued`, `waiting`, `running`, `processing`, or a state
+ * we have never seen — means the job is still alive and MUST keep being
+ * polled. Only the poll deadline ends the wait.
+ */
+export const FINAL_CHECKER_JOB_STATES = [
+  "done",
+  "completed",
+  "success",
+  "error",
+  "failed",
+  "failure",
+  "cancelled",
+  "canceled",
+  "timeout",
+  "timed_out",
+] as const;
+
+export function isFinalCheckerJobState(state: string | null | undefined): boolean {
+  return (FINAL_CHECKER_JOB_STATES as readonly string[]).includes(String(state ?? "").toLowerCase());
+}
+
+
 
 /** Look up ONE claim through the checker service (start job, poll until done). */
 async function checkOneClaim(
@@ -176,9 +200,13 @@ async function checkOneClaim(
       continue;
     }
     const jobStatus = String(body?.status ?? "").toLowerCase();
-    if (jobStatus === "running" || jobStatus === "started" || jobStatus === "pending") continue;
+    // The checker queues jobs before a browser slot frees up. ANY non-final
+    // state means "still working" — treating an unknown state as a failure is
+    // what stalled the whole backlog (`checker job queued: no detail`).
+    if (!isFinalCheckerJobState(jobStatus)) continue;
 
-    if (jobStatus !== "done") {
+    if (jobStatus !== "done" && jobStatus !== "completed" && jobStatus !== "success") {
+
       // The service reports its real cause under result.error; without it the
       // stored reason was the useless string "checker job error: ".
       const cause = String(body?.error ?? body?.result?.error ?? body?.message ?? "no detail").replace(
