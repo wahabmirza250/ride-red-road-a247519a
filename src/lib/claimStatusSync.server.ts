@@ -231,7 +231,46 @@ export type LeasedJob = {
   claim_number: string;
 };
 
-/** Atomically lease a fair, bounded batch of due status-check jobs. */
+/**
+ * Pure mirror of the SQL candidate ranking in `lease_claim_status_jobs`.
+ *
+ * THE RULE THAT BROKE PRODUCTION: rows without a claim number can never be
+ * checked, so they must be dropped BEFORE the per-company ranking. Ranking
+ * first let claim-less rows occupy every per-company slot, and the scheduler
+ * leased zero jobs on every tick while hundreds of claims were due.
+ */
+export type StatusCandidate = {
+  record_id: string;
+  company_id: string | null;
+  claim_number: string | null;
+  next_at: string | null;
+  created_at: string;
+};
+
+export function rankStatusCandidates(
+  rows: StatusCandidate[],
+  caps: { perCompany: number; global: number },
+): StatusCandidate[] {
+  const eligible = rows.filter((r) => (r.claim_number ?? "").trim() !== "");
+  const order = (a: StatusCandidate, b: StatusCandidate) => {
+    const an = a.next_at ? new Date(a.next_at).getTime() : -Infinity;
+    const bn = b.next_at ? new Date(b.next_at).getTime() : -Infinity;
+    if (an !== bn) return an - bn;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  };
+  const perCompany = new Map<string, number>();
+  const out: StatusCandidate[] = [];
+  for (const r of [...eligible].sort(order)) {
+    const key = r.company_id ?? "__none__";
+    const n = perCompany.get(key) ?? 0;
+    if (n >= caps.perCompany) continue;
+    perCompany.set(key, n + 1);
+    out.push(r);
+    if (out.length >= caps.global) break;
+  }
+  return out;
+}
+
 export async function leaseClaimStatusJobs(
   supabase: any,
   opts: { globalLimit: number; perCompanyLimit: number; leaseSeconds: number; worker: string; recordIds?: string[] },
