@@ -108,8 +108,8 @@ describe("blocked actions", () => {
 describe("biller-safe messaging", () => {
   it("never shows raw HTML or Cannot POST bodies", () => {
     for (const raw of [
-      "lookup HTTP 404: Cannot POST /search-claims",
-      "<!DOCTYPE html><html><body>Cannot POST /search-claims</body></html>",
+      "lookup HTTP 404: Cannot POST /discover-search-claims",
+      "<!DOCTYPE html><html><body>Cannot POST /discover-search-claims</body></html>",
       "lookup unreachable: fetch failed",
     ]) {
       expect(sanitizeVerificationMessage(raw)).toBe(AUTO_VERIFY_UNAVAILABLE_MESSAGE);
@@ -123,7 +123,7 @@ describe("biller-safe messaging", () => {
       service_date: "2026-07-30T15:00:00.000Z",
       provider_account: "acct:hfc-colorado",
       robot_job_id: "job-123",
-      submission_error: "Cannot POST /search-claims",
+      submission_error: "Cannot POST /discover-search-claims",
     });
     expect(p.memberId).toBe("D260223");
     expect(p.serviceDate).toMatch(/^\d{2}\/\d{2}\/2026$/);
