@@ -120,7 +120,8 @@ function BillingLayout() {
               {CLAIM_STAGES.map((s) => (
                 <AppLink
                   key={s.hash}
-                  to={`/billing#${s.hash}`}
+                  to="/billing"
+                  hash={s.hash}
                   className="truncate rounded-lg px-2.5 py-1.5 text-[13px] text-white/60 transition hover:bg-white/5 hover:text-white"
                 >
                   {s.label}
