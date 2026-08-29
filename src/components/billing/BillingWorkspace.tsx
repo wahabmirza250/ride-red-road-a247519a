@@ -832,21 +832,28 @@ function PendingReviewTab({
   );
 }
 
-/* ------------------------------- TAB 2: Ready to Submit ------------------------------- */
+/* ------------------------------- TAB 2/3: Ready to Submit & Needs Attention ------------------------------- */
 
+/**
+ * One table serves both stages. `variant="attention"` is the human worklist:
+ * same rows and actions, different framing — every row shows why it is stuck.
+ */
 function ReadyToSubmitTab({
   rows,
   onOpen,
   onPreviewPdf,
   showArchived = false,
   onToggleArchived,
+  variant = "ready",
 }: {
   rows: any[];
   onOpen: (id: string) => void;
   onPreviewPdf: (p: { url: string; filename: string }) => void;
   showArchived?: boolean;
   onToggleArchived?: () => void;
+  variant?: "ready" | "attention";
 }) {
+
   const qc = useQueryClient();
   const startFn = useServerFn(startRobotForRecord);
   const startBatchFn = useServerFn(startRobotForRecords);
