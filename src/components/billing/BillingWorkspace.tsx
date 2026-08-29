@@ -197,7 +197,7 @@ const TABS: {
   },
   {
     key: "denied",
-    label: "Denied / Resubmission",
+    label: "Rejected / Denied",
     statuses: ["submitted"],
     countKeys: [],
   },
