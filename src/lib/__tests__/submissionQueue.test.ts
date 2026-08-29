@@ -46,7 +46,7 @@ beforeEach(() => {
 
 describe("limits", () => {
   it("clamps to safe defaults", () => {
-    expect(maxSubmitPerCompany()).toBe(4); // controlled per-account concurrency
+    expect(maxSubmitPerCompany()).toBe(6); // staged ramp from 4; clamp keeps 1..8
     expect(maxSubmitGlobal()).toBe(20);
     expect(maxSubmitAttempts()).toBe(3);
   });
