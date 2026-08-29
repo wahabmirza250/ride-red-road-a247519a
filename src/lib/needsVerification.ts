@@ -36,6 +36,32 @@ export const VERIFICATION_ROBOT_STATUSES = [
 export const VERIFIED_NOT_SUBMITTED_STATUS = "VERIFIED_NOT_SUBMITTED";
 
 /**
+ * PRE-SUBMIT failures: the portal rejected or never reached the claim form, so
+ * no claim can exist. These are ordinary data corrections — they must stay
+ * editable, never quarantined behind a manual HCPF check.
+ */
+export const PRE_SUBMIT_ROBOT_STATUSES = [
+  "PORTAL_STEP1_VALIDATION_FAILED",
+  "PORTAL_VALIDATION_FAILED",
+  "VALIDATION_FAILED",
+  "LOGIN_FAILED",
+  "PORTAL_NAVIGATION_FAILED",
+] as const;
+
+/** Failure codes raised before anything was submitted. */
+export const PRE_SUBMIT_FAILURE_CODES = [
+  "missing_required_data",
+  "validation_failed",
+  "portal_validation_failed",
+  "worker_capacity",
+  "worker_unavailable",
+  "account_busy",
+  "portal_navigation",
+  "login_failed",
+] as const;
+
+
+/**
  * Text proving the job had already been ACCEPTED by a worker when it died.
  * "worker unavailable" only counts as ambiguous in this case.
  */
