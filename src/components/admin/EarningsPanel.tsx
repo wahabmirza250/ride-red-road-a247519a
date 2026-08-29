@@ -65,7 +65,7 @@ export function EarningsPanel() {
           <div className="mt-4 flex flex-wrap items-end gap-6">
             <div>
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                Paid earnings (all time)
+                Realized income (state-paid claims)
               </p>
               <p className="font-display text-3xl font-semibold tracking-tight">
                 {money(data?.total ?? 0)}
@@ -77,16 +77,32 @@ export function EarningsPanel() {
             </div>
             <div>
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                Submitted, not yet paid
+                Billed, awaiting payment
               </p>
               <p className="font-display text-xl font-semibold tracking-tight text-muted-foreground">
                 {money(data?.pendingTotal ?? 0)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {data?.pendingClaims ?? 0} pending claim{(data?.pendingClaims ?? 0) === 1 ? "" : "s"}
+                {data?.pendingClaims ?? 0} claim{(data?.pendingClaims ?? 0) === 1 ? "" : "s"} — not
+                income yet
               </p>
             </div>
+            {(data?.deniedClaims ?? 0) > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Denied / rejected
+                </p>
+                <p className="font-display text-xl font-semibold tracking-tight text-destructive">
+                  {money(data?.deniedTotal ?? 0)}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {data?.deniedClaims ?? 0} claim{(data?.deniedClaims ?? 0) === 1 ? "" : "s"} — never
+                  income
+                </p>
+              </div>
+            )}
           </div>
+
 
 
           <div className="mt-5 space-y-2">
