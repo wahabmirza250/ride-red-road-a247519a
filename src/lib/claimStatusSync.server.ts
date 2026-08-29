@@ -179,7 +179,13 @@ async function checkOneClaim(
     if (jobStatus === "running" || jobStatus === "started" || jobStatus === "pending") continue;
 
     if (jobStatus !== "done") {
-      return { ok: false, detail: `checker job ${jobStatus || "unknown"}: ${String(body?.error ?? "").slice(0, 160)}` };
+      // The service reports its real cause under result.error; without it the
+      // stored reason was the useless string "checker job error: ".
+      const cause = String(body?.error ?? body?.result?.error ?? body?.message ?? "no detail").replace(
+        /\s+/g,
+        " ",
+      );
+      return { ok: false, detail: `checker job ${jobStatus || "unknown"}: ${cause.slice(0, 300)}` };
     }
     const result: any = body?.result ?? {};
     const state = String(result?.result_state ?? "");
@@ -255,15 +261,23 @@ async function unlockClaim(supabase: any, recordId: string) {
     .eq("id", recordId);
 }
 
-/** Inconclusive check: keep the billing status untouched, retry with backoff. */
+/** Inconclusive check: keep the billing status untouched, retry with backoff.
+ *  A failure of the checker SERVICE (no browser, unreachable, timeout) never
+ *  burns an attempt — the claim was not looked at, so it is simply re-queued
+ *  a few minutes later instead of being exiled to a 12-hour backoff. */
 async function scheduleRetry(supabase: any, job: LeasedJob, detail: string, tookMs: number) {
-  const attempts = (job.attempts ?? 0) + 1;
+  const { classifyStatusCheckFailure, describeStatusCheckFailure, INFRA_RETRY_MS } = await import(
+    "@/lib/statusCheckErrors"
+  );
+  const infra = classifyStatusCheckFailure(detail) === "infra";
+  const attempts = infra ? (job.attempts ?? 0) : (job.attempts ?? 0) + 1;
+  const nextMs = infra ? INFRA_RETRY_MS : backoffMs(attempts);
   await supabase
     .from("billing_records")
     .update({
       status_check_attempts: attempts,
-      status_check_error: detail.slice(0, 500),
-      status_check_next_at: new Date(Date.now() + backoffMs(attempts)).toISOString(),
+      status_check_error: `${describeStatusCheckFailure(detail)} (${detail})`.slice(0, 500),
+      status_check_next_at: new Date(Date.now() + nextMs).toISOString(),
       status_check_locked_until: null,
       status_check_worker: null,
       status_check_last_ms: tookMs,
