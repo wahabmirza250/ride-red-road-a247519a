@@ -18,6 +18,6 @@ describe("same-driver different-passenger bills", () => {
     expect(keys.every((k) => !String(k).toLowerCase().includes("kidane"))).toBe(true);
     // Controlled account capacity: distinct passengers may run in parallel, but
     // never more than the per-account cap at once.
-    expect(MAX_CONCURRENT_ROBOT_JOBS).toBe(4);
+    expect(MAX_CONCURRENT_ROBOT_JOBS).toBe(6);
   });
 });

@@ -62,20 +62,20 @@ afterEach(() => {
 });
 
 describe("controlled account concurrency", () => {
-  it("caps a provider account at four live submissions", () => {
-    expect(MAX_CONCURRENT_ROBOT_JOBS).toBe(4);
-    expect(maxSubmitPerCompany()).toBe(4);
+  it("caps a provider account at six live submissions (staged ramp from 4)", () => {
+    expect(MAX_CONCURRENT_ROBOT_JOBS).toBe(6);
+    expect(maxSubmitPerCompany()).toBe(6);
   });
 
   it("starts up to the cap and releases the rest as slots free", async () => {
-    const records = Array.from({ length: 6 }, (_, i) =>
+    const records = Array.from({ length: 8 }, (_, i) =>
       makeRecord(String(i + 1), { riderId: `r${i}` }),
     );
     const { supabase } = makeFakeDb(records);
 
     const first = await dispatchLeasedSubmissions(supabase, "actor");
-    expect(first.started).toBe(4);
-    expect(records.filter((r) => r.status === "submitting").length).toBe(4);
+    expect(first.started).toBe(6);
+    expect(records.filter((r) => r.status === "submitting").length).toBe(6);
 
     // Account is full: nothing else may start.
     const second = await dispatchLeasedSubmissions(supabase, "actor");
@@ -87,7 +87,7 @@ describe("controlled account concurrency", () => {
     live.medicaid_trips.robot_job_id = null;
     const third = await dispatchLeasedSubmissions(supabase, "actor");
     expect(third.started).toBe(1);
-    expect(started.length).toBe(5);
+    expect(started.length).toBe(7);
   });
 
   it("keeps parallel dispatchers within the account cap, with no duplicates", async () => {
