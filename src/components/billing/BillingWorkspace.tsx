@@ -112,6 +112,7 @@ function looksLikeEdgeFailure(e: unknown): boolean {
 type TabKey =
   | "pending_review"
   | "ready_to_submit"
+  | "needs_attention"
   | "medical_review"
   | "awaiting_portal"
   | "submitted"
@@ -141,10 +142,20 @@ const TABS: {
     countKeys: ["pending_review"],
   },
   {
+    // Only bills that can actually be sent. Anything a human has to touch
+    // first lives in Needs Attention and is filtered out client-side.
     key: "ready_to_submit",
     label: "Ready to Submit",
     statuses: ["approved", "needs_fix"],
-    countKeys: ["approved", "needs_fix"],
+    countKeys: ["ready_to_submit"],
+  },
+  {
+    // The human worklist: failed data checks, human-step flags and uncertain
+    // HCPF outcomes — worked separately from the send flow.
+    key: "needs_attention",
+    label: "Needs Attention",
+    statuses: ["approved", "needs_fix", "queued", "submitting"],
+    countKeys: ["needs_attention"],
   },
   {
     key: "medical_review",
@@ -191,6 +202,7 @@ const TABS: {
 const PRIMARY_KEYS: TabKey[] = [
   "pending_review",
   "ready_to_submit",
+  "needs_attention",
   "awaiting_portal",
   "submitted",
 ];
@@ -200,9 +212,11 @@ const SECONDARY_KEYS: TabKey[] = ["medical_review", "claims_history", "payroll",
 const STAGE_HINTS: Partial<Record<TabKey, string>> = {
   pending_review: "Check the paper bill",
   ready_to_submit: "Send to the state portal",
+  needs_attention: "A person has to fix this",
   awaiting_portal: "Working at the portal",
   submitted: "Claim number saved",
 };
+
 
 
 
