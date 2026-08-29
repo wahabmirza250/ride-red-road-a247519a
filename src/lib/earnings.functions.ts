@@ -19,29 +19,37 @@ export const getCompanyEarnings = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { computeClaimTotals } = await import("@/lib/claimAmount.server");
-    const { data, error } = await supabaseAdmin
-      .from("medicaid_trips")
-      .select(
-        "id, company_id, vehicle_type, odometer_start, odometer_end, robot_captured_claim, submitted_at, portal_submitted_at, updated_at, status, robot_confirmation_number, submitted_confirmation, medicaid_trip_legs(leg_index, pickup_odometer, dropoff_odometer)",
-      )
-      .eq("company_id", companyId)
-      .or(
-        "status.eq.submitted,robot_confirmation_number.not.is.null,submitted_confirmation.not.is.null",
-      );
-    if (error) throw new Error(error.message);
+    const { selectIn, selectAllPages } = await import("@/lib/dbChunk");
 
-    const rows = (data ?? []) as any[];
+    // Paged: a company with >1000 claims used to silently lose everything past
+    // the first page, so newer paid claims never showed up in Earnings.
+    const rows = (await selectAllPages<any>(() =>
+      supabaseAdmin
+        .from("medicaid_trips")
+        .select(
+          "id, company_id, vehicle_type, odometer_start, odometer_end, robot_captured_claim, submitted_at, portal_submitted_at, updated_at, status, robot_confirmation_number, submitted_confirmation, medicaid_trip_legs(leg_index, pickup_odometer, dropoff_odometer)",
+        )
+        .eq("company_id", companyId)
+        .or(
+          "status.eq.submitted,robot_confirmation_number.not.is.null,submitted_confirmation.not.is.null",
+        )
+        .order("id", { ascending: true }),
+    )) as any[];
+
     const totals = await computeClaimTotals(supabaseAdmin, rows);
 
     // Current billing status per trip — only "paid" counts as earned income.
+    // Chunked: one huge `in(...)` filter exceeded the request URL limit and
+    // returned nothing, which made every paid claim look unpaid ($0 earned).
     const statusByTrip = new Map<string, string>();
-    if (rows.length) {
-      const { data: recs } = await supabaseAdmin
-        .from("billing_records")
-        .select("trip_id, status")
-        .in("trip_id", rows.map((r) => r.id));
-      for (const r of (recs ?? []) as any[]) statusByTrip.set(r.trip_id, r.status);
-    }
+    const recs = await selectIn<any>(
+      supabaseAdmin,
+      "billing_records",
+      "trip_id, status",
+      "trip_id",
+      rows.map((r) => r.id),
+    );
+    for (const r of recs) statusByTrip.set(r.trip_id, r.status);
 
     return aggregateEarnings(
       rows.map((r) => ({
