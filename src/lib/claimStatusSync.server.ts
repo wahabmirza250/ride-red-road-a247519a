@@ -490,7 +490,7 @@ export async function claimStatusHealth(supabase: any): Promise<ClaimStatusHealt
 async function processJob(
   supabase: any,
   job: LeasedJob,
-  opts: { actorId?: string | null; fetchImpl?: typeof fetch },
+  opts: { actorId?: string | null; fetchImpl?: typeof fetch; deadline?: number },
 ): Promise<SyncClaimOutcome & { ok: boolean }> {
   const started = Date.now();
   const base = {
@@ -499,7 +499,12 @@ async function processJob(
     previous: job.status,
   };
   try {
-    const out = await checkOneClaim(job.company_id, job.claim_number, opts.fetchImpl ?? fetch);
+    const out = await checkOneClaim(
+      job.company_id,
+      job.claim_number,
+      opts.fetchImpl ?? fetch,
+      opts.deadline,
+    );
     const tookMs = Date.now() - started;
 
     if (!out.ok) {
@@ -676,7 +681,11 @@ export async function runClaimStatusSync(
     result.companies = new Set(jobs.map((j) => j.company_id)).size;
 
     const leftover = await runPool(jobs, { perCompany, global: globalCap, deadline }, async (job) => {
-      const outcome = await processJob(supabase, job, { actorId: opts.actorId ?? null, fetchImpl: opts.fetchImpl });
+      const outcome = await processJob(supabase, job, {
+        actorId: opts.actorId ?? null,
+        fetchImpl: opts.fetchImpl,
+        deadline,
+      });
       result.outcomes.push(outcome);
       if (!outcome.ok) result.skipped++;
       else {
