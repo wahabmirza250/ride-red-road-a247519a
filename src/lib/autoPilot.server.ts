@@ -4,19 +4,36 @@
  * State lives in `auto_pilot_runs`, so a refresh, a new tab, a redeploy or a
  * worker restart changes nothing: the queue tick keeps feeding the run.
  */
-import { AUTO_PILOT_WAVE, isRunComplete, nextFeedSize, type AutoPilotState } from "@/lib/autoPilot";
+import {
+  AUTO_PILOT_WAVE,
+  fillWave,
+  isRunComplete,
+  nextFeedSize,
+  type AutoPilotState,
+} from "@/lib/autoPilot";
+import { requiresManualVerification } from "@/lib/needsVerification";
 import { submitSelectedRecords } from "@/lib/submitSelection.server";
 
 type Sb = any;
 
-/** Bills a biller could legitimately press Submit on right now. */
+/**
+ * Bills a biller could legitimately press Submit on right now.
+ *
+ * Bills awaiting a MANUAL HCPF verification are excluded here. They stay
+ * `approved`, so without this filter they came back at the head of every wave,
+ * were refused by the safe submit path every time, and starved the queue.
+ */
 export async function listEligibleBillIds(
   supabase: Sb,
   opts: { companyId?: string | null; scopeIds?: string[] | null; limit?: number } = {},
 ): Promise<string[]> {
   let q = supabase
     .from("billing_records")
-    .select("id")
+    .select(
+      `id, status, requires_human_step, failure_code, submission_error, submit_last_error,
+       state_confirmation_number,
+       medicaid_trips!inner(robot_last_status, robot_confirmation_number, submitted_confirmation)`,
+    )
     .in("status", ["approved", "needs_fix"])
     .not("requires_human_step", "is", true)
     .is("state_confirmation_number", null)
@@ -27,8 +44,24 @@ export async function listEligibleBillIds(
   if (opts.scopeIds?.length) q = q.in("id", opts.scopeIds);
   const { data, error } = await q;
   if (error) return [];
-  return (data ?? []).map((r: any) => r.id as string);
+  return (data ?? [])
+    .filter((r: any) => {
+      const trip = r.medicaid_trips ?? {};
+      return !requiresManualVerification({
+        status: r.status,
+        requires_human_step: r.requires_human_step,
+        failure_code: r.failure_code,
+        submission_error: r.submission_error,
+        submit_last_error: r.submit_last_error,
+        state_confirmation_number: r.state_confirmation_number,
+        robot_confirmation_number: trip.robot_confirmation_number ?? null,
+        submitted_confirmation: trip.submitted_confirmation ?? null,
+        robot_last_status: trip.robot_last_status ?? null,
+      });
+    })
+    .map((r: any) => r.id as string);
 }
+
 
 /** Queued + sending in this company lane right now. */
 export async function countInFlight(supabase: Sb, companyId: string | null): Promise<number> {
