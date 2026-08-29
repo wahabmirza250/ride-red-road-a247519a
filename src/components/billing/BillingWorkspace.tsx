@@ -1002,11 +1002,29 @@ function ReadyToSubmitTab({
     }
   }
 
+  const isAttention = variant === "attention";
+
   if (!rows.length)
-    return <EmptyState message="No approved trips waiting to be sent to the robot." />;
+    return (
+      <EmptyState
+        message={
+          isAttention
+            ? "Nothing needs attention right now."
+            : "No approved trips waiting to be sent to the robot."
+        }
+      />
+    );
 
   return (
     <div className="space-y-3">
+      {isAttention && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          These bills can&apos;t be sent yet. Fix the data on each one — when the correction
+          passes the billing check it moves back to <strong>Ready to Submit</strong> on its own.
+          Nothing here is submitted automatically.
+        </div>
+      )}
+
       <DuplicateSubmitDialog
         info={duplicate?.info ?? null}
         busy={submittingIds.size > 0}
