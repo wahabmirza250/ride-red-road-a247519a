@@ -3,13 +3,17 @@ export type CompanyEarnings = {
   /** Confirmed paid income only. */
   total: number;
   claims: number;
-  /** Submitted / suspended / not-yet-paid claims. */
+  /** Submitted / suspended / not-yet-paid claims. Never denied or rejected. */
   pendingTotal: number;
   pendingClaims: number;
+  /** Denied or rejected by the state — never income, never "pending". */
+  deniedTotal: number;
+  deniedClaims: number;
   byDay: EarningsBucket[];
   byWeek: EarningsBucket[];
   byMonth: EarningsBucket[];
 };
+
 
 export type ClaimRow = {
   robot_captured_claim: unknown;
