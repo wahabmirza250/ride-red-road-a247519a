@@ -193,8 +193,12 @@ export async function checkOneClaim(
     return { ok: false, detail: `checker unreachable: ${e?.message ?? e}` };
   }
 
-  const deadline = Date.now() + CHECK_POLL_TIMEOUT_MS;
+  const deadline = Math.min(
+    Date.now() + CHECK_POLL_TIMEOUT_MS,
+    hardDeadline ?? Number.POSITIVE_INFINITY,
+  );
   while (Date.now() < deadline) {
+
     await new Promise((r) => setTimeout(r, CHECK_POLL_INTERVAL_MS));
     let body: any;
     try {
