@@ -251,7 +251,11 @@ export function makeFakeDb(
       const ls = Math.min(Math.max(args._lease_seconds ?? 300, 30), 3600);
       const scope = args._company_id ?? null;
 
+      const riderKeyOf = (r: FakeRecord) =>
+        r.medicaid_trips?.rider_id ? `rider:${r.medicaid_trips.rider_id}` : `trip:${r.trip_id}`;
+
       const active = new Map<string, number>();
+      const busyRiders = new Set<string>();
       for (const r of records) {
         const live = r.status === "submitting" && r.medicaid_trips?.robot_job_id;
         const leasedElsewhere =
@@ -261,6 +265,7 @@ export function makeFakeDb(
         if (!live && !leasedElsewhere) continue;
         const k = accountKeyOf(r);
         active.set(k, (active.get(k) ?? 0) + 1);
+        busyRiders.add(riderKeyOf(r));
       }
       const totalActive = [...active.values()].reduce((a, b) => a + b, 0);
 
@@ -273,14 +278,26 @@ export function makeFakeDb(
             (scope == null || r.company_id === scope) &&
             (args._record_ids == null || args._record_ids.includes(r.id)),
         )
-        .sort((a, b) =>
-          (a.submit_next_attempt_at ?? a.updated_at).localeCompare(
-            b.submit_next_attempt_at ?? b.updated_at,
-          ),
+        .sort(
+          (a, b) =>
+            (a.submit_next_attempt_at ?? a.updated_at).localeCompare(
+              b.submit_next_attempt_at ?? b.updated_at,
+            ) || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
         );
 
+      // RIDER FAIRNESS: skip riders that are already busy and take only the
+      // oldest queued bill per rider, so a run of same-rider rows can never
+      // consume the whole lease batch and leave worker slots idle.
+      const seenRider = new Set<string>();
+      const fair = due.filter((r) => {
+        const rk = riderKeyOf(r);
+        if (busyRiders.has(rk) || seenRider.has(rk)) return false;
+        seenRider.add(rk);
+        return true;
+      });
+
       const rn = new Map<string, number>();
-      const ranked = due.map((r) => {
+      const ranked = fair.map((r) => {
         const k = accountKeyOf(r);
         const n = (rn.get(k) ?? 0) + 1;
         rn.set(k, n);
@@ -291,6 +308,7 @@ export function makeFakeDb(
         .filter((x) => x.rn <= Math.max(pc - (active.get(accountKeyOf(x.r)) ?? 0), 0))
         .sort((a, b) => a.rn - b.rn || accountKeyOf(a.r).localeCompare(accountKeyOf(b.r)))
         .slice(0, Math.max(g - totalActive, 0));
+
 
       const leased: any[] = [];
       for (const { r } of picked) {
