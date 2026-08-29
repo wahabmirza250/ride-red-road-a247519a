@@ -82,6 +82,8 @@ import { partitionBillingRows, attentionReasonLabel } from "@/lib/needsAttention
 
 import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
+import { BillingKpiRow } from "@/components/billing/BillingKpiRow";
+import { BillingInsights } from "@/components/billing/BillingInsights";
 
 import { MedicalReviewTab } from "@/components/billing/MedicalReviewTab";
 
