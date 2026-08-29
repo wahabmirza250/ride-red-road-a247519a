@@ -27,8 +27,10 @@ export function envInt(name: string, fallback: number, min: number, max: number)
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, Math.floor(n)));
 }
-/** Max concurrent read-only status checks for ONE company. Conservative. */
-export const maxPerCompany = () => envInt("CLAIM_STATUS_MAX_PER_COMPANY", 4, 1, 50);
+/** Max concurrent read-only status checks for ONE company/HCPF account.
+ *  These are search-only page loads (never Submit/Confirm), so a company may
+ *  safely run more of them than submissions — submissions stay capped at 4. */
+export const maxPerCompany = () => envInt("CLAIM_STATUS_MAX_PER_COMPANY", 8, 1, 50);
 /** Max concurrent read-only status checks across ALL companies. */
 export const maxGlobal = () => envInt("CLAIM_STATUS_MAX_GLOBAL", 20, 1, 200);
 /** How long a leased claim stays locked before it becomes eligible again. */
