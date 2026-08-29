@@ -51,6 +51,8 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
   let claims = 0;
   let pendingTotal = 0;
   let pendingClaims = 0;
+  let deniedTotal = 0;
+  let deniedClaims = 0;
 
   for (const r of rows) {
     const captured = (r.robot_captured_claim ?? null) as { total_charged_amount?: unknown } | null;
@@ -64,9 +66,16 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
     const d = new Date(stamp);
     if (Number.isNaN(d.getTime())) continue;
 
+    const state = String(r.billing_status ?? "").toLowerCase();
+    // Denied / rejected money is never income and never "awaiting payment".
+    if (state === "denied" || state === "rejected") {
+      deniedTotal += amount;
+      deniedClaims += 1;
+      continue;
+    }
+
     // Only claims the biller has confirmed as paid count as real income.
-    const isPaid = String(r.billing_status ?? "").toLowerCase() === "paid";
-    if (!isPaid) {
+    if (state !== "paid") {
       pendingTotal += amount;
       pendingClaims += 1;
       continue;
@@ -96,6 +105,9 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
     claims,
     pendingTotal: Math.round(pendingTotal * 100) / 100,
     pendingClaims,
+    deniedTotal: Math.round(deniedTotal * 100) / 100,
+    deniedClaims,
+
     byDay: sorted(day).slice(0, 30),
     byWeek: sorted(week).slice(0, 12),
     byMonth: sorted(month).slice(0, 12),
