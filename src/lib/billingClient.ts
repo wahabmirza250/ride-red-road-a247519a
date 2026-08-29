@@ -104,34 +104,27 @@ export async function getBillingCountsClient() {
     }),
   );
 
-  // Mirrors getBillingCounts: Needs Attention is its own stage, so approved
-  // bills that are flagged for a human (or still carry a blocking error) are
-  // not counted as Ready to Submit.
-  const BLOCKED = "requires_human_step.is.true,submission_error.not.is.null";
-  const [needsFixActive, approvedTotal, approvedBlocked] = await Promise.all([
-    supabase
-      .from("billing_records")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "needs_fix" as never)
-      .is("attention_archived_at", null),
-    supabase
-      .from("billing_records")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "approved" as never)
-      .is("attention_archived_at", null),
-    supabase
-      .from("billing_records")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "approved" as never)
-      .is("attention_archived_at", null)
-      .or(BLOCKED),
-  ]);
-
-  const blocked = approvedBlocked.count ?? 0;
-  counts["needs_attention"] = (needsFixActive.count ?? 0) + blocked;
-  counts["ready_to_submit"] = Math.max(0, (approvedTotal.count ?? 0) - blocked);
+  // Mirrors getBillingCounts exactly: both stage numbers come from the same
+  // rows and the same shared predicate the list renders with.
+  const {
+    ATTENTION_COUNT_SELECT,
+    ATTENTION_COUNT_STATUSES,
+    ATTENTION_COUNT_LIMIT,
+    splitAttentionCounts,
+  } = await import("@/lib/attentionCounts");
+  const { data: attentionRows, error: attentionErr } = await supabase
+    .from("billing_records")
+    .select(ATTENTION_COUNT_SELECT)
+    .in("status", ATTENTION_COUNT_STATUSES as unknown as never[])
+    .is("attention_archived_at", null)
+    .limit(ATTENTION_COUNT_LIMIT);
+  if (attentionErr) throw new Error(attentionErr.message);
+  const split = splitAttentionCounts((attentionRows ?? []) as any[]);
+  counts["needs_attention"] = split.needs_attention;
+  counts["ready_to_submit"] = split.ready_to_submit;
   return counts;
 }
+
 
 
 /**
