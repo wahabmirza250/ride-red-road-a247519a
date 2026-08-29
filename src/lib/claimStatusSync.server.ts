@@ -727,20 +727,24 @@ export async function runClaimStatusSync(
     result.companies = new Set(jobs.map((j) => j.company_id)).size;
 
 
-    const leftover = await runPool(jobs, { perCompany, global: globalCap, deadline }, async (job) => {
-      const outcome = await processJob(supabase, job, {
-        actorId: opts.actorId ?? null,
-        fetchImpl: opts.fetchImpl,
-        deadline,
-      });
-      result.outcomes.push(outcome);
-      if (!outcome.ok) result.skipped++;
-      else {
-        result.checked++;
-        if (outcome.changed) result.changed++;
-        else result.unchanged++;
-      }
-    });
+    const leftover = await runPool(
+      jobs,
+      { perCompany: effPerCompany, global: effGlobal, deadline },
+      async (job) => {
+        const outcome = await processJob(supabase, job, {
+          actorId: opts.actorId ?? null,
+          fetchImpl: opts.fetchImpl,
+          deadline,
+        });
+        result.outcomes.push(outcome);
+        if (!outcome.ok) result.skipped++;
+        else {
+          result.checked++;
+          if (outcome.changed) result.changed++;
+          else result.unchanged++;
+        }
+      },
+    );
 
     // Ran out of budget: release those leases immediately so the next tick picks them up.
     for (const job of leftover) {
@@ -755,25 +759,41 @@ export async function runClaimStatusSync(
     result.reason = msg;
     return result;
   } finally {
-    await supabase
-      .from("claim_status_sync_state")
-      .update({
-        lease_until: null,
-        last_run_at: new Date().toISOString(),
-        last_result: {
-          checked: result.checked,
-          changed: result.changed,
-          unchanged: result.unchanged,
-          skipped: result.skipped,
-          companies: result.companies,
-          duration_ms: Date.now() - startedAt,
-          per_company_limit: perCompany,
-          global_limit: globalCap,
-          worker: workerId,
-          reason: result.reason ?? null,
-        },
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", true);
+    await recordRun(supabase, result, {
+      startedAt,
+      perCompany: effPerCompany,
+      globalCap: effGlobal,
+      workerId,
+    });
   }
 }
+
+/** Always leave a trace of a tick — including the ones that did nothing.
+ *  A silent 200 with no state write is why a day-long stall was invisible. */
+async function recordRun(
+  supabase: any,
+  result: SyncRunResult,
+  meta: { startedAt: number; perCompany: number; globalCap: number; workerId: string },
+): Promise<void> {
+  await supabase
+    .from("claim_status_sync_state")
+    .update({
+      lease_until: null,
+      last_run_at: new Date().toISOString(),
+      last_result: {
+        checked: result.checked,
+        changed: result.changed,
+        unchanged: result.unchanged,
+        skipped: result.skipped,
+        companies: result.companies,
+        duration_ms: Date.now() - meta.startedAt,
+        per_company_limit: meta.perCompany,
+        global_limit: meta.globalCap,
+        worker: meta.workerId,
+        reason: result.reason ?? null,
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", true);
+}
+
