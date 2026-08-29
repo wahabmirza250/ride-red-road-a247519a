@@ -176,6 +176,35 @@ export const updateBillForFix = createServerFn({ method: "POST" })
       if (tErr) throw new Error(`Could not update the trip: ${tErr.message}`);
     }
 
+    // ODOMETER SOURCE OF TRUTH. Billable miles come from the trip's odometer
+    // LEGS whenever any exist — writing only the trip columns left corrected
+    // bills stuck on "0 billable miles" no matter how often they were edited.
+    let legWarning: string | null = null;
+    if (tripPatch.odometer_start !== undefined || tripPatch.odometer_end !== undefined) {
+      const { planLegSync } = await import("@/lib/odometerLegs");
+      const { data: legs, error: legErr } = await supabase
+        .from("medicaid_trip_legs")
+        .select("id, leg_index")
+        .eq("medicaid_trip_id", trip.id)
+        .order("leg_index");
+      if (legErr) throw new Error(`Could not read the trip's odometer legs: ${legErr.message}`);
+      const plan = planLegSync(legs ?? [], { start, end });
+      if (plan.action === "update") {
+        const { error: uErr } = await supabase
+          .from("medicaid_trip_legs")
+          .update({
+            pickup_odometer: plan.pickup_odometer,
+            dropoff_odometer: plan.dropoff_odometer,
+          })
+          .eq("id", plan.legId);
+        if (uErr) throw new Error(`Could not update the odometer leg: ${uErr.message}`);
+        changes.push("Odometer leg updated to match");
+      } else if (plan.action === "manual") {
+        legWarning = plan.reason;
+      }
+    }
+
+
     // ---- re-run the real submission preflight against the SAVED data ----
     // Never blindly mark ready: read the corrected row back, re-check it, and
     // only clear stale blocking flags when both the safety gate and the
