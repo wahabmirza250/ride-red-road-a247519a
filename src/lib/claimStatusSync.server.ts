@@ -45,7 +45,7 @@ export const SYNC_BATCH_SIZE = maxGlobal();
  *  anything unfinished is released and picked up by the next tick. Kept at
  *  45s: a 100s budget outlived the request itself, so the run stats were
  *  never written back even though the checks themselves ran. */
-export const RUN_BUDGET_MS = envInt("CLAIM_STATUS_RUN_BUDGET_MS", 45_000, 10_000, 240_000);
+export const RUN_BUDGET_MS = envInt("CLAIM_STATUS_RUN_BUDGET_MS", 100_000, 10_000, 240_000);
 
 /** Manual kicks only enqueue; this ceiling exists for direct/server callers. */
 export const MANUAL_RUN_BUDGET_MS = envInt("CLAIM_STATUS_MANUAL_BUDGET_MS", 60_000, 5_000, 180_000);
