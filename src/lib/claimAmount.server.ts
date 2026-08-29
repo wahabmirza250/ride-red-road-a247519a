@@ -64,11 +64,15 @@ export async function computeClaimTotals(
     if (Array.isArray(t.medicaid_trip_legs)) legsByTrip.set(t.id, t.medicaid_trip_legs);
   }
   if (missingLegs.length) {
-    const { data } = await supabase
-      .from("medicaid_trip_legs")
-      .select("medicaid_trip_id, leg_index, pickup_odometer, dropoff_odometer")
-      .in("medicaid_trip_id", missingLegs);
-    for (const l of (data ?? []) as any[]) {
+    const { selectIn } = await import("@/lib/dbChunk");
+    const data = await selectIn<any>(
+      supabase,
+      "medicaid_trip_legs",
+      "medicaid_trip_id, leg_index, pickup_odometer, dropoff_odometer",
+      "medicaid_trip_id",
+      missingLegs,
+    );
+    for (const l of data) {
       const list = legsByTrip.get(l.medicaid_trip_id) ?? [];
       list.push(l);
       legsByTrip.set(l.medicaid_trip_id, list);
