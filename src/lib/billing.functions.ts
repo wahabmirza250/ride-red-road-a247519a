@@ -156,35 +156,28 @@ export const getBillingCounts = createServerFn({ method: "GET" })
     const counts: Record<string, number> = {};
     for (const [s, c] of results) counts[s] = c;
 
-    // NEEDS ATTENTION vs READY TO SUBMIT.
-    // "Ready" must only count bills a biller can actually send, so approved
-    // rows that are flagged for a human, or still carry a live blocking error,
-    // are counted in the Needs Attention stage instead. Head counts only.
-    const BLOCKED = "requires_human_step.is.true,submission_error.not.is.null";
-    const [needsFixActive, approvedTotal, approvedBlocked] = await Promise.all([
-      supabase
-        .from("billing_records")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "needs_fix")
-        .is("attention_archived_at", null),
-      supabase
-        .from("billing_records")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "approved")
-        .is("attention_archived_at", null),
-      supabase
-        .from("billing_records")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "approved")
-        .is("attention_archived_at", null)
-        .or(BLOCKED),
-    ]);
-
-    const blocked = approvedBlocked.count ?? 0;
-    counts["needs_attention"] = (needsFixActive.count ?? 0) + blocked;
-    counts["ready_to_submit"] = Math.max(0, (approvedTotal.count ?? 0) - blocked);
+    // NEEDS ATTENTION vs READY TO SUBMIT — derived from the SAME rows and the
+    // SAME predicate the list renders with, so the badge can never disagree
+    // with what the tab shows.
+    const {
+      ATTENTION_COUNT_SELECT,
+      ATTENTION_COUNT_STATUSES,
+      ATTENTION_COUNT_LIMIT,
+      splitAttentionCounts,
+    } = await import("@/lib/attentionCounts");
+    const { data: attentionRows, error: attentionErr } = await supabase
+      .from("billing_records")
+      .select(ATTENTION_COUNT_SELECT)
+      .in("status", ATTENTION_COUNT_STATUSES as unknown as string[])
+      .is("attention_archived_at", null)
+      .limit(ATTENTION_COUNT_LIMIT);
+    if (attentionErr) throw new Error(attentionErr.message);
+    const split = splitAttentionCounts(attentionRows ?? []);
+    counts["needs_attention"] = split.needs_attention;
+    counts["ready_to_submit"] = split.ready_to_submit;
     return counts;
   });
+
 
 
 
