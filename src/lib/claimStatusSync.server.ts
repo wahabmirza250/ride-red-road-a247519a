@@ -164,7 +164,7 @@ export function isFinalCheckerJobState(state: string | null | undefined): boolea
 
 
 /** Look up ONE claim through the checker service (start job, poll until done). */
-async function checkOneClaim(
+export async function checkOneClaim(
   companyId: string | null,
   claimNumber: string,
   doFetch: typeof fetch,
