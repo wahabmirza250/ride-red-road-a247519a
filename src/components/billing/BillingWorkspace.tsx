@@ -242,6 +242,19 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
 
+  // Sidebar deep links (`/billing#needs_attention`) select a stage. UI only.
+  useEffect(() => {
+    const apply = () => {
+      const h = window.location.hash.replace("#", "");
+      if (h && TABS.some((t) => t.key === h)) setTab(h as TabKey);
+    };
+    apply();
+    window.addEventListener("hashchange", apply);
+    return () => window.removeEventListener("hashchange", apply);
+  }, []);
+
+
+
   const listFn = useServerFn(listBillingRecords);
   const countsFn = useServerFn(getBillingCounts);
   const settingsFn = useServerFn(getBillingSettings);
