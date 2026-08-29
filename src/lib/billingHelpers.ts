@@ -547,19 +547,26 @@ export async function startRobotSubmission(
     );
   }
 
-  // FINAL SINGLE-FLIGHT BOUNDARY (defence in depth).
+  // FINAL CONCURRENCY BOUNDARY (defence in depth).
   // The DB-leased queue is the only intended dispatcher, but this helper is the
-  // last shared gate before the network call, so it independently refuses to
-  // open a second live portal session for the same provider account. The app
-  // must never depend on the automation worker's own concurrency limit.
+  // last shared gate before the network call, so it independently enforces the
+  // SAME caps: at most MAX_CONCURRENT_ROBOT_JOBS live portal sessions per
+  // provider account, and never two live sessions for one passenger. It used to
+  // allow only ONE session per account, which contradicted the queue's cap and
+  // wedged the whole queue whenever a single row lingered in `submitting`.
   {
-    const { listActiveRobotJobs } = await import("@/lib/robotQueue.server");
+    const { listActiveRobotJobs, MAX_CONCURRENT_ROBOT_JOBS, MAX_CONCURRENT_JOBS_PER_RIDER, riderKeyOf } =
+      await import("@/lib/robotQueue.server");
     const companyId = args.companyId ?? trip.company_id ?? null;
     const live = await listActiveRobotJobs(supabase, {
       companyId,
       excludeRecordId: billingRecordId,
     });
-    if (live.length > 0) {
+    const key = riderKeyOf(trip);
+    const riderLive = key ? live.filter((l) => l.riderKey === key).length : 0;
+    const accountFull = live.length >= MAX_CONCURRENT_ROBOT_JOBS;
+    const riderFull = Boolean(key) && riderLive >= MAX_CONCURRENT_JOBS_PER_RIDER;
+    if (accountFull || riderFull) {
       throw new Error(
         doesSubmit
           ? "Another portal session is already running on this provider account — the automation service is temporarily unavailable for this bill. Nothing was submitted; it stays queued."
@@ -567,6 +574,7 @@ export async function startRobotSubmission(
       );
     }
   }
+
 
 
   // Portal-clock guard: never send a date of service the portal will reject as

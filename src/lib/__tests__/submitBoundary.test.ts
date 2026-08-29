@@ -18,11 +18,11 @@ vi.mock("@/lib/robotFleet.server", () => ({
 }));
 
 import { startRobotSubmission } from "@/lib/billingHelpers";
+import { MAX_CONCURRENT_ROBOT_JOBS } from "@/lib/robotQueue.server";
 import { makeRecord } from "./fakeQueueDb";
 
-/** Minimal DB: one live `submitting` bill for the same company. */
-function dbWithLiveJob() {
-  const live = makeRecord("live", { riderId: "rOther", status: "submitting", jobId: "job-live" });
+/** Minimal DB serving a fixed set of live `submitting` bills. */
+function dbWithLiveJobs(live: any[]) {
   const from = () => {
     const builder: any = {
       select: () => builder,
@@ -34,24 +34,29 @@ function dbWithLiveJob() {
       limit: () => builder,
       maybeSingle: async () => ({ data: null, error: null }),
       single: async () => ({ data: null, error: null }),
-      then: (res: any, rej?: any) => Promise.resolve({ data: [live], error: null }).then(res, rej),
+      then: (res: any, rej?: any) => Promise.resolve({ data: live, error: null }).then(res, rej),
     };
     return builder;
   };
   return { from, rpc: async () => ({ data: null, error: null }) } as any;
 }
 
+const liveFor = (id: string, riderId: string) =>
+  makeRecord(id, { riderId, status: "submitting", jobId: `job-${id}` });
+
 beforeEach(() => {
   dispatched.length = 0;
 });
 
-describe("startRobotSubmission single-flight boundary", () => {
-  it("refuses a real submit while another session is live on the account", async () => {
-    const supabase = dbWithLiveJob();
+describe("startRobotSubmission concurrency boundary", () => {
+  it("refuses a real submit once the account is at its concurrency cap", async () => {
+    const supabase = dbWithLiveJobs(
+      Array.from({ length: MAX_CONCURRENT_ROBOT_JOBS }, (_, i) => liveFor(`L${i}`, `rOther${i}`)),
+    );
     await expect(
       startRobotSubmission(supabase, {
         billingRecordId: "bypass",
-        trip: { id: "t1", company_id: "co1", riders: { medicaid_id: "A123456" } },
+        trip: { id: "t1", company_id: "co1", rider_id: "rMine", riders: { medicaid_id: "A123456" } },
         providerUserId: "biller",
         mode: "full",
       }),
@@ -59,16 +64,31 @@ describe("startRobotSubmission single-flight boundary", () => {
     expect(dispatched.length).toBe(0);
   });
 
-  it("still refuses the legacy two-pass confirm submit", async () => {
-    const supabase = dbWithLiveJob();
+  it("refuses a second live session for the SAME passenger", async () => {
+    const supabase = dbWithLiveJobs([liveFor("L0", "rMine")]);
     await expect(
       startRobotSubmission(supabase, {
         billingRecordId: "bypass",
-        trip: { id: "t1", company_id: "co1", riders: { medicaid_id: "A123456" } },
+        trip: { id: "t1", company_id: "co1", rider_id: "rMine", riders: { medicaid_id: "A123456" } },
         providerUserId: "biller",
         mode: "submit",
       }),
     ).rejects.toThrow(/temporarily unavailable/i);
     expect(dispatched.length).toBe(0);
   });
+
+  it("does NOT block a different passenger while the account has free slots", async () => {
+    const supabase = dbWithLiveJobs([liveFor("L0", "rOther")]);
+    // It gets past the concurrency gate and fails later on missing trip data.
+    await expect(
+      startRobotSubmission(supabase, {
+        billingRecordId: "bypass",
+        trip: { id: "t1", company_id: "co1", rider_id: "rMine", riders: { medicaid_id: "A123456" } },
+        providerUserId: "biller",
+        mode: "full",
+      }),
+    ).rejects.not.toThrow(/already running on this provider account/i);
+    expect(dispatched.length).toBe(0);
+  });
 });
+
