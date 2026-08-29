@@ -268,13 +268,16 @@ export const updateBillForFix = createServerFn({ method: "POST" })
         .eq("id", data.id);
       if (bErr) throw new Error(bErr.message);
     } else if (outcome.kind === "needs_fix") {
-      // Replace stale robot traces with one concise, current reason.
+      // Replace stale robot traces with one concise, current reason. A
+      // multi-leg odometer that could not be applied automatically is named
+      // explicitly so the biller is never left guessing.
+      const reason = legWarning ? `${outcome.reason} ${legWarning}` : outcome.reason;
       const { error: bErr } = await supabase
         .from("billing_records")
         .update({
           status: "needs_fix",
-          submission_error: outcome.reason,
-          fix_notes: outcome.reason,
+          submission_error: reason,
+          fix_notes: reason,
           requires_human_step: false,
           reviewed_by: userId,
           reviewed_at: new Date().toISOString(),
@@ -282,6 +285,7 @@ export const updateBillForFix = createServerFn({ method: "POST" })
         .eq("id", data.id);
       if (bErr) throw new Error(bErr.message);
     }
+
     // outcome.kind === "blocked": the edit is saved, but the safety state
     // (real claim / ambiguous outcome / live in queue) is left exactly as is.
 
