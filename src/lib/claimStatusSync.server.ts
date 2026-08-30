@@ -29,8 +29,12 @@ export function envInt(name: string, fallback: number, min: number, max: number)
 }
 /** The checker service drives a small browser pool. One company's claims are
  *  still checked strictly one at a time (same account/session on the portal),
- *  so the per-company cap stays hard-clamped to 1. */
+ *  so the per-company CONCURRENCY cap stays hard-clamped to 1. */
 export const maxPerCompany = () => envInt("CLAIM_STATUS_MAX_PER_COMPANY", 1, 1, 1);
+/** How many due claims one tick may LEASE for a single company. These are run
+ *  strictly sequentially through the single per-company session; leasing more
+ *  than one just avoids wasting the rest of the run budget. */
+export const leasePerCompany = () => envInt("CLAIM_STATUS_LEASE_PER_COMPANY", 3, 1, 3);
 /** Max concurrent read-only status checks across ALL companies (hard cap 3). */
 export const maxGlobal = () => envInt("CLAIM_STATUS_MAX_GLOBAL", 3, 1, 3);
 /** How long a leased claim stays locked before it becomes eligible again. */
@@ -750,7 +754,11 @@ export async function runClaimStatusSync(
   const inService = depth ? depth.active + depth.queued : 0;
   const busy = Boolean(depth && inService >= globalCap);
   const effGlobal = Math.max(1, globalCap - inService);
+  // Concurrency for one company is always 1 (single portal session), but a
+  // tick may LEASE several of that company's due claims and walk them
+  // sequentially through that one session inside the run budget.
   const effPerCompany = 1;
+  const effLeasePerCompany = Math.min(leasePerCompany(), effGlobal);
   const backpressureReason = busy
     ? `Status-checking service is still working (${depth!.active} running, ${depth!.queued} waiting). Nothing new was started; claims stay scheduled.`
     : null;
@@ -767,7 +775,7 @@ export async function runClaimStatusSync(
   try {
     const jobs = await leaseClaimStatusJobs(supabase, {
       globalLimit: effGlobal,
-      perCompanyLimit: effPerCompany,
+      perCompanyLimit: effLeasePerCompany,
       leaseSeconds: leaseSeconds(),
       worker: workerId,
       ...(opts.recordIds?.length ? { recordIds: opts.recordIds } : {}),
@@ -782,9 +790,14 @@ export async function runClaimStatusSync(
     result.companies = new Set(jobs.map((j) => j.company_id)).size;
 
 
+    // Leave margin at the end of the budget: never START another sequential
+    // check that cannot plausibly finish. Leftovers are unlocked below.
+    const budget = opts.budgetMs ?? RUN_BUDGET_MS;
+    const startDeadline = budget > 60_000 ? deadline - 20_000 : deadline;
+
     const leftover = await runPool(
       jobs,
-      { perCompany: effPerCompany, global: effGlobal, deadline },
+      { perCompany: effPerCompany, global: effGlobal, deadline: startDeadline },
       async (job) => {
         const outcome = await processJob(supabase, job, {
           actorId: opts.actorId ?? null,
