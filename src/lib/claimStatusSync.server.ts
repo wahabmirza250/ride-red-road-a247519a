@@ -742,20 +742,29 @@ export async function runClaimStatusSync(
   // service drains the checker resumes by itself, and the reason is always
   // written to the state row so the UI can show it.
   const depth = await checkerQueueDepth(opts.fetchImpl ?? fetch);
-  const backedUp = Boolean(depth && depth.queued > CHECKER_QUEUE_LIMIT);
-  const effGlobal = backedUp ? 1 : globalCap;
-  const effPerCompany = backedUp ? 1 : perCompany;
-  const backpressureReason = backedUp
-    ? `Status-checking service is backed up (${depth!.queued} jobs waiting, ${depth!.active} running). Only one probe claim was checked this run.`
+  // A single browser means: if ANY prior checker job is still pending/running,
+  // this invocation starts nothing at all. Confirmations stay untouched and
+  // the claims are simply due again on the next tick.
+  const busy = Boolean(depth && (depth.active > 0 || depth.queued > 0));
+  const effGlobal = 1;
+  const effPerCompany = 1;
+  const backpressureReason = busy
+    ? `Status-checking service is still working (${depth!.active} running, ${depth!.queued} waiting). Nothing new was started; claims stay scheduled.`
     : null;
 
   // Self-heal first: anything a crashed worker left locked becomes eligible.
   await releaseStaleLocks(supabase);
 
+  if (busy) {
+    result.reason = backpressureReason!;
+    await recordRun(supabase, result, { startedAt, perCompany, globalCap, workerId });
+    return result;
+  }
+
   try {
     const jobs = await leaseClaimStatusJobs(supabase, {
-      globalLimit: opts.recordIds?.length ? opts.recordIds.length : effGlobal,
-      perCompanyLimit: opts.recordIds?.length ? opts.recordIds.length : effPerCompany,
+      globalLimit: effGlobal,
+      perCompanyLimit: effPerCompany,
       leaseSeconds: leaseSeconds(),
       worker: workerId,
       ...(opts.recordIds?.length ? { recordIds: opts.recordIds } : {}),
