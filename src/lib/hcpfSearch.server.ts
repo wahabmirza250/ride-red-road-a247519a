@@ -162,8 +162,7 @@ export async function searchHcpfForRecord(
       claims: [],
       member_id: "",
       service_date: serviceDate,
-      ...({} as any),
-    } satisfies HcpfSearchResult;
+    };
   }
 
   const worker = await callWorker({
