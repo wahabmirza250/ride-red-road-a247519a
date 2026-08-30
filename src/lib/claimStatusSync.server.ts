@@ -27,12 +27,12 @@ export function envInt(name: string, fallback: number, min: number, max: number)
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, Math.floor(n)));
 }
-/** The checker service drives ONE real browser at a time. Anything above a
- *  single in-flight job just recreates a service-side backlog and makes every
- *  caller time out, so both caps are 1 and are hard-clamped to 1 below. */
+/** The checker service drives a small browser pool. One company's claims are
+ *  still checked strictly one at a time (same account/session on the portal),
+ *  so the per-company cap stays hard-clamped to 1. */
 export const maxPerCompany = () => envInt("CLAIM_STATUS_MAX_PER_COMPANY", 1, 1, 1);
-/** Max concurrent read-only status checks across ALL companies (always 1). */
-export const maxGlobal = () => envInt("CLAIM_STATUS_MAX_GLOBAL", 1, 1, 1);
+/** Max concurrent read-only status checks across ALL companies (hard cap 3). */
+export const maxGlobal = () => envInt("CLAIM_STATUS_MAX_GLOBAL", 3, 1, 3);
 /** How long a leased claim stays locked before it becomes eligible again. */
 export const leaseSeconds = () => envInt("CLAIM_STATUS_LEASE_SECONDS", 180, 30, 3600);
 /** Locks older than this past their expiry are swept as abandoned. */
@@ -696,10 +696,11 @@ export async function runClaimStatusSync(
   } = {},
 ): Promise<SyncRunResult> {
   const deadline = Date.now() + (opts.budgetMs ?? RUN_BUDGET_MS);
-  // Defensive hard clamp: whatever configuration or caller asks for, ONE
-  // scheduler invocation may only ever create/poll a single checker job.
+  // Defensive hard clamp: whatever configuration or caller asks for, one
+  // scheduler invocation may only ever create/poll at most THREE checker jobs
+  // globally, and still at most ONE per company (one portal session each).
   const perCompany = 1;
-  const globalCap = 1;
+  const globalCap = 3;
   void opts.perCompanyLimit;
   void opts.globalLimit;
   const workerId = `w-${Math.random().toString(36).slice(2, 8)}-${Date.now()}`;
@@ -742,11 +743,13 @@ export async function runClaimStatusSync(
   // service drains the checker resumes by itself, and the reason is always
   // written to the state row so the UI can show it.
   const depth = await checkerQueueDepth(opts.fetchImpl ?? fetch);
-  // A single browser means: if ANY prior checker job is still pending/running,
-  // this invocation starts nothing at all. Confirmations stay untouched and
-  // the claims are simply due again on the next tick.
-  const busy = Boolean(depth && (depth.active > 0 || depth.queued > 0));
-  const effGlobal = 1;
+  // With a global cap of 3, a fully saturated service (3+ jobs pending or
+  // running) starts nothing at all; below saturation we lease only the spare
+  // capacity so a tick never pushes the service past the cap. Confirmations
+  // stay untouched and the claims are simply due again on the next tick.
+  const inService = depth ? depth.active + depth.queued : 0;
+  const busy = Boolean(depth && inService >= globalCap);
+  const effGlobal = Math.max(1, globalCap - inService);
   const effPerCompany = 1;
   const backpressureReason = busy
     ? `Status-checking service is still working (${depth!.active} running, ${depth!.queued} waiting). Nothing new was started; claims stay scheduled.`
