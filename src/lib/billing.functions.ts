@@ -114,7 +114,7 @@ export const listBillingRecords = createServerFn({ method: "POST" })
     // existence probe) was 2 storage round-trips per bill — ~266 calls for a
     // 133-row list. The list only needs to know whether a form exists; the
     // signed URL is minted lazily when a biller actually opens one.
-    return (rows ?? []).map((r: any) => ({
+    const mapped = (rows ?? []).map((r: any) => ({
       id: r.id,
       trip_id: r.trip_id,
       status: r.status,
@@ -151,7 +151,14 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       robot_last_message: r.medicaid_trips?.robot_last_message ?? null,
       robot_job_started_at: r.medicaid_trips?.robot_job_started_at ?? null,
     }));
+
+    // Stage filtering happens AFTER mapping, on exactly the fields the badge
+    // predicate uses, then pages. Badge count and rendered rows can no longer
+    // disagree, because they are the same predicate over the same rows.
+    if (!data.stage) return mapped;
+    return filterStage(mapped as any[], data.stage).slice(page.from, page.to + 1) as typeof mapped;
   });
+
 
 export const getBillingCounts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
