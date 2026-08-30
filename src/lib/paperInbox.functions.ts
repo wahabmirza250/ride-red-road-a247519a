@@ -19,11 +19,30 @@ async function assertBilling(supabase: any) {
   if (!data) throw new Error("Forbidden: billing staff only");
 }
 
+/** How long a read/import may stay in flight before it counts as interrupted. */
+export const STUCK_AFTER_MS = 10 * 60 * 1000;
+
 /** Every outstanding + recently finished upload for the signed-in company. */
 export const listPaperInbox = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertBilling(context.supabase);
+
+    // Recover work interrupted by a timeout, closed browser or server restart:
+    // anything left "reading"/"importing" past the ceiling becomes a visible,
+    // retryable error instead of a row that spins forever. Rows that actually
+    // finished (trip_id set) are never touched.
+    const cutoff = new Date(Date.now() - STUCK_AFTER_MS).toISOString();
+    await context.supabase
+      .from("paper_inbox_files")
+      .update({
+        status: "error",
+        error: "The previous attempt was interrupted before it finished — retry this file.",
+      })
+      .in("status", ["reading", "importing"])
+      .is("trip_id", null)
+      .lt("updated_at", cutoff);
+
     const { data, error } = await context.supabase
       .from("paper_inbox_files")
       .select(SELECT)
@@ -32,6 +51,7 @@ export const listPaperInbox = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return (data ?? []) as PaperInboxRow[];
   });
+
 
 /**
  * Record a file that the browser has just stored in `state-pdfs`.
