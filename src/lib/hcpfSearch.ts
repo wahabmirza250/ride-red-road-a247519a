@@ -14,6 +14,8 @@ export type PortalClaim = {
   charge_amount: number | null;
   units: number | null;
   member_id: string | null;
+  /** Portal row label/index, when the checker reports one. */
+  row?: string | null;
   /** Set when this claim number is already attached to another RedArt bill. */
   linked?: LinkedBill | null;
 };
