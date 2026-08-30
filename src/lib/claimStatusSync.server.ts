@@ -754,8 +754,11 @@ export async function runClaimStatusSync(
   const inService = depth ? depth.active + depth.queued : 0;
   const busy = Boolean(depth && inService >= globalCap);
   const effGlobal = Math.max(1, globalCap - inService);
+  // Concurrency for one company is always 1 (single portal session), but a
+  // tick may LEASE several of that company's due claims and walk them
+  // sequentially through that one session inside the run budget.
   const effPerCompany = 1;
-  const backpressureReason = busy
+  const effLeasePerCompany = Math.min(leasePerCompany(), effGlobal);
     ? `Status-checking service is still working (${depth!.active} running, ${depth!.queued} waiting). Nothing new was started; claims stay scheduled.`
     : null;
 
