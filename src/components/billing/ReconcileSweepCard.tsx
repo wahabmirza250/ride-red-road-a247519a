@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+/** How many newly searched bills counts as "material" progress worth a toast. */
+const MATERIAL_PROGRESS = 10;
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -39,18 +42,37 @@ export function ReconcileSweepCard({ onOpenRecord }: { onOpenRecord?: (id: strin
     refetchIntervalInBackground: false,
   });
 
+  // Notify on FAILURE, COMPLETION and MATERIAL progress only — never a
+  // "started / still running" stream. The card itself is the live status.
+  const notified = useRef<{ searched: number; done: boolean }>({ searched: 0, done: false });
+  useEffect(() => {
+    const p = q.data?.progress;
+    if (!p || p.total === 0) return;
+    if (p.remaining === 0 && !notified.current.done) {
+      notified.current.done = true;
+      toast.success(
+        `HCPF lookup finished: ${p.single} single match, ${p.none} with no claim, ${p.multiple} to review.`,
+      );
+    }
+    if (p.remaining > 0) notified.current.done = false;
+    if (p.searched - notified.current.searched >= MATERIAL_PROGRESS) {
+      notified.current.searched = p.searched;
+      toast.message(`HCPF lookup progress: ${p.searched} of ${p.total} bills searched.`);
+    }
+    if (p.searched < notified.current.searched) notified.current.searched = p.searched;
+  }, [q.data]);
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["reconcile_sweep"] });
     qc.invalidateQueries({ queryKey: ["billing_list"] });
     qc.invalidateQueries({ queryKey: ["billing_counts"] });
   };
 
+  // ONE persistent progress card, not a stream of "audit started" toasts.
+  // Notifications are reserved for failure, completion and material progress.
   const start = useMutation({
     mutationFn: () => startFn(),
-    onSuccess: (r: any) => {
-      toast.success(`Read-only sweep running for ${r?.total ?? 0} bill(s). Nothing is submitted.`);
-      invalidate();
-    },
+    onSuccess: () => invalidate(),
     onError: (e: any) => toast.error(friendlyLinkError(e)),
   });
 

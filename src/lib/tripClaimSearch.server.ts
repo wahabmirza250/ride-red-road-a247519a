@@ -15,6 +15,7 @@ import {
   isFinalCheckerJobState,
   pollIntervalMs,
 } from "@/lib/claimStatusSync.server";
+import { COMPANY_ID_CONFIG_ERROR, normalizeCompanyId } from "@/lib/companyUuid";
 import { normalizeTripClaims, type TripSearchOutcome } from "@/lib/tripClaimSearch";
 
 function authHeaders(): Record<string, string> {
@@ -44,13 +45,19 @@ export async function searchClaimByTrip(args: {
     detail,
   });
 
+  // The checker resolves the portal login from `company_id`, so a portal
+  // account key here costs a portal session and comes back as
+  // "company_id must be a UUID". Refuse locally instead.
+  const companyId = normalizeCompanyId(args.companyId);
+  if (!companyId) return none(true, COMPANY_ID_CONFIG_ERROR);
+
   let jobId = "";
   try {
     const res = await doFetch(`${CLAIM_STATUS_CHECKER_URL}/search-claim-by-trip`, {
       method: "POST",
       headers,
       body: JSON.stringify({
-        company_id: args.companyId,
+        company_id: companyId,
         member_id: args.memberId,
         service_date: args.serviceDate,
         trip_id: args.tripId,
