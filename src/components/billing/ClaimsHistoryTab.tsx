@@ -187,16 +187,10 @@ export function ClaimsHistoryTab() {
           <ArrowUpDown className="mr-1 h-3.5 w-3.5" />
           {desc ? "Newest first" : "Oldest first"}
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-destructive"
-          disabled={(query.data ?? []).length === 0 || clearMutation.isPending}
-          onClick={() => setConfirmOpen(true)}
-        >
-          <Trash2 className="mr-1 h-3.5 w-3.5" />
-          Clear history
-        </Button>
+        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
+          <Trash2 className="h-3 w-3" />
+          Permanent audit trail — confirmed claims can't be cleared
+        </span>
       </div>
 
 
