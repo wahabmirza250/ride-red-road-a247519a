@@ -39,8 +39,12 @@ import {
   clearClaimsHistory,
   setClaimStatus,
   CLAIM_STATUS_OPTIONS,
-  type ClaimHistoryRow,
 } from "@/lib/claimsHistory.functions";
+import {
+  dedupeClaimHistory,
+  matchesClaimSearch,
+  type ClaimHistoryRow,
+} from "@/lib/claimsHistory";
 
 
 
@@ -71,9 +75,13 @@ export function ClaimsHistoryTab() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update status"),
   });
 
+  // An exact claim number is looked up server-side too, so a claim that is
+  // older than the visible page is still findable.
+  const exactTerm = /^[A-Za-z0-9-]{6,}$/.test(q.trim()) ? q.trim() : "";
   const query = useQuery({
-    queryKey: ["claims_history"],
-    queryFn: () => listFn() as Promise<ClaimHistoryRow[]>,
+    queryKey: ["claims_history", exactTerm],
+    queryFn: () =>
+      listFn({ data: exactTerm ? { search: exactTerm } : {} }) as Promise<ClaimHistoryRow[]>,
     retry: false,
   });
 
@@ -107,12 +115,14 @@ export function ClaimsHistoryTab() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update status"),
   });
 
-
   /** Manual trips live alongside portal claims in the same list. */
   const manualRows = useMemo<ClaimHistoryRow[]>(
     () =>
       (manualQuery.data ?? []).map((m) => ({
         id: m.id,
+        record_id: null,
+        company_id: null,
+        source: "manual" as const,
         claim_id: m.claim_number,
         member_name: m.passenger_name,
         medicaid_id: null,
@@ -130,14 +140,8 @@ export function ClaimsHistoryTab() {
   );
 
   const rows = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    const list = [...(query.data ?? []), ...manualRows].filter((r) =>
-      !term
-        ? true
-        : (r.member_name ?? "").toLowerCase().includes(term) ||
-          (r.claim_id ?? "").toLowerCase().includes(term) ||
-          (r.medicaid_id ?? "").toLowerCase().includes(term) ||
-          (manualById.get(r.id)?.driver_name ?? "").toLowerCase().includes(term),
+    const list = dedupeClaimHistory([...(query.data ?? []), ...manualRows]).filter((r) =>
+      matchesClaimSearch(r, q, manualById.get(r.id)?.driver_name ?? ""),
     );
     return [...list].sort((a, b) => {
       const av = new Date(a.submitted_at ?? a.trip_date ?? 0).getTime();
@@ -183,16 +187,10 @@ export function ClaimsHistoryTab() {
           <ArrowUpDown className="mr-1 h-3.5 w-3.5" />
           {desc ? "Newest first" : "Oldest first"}
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-destructive"
-          disabled={(query.data ?? []).length === 0 || clearMutation.isPending}
-          onClick={() => setConfirmOpen(true)}
-        >
-          <Trash2 className="mr-1 h-3.5 w-3.5" />
-          Clear history
-        </Button>
+        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
+          <Trash2 className="h-3 w-3" />
+          Permanent audit trail — confirmed claims can't be cleared
+        </span>
       </div>
 
 
@@ -291,20 +289,25 @@ export function ClaimsHistoryTab() {
                   </td>
 
                   <td className="px-3 py-2 text-right tabular-nums">
-                    {r.total_amount != null ? formatMoney(r.total_amount) : "—"}
+                    {r.portal_paid_amount != null ? (
+                      <span className="font-semibold text-success">
+                        {formatMoney(r.portal_paid_amount)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {r.total_amount != null ? formatMoney(r.total_amount) : "—"}
+                      </span>
+                    )}
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {r.portal_paid_amount != null
+                        ? "paid by portal"
+                        : manual
+                          ? "entered by hand"
+                          : "estimate — not income"}
+                    </div>
                     {manual && manual.driver_pay_amount != null && (
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                         driver pay {formatMoney(manual.driver_pay_amount)}
-                      </div>
-                    )}
-                    {r.total_source === "calculated" && (
-                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        from rates
-                      </div>
-                    )}
-                    {r.total_source === "billing_records" && (
-                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        from line items
                       </div>
                     )}
                   </td>

@@ -213,6 +213,10 @@ export type Database = {
           failure_stage: string | null
           fix_notes: string | null
           id: string
+          portal_allowed_amount: number | null
+          portal_charged_amount: number | null
+          portal_paid_amount: number | null
+          portal_paid_at: string | null
           portal_status_raw: string | null
           rejection_reason: string | null
           requires_human_step: boolean
@@ -257,6 +261,10 @@ export type Database = {
           failure_stage?: string | null
           fix_notes?: string | null
           id?: string
+          portal_allowed_amount?: number | null
+          portal_charged_amount?: number | null
+          portal_paid_amount?: number | null
+          portal_paid_at?: string | null
           portal_status_raw?: string | null
           rejection_reason?: string | null
           requires_human_step?: boolean
@@ -301,6 +309,10 @@ export type Database = {
           failure_stage?: string | null
           fix_notes?: string | null
           id?: string
+          portal_allowed_amount?: number | null
+          portal_charged_amount?: number | null
+          portal_paid_amount?: number | null
+          portal_paid_at?: string | null
           portal_status_raw?: string | null
           rejection_reason?: string | null
           requires_human_step?: boolean

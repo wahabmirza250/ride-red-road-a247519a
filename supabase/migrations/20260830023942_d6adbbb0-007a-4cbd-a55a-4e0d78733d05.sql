@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.guard_confirmed_claim_resubmit() FROM PUBLIC, anon, authenticated;

@@ -129,6 +129,33 @@ export async function submitSelectedRecords(
       );
       continue;
     }
+    // Corrupt mileage / impossible service date must never be sent.
+    {
+      const { claimSanityIssues, milesFromOdometer } = await import("@/lib/claimSanity");
+      const issues = claimSanityIssues({
+        billed_miles: milesFromOdometer(trip?.odometer_start, trip?.odometer_end),
+        service_date: trip?.pickup_at ?? null,
+      });
+      if (issues.length) {
+        skipped.push({
+          id: rec.id as string,
+          code: "missing_data",
+          reason: issues[0]!.message,
+        });
+        await supabase
+          .from("billing_records")
+          .update({
+            status: "needs_fix",
+            submission_error: issues[0]!.message,
+            fix_notes: issues[0]!.message,
+            requires_human_step: true,
+            failure_stage: "preflight",
+            failure_code: issues[0]!.code,
+          })
+          .eq("id", rec.id);
+        continue;
+      }
+    }
     if ((rec as any).requires_human_step) {
       skipped.push({
         id: rec.id as string,

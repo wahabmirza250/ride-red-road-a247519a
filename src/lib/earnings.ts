@@ -9,6 +9,11 @@ export type CompanyEarnings = {
   /** Denied or rejected by the state — never income, never "pending". */
   deniedTotal: number;
   deniedClaims: number;
+  /** Marked paid but with NO portal-confirmed amount, or an outcome we could
+   *  not verify. Shown separately — never counted as income. */
+  unknownClaims: number;
+  /** Sum of our own ESTIMATED charge for those unverified claims. */
+  unknownEstimated: number;
   byDay: EarningsBucket[];
   byWeek: EarningsBucket[];
   byMonth: EarningsBucket[];
@@ -21,6 +26,8 @@ export type ClaimRow = {
   amount?: number | null;
   /** Current billing status; only "paid" counts as earned income. */
   billing_status?: string | null;
+  /** What HCPF actually paid. The ONLY figure that may become income. */
+  portal_paid_amount?: number | null;
   submitted_at?: string | null;
   portal_submitted_at?: string | null;
   updated_at?: string | null;
@@ -53,6 +60,8 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
   let pendingClaims = 0;
   let deniedTotal = 0;
   let deniedClaims = 0;
+  let unknownClaims = 0;
+  let unknownEstimated = 0;
 
   for (const r of rows) {
     const captured = (r.robot_captured_claim ?? null) as { total_charged_amount?: unknown } | null;
@@ -74,6 +83,13 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
       continue;
     }
 
+    // needs_fix / corrupt bills are not "awaiting payment" — they are work.
+    if (state === "needs_fix" || state === "draft" || state === "pending_review") {
+      unknownClaims += 1;
+      unknownEstimated += amount;
+      continue;
+    }
+
     // Only claims the biller has confirmed as paid count as real income.
     if (state !== "paid") {
       pendingTotal += amount;
@@ -81,12 +97,24 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
       continue;
     }
 
-    total += amount;
+    // Paid, but the portal never told us an amount: our calculated charge is
+    // an estimate and must never be presented as money received.
+    const portalPaid =
+      r.portal_paid_amount != null && Number.isFinite(Number(r.portal_paid_amount))
+        ? Number(r.portal_paid_amount)
+        : null;
+    if (portalPaid == null) {
+      unknownClaims += 1;
+      unknownEstimated += amount;
+      continue;
+    }
+
+    total += portalPaid;
     claims += 1;
 
     const add = (m: Map<string, EarningsBucket>, key: string) => {
       const cur = m.get(key) ?? { period: key, amount: 0, claims: 0 };
-      cur.amount += amount;
+      cur.amount += portalPaid;
       cur.claims += 1;
       m.set(key, cur);
     };
@@ -107,6 +135,8 @@ export function aggregateEarnings(rows: ClaimRow[]): CompanyEarnings {
     pendingClaims,
     deniedTotal: Math.round(deniedTotal * 100) / 100,
     deniedClaims,
+    unknownClaims,
+    unknownEstimated: Math.round(unknownEstimated * 100) / 100,
 
     byDay: sorted(day).slice(0, 30),
     byWeek: sorted(week).slice(0, 12),

@@ -11,11 +11,13 @@
  * all share exactly this one definition of membership.
  */
 import { requiresManualVerification, type VerificationCandidate } from "@/lib/needsVerification";
+import { isClaimSane, sanityReason, type SanityCandidate } from "@/lib/claimSanity";
 
-export type AttentionCandidate = VerificationCandidate & {
-  status?: string | null;
-  fix_notes?: string | null;
-};
+export type AttentionCandidate = VerificationCandidate &
+  SanityCandidate & {
+    status?: string | null;
+    fix_notes?: string | null;
+  };
 
 /** Statuses that are handled by other stages and are never "attention". */
 const ELSEWHERE = new Set([
@@ -44,6 +46,9 @@ export function needsAttention(rec: AttentionCandidate): boolean {
   if (status === "needs_fix" || status === "rejected") return true;
   if (rec.requires_human_step) return true;
   if (requiresManualVerification(rec)) return true;
+  // Impossible mileage or an invalid/future/stale service date is never
+  // auto-submittable — a person must look at it first.
+  if (!isClaimSane(rec)) return true;
   // An approved bill still carrying a live blocking error is not "ready".
   return Boolean((rec.submission_error ?? "").trim());
 }
@@ -65,6 +70,8 @@ export function partitionBillingRows<T extends AttentionCandidate>(rows: T[]) {
 export function attentionReasonLabel(rec: AttentionCandidate): string {
   if (requiresManualVerification(rec))
     return "Needs verification at HCPF before anything else can happen.";
+  const sanity = sanityReason(rec);
+  if (sanity) return sanity;
   if (rec.requires_human_step) return "Handed to a person — review before sending.";
   if (String(rec.status ?? "") === "needs_fix" || String(rec.status ?? "") === "rejected")
     return "Missing or invalid claim data — correct it, then it becomes billable.";

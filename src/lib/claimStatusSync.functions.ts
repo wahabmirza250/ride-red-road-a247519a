@@ -15,6 +15,13 @@ export type ClaimStatusSyncState = {
     reason?: string | null;
   };
   due_now: number;
+  /** Most recent claim that actually got a portal answer. */
+  last_success_at: string | null;
+  /** Claims currently waiting on a re-check after a checker timeout/outage. */
+  retrying_now: number;
+  /** Submission queue (separate system) — shown so the two are never confused. */
+  submissions_paused: boolean;
+  submissions_pause_reason: string | null;
   metrics: QueueMetricRow[];
 };
 
@@ -50,7 +57,8 @@ export const getClaimStatusSyncState = createServerFn({ method: "POST" })
     await assertBillingOrAdmin(supabase, userId);
     const { OPEN_STATUSES } = await import("@/lib/claimStatusSync.server");
 
-    const [{ data: state }, { count }, { data: metrics }] = await Promise.all([
+    const [{ data: state }, { count }, { data: metrics }, { data: lastOk }, { count: retrying }, { data: queueState }] =
+      await Promise.all([
       supabase
         .from("claim_status_sync_state")
         .select("paused, pause_reason, last_run_at, last_result")
@@ -63,6 +71,18 @@ export const getClaimStatusSyncState = createServerFn({ method: "POST" })
         .not("state_confirmation_number", "is", null),
       // RLS-scoped view: a biller only ever sees their own company's rows.
       supabase.from("claim_status_queue_metrics").select("*"),
+      supabase
+        .from("billing_records")
+        .select("status_checked_at")
+        .not("status_checked_at", "is", null)
+        .order("status_checked_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("billing_records")
+        .select("id", { count: "exact", head: true })
+        .not("status_check_error", "is", null),
+      supabase.from("submission_queue_state").select("paused, pause_reason").limit(1).maybeSingle(),
     ]);
 
     return {
@@ -71,6 +91,10 @@ export const getClaimStatusSyncState = createServerFn({ method: "POST" })
       last_run_at: state?.last_run_at ?? null,
       last_result: (state?.last_result ?? {}) as ClaimStatusSyncState["last_result"],
       due_now: count ?? 0,
+      last_success_at: (lastOk as any)?.status_checked_at ?? null,
+      retrying_now: retrying ?? 0,
+      submissions_paused: Boolean((queueState as any)?.paused),
+      submissions_pause_reason: (queueState as any)?.pause_reason ?? null,
       metrics: (metrics ?? []) as QueueMetricRow[],
     };
   });
