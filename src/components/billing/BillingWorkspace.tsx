@@ -78,7 +78,7 @@ import { DriverGroupedList, DriverGroupedTable } from "@/components/billing/Driv
 import { BILLING_PAGE_SIZE } from "@/lib/billingPage";
 import { needsFixSummary } from "@/lib/needsFixCategory";
 import { requiresManualVerification } from "@/lib/needsVerification";
-import { partitionBillingRows, attentionReasonLabel } from "@/lib/needsAttention";
+import { attentionReasonLabel } from "@/lib/needsAttention";
 
 import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
@@ -264,6 +264,11 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
   const settingsFn = useServerFn(getBillingSettings);
 
   const activeTab = TABS.find((t) => t.key === tab)!;
+  // Ready / Needs Attention are stages, not statuses: the server applies the
+  // SAME predicate the badge counts with, so the list can never come back
+  // empty under a non-zero badge.
+  const stage: "ready" | "attention" | undefined =
+    tab === "ready_to_submit" ? "ready" : tab === "needs_attention" ? "attention" : undefined;
 
   // PERF: page the list instead of loading every matching bill. Counts stay
   // exact (they come from head-count queries), and "Load more" widens the page.
@@ -276,7 +281,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
   useEffect(() => setShowArchived(false), [tab]);
 
   const rows = useQuery({
-    queryKey: ["billing_list", tab, pageSize, showArchived],
+    queryKey: ["billing_list", tab, stage ?? null, pageSize, showArchived],
     queryFn: async () => {
       try {
         return await listFn({
@@ -285,6 +290,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
             limit: pageSize,
             offset: 0,
             include_archived: showArchived,
+            ...(stage ? { stage } : {}),
           },
         });
       } catch {
@@ -292,6 +298,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         return await listBillingRecordsClient(activeTab.statuses as string[], {
           limit: pageSize,
           includeArchived: showArchived,
+          ...(stage ? { stage } : {}),
         });
       }
     },
@@ -498,7 +505,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         />
       ) : tab === "ready_to_submit" ? (
         <ReadyToSubmitTab
-          rows={partitionBillingRows(rows.data ?? []).ready}
+          rows={rows.data ?? []}
           onOpen={setSelectedId}
           onPreviewPdf={setPdfPreview}
           showArchived={showArchived}
@@ -507,7 +514,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       ) : tab === "needs_attention" ? (
         <ReadyToSubmitTab
           variant="attention"
-          rows={partitionBillingRows(rows.data ?? []).attention}
+          rows={rows.data ?? []}
           onOpen={setSelectedId}
           onPreviewPdf={setPdfPreview}
           showArchived={showArchived}
