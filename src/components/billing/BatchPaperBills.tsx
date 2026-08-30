@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -7,12 +7,15 @@ import {
   FileText,
   Loader2,
   Paperclip,
+  RefreshCw,
   Trash2,
   UserRound,
   AlertTriangle,
+  Inbox,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { readPaperBillDataUrl, ocrErrorMessage } from "@/lib/paperBillUpload";
+import { sha256Hex, type PaperInboxRow } from "@/lib/paperInbox";
 import { AppLink } from "@/lib/appLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,11 +28,20 @@ import {
   getBillingRatesForCalc,
   detectPaperBillOdometers,
 } from "@/lib/paperBill.functions";
+import {
+  listPaperInbox,
+  registerPaperInboxFile,
+  savePaperInboxState,
+  discardPaperInboxFile,
+  adoptOrphanPaperInboxFiles,
+} from "@/lib/paperInbox.functions";
 
 type Rider = { id: string; full_name: string; medicaid_id: string };
 
 type Item = {
   key: string;
+  /** Durable `paper_inbox_files` row id — the real identity of this upload. */
+  inboxId: string | null;
   fileName: string;
   previewUrl: string | null;
   isPdf: boolean;
@@ -53,10 +65,75 @@ type Item = {
   l1dt: string;
   l2pt: string;
   l2dt: string;
-  result?: { trip_id: string; total: number; trip_kind: string; miles: number };
+  result?: { trip_id: string; total?: number; trip_kind?: string; miles?: number };
 };
 
 const UNASSIGNED = "Driver not read";
+
+const DRAFT_FIELDS = [
+  "driver_name",
+  "passenger_name",
+  "medicaid_id",
+  "trip_date",
+  "vehicle_type",
+  "l1p",
+  "l1d",
+  "l2p",
+  "l2d",
+  "l1pt",
+  "l1dt",
+  "l2pt",
+  "l2dt",
+] as const;
+
+function draftOf(i: Item): Record<string, unknown> {
+  const out: Record<string, unknown> = { rider_id: i.rider?.id ?? null };
+  for (const f of DRAFT_FIELDS) out[f] = i[f];
+  return out;
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Rebuild an editable row from its durable inbox record. */
+function itemFromRow(row: PaperInboxRow): Item {
+  const d = (row.draft ?? {}) as Record<string, any>;
+  const str = (k: string) => (typeof d[k] === "string" ? d[k] : "");
+  return {
+    key: row.id,
+    inboxId: row.id,
+    fileName: row.file_name,
+    previewUrl: null,
+    isPdf: row.mime === "application/pdf",
+    mime: row.mime,
+    uploadPath: row.storage_path,
+    phase:
+      row.status === "done"
+        ? "done"
+        : row.status === "reading"
+          ? "reading"
+          : row.status === "error"
+            ? "ready"
+            : "ready",
+    error: row.error ?? undefined,
+    rider: (d["rider"] as Rider) ?? null,
+    driver_name: str("driver_name"),
+    passenger_name: str("passenger_name"),
+    medicaid_id: str("medicaid_id"),
+    trip_date: str("trip_date") || todayIso(),
+    vehicle_type: (d["vehicle_type"] as Item["vehicle_type"]) ?? "ambulatory",
+    l1p: str("l1p"),
+    l1d: str("l1d"),
+    l2p: str("l2p"),
+    l2d: str("l2d"),
+    l1pt: str("l1pt"),
+    l1dt: str("l1dt"),
+    l2pt: str("l2pt"),
+    l2dt: str("l2dt"),
+    ...(row.trip_id ? { result: { trip_id: row.trip_id } } : {}),
+  };
+}
 
 function legsOf(i: Item) {
   const legs: {
@@ -97,15 +174,28 @@ function isValid(i: Item) {
 /**
  * Batch mode: upload many paper trip reports at once, let the same OCR pass
  * read each one, then review every calculated bill grouped by driver before
- * confirming the whole batch. The single-bill chat flow stays untouched.
+ * confirming the whole batch.
+ *
+ * Every upload is backed by a durable `paper_inbox_files` row, so a refresh,
+ * timeout, closed browser or server restart can never lose a stored file: it
+ * comes back with its read, its draft and its last error until it has really
+ * produced a trip + billing record. Nothing here submits anything.
  */
 export function BatchPaperBills() {
   const ratesFn = useServerFn(getBillingRatesForCalc);
   const detectFn = useServerFn(detectPaperBillOdometers);
   const createFn = useServerFn(createPaperBillTrip);
+  const listFn = useServerFn(listPaperInbox);
+  const registerFn = useServerFn(registerPaperInboxFile);
+  const saveFn = useServerFn(savePaperInboxState);
+  const discardFn = useServerFn(discardPaperInboxFile);
+  const adoptFn = useServerFn(adoptOrphanPaperInboxFiles);
+
   const fileRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [confirming, setConfirming] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+  const hydrated = useRef(false);
 
   const rates = useQuery({
     queryKey: ["paper_bill_rates"],
@@ -113,15 +203,56 @@ export function BatchPaperBills() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const inbox = useQuery({
+    queryKey: ["paper_inbox"],
+    queryFn: () => listFn() as Promise<PaperInboxRow[]>,
+    staleTime: 15 * 1000,
+  });
+
+  // Hydrate once from the durable inbox — nothing typed locally is lost.
+  useEffect(() => {
+    if (hydrated.current || !inbox.data) return;
+    hydrated.current = true;
+    setItems(inbox.data.map(itemFromRow));
+  }, [inbox.data]);
+
   function patch(key: string, next: Partial<Item>) {
     setItems((prev) => prev.map((i) => (i.key === key ? { ...i, ...next } : i)));
   }
+
+  /** Persist the biller's edits so nothing typed is lost on refresh. */
+  async function persistDraft(item: Item, extra?: Partial<Parameters<typeof saveFn>[0]>) {
+    if (!item.inboxId) return;
+    try {
+      await saveFn({
+        data: {
+          id: item.inboxId,
+          draft: { ...draftOf(item), rider: item.rider },
+          ...(extra?.data ?? {}),
+        },
+      } as any);
+    } catch {
+      /* draft saving is best-effort; the file itself is already durable */
+    }
+  }
+
+  // Debounced draft autosave for every editable row.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      for (const i of items) {
+        if (i.inboxId && i.phase === "ready") void persistDraft(i);
+      }
+    }, 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
 
   async function addFiles(files: File[]) {
     const created = files.map<Item>((file) => {
       const isPdf = file.type === "application/pdf";
       return {
         key: crypto.randomUUID(),
+        inboxId: null,
         fileName: file.name,
         previewUrl: isPdf ? null : URL.createObjectURL(file),
         isPdf,
@@ -132,9 +263,7 @@ export function BatchPaperBills() {
         driver_name: "",
         passenger_name: "",
         medicaid_id: "",
-        trip_date: new Date().toISOString().slice(0, 10),
-        // Ambulatory pre-selected (only type billed); OCR overrides when the
-        // paper clearly marks a different vehicle type.
+        trip_date: todayIso(),
         vehicle_type: "ambulatory",
         l1p: "",
         l1d: "",
@@ -164,17 +293,56 @@ export function BatchPaperBills() {
         patch(item.key, { phase: "error", error: error.message });
         continue;
       }
-      patch(item.key, { uploadPath: path, phase: "reading" });
-      await readOne(item.key, file);
+
+      // Durable record FIRST — from this point the upload can never be lost.
+      let inboxId: string | null = null;
+      try {
+        const hash = await sha256Hex(await file.arrayBuffer());
+        const res = (await registerFn({
+          data: { storage_path: path, file_name: file.name, mime: item.mime, content_hash: hash },
+        })) as { row: PaperInboxRow; duplicate: boolean };
+        inboxId = res.row.id;
+        if (res.duplicate) {
+          patch(item.key, {
+            phase: "done",
+            inboxId,
+            uploadPath: path,
+            result: { trip_id: res.row.trip_id! },
+            error: undefined,
+          });
+          toast.info(`${file.name} was already imported — no duplicate bill was created.`);
+          continue;
+        }
+      } catch (e: any) {
+        patch(item.key, {
+          phase: "error",
+          uploadPath: path,
+          error: e?.message ?? "Could not record this upload — retry.",
+        });
+        continue;
+      }
+
+      patch(item.key, { inboxId, uploadPath: path, phase: "reading" });
+      await readOne(item.key, inboxId, file);
     }
+    void inbox.refetch();
   }
 
-  async function readOne(key: string, file: File) {
-    patch(key, { error: undefined });
+  /** Auto-read a file, persisting both the result and any failure durably. */
+  async function readOne(key: string, inboxId: string | null, file: Blob, name?: string) {
+    patch(key, { error: undefined, phase: "reading" });
+    const fileName = name ?? (file as File).name ?? "trip-report";
+    if (inboxId) {
+      try {
+        await saveFn({ data: { id: inboxId, status: "reading", error: null, bump_attempt: true } });
+      } catch {
+        /* keep reading even if the marker write fails */
+      }
+    }
     try {
-      const dataUrl = await readPaperBillDataUrl(file);
+      const dataUrl = await readPaperBillDataUrl(file as File);
       const res = (await detectFn({
-        data: { image_data_url: dataUrl, file_name: file.name },
+        data: { image_data_url: dataUrl, file_name: fileName },
       })) as {
         name: string | null;
         driver_name: string | null;
@@ -191,7 +359,7 @@ export function BatchPaperBills() {
         l2pt?: string | null;
         l2dt?: string | null;
       };
-      patch(key, {
+      const next: Partial<Item> = {
         phase: "ready",
         rider: res?.rider ?? null,
         driver_name: res?.driver_name ?? "",
@@ -208,24 +376,102 @@ export function BatchPaperBills() {
         l1dt: res?.l1dt ?? "",
         l2pt: res?.l2pt ?? "",
         l2dt: res?.l2dt ?? "",
-      });
+      };
+      patch(key, next);
+      if (inboxId) {
+        setItems((prev) => {
+          const row = prev.find((i) => i.key === key);
+          if (row)
+            void saveFn({
+              data: {
+                id: inboxId,
+                status: "needs_review",
+                error: null,
+                ocr: res as any,
+                draft: { ...draftOf(row), rider: row.rider },
+              },
+            }).catch(() => {});
+          return prev;
+        });
+      }
     } catch (e) {
       const message = ocrErrorMessage(e);
-      // Never leave a row silently blank — say what went wrong and let the
-      // biller either retry the read or fill the fields by hand.
+      // Never leave a row silently blank — say what went wrong, keep it in the
+      // inbox, and let the biller retry the read or fill the fields by hand.
       patch(key, { phase: "ready", error: message });
-      toast.error(`${file.name}: ${message}`);
+      if (inboxId) {
+        await saveFn({ data: { id: inboxId, status: "error", error: message } }).catch(() => {});
+      }
+      toast.error(`${fileName}: ${message}`);
     }
   }
 
+  /** Retry the auto-read for a stored file we no longer hold in memory. */
+  async function retryRead(item: Item) {
+    if (!item.uploadPath) return;
+    patch(item.key, { phase: "reading", error: undefined });
+    const { data, error } = await supabase.storage.from("state-pdfs").download(item.uploadPath);
+    if (error || !data) {
+      const message = error?.message ?? "The stored file could not be read";
+      patch(item.key, { phase: "ready", error: message });
+      if (item.inboxId)
+        await saveFn({ data: { id: item.inboxId, status: "error", error: message } }).catch(
+          () => {},
+        );
+      return;
+    }
+    const file = new File([data], item.fileName, { type: item.mime });
+    await readOne(item.key, item.inboxId, file, item.fileName);
+  }
+
   async function remove(item: Item) {
+    if (item.phase === "done") return;
     setItems((prev) => prev.filter((i) => i.key !== item.key));
     if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-    if (item.uploadPath) await supabase.storage.from("state-pdfs").remove([item.uploadPath]);
+    try {
+      if (item.inboxId) await discardFn({ data: { id: item.inboxId } });
+      else if (item.uploadPath)
+        await supabase.storage.from("state-pdfs").remove([item.uploadPath]);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not remove that upload");
+      void inbox.refetch();
+    }
+  }
+
+  /** Adopt stored paper-inbox files that never got a durable record. */
+  async function recoverOrphans() {
+    setRecovering(true);
+    try {
+      const res = (await adoptFn()) as {
+        adopted: number;
+        skipped: number;
+        failures: { path: string; error: string }[];
+      };
+      const rows = (await listFn()) as PaperInboxRow[];
+      hydrated.current = true;
+      setItems(rows.map(itemFromRow));
+      toast.success(
+        `${res.adopted} stored file${res.adopted === 1 ? "" : "s"} recovered into the inbox` +
+          (res.skipped ? ` · ${res.skipped} already tracked` : ""),
+      );
+      for (const f of res.failures) toast.error(`${f.path}: ${f.error}`);
+      // Read anything freshly recovered that has no draft yet.
+      for (const row of rows) {
+        if (row.status === "uploaded" && !row.ocr) {
+          const item = itemFromRow(row);
+          await retryRead(item);
+        }
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not scan storage for lost uploads");
+    } finally {
+      setRecovering(false);
+    }
   }
 
   const pending = items.filter((i) => i.phase !== "done");
   const readyCount = pending.filter((i) => i.phase === "ready" && isValid(i)).length;
+  const blockedCount = pending.filter((i) => i.phase === "ready" && !isValid(i)).length;
 
   async function confirmAll() {
     setConfirming(true);
@@ -234,6 +480,7 @@ export function BatchPaperBills() {
     for (const item of items) {
       if (item.phase !== "ready" || !isValid(item) || !item.uploadPath) continue;
       patch(item.key, { phase: "saving" });
+      await persistDraft(item);
       try {
         const res = (await createFn({
           data: {
@@ -252,18 +499,26 @@ export function BatchPaperBills() {
             legs: legsOf(item),
             upload_path: item.uploadPath,
             upload_mime: item.mime,
+            inbox_file_id: item.inboxId,
           },
         })) as Item["result"];
-        patch(item.key, { phase: "done", result: res });
+        patch(item.key, { phase: "done", result: res, error: undefined });
         ok++;
       } catch (e: any) {
-        patch(item.key, { phase: "ready", error: e?.message ?? "Could not create the trip" });
+        const message = e?.message ?? "Could not create the trip";
+        patch(item.key, { phase: "ready", error: message });
+        if (item.inboxId)
+          await saveFn({ data: { id: item.inboxId, status: "error", error: message } }).catch(
+            () => {},
+          );
         failed++;
       }
     }
     setConfirming(false);
-    if (ok) toast.success(`${ok} bill${ok === 1 ? "" : "s"} confirmed and queued to submit`);
-    if (failed) toast.error(`${failed} bill${failed === 1 ? "" : "s"} could not be created`);
+    void inbox.refetch();
+    if (ok) toast.success(`${ok} bill${ok === 1 ? "" : "s"} imported into Ready to submit`);
+    if (failed)
+      toast.error(`${failed} bill${failed === 1 ? "" : "s"} could not be created — see each row`);
   }
 
   const groups = useMemo(() => {
@@ -285,7 +540,7 @@ export function BatchPaperBills() {
     <div className="space-y-4">
       <PageHeader
         title="Batch paper bills"
-        description="Upload several paper trip reports at once. Each is auto-read, grouped by the driver named on the paper, and calculated so you can review the whole batch before confirming."
+        description="Upload several paper trip reports at once. Each file is stored, tracked and auto-read, grouped by the driver named on the paper, and calculated so you can review the whole batch before confirming. Nothing here is submitted to the portal."
       />
 
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface p-3">
@@ -304,12 +559,25 @@ export function BatchPaperBills() {
         <Button className="rounded-full" onClick={() => fileRef.current?.click()}>
           <Paperclip className="mr-2 h-4 w-4" /> Upload paper bills
         </Button>
+        <Button
+          variant="outline"
+          className="rounded-full"
+          disabled={recovering}
+          onClick={() => void recoverOrphans()}
+        >
+          {recovering ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Inbox className="mr-2 h-4 w-4" />
+          )}
+          Recover stored uploads
+        </Button>
         <span className="text-xs text-muted-foreground">
           {rates.isLoading
             ? "Loading rates…"
             : rateRows.length === 0
               ? "No billing rates configured — ask an admin to set them."
-              : `${items.length} uploaded · ${readyCount} ready to confirm`}
+              : `${items.length} in the inbox · ${readyCount} ready · ${blockedCount} need details`}
         </span>
         <div className="ml-auto">
           <Button
@@ -329,7 +597,9 @@ export function BatchPaperBills() {
 
       {items.length === 0 && (
         <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          Select multiple photos or PDFs of paper trip reports to start a batch.
+          {inbox.isLoading
+            ? "Loading the paper inbox…"
+            : "Select multiple photos or PDFs of paper trip reports to start a batch, or recover files already stored."}
         </div>
       )}
 
@@ -365,6 +635,7 @@ export function BatchPaperBills() {
                     rates={rateRows}
                     onPatch={(n) => patch(item.key, n)}
                     onRemove={() => void remove(item)}
+                    onRetryRead={() => void retryRead(item)}
                   />
                 ))}
               </div>
@@ -390,11 +661,13 @@ function BatchRow({
   rates,
   onPatch,
   onRemove,
+  onRetryRead,
 }: {
   item: Item;
   rates: RateRow[];
   onPatch: (n: Partial<Item>) => void;
   onRemove: () => void;
+  onRetryRead: () => void;
 }) {
   const calc = useMemo(
     () => calcClaim({ legs: legsOf(item), rates, vehicleType: item.vehicle_type ?? "" }),
@@ -412,8 +685,9 @@ function BatchRow({
             className="h-24 w-full rounded-lg object-cover"
           />
         ) : (
-          <div className="flex h-24 w-full items-center justify-center rounded-lg border border-border text-muted-foreground">
+          <div className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-lg border border-border text-muted-foreground">
             <FileText className="h-6 w-6" />
+            <span className="px-1 text-center text-[10px] leading-tight">{item.fileName}</span>
           </div>
         )}
       </div>
@@ -432,7 +706,16 @@ function BatchRow({
         {item.error && (
           <div className="flex items-start gap-1.5 rounded-lg border border-destructive/50 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>{item.error}</span>
+            <span className="flex-1">{item.error}</span>
+            {item.phase !== "done" && item.uploadPath && (
+              <button
+                type="button"
+                onClick={onRetryRead}
+                className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline"
+              >
+                <RefreshCw className="h-3 w-3" /> Retry read
+              </button>
+            )}
           </div>
         )}
 
@@ -562,7 +845,7 @@ function BatchRow({
 
         {item.phase === "done" ? (
           <div className="flex items-center gap-1.5 pt-1 text-xs font-medium text-success">
-            <CheckCircle2 className="h-4 w-4" /> Confirmed — ready to submit
+            <CheckCircle2 className="h-4 w-4" /> Imported — trip and bill created
           </div>
         ) : (
           <div className="flex items-center justify-between pt-1">

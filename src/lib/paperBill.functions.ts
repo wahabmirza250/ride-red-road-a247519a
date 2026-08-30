@@ -90,6 +90,8 @@ const PaperBillInput = z.object({
   /** Temp object already uploaded by the browser into the `state-pdfs` bucket. */
   upload_path: z.string().min(1),
   upload_mime: z.string().min(1),
+  /** Durable paper-inbox row this bill is being imported from (idempotency). */
+  inbox_file_id: z.string().uuid().nullable().optional(),
 });
 
 /**
@@ -108,10 +110,54 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
     const { requireCompanyId } = await import("@/lib/company.server");
     const companyId = await requireCompanyId(userId);
 
+    // 0. Idempotency. The durable paper-inbox row is the single source of
+    //    truth for "did this stored file already become a trip?". Re-running
+    //    the import (retry, double click, refresh, server restart) returns the
+    //    trip that already exists instead of creating a second one.
+    type InboxRow = { id: string; status: string; trip_id: string | null; billing_record_id: string | null };
+    let inboxRow: InboxRow | null = null;
+    {
+      let q = supabase
+        .from("paper_inbox_files")
+        .select("id, status, trip_id, billing_record_id")
+        .eq("company_id", companyId);
+      q = data.inbox_file_id
+        ? q.eq("id", data.inbox_file_id)
+        : q.eq("storage_path", data.upload_path);
+      const { data: found } = await q.maybeSingle();
+      inboxRow = (found as InboxRow | null) ?? null;
+    }
+    if (inboxRow?.trip_id) {
+      const { data: existing } = await supabase
+        .from("medicaid_trips")
+        .select("id, miles, trip_kind, rider_id, state_pdf_path")
+        .eq("id", inboxRow.trip_id)
+        .maybeSingle();
+      if (existing) {
+        return {
+          trip_id: existing.id,
+          billing_record_id: inboxRow.billing_record_id,
+          rider_id: existing.rider_id,
+          trip_kind: existing.trip_kind,
+          miles: existing.miles,
+          total: 0,
+          proof_path: existing.state_pdf_path,
+          already_imported: true,
+        };
+      }
+    }
+    if (inboxRow) {
+      await supabase
+        .from("paper_inbox_files")
+        .update({ status: "importing", error: null })
+        .eq("id", inboxRow.id);
+    }
+
     // NOTE (2026-08-19): the automatic read-only portal identity check that
     // used to run here has been removed. The biller's review + Confirm is the
     // verification step. The same check is still available on demand through
     // the manual "Verify Medicaid ID" action (verifyRiderIdentity).
+
 
     // 1. Resolve the rider — match an existing passenger on Medicaid ID first
     //    so re-billing a known member never trips the unique index.
@@ -305,6 +351,21 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
       })
       .eq("id", trip.id);
 
+    // 6. Close out the durable inbox row. From here the upload is complete and
+    //    permanently linked to its trip + bill, so it can never be re-imported.
+    if (inboxRow) {
+      await supabase
+        .from("paper_inbox_files")
+        .update({
+          status: "done",
+          error: null,
+          trip_id: trip.id,
+          billing_record_id: billingRecord?.id ?? null,
+          processed_at: new Date().toISOString(),
+        })
+        .eq("id", inboxRow.id);
+    }
+
     return {
       trip_id: trip.id,
       billing_record_id: billingRecord?.id ?? null,
@@ -313,7 +374,9 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
       miles: calc.miles,
       total: calc.total,
       proof_path: proofPath,
+      already_imported: false,
     };
+
   });
 
 /**
