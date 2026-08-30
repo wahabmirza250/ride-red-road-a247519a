@@ -114,7 +114,8 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
     //    truth for "did this stored file already become a trip?". Re-running
     //    the import (retry, double click, refresh, server restart) returns the
     //    trip that already exists instead of creating a second one.
-    let inboxRow: { id: string; status: string; trip_id: string | null; billing_record_id: string | null } | null = null;
+    type InboxRow = { id: string; status: string; trip_id: string | null; billing_record_id: string | null };
+    let inboxRow: InboxRow | null = null;
     {
       let q = supabase
         .from("paper_inbox_files")
@@ -124,7 +125,7 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
         ? q.eq("id", data.inbox_file_id)
         : q.eq("storage_path", data.upload_path);
       const { data: found } = await q.maybeSingle();
-      inboxRow = (found as typeof inboxRow) ?? null;
+      inboxRow = (found as InboxRow | null) ?? null;
     }
     if (inboxRow?.trip_id) {
       const { data: existing } = await supabase
