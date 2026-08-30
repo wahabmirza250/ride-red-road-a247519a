@@ -98,6 +98,16 @@ export async function searchClaimByTrip(args: {
     }
     const result: any = body?.result ?? {};
     const claims = normalizeTripClaims(result);
+    // A finished job that carries no portal answer state is a FAILED search
+    // (login trouble, portal form not reachable, ...). It is never evidence
+    // that the claim does not exist, so it must surface as a retryable error.
+    if (!result?.result_state && !claims.length) {
+      const why = String(result?.error ?? result?.status ?? "the portal did not answer").replace(
+        /\s+/g,
+        " ",
+      );
+      return none(true, `portal search did not complete: ${why.slice(0, 200)}`);
+    }
     const matchCount =
       typeof result?.match_count === "number" ? result.match_count : claims.length;
     return {
