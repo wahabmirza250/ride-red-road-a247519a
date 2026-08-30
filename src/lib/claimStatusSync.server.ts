@@ -790,9 +790,14 @@ export async function runClaimStatusSync(
     result.companies = new Set(jobs.map((j) => j.company_id)).size;
 
 
+    // Leave margin at the end of the budget: never START another sequential
+    // check that cannot plausibly finish. Leftovers are unlocked below.
+    const budget = opts.budgetMs ?? RUN_BUDGET_MS;
+    const startDeadline = budget > 60_000 ? deadline - 20_000 : deadline;
+
     const leftover = await runPool(
       jobs,
-      { perCompany: effPerCompany, global: effGlobal, deadline },
+      { perCompany: effPerCompany, global: effGlobal, deadline: startDeadline },
       async (job) => {
         const outcome = await processJob(supabase, job, {
           actorId: opts.actorId ?? null,
