@@ -10,26 +10,40 @@ import { pageRange } from "@/lib/billingPage";
 
 export async function listBillingRecordsClient(
   statuses: string[],
-  opts: { limit?: number; offset?: number; includeArchived?: boolean } = {},
+  opts: {
+    limit?: number;
+    offset?: number;
+    includeArchived?: boolean;
+    /** Same shared stage predicate the server list and the badge use. */
+    stage?: "ready" | "attention";
+  } = {},
 ) {
   const page = pageRange(opts.limit, opts.offset);
+  const { ATTENTION_COUNT_STATUSES, ATTENTION_COUNT_LIMIT, filterStage } = await import(
+    "@/lib/attentionCounts"
+  );
+  const effectiveStatuses = opts.stage
+    ? (ATTENTION_COUNT_STATUSES as unknown as string[])
+    : statuses;
   let query = supabase
     .from("billing_records")
     .select(
       `id, trip_id, status, reviewed_at, fix_notes, rejection_reason,
        submitted_at, state_confirmation_number, submission_error,
+       submit_last_error, failure_code,
        requires_human_step, updated_at, attention_archived_at, attention_archive_reason,
        medicaid_trips!inner(
          id, pickup_at, pickup_address, dropoff_address, driver_id, paper_driver_name, state_pdf_path,
          robot_job_id, robot_last_status, robot_last_message, robot_job_started_at,
+         robot_confirmation_number, submitted_confirmation,
          riders(full_name, medicaid_id)
        )`,
     )
-    .in("status", statuses);
+    .in("status", effectiveStatuses as never[]);
   if (!opts.includeArchived) query = query.is("attention_archived_at", null);
-  const { data: rows, error } = await query
-    .order("updated_at", { ascending: false })
-    .range(page.from, page.to);
+  const { data: rows, error } = opts.stage
+    ? await query.order("updated_at", { ascending: false }).limit(ATTENTION_COUNT_LIMIT)
+    : await query.order("updated_at", { ascending: false }).range(page.from, page.to);
   if (error) throw new Error(error.message);
 
   const driverIds = Array.from(
@@ -45,7 +59,7 @@ export async function listBillingRecordsClient(
   }
 
   // PERF: no per-row signed URLs — the form is signed lazily on open.
-  return (rows ?? []).map((r: any) => {
+  const mapped = (rows ?? []).map((r: any) => {
     const prof = profiles[r.medicaid_trips?.driver_id];
     return {
       id: r.id,
@@ -57,7 +71,11 @@ export async function listBillingRecordsClient(
       submitted_at: r.submitted_at,
       state_confirmation_number: r.state_confirmation_number,
       submission_error: r.submission_error,
+      submit_last_error: r.submit_last_error ?? null,
+      failure_code: r.failure_code ?? null,
       requires_human_step: r.requires_human_step,
+      attention_archived_at: r.attention_archived_at ?? null,
+      attention_archive_reason: r.attention_archive_reason ?? null,
       updated_at: r.updated_at,
       passenger_name: r.medicaid_trips?.riders?.full_name ?? null,
       medicaid_id: r.medicaid_trips?.riders?.medicaid_id ?? null,
@@ -73,10 +91,15 @@ export async function listBillingRecordsClient(
       pdf_url: null as string | null,
       robot_job_id: r.medicaid_trips?.robot_job_id ?? null,
       robot_last_status: r.medicaid_trips?.robot_last_status ?? null,
+      robot_confirmation_number: r.medicaid_trips?.robot_confirmation_number ?? null,
+      submitted_confirmation: r.medicaid_trips?.submitted_confirmation ?? null,
       robot_last_message: r.medicaid_trips?.robot_last_message ?? null,
       robot_job_started_at: r.medicaid_trips?.robot_job_started_at ?? null,
     };
   });
+
+  if (!opts.stage) return mapped;
+  return filterStage(mapped as any[], opts.stage).slice(page.from, page.to + 1) as typeof mapped;
 }
 
 const COUNT_STATUSES = [

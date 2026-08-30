@@ -51,3 +51,22 @@ export function splitAttentionCounts(rows: any[]): {
   }
   return { ready_to_submit: ready, needs_attention: attention };
 }
+
+/**
+ * THE stage decision. Badge, list and fallback all call exactly this, on rows
+ * carrying exactly the fields below — a row fetched without `failure_code`,
+ * `submit_last_error` or the trip's robot status can be classified differently
+ * from the same row fetched with them, which is how a badge and a list drift
+ * apart. Keep every fetch that feeds this on the same field set.
+ */
+export type BillingStage = "ready" | "attention";
+
+export function stageOfFlatRow(rec: AttentionCandidate): BillingStage {
+  if (needsAttention(rec)) return "attention";
+  return String(rec.status ?? "") === "approved" ? "ready" : "attention";
+}
+
+/** Filter an already-mapped list page down to one stage. */
+export function filterStage<T extends AttentionCandidate>(rows: T[], stage: BillingStage): T[] {
+  return rows.filter((r) => stageOfFlatRow(r) === stage);
+}

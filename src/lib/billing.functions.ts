@@ -42,6 +42,13 @@ export const listBillingRecords = createServerFn({ method: "POST" })
         // Needs Attention archive: resolved rows are hidden from the active
         // worklist but stay fully readable (and auditable) on request.
         include_archived: z.boolean().optional(),
+        /**
+         * READY / ATTENTION stages are NOT status filters — they are the
+         * shared `needsAttention()` predicate applied server-side to the same
+         * rows the badge counts. Passing a stage makes the rendered list and
+         * the badge mathematically identical.
+         */
+        stage: z.enum(["ready", "attention"]).optional(),
       })
       .parse(d),
   )
@@ -49,7 +56,13 @@ export const listBillingRecords = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertBilling(supabase, userId);
 
-    const statuses = data.statuses ?? (data.status ? [data.status] : []);
+    const { ATTENTION_COUNT_STATUSES, ATTENTION_COUNT_LIMIT, filterStage } = await import(
+      "@/lib/attentionCounts"
+    );
+
+    const statuses = data.stage
+      ? (ATTENTION_COUNT_STATUSES as unknown as string[])
+      : (data.statuses ?? (data.status ? [data.status] : []));
     if (!statuses.length) throw new Error("statuses required");
     const { pageRange } = await import("@/lib/billingPage");
     const page = pageRange(data.limit, data.offset);
@@ -71,10 +84,13 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       )
       .in("status", statuses);
     if (!data.include_archived) query = query.is("attention_archived_at", null);
-    const { data: rows, error } = await query
-      .order("updated_at", { ascending: false })
-      .range(page.from, page.to);
+    // A staged read must see every candidate before the predicate runs,
+    // otherwise a page boundary — not the predicate — decides the stage.
+    const { data: rows, error } = data.stage
+      ? await query.order("updated_at", { ascending: false }).limit(ATTENTION_COUNT_LIMIT)
+      : await query.order("updated_at", { ascending: false }).range(page.from, page.to);
     if (error) throw new Error(error.message);
+
 
     const driverIds = Array.from(
       new Set(
@@ -98,7 +114,7 @@ export const listBillingRecords = createServerFn({ method: "POST" })
     // existence probe) was 2 storage round-trips per bill — ~266 calls for a
     // 133-row list. The list only needs to know whether a form exists; the
     // signed URL is minted lazily when a biller actually opens one.
-    return (rows ?? []).map((r: any) => ({
+    const mapped = (rows ?? []).map((r: any) => ({
       id: r.id,
       trip_id: r.trip_id,
       status: r.status,
@@ -135,7 +151,14 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       robot_last_message: r.medicaid_trips?.robot_last_message ?? null,
       robot_job_started_at: r.medicaid_trips?.robot_job_started_at ?? null,
     }));
+
+    // Stage filtering happens AFTER mapping, on exactly the fields the badge
+    // predicate uses, then pages. Badge count and rendered rows can no longer
+    // disagree, because they are the same predicate over the same rows.
+    if (!data.stage) return mapped;
+    return filterStage(mapped as any[], data.stage).slice(page.from, page.to + 1) as typeof mapped;
   });
+
 
 export const getBillingCounts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
