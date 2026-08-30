@@ -10,6 +10,20 @@
  * Both numbers now come from the same rows, flattened exactly like the list.
  */
 import { needsAttention, type AttentionCandidate } from "@/lib/needsAttention";
+import { requiresManualVerification } from "@/lib/needsVerification";
+
+/**
+ * VERIFICATION HOLD — uncertain HCPF outcomes get their own stage.
+ *
+ * A bill whose submission outcome was never verified may already exist as a
+ * real claim at the portal. It must never be sent again (Ready), and it is not
+ * ordinary human fix-up work either (Needs Attention) — a person has to look at
+ * HCPF first. Keeping it in its own stage keeps the general worklist clean
+ * without ever loosening a duplicate-safety rule.
+ */
+export function isVerificationHold(rec: AttentionCandidate): boolean {
+  return needsAttention(rec) && requiresManualVerification(rec);
+}
 
 export const ATTENTION_COUNT_SELECT = `id, status, requires_human_step, submission_error,
    submit_last_error, failure_code, state_confirmation_number,
