@@ -146,6 +146,7 @@ export async function searchHcpfForRecord(
     providerUserId: string;
     memberId: string;
     serviceDateISO: string | null;
+    tripId?: string | null;
   },
 ): Promise<HcpfSearchResult> {
   const serviceDate = portalDateMDY(args.serviceDateISO);
@@ -165,21 +166,38 @@ export async function searchHcpfForRecord(
     };
   }
 
-  const worker = await callWorker({
-    mode: "search_claims",
-    read_only: true,
-    provider_id: args.providerUserId,
-    company_id: args.companyId,
-    portal_id: args.portalId,
-    member_id: args.memberId,
-    medicaid_member_id: args.memberId,
-    patient_number: args.memberId,
-    patient_account_number: args.memberId,
-    service_date: serviceDate,
-    from_date: serviceDate,
-    to_date: serviceDate,
-    close_session: true,
+  // PREFERRED: the dedicated read-only checker's trip-scoped search.
+  const { searchClaimByTrip } = await import("@/lib/tripClaimSearch.server");
+  const byTrip = await searchClaimByTrip({
+    companyId: args.companyId,
+    memberId: args.memberId,
+    serviceDate,
+    tripId: args.tripId ?? null,
   });
+
+  let worker: { ok: boolean; unavailable: boolean; body: any; detail: string };
+  let tripClaims: PortalClaim[] | null = null;
+  if (byTrip.ok) {
+    tripClaims = byTrip.claims;
+    worker = { ok: true, unavailable: false, body: null, detail: "/search-claim-by-trip" };
+  } else {
+    worker = await callWorker({
+      mode: "search_claims",
+      read_only: true,
+      provider_id: args.providerUserId,
+      company_id: args.companyId,
+      portal_id: args.portalId,
+      member_id: args.memberId,
+      medicaid_member_id: args.memberId,
+      patient_number: args.memberId,
+      patient_account_number: args.memberId,
+      service_date: serviceDate,
+      from_date: serviceDate,
+      to_date: serviceDate,
+      close_session: true,
+    });
+    if (!worker.ok) worker.detail = `${byTrip.detail}; ${worker.detail}`;
+  }
 
   if (!worker.ok) {
     await logAudit(
@@ -200,7 +218,7 @@ export async function searchHcpfForRecord(
     };
   }
 
-  const claims = normalizeClaims(worker.body);
+  const claims = tripClaims ?? normalizeClaims(worker.body);
   const linked = await findLinkedBills(
     supabase,
     args.companyId,
@@ -213,7 +231,7 @@ export async function searchHcpfForRecord(
     args.recordId,
     args.actorId,
     "hcpf_auto_search",
-    `Read-only HCPF search for member ${args.memberId} on ${serviceDate} returned ${claims.length} claim(s)${
+    `Read-only HCPF search (${worker.detail}) for member ${args.memberId} on ${serviceDate} returned ${claims.length} claim(s)${
       claims.length ? `: ${claims.map((c) => c.claim_id).join(", ")}` : ""
     }. Nothing was submitted or queued.`,
   );
@@ -222,11 +240,14 @@ export async function searchHcpfForRecord(
     ok: true,
     unavailable: false,
     message: claims.length
-      ? `${claims.length} claim(s) found at HCPF for this member and service date.`
-      : "No claim was found at HCPF for this member and service date.",
+      ? `${claims.length} claim(s) found at HCPF for this member and service date. Multiple trips for the same member on the same day are normal — pick the one that matches this trip.`
+      : "No claim found in HCPF for this member and service date.",
     claims,
     member_id: args.memberId,
     service_date: serviceDate,
+    result_state: byTrip.ok ? byTrip.result_state : null,
+    match_count: byTrip.ok ? byTrip.match_count : claims.length,
+    source: worker.detail,
   };
 }
 

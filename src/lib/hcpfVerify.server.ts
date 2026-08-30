@@ -116,6 +116,7 @@ export async function runHcpfSearch(
     providerUserId,
     memberId: String(trip?.riders?.medicaid_id ?? "").trim(),
     serviceDateISO: trip?.pickup_at ?? null,
+    tripId: rec.trip_id ?? trip?.id ?? null,
   });
 
   const count = await sameDayTripCount(supabase, {
