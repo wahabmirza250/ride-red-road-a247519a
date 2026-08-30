@@ -117,6 +117,7 @@ type TabKey =
   | "pending_review"
   | "ready_to_submit"
   | "needs_attention"
+  | "verification_hold"
   | "medical_review"
   | "awaiting_portal"
   | "submitted"
@@ -166,6 +167,15 @@ const TABS: {
     countKeys: ["needs_attention"],
   },
   {
+    // Uncertain HCPF outcomes: a claim MAY already exist at the portal, so a
+    // person verifies it there before anything else. Never Ready, and kept out
+    // of the general worklist so it does not bury ordinary fix-ups.
+    key: "verification_hold",
+    label: "Verification Hold",
+    statuses: ["approved", "needs_fix", "queued", "submitting"],
+    countKeys: ["verification_hold"],
+  },
+  {
     key: "medical_review",
     label: "Medical Review",
     statuses: ["pending_review"],
@@ -211,6 +221,7 @@ const PRIMARY_KEYS: TabKey[] = [
   "pending_review",
   "ready_to_submit",
   "needs_attention",
+  "verification_hold",
   "awaiting_portal",
   "submitted",
 ];
@@ -221,6 +232,7 @@ const STAGE_HINTS: Partial<Record<TabKey, string>> = {
   pending_review: "Check the paper bill",
   ready_to_submit: "Send to the state portal",
   needs_attention: "A person has to fix this",
+  verification_hold: "Check HCPF before any resend",
   awaiting_portal: "Working at the portal",
   submitted: "Claim number saved",
 };
@@ -267,8 +279,14 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
   // Ready / Needs Attention are stages, not statuses: the server applies the
   // SAME predicate the badge counts with, so the list can never come back
   // empty under a non-zero badge.
-  const stage: "ready" | "attention" | undefined =
-    tab === "ready_to_submit" ? "ready" : tab === "needs_attention" ? "attention" : undefined;
+  const stage: "ready" | "attention" | "hold" | undefined =
+    tab === "ready_to_submit"
+      ? "ready"
+      : tab === "needs_attention"
+        ? "attention"
+        : tab === "verification_hold"
+          ? "hold"
+          : undefined;
 
   // PERF: page the list instead of loading every matching bill. Counts stay
   // exact (they come from head-count queries), and "Load more" widens the page.
@@ -521,6 +539,15 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
           onToggleArchived={() => setShowArchived((v) => !v)}
         />
 
+      ) : tab === "verification_hold" ? (
+        <ReadyToSubmitTab
+          variant="attention"
+          rows={rows.data ?? []}
+          onOpen={setSelectedId}
+          onPreviewPdf={setPdfPreview}
+          showArchived={showArchived}
+          onToggleArchived={() => setShowArchived((v) => !v)}
+        />
       ) : tab === "awaiting_portal" ? (
         <AwaitingPortalTab
           rows={rows.data ?? []}
