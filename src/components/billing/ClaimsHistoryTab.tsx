@@ -39,8 +39,12 @@ import {
   clearClaimsHistory,
   setClaimStatus,
   CLAIM_STATUS_OPTIONS,
-  type ClaimHistoryRow,
 } from "@/lib/claimsHistory.functions";
+import {
+  dedupeClaimHistory,
+  matchesClaimSearch,
+  type ClaimHistoryRow,
+} from "@/lib/claimsHistory";
 
 
 
