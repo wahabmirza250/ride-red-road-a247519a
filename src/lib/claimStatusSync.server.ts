@@ -29,8 +29,12 @@ export function envInt(name: string, fallback: number, min: number, max: number)
 }
 /** The checker service drives a small browser pool. One company's claims are
  *  still checked strictly one at a time (same account/session on the portal),
- *  so the per-company cap stays hard-clamped to 1. */
+ *  so the per-company CONCURRENCY cap stays hard-clamped to 1. */
 export const maxPerCompany = () => envInt("CLAIM_STATUS_MAX_PER_COMPANY", 1, 1, 1);
+/** How many due claims one tick may LEASE for a single company. These are run
+ *  strictly sequentially through the single per-company session; leasing more
+ *  than one just avoids wasting the rest of the run budget. */
+export const leasePerCompany = () => envInt("CLAIM_STATUS_LEASE_PER_COMPANY", 3, 1, 3);
 /** Max concurrent read-only status checks across ALL companies (hard cap 3). */
 export const maxGlobal = () => envInt("CLAIM_STATUS_MAX_GLOBAL", 3, 1, 3);
 /** How long a leased claim stays locked before it becomes eligible again. */
