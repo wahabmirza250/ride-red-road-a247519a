@@ -162,3 +162,12 @@ describe("authorized auto-link", () => {
     expect(classifySearch(outcome([]))).toBe("none");
   });
 });
+
+describe("certainty before 'no claim'", () => {
+  it("an empty answer WITHOUT a portal result state is a retryable error", () => {
+    expect(classifySearch(outcome([], { result_state: null }))).toBe("error");
+  });
+  it("only a portal-confirmed NO_RESULTS is recorded as 'no claim'", () => {
+    expect(classifySearch(outcome([], { result_state: "NO_RESULTS" }))).toBe("none");
+  });
+});
