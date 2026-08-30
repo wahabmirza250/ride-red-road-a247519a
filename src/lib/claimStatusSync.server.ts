@@ -775,7 +775,7 @@ export async function runClaimStatusSync(
   try {
     const jobs = await leaseClaimStatusJobs(supabase, {
       globalLimit: effGlobal,
-      perCompanyLimit: effPerCompany,
+      perCompanyLimit: effLeasePerCompany,
       leaseSeconds: leaseSeconds(),
       worker: workerId,
       ...(opts.recordIds?.length ? { recordIds: opts.recordIds } : {}),
