@@ -54,16 +54,18 @@ export function flattenAttentionRow(r: any): AttentionCandidate {
 export function splitAttentionCounts(rows: any[]): {
   ready_to_submit: number;
   needs_attention: number;
+  verification_hold: number;
 } {
   let ready = 0;
   let attention = 0;
+  let hold = 0;
   for (const raw of rows ?? []) {
-    const rec = flattenAttentionRow(raw);
-    if (needsAttention(rec)) attention += 1;
-    else if (String(rec.status ?? "") === "approved") ready += 1;
-    else attention += 1; // a needs_fix row is always human work
+    const stage = stageOfFlatRow(flattenAttentionRow(raw));
+    if (stage === "ready") ready += 1;
+    else if (stage === "hold") hold += 1;
+    else attention += 1;
   }
-  return { ready_to_submit: ready, needs_attention: attention };
+  return { ready_to_submit: ready, needs_attention: attention, verification_hold: hold };
 }
 
 /**
@@ -72,11 +74,14 @@ export function splitAttentionCounts(rows: any[]): {
  * `submit_last_error` or the trip's robot status can be classified differently
  * from the same row fetched with them, which is how a badge and a list drift
  * apart. Keep every fetch that feeds this on the same field set.
+ *
+ * The three stages PARTITION the eligible active rows: every row lands in
+ * exactly one of ready / attention / hold.
  */
-export type BillingStage = "ready" | "attention";
+export type BillingStage = "ready" | "attention" | "hold";
 
 export function stageOfFlatRow(rec: AttentionCandidate): BillingStage {
-  if (needsAttention(rec)) return "attention";
+  if (needsAttention(rec)) return isVerificationHold(rec) ? "hold" : "attention";
   return String(rec.status ?? "") === "approved" ? "ready" : "attention";
 }
 
