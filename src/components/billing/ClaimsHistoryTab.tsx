@@ -94,7 +94,47 @@ export function ClaimsHistoryTab() {
       toast.error(e instanceof Error ? e.message : "Could not clear history");
     },
   });
-...
+
+  const statusFn = useServerFn(setClaimStatus);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const statusMutation = useMutation({
+    mutationFn: (vars: { tripId: string; status: string }) =>
+      statusFn({ data: vars as never }) as Promise<{ from: string | null; to: string }>,
+    onMutate: (vars) => setSavingId(vars.tripId),
+    onSettled: () => setSavingId(null),
+    onSuccess: (res) => {
+      toast.success(`Status updated to ${res.to}`);
+      void qc.invalidateQueries({ queryKey: ["claims_history"] });
+      void qc.invalidateQueries({ queryKey: ["company-earnings"] });
+      void qc.invalidateQueries({ queryKey: ["billing_list"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update status"),
+  });
+
+  /** Manual trips live alongside portal claims in the same list. */
+  const manualRows = useMemo<ClaimHistoryRow[]>(
+    () =>
+      (manualQuery.data ?? []).map((m) => ({
+        id: m.id,
+        record_id: null,
+        company_id: null,
+        source: "manual" as const,
+        claim_id: m.claim_number,
+        member_name: m.passenger_name,
+        medicaid_id: null,
+        trip_date: m.service_date,
+        submitted_at: null,
+        total_amount: m.billed_amount,
+        total_source: null,
+        status: m.claim_status,
+      })),
+    [manualQuery.data],
+  );
+  const manualById = useMemo(
+    () => new Map((manualQuery.data ?? []).map((m) => [m.id, m])),
+    [manualQuery.data],
+  );
+
   const rows = useMemo(() => {
     const list = dedupeClaimHistory([...(query.data ?? []), ...manualRows]).filter((r) =>
       matchesClaimSearch(r, q, manualById.get(r.id)?.driver_name ?? ""),
