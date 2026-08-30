@@ -295,20 +295,25 @@ export function ClaimsHistoryTab() {
                   </td>
 
                   <td className="px-3 py-2 text-right tabular-nums">
-                    {r.total_amount != null ? formatMoney(r.total_amount) : "—"}
+                    {r.portal_paid_amount != null ? (
+                      <span className="font-semibold text-success">
+                        {formatMoney(r.portal_paid_amount)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {r.total_amount != null ? formatMoney(r.total_amount) : "—"}
+                      </span>
+                    )}
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {r.portal_paid_amount != null
+                        ? "paid by portal"
+                        : manual
+                          ? "entered by hand"
+                          : "estimate — not income"}
+                    </div>
                     {manual && manual.driver_pay_amount != null && (
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                         driver pay {formatMoney(manual.driver_pay_amount)}
-                      </div>
-                    )}
-                    {r.total_source === "calculated" && (
-                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        from rates
-                      </div>
-                    )}
-                    {r.total_source === "billing_records" && (
-                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        from line items
                       </div>
                     )}
                   </td>
