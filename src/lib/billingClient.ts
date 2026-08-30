@@ -15,7 +15,7 @@ export async function listBillingRecordsClient(
     offset?: number;
     includeArchived?: boolean;
     /** Same shared stage predicate the server list and the badge use. */
-    stage?: "ready" | "attention";
+    stage?: "ready" | "attention" | "hold";
   } = {},
 ) {
   const page = pageRange(opts.limit, opts.offset);
@@ -144,6 +144,7 @@ export async function getBillingCountsClient() {
   if (attentionErr) throw new Error(attentionErr.message);
   const split = splitAttentionCounts((attentionRows ?? []) as any[]);
   counts["needs_attention"] = split.needs_attention;
+  counts["verification_hold"] = split.verification_hold;
   counts["ready_to_submit"] = split.ready_to_submit;
   return counts;
 }
