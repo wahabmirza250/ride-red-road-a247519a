@@ -121,8 +121,17 @@ type LookupRow = {
   status: string | null;
   raw: string | null;
   paid_amount?: string | null;
+  allowed_amount?: string | null;
+  charged_amount?: string | null;
   result_state?: string | null;
 };
+
+/** "$1,234.56" / 1234.56 / null -> number | null. Never NaN. */
+export function parsePortalMoney(raw: unknown): number | null {
+  if (raw == null || raw === "") return null;
+  const n = Number(String(raw).replace(/[$,\s]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
 
 type LookupResult =
   | { ok: true; rows: LookupRow[]; tried: string[] }
@@ -272,6 +281,8 @@ export async function checkOneClaim(
         status: normalizePortalStatus(raw),
         raw: typeof raw === "string" ? raw : null,
         paid_amount: result?.paid_amount ?? null,
+        allowed_amount: result?.allowed_amount ?? null,
+        charged_amount: result?.charged_amount ?? result?.total_charged_amount ?? null,
         result_state: state,
       },
     };
@@ -563,7 +574,20 @@ async function processJob(
     }
 
     const nowIso = new Date().toISOString();
+    // Real portal money — the ONLY figures that may ever be treated as income.
+    const paid = parsePortalMoney(hit.paid_amount);
+    const money: Record<string, unknown> = {};
+    if (paid != null) {
+      money["portal_paid_amount"] = paid;
+      money["portal_paid_at"] = hit.status === "paid" ? nowIso : null;
+    }
+    const allowed = parsePortalMoney(hit.allowed_amount);
+    if (allowed != null) money["portal_allowed_amount"] = allowed;
+    const charged = parsePortalMoney(hit.charged_amount);
+    if (charged != null) money["portal_charged_amount"] = charged;
+
     const patch = {
+      ...money,
       status_checked_at: nowIso,
       portal_status_raw: hit.raw,
       status_check_attempts: 0,
