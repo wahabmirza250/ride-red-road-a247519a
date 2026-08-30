@@ -82,6 +82,23 @@ export function ClaimStatusSyncCard() {
               }`
             : "Not run yet."}
         </p>
+        <p className="text-xs text-muted-foreground">
+          {state.data?.last_success_at
+            ? `Last successful portal answer ${formatDateTime(state.data.last_success_at)}.`
+            : "No portal answer recorded yet."}
+          {(state.data?.retrying_now ?? 0) > 0
+            ? ` ${state.data?.retrying_now} claim(s) waiting on a re-check after a checker timeout — confirmation numbers are untouched.`
+            : ""}
+        </p>
+        {state.data?.submissions_paused && (
+          <p className="text-xs font-medium text-warning">
+            New submissions are paused
+            {state.data.submissions_pause_reason
+              ? ` — ${state.data.submissions_pause_reason}`
+              : "."}{" "}
+            Status checking is unaffected.
+          </p>
+        )}
 
       </div>
       <Button
