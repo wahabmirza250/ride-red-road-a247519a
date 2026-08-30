@@ -71,9 +71,13 @@ export function ClaimsHistoryTab() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update status"),
   });
 
+  // An exact claim number is looked up server-side too, so a claim that is
+  // older than the visible page is still findable.
+  const exactTerm = /^[A-Za-z0-9-]{6,}$/.test(q.trim()) ? q.trim() : "";
   const query = useQuery({
-    queryKey: ["claims_history"],
-    queryFn: () => listFn() as Promise<ClaimHistoryRow[]>,
+    queryKey: ["claims_history", exactTerm],
+    queryFn: () =>
+      listFn({ data: exactTerm ? { search: exactTerm } : {} }) as Promise<ClaimHistoryRow[]>,
     retry: false,
   });
 
@@ -90,54 +94,10 @@ export function ClaimsHistoryTab() {
       toast.error(e instanceof Error ? e.message : "Could not clear history");
     },
   });
-
-  const statusFn = useServerFn(setClaimStatus);
-  const [savingId, setSavingId] = useState<string | null>(null);
-  const statusMutation = useMutation({
-    mutationFn: (vars: { tripId: string; status: string }) =>
-      statusFn({ data: vars as never }) as Promise<{ from: string | null; to: string }>,
-    onMutate: (vars) => setSavingId(vars.tripId),
-    onSettled: () => setSavingId(null),
-    onSuccess: (res) => {
-      toast.success(`Status updated to ${res.to}`);
-      void qc.invalidateQueries({ queryKey: ["claims_history"] });
-      void qc.invalidateQueries({ queryKey: ["company-earnings"] });
-      void qc.invalidateQueries({ queryKey: ["billing_list"] });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update status"),
-  });
-
-
-  /** Manual trips live alongside portal claims in the same list. */
-  const manualRows = useMemo<ClaimHistoryRow[]>(
-    () =>
-      (manualQuery.data ?? []).map((m) => ({
-        id: m.id,
-        claim_id: m.claim_number,
-        member_name: m.passenger_name,
-        medicaid_id: null,
-        trip_date: m.service_date,
-        submitted_at: null,
-        total_amount: m.billed_amount,
-        total_source: null,
-        status: m.claim_status,
-      })),
-    [manualQuery.data],
-  );
-  const manualById = useMemo(
-    () => new Map((manualQuery.data ?? []).map((m) => [m.id, m])),
-    [manualQuery.data],
-  );
-
+...
   const rows = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    const list = [...(query.data ?? []), ...manualRows].filter((r) =>
-      !term
-        ? true
-        : (r.member_name ?? "").toLowerCase().includes(term) ||
-          (r.claim_id ?? "").toLowerCase().includes(term) ||
-          (r.medicaid_id ?? "").toLowerCase().includes(term) ||
-          (manualById.get(r.id)?.driver_name ?? "").toLowerCase().includes(term),
+    const list = dedupeClaimHistory([...(query.data ?? []), ...manualRows]).filter((r) =>
+      matchesClaimSearch(r, q, manualById.get(r.id)?.driver_name ?? ""),
     );
     return [...list].sort((a, b) => {
       const av = new Date(a.submitted_at ?? a.trip_date ?? 0).getTime();
