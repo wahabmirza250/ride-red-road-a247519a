@@ -218,7 +218,7 @@ export async function searchHcpfForRecord(
     };
   }
 
-  const claims = normalizeClaims(worker.body);
+  const claims = tripClaims ?? normalizeClaims(worker.body);
   const linked = await findLinkedBills(
     supabase,
     args.companyId,
@@ -231,7 +231,7 @@ export async function searchHcpfForRecord(
     args.recordId,
     args.actorId,
     "hcpf_auto_search",
-    `Read-only HCPF search for member ${args.memberId} on ${serviceDate} returned ${claims.length} claim(s)${
+    `Read-only HCPF search (${worker.detail}) for member ${args.memberId} on ${serviceDate} returned ${claims.length} claim(s)${
       claims.length ? `: ${claims.map((c) => c.claim_id).join(", ")}` : ""
     }. Nothing was submitted or queued.`,
   );
