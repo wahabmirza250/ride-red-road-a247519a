@@ -135,8 +135,19 @@ export const CLAIM_STATUS_CHECKER_URL =
 
 /** How long we wait for one claim lookup job before treating it as transient.
  *  The checker answers in ~15-30s; this stays inside one run budget. */
-export const CHECK_POLL_TIMEOUT_MS = envInt("CLAIM_STATUS_CHECK_TIMEOUT_MS", 75_000, 10_000, 180_000);
-const CHECK_POLL_INTERVAL_MS = 3_000;
+/** The Railway checker can legitimately take up to ~3 minutes for one claim
+ *  (queue wait + portal login + search). Anything shorter declared healthy
+ *  claims "timed out" and left real, confirmed claims stuck as submitted. */
+export const CHECK_POLL_TIMEOUT_MS = envInt("CLAIM_STATUS_CHECK_TIMEOUT_MS", 210_000, 10_000, 300_000);
+/** Exponential poll backoff: quick at first, then easy on the service. */
+export const CHECK_POLL_MIN_INTERVAL_MS = 2_000;
+export const CHECK_POLL_MAX_INTERVAL_MS = 15_000;
+export function pollIntervalMs(attempt: number): number {
+  return Math.min(
+    CHECK_POLL_MAX_INTERVAL_MS,
+    Math.round(CHECK_POLL_MIN_INTERVAL_MS * Math.pow(1.5, Math.max(0, attempt))),
+  );
+}
 
 /**
  * Job states the checker service uses to say "this job has finished".
@@ -216,9 +227,10 @@ export async function checkOneClaim(
     Date.now() + CHECK_POLL_TIMEOUT_MS,
     hardDeadline ?? Number.POSITIVE_INFINITY,
   );
+  let poll = 0;
   while (Date.now() < deadline) {
-
-    await new Promise((r) => setTimeout(r, CHECK_POLL_INTERVAL_MS));
+    const wait = Math.min(pollIntervalMs(poll++), Math.max(0, deadline - Date.now()));
+    await new Promise((r) => setTimeout(r, wait));
     let body: any;
     try {
       const res = await doFetch(`${CLAIM_STATUS_CHECKER_URL}/job-status/${jobId}`, { headers });
@@ -264,7 +276,10 @@ export async function checkOneClaim(
       },
     };
   }
-  return { ok: false, detail: "checker job timed out" };
+  // NOT an answer and NOT a missing claim: the job is still alive on the
+  // checker. The confirmation number stays exactly as it is and the claim is
+  // simply scheduled for another read-only check.
+  return { ok: false, detail: `checker job still running after ${Math.round(CHECK_POLL_TIMEOUT_MS / 1000)}s` };
 }
 
 /* ------------------------------------------------------------------ *
