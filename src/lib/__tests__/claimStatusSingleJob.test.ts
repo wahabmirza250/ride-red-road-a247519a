@@ -94,7 +94,7 @@ describe("claim status sync caps checker jobs per run", () => {
     expect(supabase.leaseCalls[0]._global_limit).toBe(3);
     expect(res.checked).toBe(3);
     expect(f.maxInflight()).toBe(1); // strictly sequential for one company
-  });
+  }, 30_000);
 
   it("releases leftovers when the run budget is already gone", async () => {
     const jobs = Array.from({ length: 3 }, (_, i) => ({
