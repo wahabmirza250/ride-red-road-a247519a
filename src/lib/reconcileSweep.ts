@@ -12,7 +12,7 @@
  *   - Unknown portal amounts stay null. Never 0, never estimated.
  */
 import type { PortalClaim } from "@/lib/hcpfSearch";
-import type { TripSearchOutcome } from "@/lib/tripClaimSearch";
+import { isNoResultState, type TripSearchOutcome } from "@/lib/tripClaimSearch";
 
 export type SweepOutcome = "pending" | "searching" | "single" | "none" | "multiple" | "error";
 
@@ -56,8 +56,15 @@ export type SweepProgress = {
  */
 export function classifySearch(out: TripSearchOutcome | { ok: false }): SweepOutcome {
   if (!out.ok) return "error";
-  const claims = (out as TripSearchOutcome).claims ?? [];
-  if (claims.length === 0) return "none";
+  const res = out as TripSearchOutcome;
+  const claims = res.claims ?? [];
+  if (claims.length === 0) {
+    // CERTAINTY REQUIRED. "No claim" is only recorded when the portal itself
+    // said so. An empty answer with no result_state is what a failed portal
+    // login (e.g. a bad credential lookup) looks like — that is a retryable
+    // error, never a licence to resubmit.
+    return isNoResultState(res.result_state) ? "none" : "error";
+  }
   const unused = claims.filter((c) => !c.linked);
   if (claims.length === 1 && unused.length === 1) return "single";
   return "multiple";

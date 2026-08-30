@@ -53,7 +53,7 @@ describe("searchClaimByTrip", () => {
       }) as any;
     });
     const out = await searchClaimByTrip({
-      companyId: "c1",
+      companyId: "11111111-2222-4333-8444-555555555555",
       memberId: "P493288",
       serviceDate: "08/06/2026",
       tripId: "t1",
@@ -64,7 +64,7 @@ describe("searchClaimByTrip", () => {
     expect(out.match_count).toBe(2);
     expect(out.claims.map((c) => c.claim_id)).toEqual(["A", "B"]);
     expect(JSON.parse(calls[0].init.body)).toEqual({
-      company_id: "c1",
+      company_id: "11111111-2222-4333-8444-555555555555",
       member_id: "P493288",
       service_date: "08/06/2026",
       trip_id: "t1",
@@ -74,7 +74,7 @@ describe("searchClaimByTrip", () => {
   it("reports unavailable (never a false 'no claim') when the route is missing", async () => {
     const doFetch = vi.fn(async () => ({ ok: false, status: 404, text: async () => "" }) as any);
     const out = await searchClaimByTrip({
-      companyId: "c1",
+      companyId: "11111111-2222-4333-8444-555555555555",
       memberId: "P1",
       serviceDate: "08/06/2026",
       tripId: "t1",
@@ -82,6 +82,37 @@ describe("searchClaimByTrip", () => {
     });
     expect(out.ok).toBe(false);
     expect(out.unavailable).toBe(true);
+    expect(out.claims).toEqual([]);
+  });
+});
+
+describe("failed portal searches are never a 'no claim' answer", () => {
+  it("treats a done job with SEARCH_FAILED and no result_state as retryable", async () => {
+    const doFetch = vi.fn(async (url: any) => {
+      if (String(url).endsWith("/search-claim-by-trip")) {
+        return { ok: true, status: 200, json: async () => ({ jobId: "j1" }), text: async () => "" } as any;
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "done",
+          result: { status: "SEARCH_FAILED", error: "locator.waitFor: Timeout 12000ms exceeded." },
+        }),
+        text: async () => "",
+      } as any;
+    });
+    const out = await searchClaimByTrip({
+      companyId: "11111111-2222-4333-8444-555555555555",
+      memberId: "P493288",
+      serviceDate: "08/06/2026",
+      tripId: "t1",
+      doFetch: doFetch as any,
+      timeoutMs: 20_000,
+    });
+    expect(out.ok).toBe(false);
+    expect(out.unavailable).toBe(true);
+    expect(out.detail).toMatch(/did not complete/i);
     expect(out.claims).toEqual([]);
   });
 });
