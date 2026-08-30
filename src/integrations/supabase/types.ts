@@ -520,6 +520,129 @@ export type Database = {
           },
         ]
       }
+      claim_reconcile_results: {
+        Row: {
+          attempts: number
+          billing_record_id: string
+          candidates: Json
+          company_id: string
+          confirm_kind: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          error: string | null
+          id: string
+          locked_until: string | null
+          match_count: number | null
+          member_id: string | null
+          outcome: string
+          result_state: string | null
+          searched_at: string | null
+          service_date: string | null
+          sweep_id: string
+          trip_id: string | null
+          updated_at: string
+          worker: string | null
+        }
+        Insert: {
+          attempts?: number
+          billing_record_id: string
+          candidates?: Json
+          company_id: string
+          confirm_kind?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          locked_until?: string | null
+          match_count?: number | null
+          member_id?: string | null
+          outcome?: string
+          result_state?: string | null
+          searched_at?: string | null
+          service_date?: string | null
+          sweep_id: string
+          trip_id?: string | null
+          updated_at?: string
+          worker?: string | null
+        }
+        Update: {
+          attempts?: number
+          billing_record_id?: string
+          candidates?: Json
+          company_id?: string
+          confirm_kind?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          locked_until?: string | null
+          match_count?: number | null
+          member_id?: string | null
+          outcome?: string
+          result_state?: string | null
+          searched_at?: string | null
+          service_date?: string | null
+          sweep_id?: string
+          trip_id?: string | null
+          updated_at?: string
+          worker?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_reconcile_results_billing_record_id_fkey"
+            columns: ["billing_record_id"]
+            isOneToOne: false
+            referencedRelation: "billing_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_reconcile_results_sweep_id_fkey"
+            columns: ["sweep_id"]
+            isOneToOne: false
+            referencedRelation: "claim_reconcile_sweeps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claim_reconcile_sweeps: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          finished_at: string | null
+          id: string
+          note: string | null
+          status: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          finished_at?: string | null
+          id?: string
+          note?: string | null
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          finished_at?: string | null
+          id?: string
+          note?: string | null
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       claim_resubmissions: {
         Row: {
           company_id: string | null
@@ -4617,6 +4740,24 @@ export type Database = {
           trip_id: string
         }[]
       }
+      lease_reconcile_jobs: {
+        Args: {
+          _global_limit: number
+          _lease_seconds: number
+          _per_company_limit: number
+          _worker: string
+        }
+        Returns: {
+          attempts: number
+          billing_record_id: string
+          company_id: string
+          id: string
+          member_id: string
+          service_date: string
+          sweep_id: string
+          trip_id: string
+        }[]
+      }
       lease_submission_jobs: {
         Args: {
           _company_id?: string
@@ -4661,6 +4802,10 @@ export type Database = {
       }
       release_stale_claim_status_locks: {
         Args: { _grace_seconds?: number }
+        Returns: number
+      }
+      release_stale_reconcile_locks: {
+        Args: { _grace_seconds: number }
         Returns: number
       }
       release_stale_submission_locks: {

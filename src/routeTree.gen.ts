@@ -87,6 +87,7 @@ import { Route as CompanySlugDispatchRoutesIndexRouteImport } from './routes/$co
 import { Route as CompanySlugAuthenticatedPayrollIndexRouteImport } from './routes/$companySlug/_authenticated/payroll.index'
 import { Route as ApiPublicHooksSyncClaimStatusRouteImport } from './routes/api/public/hooks/sync-claim-status'
 import { Route as ApiPublicHooksSubmissionQueueTickRouteImport } from './routes/api/public/hooks/submission-queue-tick'
+import { Route as ApiPublicHooksReconcileSweepTickRouteImport } from './routes/api/public/hooks/reconcile-sweep-tick'
 import { Route as ApiPublicHooksPollRobotJobsRouteImport } from './routes/api/public/hooks/poll-robot-jobs'
 import { Route as CompanySlugPassengerBookVehicleRouteImport } from './routes/$companySlug/passenger.book.vehicle'
 import { Route as CompanySlugPassengerBookPickupRouteImport } from './routes/$companySlug/passenger.book.pickup'
@@ -538,6 +539,12 @@ const ApiPublicHooksSubmissionQueueTickRoute =
     path: '/api/public/hooks/submission-queue-tick',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksReconcileSweepTickRoute =
+  ApiPublicHooksReconcileSweepTickRouteImport.update({
+    id: '/api/public/hooks/reconcile-sweep-tick',
+    path: '/api/public/hooks/reconcile-sweep-tick',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksPollRobotJobsRoute =
   ApiPublicHooksPollRobotJobsRouteImport.update({
     id: '/api/public/hooks/poll-robot-jobs',
@@ -682,6 +689,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/passenger/book/pickup': typeof CompanySlugPassengerBookPickupRoute
   '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
   '/api/public/hooks/poll-robot-jobs': typeof ApiPublicHooksPollRobotJobsRoute
+  '/api/public/hooks/reconcile-sweep-tick': typeof ApiPublicHooksReconcileSweepTickRoute
   '/api/public/hooks/submission-queue-tick': typeof ApiPublicHooksSubmissionQueueTickRoute
   '/api/public/hooks/sync-claim-status': typeof ApiPublicHooksSyncClaimStatusRoute
   '/$companySlug/payroll/': typeof CompanySlugAuthenticatedPayrollIndexRoute
@@ -765,6 +773,7 @@ export interface FileRoutesByTo {
   '/$companySlug/passenger/book/pickup': typeof CompanySlugPassengerBookPickupRoute
   '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
   '/api/public/hooks/poll-robot-jobs': typeof ApiPublicHooksPollRobotJobsRoute
+  '/api/public/hooks/reconcile-sweep-tick': typeof ApiPublicHooksReconcileSweepTickRoute
   '/api/public/hooks/submission-queue-tick': typeof ApiPublicHooksSubmissionQueueTickRoute
   '/api/public/hooks/sync-claim-status': typeof ApiPublicHooksSyncClaimStatusRoute
   '/$companySlug/payroll': typeof CompanySlugAuthenticatedPayrollIndexRoute
@@ -856,6 +865,7 @@ export interface FileRoutesById {
   '/$companySlug/passenger/book/pickup': typeof CompanySlugPassengerBookPickupRoute
   '/$companySlug/passenger/book/vehicle': typeof CompanySlugPassengerBookVehicleRoute
   '/api/public/hooks/poll-robot-jobs': typeof ApiPublicHooksPollRobotJobsRoute
+  '/api/public/hooks/reconcile-sweep-tick': typeof ApiPublicHooksReconcileSweepTickRoute
   '/api/public/hooks/submission-queue-tick': typeof ApiPublicHooksSubmissionQueueTickRoute
   '/api/public/hooks/sync-claim-status': typeof ApiPublicHooksSyncClaimStatusRoute
   '/$companySlug/_authenticated/payroll/': typeof CompanySlugAuthenticatedPayrollIndexRoute
@@ -947,6 +957,7 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/book/pickup'
     | '/$companySlug/passenger/book/vehicle'
     | '/api/public/hooks/poll-robot-jobs'
+    | '/api/public/hooks/reconcile-sweep-tick'
     | '/api/public/hooks/submission-queue-tick'
     | '/api/public/hooks/sync-claim-status'
     | '/$companySlug/payroll/'
@@ -1030,6 +1041,7 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/book/pickup'
     | '/$companySlug/passenger/book/vehicle'
     | '/api/public/hooks/poll-robot-jobs'
+    | '/api/public/hooks/reconcile-sweep-tick'
     | '/api/public/hooks/submission-queue-tick'
     | '/api/public/hooks/sync-claim-status'
     | '/$companySlug/payroll'
@@ -1120,6 +1132,7 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/book/pickup'
     | '/$companySlug/passenger/book/vehicle'
     | '/api/public/hooks/poll-robot-jobs'
+    | '/api/public/hooks/reconcile-sweep-tick'
     | '/api/public/hooks/submission-queue-tick'
     | '/api/public/hooks/sync-claim-status'
     | '/$companySlug/_authenticated/payroll/'
@@ -1144,6 +1157,7 @@ export interface RootRouteChildren {
   ApiPublicSmsInboundRoute: typeof ApiPublicSmsInboundRoute
   ApiPublicTelnyxInboundRoute: typeof ApiPublicTelnyxInboundRoute
   ApiPublicHooksPollRobotJobsRoute: typeof ApiPublicHooksPollRobotJobsRoute
+  ApiPublicHooksReconcileSweepTickRoute: typeof ApiPublicHooksReconcileSweepTickRoute
   ApiPublicHooksSubmissionQueueTickRoute: typeof ApiPublicHooksSubmissionQueueTickRoute
   ApiPublicHooksSyncClaimStatusRoute: typeof ApiPublicHooksSyncClaimStatusRoute
 }
@@ -1696,6 +1710,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksSubmissionQueueTickRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/reconcile-sweep-tick': {
+      id: '/api/public/hooks/reconcile-sweep-tick'
+      path: '/api/public/hooks/reconcile-sweep-tick'
+      fullPath: '/api/public/hooks/reconcile-sweep-tick'
+      preLoaderRoute: typeof ApiPublicHooksReconcileSweepTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/poll-robot-jobs': {
       id: '/api/public/hooks/poll-robot-jobs'
       path: '/api/public/hooks/poll-robot-jobs'
@@ -2026,6 +2047,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicSmsInboundRoute: ApiPublicSmsInboundRoute,
   ApiPublicTelnyxInboundRoute: ApiPublicTelnyxInboundRoute,
   ApiPublicHooksPollRobotJobsRoute: ApiPublicHooksPollRobotJobsRoute,
+  ApiPublicHooksReconcileSweepTickRoute: ApiPublicHooksReconcileSweepTickRoute,
   ApiPublicHooksSubmissionQueueTickRoute:
     ApiPublicHooksSubmissionQueueTickRoute,
   ApiPublicHooksSyncClaimStatusRoute: ApiPublicHooksSyncClaimStatusRoute,
