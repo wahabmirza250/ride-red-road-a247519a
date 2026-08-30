@@ -2637,6 +2637,77 @@ export type Database = {
         }
         Relationships: []
       }
+      paper_inbox_files: {
+        Row: {
+          attempts: number
+          billing_record_id: string | null
+          company_id: string
+          content_hash: string | null
+          created_at: string
+          draft: Json | null
+          error: string | null
+          file_name: string
+          id: string
+          mime: string
+          ocr: Json | null
+          processed_at: string | null
+          status: string
+          storage_bucket: string
+          storage_path: string
+          trip_id: string | null
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          attempts?: number
+          billing_record_id?: string | null
+          company_id: string
+          content_hash?: string | null
+          created_at?: string
+          draft?: Json | null
+          error?: string | null
+          file_name?: string
+          id?: string
+          mime?: string
+          ocr?: Json | null
+          processed_at?: string | null
+          status?: string
+          storage_bucket?: string
+          storage_path: string
+          trip_id?: string | null
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          attempts?: number
+          billing_record_id?: string | null
+          company_id?: string
+          content_hash?: string | null
+          created_at?: string
+          draft?: Json | null
+          error?: string | null
+          file_name?: string
+          id?: string
+          mime?: string
+          ocr?: Json | null
+          processed_at?: string | null
+          status?: string
+          storage_bucket?: string
+          storage_path?: string
+          trip_id?: string | null
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_inbox_files_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "medicaid_trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       passengers: {
         Row: {
           address: string | null
