@@ -42,6 +42,8 @@ const row = (i: number, company: string) => ({
 
 function counterFetch(opts: { active?: number; queued?: number } = {}) {
   const posts: string[] = [];
+  const perCompanyInflight = new Map<string, number>();
+  let maxCompanyInflight = 0;
   let inflight = 0;
   let maxInflight = 0;
   const fetchImpl = (async (url: any, init?: any) => {
@@ -67,34 +69,42 @@ function counterFetch(opts: { active?: number; queued?: number } = {}) {
     }
     return new Response("{}", { status: 200 });
   }) as unknown as typeof fetch;
-  return { fetchImpl, posts: () => posts, maxInflight: () => maxInflight };
+  return {
+    fetchImpl,
+    posts: () => posts,
+    maxInflight: () => maxInflight,
+    perCompanyInflight,
+    maxCompanyInflight: () => maxCompanyInflight,
+  };
 }
 
-describe("claim status sync creates exactly one checker job per run", () => {
-  it("caps are hard-wired to 1", () => {
-    expect(maxGlobal()).toBe(1);
+describe("claim status sync caps checker jobs per run", () => {
+  it("caps are hard-wired: global 3, per-company 1", () => {
+    expect(maxGlobal()).toBe(3);
     expect(maxPerCompany()).toBe(1);
   });
 
-  it("never POSTs more than one /check-claim-status per invocation", async () => {
-    const rows = [row(1, "A"), row(2, "A"), row(3, "B"), row(4, "C")];
+  it("never POSTs more than three /check-claim-status per invocation, one per company", async () => {
+    const rows = [row(1, "A"), row(2, "A"), row(3, "B"), row(4, "C"), row(5, "D")];
     const f = counterFetch();
     const supabase = fakeSupabase(rows);
     const res = await runClaimStatusSync(supabase, {
       fetchImpl: f.fetchImpl,
-      // Even when a caller asks for more, the run must clamp itself to one.
+      // Even when a caller asks for more, the run must clamp itself to the caps.
       globalLimit: 8,
       perCompanyLimit: 8,
       budgetMs: 5_000,
     });
-    expect(f.posts()).toHaveLength(1);
-    expect(f.maxInflight()).toBe(1);
-    expect(supabase.leaseCalls[0]._global_limit).toBe(1);
+    expect(f.posts().length).toBeLessThanOrEqual(3);
+    expect(f.maxInflight()).toBeLessThanOrEqual(3);
+    expect(supabase.leaseCalls[0]._global_limit).toBe(3);
     expect(supabase.leaseCalls[0]._per_company_limit).toBe(1);
-    expect(res.checked).toBeLessThanOrEqual(1);
+    expect(res.checked).toBeLessThanOrEqual(3);
+    // Per-company cap of 1 applies inside the pool regardless of lease order.
+    expect(res.companies).toBeLessThanOrEqual(res.checked);
   });
 
-  it("starts nothing while a prior checker job is pending or running", async () => {
+  it("starts nothing while the checker service is at capacity", async () => {
     const f = counterFetch({ active: 1, queued: 3 });
     const supabase = fakeSupabase([row(1, "A")]);
     const res = await runClaimStatusSync(supabase, { fetchImpl: f.fetchImpl, budgetMs: 5_000 });
@@ -102,5 +112,15 @@ describe("claim status sync creates exactly one checker job per run", () => {
     expect(supabase.leaseCalls).toHaveLength(0);
     expect(res.ran).toBe(false);
     expect(res.reason).toMatch(/still working/i);
+  });
+
+  it("leases only spare capacity when the service is partially busy", async () => {
+    // 2 already in service out of a cap of 3 -> this tick may start at most 1.
+    const f = counterFetch({ active: 2, queued: 0 });
+    const supabase = fakeSupabase([row(1, "A"), row(2, "B"), row(3, "C")]);
+    const res = await runClaimStatusSync(supabase, { fetchImpl: f.fetchImpl, budgetMs: 5_000 });
+    expect(supabase.leaseCalls[0]._global_limit).toBe(1);
+    expect(f.posts().length).toBeLessThanOrEqual(1);
+    expect(res.checked).toBeLessThanOrEqual(1);
   });
 });
