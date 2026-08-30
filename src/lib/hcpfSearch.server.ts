@@ -240,11 +240,14 @@ export async function searchHcpfForRecord(
     ok: true,
     unavailable: false,
     message: claims.length
-      ? `${claims.length} claim(s) found at HCPF for this member and service date.`
-      : "No claim was found at HCPF for this member and service date.",
+      ? `${claims.length} claim(s) found at HCPF for this member and service date. Multiple trips for the same member on the same day are normal — pick the one that matches this trip.`
+      : "No claim found in HCPF for this member and service date.",
     claims,
     member_id: args.memberId,
     service_date: serviceDate,
+    result_state: byTrip.ok ? byTrip.result_state : null,
+    match_count: byTrip.ok ? byTrip.match_count : claims.length,
+    source: worker.detail,
   };
 }
 

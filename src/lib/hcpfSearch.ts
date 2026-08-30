@@ -40,6 +40,10 @@ export type HcpfSearchResult = {
   member_id: string;
   service_date: string;
   claims: PortalClaim[];
+  /** Raw portal outcome reported by the read-only checker, when available. */
+  result_state?: string | null;
+  match_count?: number | null;
+  source?: string | null;
 };
 
 export type LinkDecision =
