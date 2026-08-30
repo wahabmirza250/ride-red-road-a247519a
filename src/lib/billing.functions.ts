@@ -42,6 +42,13 @@ export const listBillingRecords = createServerFn({ method: "POST" })
         // Needs Attention archive: resolved rows are hidden from the active
         // worklist but stay fully readable (and auditable) on request.
         include_archived: z.boolean().optional(),
+        /**
+         * READY / ATTENTION stages are NOT status filters — they are the
+         * shared `needsAttention()` predicate applied server-side to the same
+         * rows the badge counts. Passing a stage makes the rendered list and
+         * the badge mathematically identical.
+         */
+        stage: z.enum(["ready", "attention"]).optional(),
       })
       .parse(d),
   )
@@ -49,7 +56,13 @@ export const listBillingRecords = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertBilling(supabase, userId);
 
-    const statuses = data.statuses ?? (data.status ? [data.status] : []);
+    const { ATTENTION_COUNT_STATUSES, ATTENTION_COUNT_LIMIT, filterStage } = await import(
+      "@/lib/attentionCounts"
+    );
+
+    const statuses = data.stage
+      ? (ATTENTION_COUNT_STATUSES as unknown as string[])
+      : (data.statuses ?? (data.status ? [data.status] : []));
     if (!statuses.length) throw new Error("statuses required");
     const { pageRange } = await import("@/lib/billingPage");
     const page = pageRange(data.limit, data.offset);
@@ -71,10 +84,13 @@ export const listBillingRecords = createServerFn({ method: "POST" })
       )
       .in("status", statuses);
     if (!data.include_archived) query = query.is("attention_archived_at", null);
-    const { data: rows, error } = await query
-      .order("updated_at", { ascending: false })
-      .range(page.from, page.to);
+    // A staged read must see every candidate before the predicate runs,
+    // otherwise a page boundary — not the predicate — decides the stage.
+    const { data: rows, error } = data.stage
+      ? await query.order("updated_at", { ascending: false }).limit(ATTENTION_COUNT_LIMIT)
+      : await query.order("updated_at", { ascending: false }).range(page.from, page.to);
     if (error) throw new Error(error.message);
+
 
     const driverIds = Array.from(
       new Set(
