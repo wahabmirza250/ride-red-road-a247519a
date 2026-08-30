@@ -48,7 +48,7 @@ export const listBillingRecords = createServerFn({ method: "POST" })
          * rows the badge counts. Passing a stage makes the rendered list and
          * the badge mathematically identical.
          */
-        stage: z.enum(["ready", "attention"]).optional(),
+        stage: z.enum(["ready", "attention", "hold"]).optional(),
       })
       .parse(d),
   )
@@ -198,6 +198,7 @@ export const getBillingCounts = createServerFn({ method: "GET" })
     const split = splitAttentionCounts(attentionRows ?? []);
     counts["needs_attention"] = split.needs_attention;
     counts["ready_to_submit"] = split.ready_to_submit;
+    counts["verification_hold"] = split.verification_hold;
     return counts;
   });
 

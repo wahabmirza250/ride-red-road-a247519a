@@ -98,7 +98,7 @@ describe("Ready to Submit badge / list parity", () => {
     // unverified robot status was not fetched, so the row looked sendable.
     const full = listRow(1, { robot_last_status: "NEEDS_HUMAN_LOOKUP" });
     const truncated: any = { id: "bill-1", status: "approved", requires_human_step: false };
-    expect(stageOfFlatRow(full)).toBe("attention");
+    expect(stageOfFlatRow(full)).toBe("hold");
     expect(stageOfFlatRow(truncated)).toBe("ready"); // wrong — which is why
     // every fetch feeding the predicate MUST select the full field set:
     expect(Object.keys(full)).toEqual(
@@ -119,6 +119,7 @@ describe("Ready to Submit badge / list parity", () => {
     );
     expect(splitAttentionCounts(rows.map(countRow)).ready_to_submit).toBe(0);
     expect(filterStage(rows, "ready")).toHaveLength(0);
-    expect(filterStage(rows, "attention")).toHaveLength(16);
+    expect(filterStage(rows, "attention")).toHaveLength(0);
+    expect(filterStage(rows, "hold")).toHaveLength(16);
   });
 });

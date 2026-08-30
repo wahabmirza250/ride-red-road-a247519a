@@ -24,6 +24,7 @@ describe("ready/attention counts use the rendered predicate", () => {
     expect(splitAttentionCounts([row()])).toEqual({
       ready_to_submit: 1,
       needs_attention: 0,
+      verification_hold: 0,
     });
   });
 
@@ -36,13 +37,18 @@ describe("ready/attention counts use the rendered predicate", () => {
       },
     });
     expect(needsAttention(splitInput(r))).toBe(true);
-    expect(splitAttentionCounts([r])).toEqual({ ready_to_submit: 0, needs_attention: 1 });
+    expect(splitAttentionCounts([r])).toEqual({
+      ready_to_submit: 0,
+      needs_attention: 0,
+      verification_hold: 1,
+    });
   });
 
   it("always counts needs_fix as attention", () => {
     expect(splitAttentionCounts([row({ status: "needs_fix", requires_human_step: true })])).toEqual({
       ready_to_submit: 0,
-      needs_attention: 1,
+      needs_attention: 0,
+      verification_hold: 1,
     });
   });
 });
