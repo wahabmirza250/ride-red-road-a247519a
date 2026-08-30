@@ -188,7 +188,22 @@ export function ManualVerificationPanel({
           </span>
         </div>
 
+        {search.isPending && (
+          <p className="text-[11px] opacity-80">
+            Read-only portal search running — this can take a couple of minutes. Nothing is
+            submitted or changed while it runs.
+          </p>
+        )}
         {result && <p className="text-xs">{result.message}</p>}
+        {result?.ok && claims.length === 0 && (
+          <p className="text-xs font-semibold">No claim found in HCPF.</p>
+        )}
+        {result?.ok && (result.result_state || typeof result.match_count === "number") && (
+          <p className="text-[11px] opacity-80">
+            Portal result: {result.result_state ?? "—"}
+            {typeof result.match_count === "number" ? ` · ${result.match_count} match(es)` : ""}
+          </p>
+        )}
         {result?.decision && <p className="text-[11px] opacity-80">{result.decision.reason}</p>}
 
         {claims.length > 0 && (
