@@ -110,8 +110,8 @@ export const savePaperInboxState = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         status: z.enum(["uploaded", "reading", "needs_review", "error"]).optional(),
         error: z.string().max(2000).nullable().optional(),
-        ocr: z.record(z.string(), z.unknown()).nullable().optional(),
-        draft: z.record(z.string(), z.unknown()).nullable().optional(),
+        ocr: z.any().optional(),
+        draft: z.any().optional(),
         bump_attempt: z.boolean().optional(),
       })
       .parse(d),
@@ -131,7 +131,7 @@ export const savePaperInboxState = createServerFn({ method: "POST" })
     // trip and a bill.
     if (current.status === "done" && current.trip_id) return { row: current, locked: true };
 
-    const patch: Record<string, unknown> = {};
+    const patch: Record<string, any> = {};
     if (data.status) patch["status"] = data.status;
     if (data.error !== undefined) patch["error"] = data.error;
     if (data.ocr !== undefined) patch["ocr"] = data.ocr;

@@ -26,8 +26,8 @@ export type PaperInboxRow = {
   status: PaperInboxStatus;
   error: string | null;
   attempts: number;
-  ocr: Record<string, unknown> | null;
-  draft: Record<string, unknown> | null;
+  ocr: Record<string, any> | null;
+  draft: Record<string, any> | null;
   trip_id: string | null;
   billing_record_id: string | null;
   processed_at: string | null;
