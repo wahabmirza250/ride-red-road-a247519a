@@ -24,7 +24,7 @@ describe("sweep classification", () => {
     expect(classifySearch({ ok: false } as any)).toBe("error");
   });
   it("reports no result", () => {
-    expect(classifySearch(outcome([]))).toBe("none");
+    expect(classifySearch(outcome([], { result_state: "NO_RESULTS" }))).toBe("none");
   });
   it("reports a single unused candidate", () => {
     expect(classifySearch(outcome([{ claim_id: "A", linked: null }]))).toBe("single");
@@ -159,7 +159,7 @@ describe("authorized auto-link", () => {
   it("only a lone unused candidate is auto-linkable; several are held", () => {
     expect(classifySearch(outcome([{ claim_id: "A", linked: null }]))).toBe("single");
     expect(classifySearch(outcome([{ claim_id: "A" }, { claim_id: "B" }]))).toBe("multiple");
-    expect(classifySearch(outcome([]))).toBe("none");
+    expect(classifySearch(outcome([], { result_state: "NO_RESULTS" }))).toBe("none");
   });
 });
 
