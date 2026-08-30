@@ -759,6 +759,7 @@ export async function runClaimStatusSync(
   // sequentially through that one session inside the run budget.
   const effPerCompany = 1;
   const effLeasePerCompany = Math.min(leasePerCompany(), effGlobal);
+  const backpressureReason = busy
     ? `Status-checking service is still working (${depth!.active} running, ${depth!.queued} waiting). Nothing new was started; claims stay scheduled.`
     : null;
 
