@@ -65,6 +65,7 @@ import { FixBillDialog } from "@/components/billing/FixBillDialog";
 import { SubmissionQueuePanel } from "@/components/billing/SubmissionQueuePanel";
 import { AttentionArchiveControls } from "@/components/billing/AttentionArchiveControls";
 import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
+import { ReconcileSweepCard } from "@/components/billing/ReconcileSweepCard";
 import { AutoPilotButton } from "@/components/billing/AutoPilotButton";
 
 import {
@@ -500,6 +501,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
 
 
 
+
+      {(tab === "needs_attention" || tab === "verification_hold") && (
+        <ReconcileSweepCard onOpenRecord={setSelectedId} />
+      )}
 
       {tab === "claims_history" ? (
         <ClaimsHistoryTab />
