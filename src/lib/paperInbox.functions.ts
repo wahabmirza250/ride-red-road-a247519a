@@ -140,7 +140,7 @@ export const savePaperInboxState = createServerFn({ method: "POST" })
 
     const { data: row, error } = await supabase
       .from("paper_inbox_files")
-      .update(patch)
+      .update(patch as never)
       .eq("id", data.id)
       .select(SELECT)
       .single();
