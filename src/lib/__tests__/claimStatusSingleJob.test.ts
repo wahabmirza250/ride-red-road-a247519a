@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { maxGlobal, maxPerCompany, runClaimStatusSync } from "@/lib/claimStatusSync.server";
+import { leasePerCompany, maxGlobal, maxPerCompany, runClaimStatusSync, runPool } from "@/lib/claimStatusSync.server";
 
 /** Minimal fake of the service-role client used by the sync tick. */
 function fakeSupabase(rows: any[]) {
@@ -79,9 +79,38 @@ function counterFetch(opts: { active?: number; queued?: number } = {}) {
 }
 
 describe("claim status sync caps checker jobs per run", () => {
-  it("caps are hard-wired: global 3, per-company 1", () => {
+  it("caps are hard-wired: global 3, per-company concurrency 1, lease 3", () => {
     expect(maxGlobal()).toBe(3);
     expect(maxPerCompany()).toBe(1);
+    expect(leasePerCompany()).toBe(3);
+  });
+
+  it("leases 3 for one company but checks them one at a time", async () => {
+    const rows = [row(1, "A"), row(2, "A"), row(3, "A")];
+    const f = counterFetch();
+    const supabase = fakeSupabase(rows);
+    const res = await runClaimStatusSync(supabase, { fetchImpl: f.fetchImpl, budgetMs: 20_000 });
+    expect(supabase.leaseCalls[0]._per_company_limit).toBe(3);
+    expect(supabase.leaseCalls[0]._global_limit).toBe(3);
+    expect(res.checked).toBe(3);
+    expect(f.maxInflight()).toBe(1); // strictly sequential for one company
+  });
+
+  it("releases leftovers when the run budget is already gone", async () => {
+    const jobs = Array.from({ length: 3 }, (_, i) => ({
+      record_id: `r${i}`,
+      trip_id: `t${i}`,
+      company_id: "A",
+      status: "submitted",
+      attempts: 0,
+      claim_number: `c${i}`,
+    }));
+    const leftover = await runPool(
+      jobs as any,
+      { perCompany: 1, global: 3, deadline: Date.now() - 1 },
+      async () => {},
+    );
+    expect(leftover).toHaveLength(3);
   });
 
   it("never POSTs more than three /check-claim-status per invocation, one per company", async () => {
@@ -98,7 +127,7 @@ describe("claim status sync caps checker jobs per run", () => {
     expect(f.posts().length).toBeLessThanOrEqual(3);
     expect(f.maxInflight()).toBeLessThanOrEqual(3);
     expect(supabase.leaseCalls[0]._global_limit).toBe(3);
-    expect(supabase.leaseCalls[0]._per_company_limit).toBe(1);
+    expect(supabase.leaseCalls[0]._per_company_limit).toBe(3);
     expect(res.checked).toBeLessThanOrEqual(3);
     // Per-company cap of 1 applies inside the pool regardless of lease order.
     expect(res.companies).toBeLessThanOrEqual(res.checked);
