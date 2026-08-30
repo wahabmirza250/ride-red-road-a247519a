@@ -105,3 +105,10 @@ export function reconcileUpload(args: {
   if (byHash) return { action: "reuse", rowId: byHash.id };
   return { action: "create" };
 }
+
+/** How long a read/import may stay in flight before it counts as interrupted. */
+export const STUCK_AFTER_MS = 10 * 60 * 1000;
+
+/** Columns every inbox read returns. */
+export const PAPER_INBOX_SELECT =
+  "id, company_id, uploaded_by, storage_path, file_name, mime, content_hash, status, error, attempts, ocr, draft, trip_id, billing_record_id, processed_at, created_at";

@@ -8,19 +8,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { reconcileUpload, sha256Hex, type PaperInboxRow } from "@/lib/paperInbox";
-
-const SELECT =
-  "id, company_id, uploaded_by, storage_path, file_name, mime, content_hash, status, error, attempts, ocr, draft, trip_id, billing_record_id, processed_at, created_at";
-
-async function assertBilling(supabase: any) {
-  const { data, error } = await supabase.rpc("current_user_can_bill");
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("Forbidden: billing staff only");
-}
-
-/** How long a read/import may stay in flight before it counts as interrupted. */
-export const STUCK_AFTER_MS = 10 * 60 * 1000;
+import {
+  reconcileUpload,
+  sha256Hex,
+  STUCK_AFTER_MS,
+  PAPER_INBOX_SELECT as SELECT,
+  type PaperInboxRow,
+} from "@/lib/paperInbox";
+import { assertBillingAccess as assertBilling } from "@/lib/paperInbox.server";
 
 /** Every outstanding + recently finished upload for the signed-in company. */
 export const listPaperInbox = createServerFn({ method: "GET" })
