@@ -65,28 +65,41 @@ export function EarningsPanel() {
           <div className="mt-4 flex flex-wrap items-end gap-6">
             <div>
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                Realized income (state-paid claims)
+                Paid income (portal-confirmed payments)
               </p>
               <p className="font-display text-3xl font-semibold tracking-tight">
                 {money(data?.total ?? 0)}
               </p>
               <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                 <TrendingUp className="h-3.5 w-3.5" />
-                {data?.claims ?? 0} paid claim{(data?.claims ?? 0) === 1 ? "" : "s"}
+                {data?.claims ?? 0} claim{(data?.claims ?? 0) === 1 ? "" : "s"} paid by HCPF
               </p>
             </div>
             <div>
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                Billed, awaiting payment
+                Billed, awaiting payment (estimate)
               </p>
               <p className="font-display text-xl font-semibold tracking-tight text-muted-foreground">
                 {money(data?.pendingTotal ?? 0)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {data?.pendingClaims ?? 0} claim{(data?.pendingClaims ?? 0) === 1 ? "" : "s"} — not
-                income yet
+                {data?.pendingClaims ?? 0} claim{(data?.pendingClaims ?? 0) === 1 ? "" : "s"} — our
+                own calculation, not income
               </p>
             </div>
+            {(data?.unknownClaims ?? 0) > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Unverified / needs attention
+                </p>
+                <p className="font-display text-xl font-semibold tracking-tight text-muted-foreground">
+                  {data?.unknownClaims ?? 0} claim{(data?.unknownClaims ?? 0) === 1 ? "" : "s"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {money(data?.unknownEstimated ?? 0)} estimated — no portal amount confirmed
+                </p>
+              </div>
+            )}
             {(data?.deniedClaims ?? 0) > 0 && (
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -102,6 +115,7 @@ export function EarningsPanel() {
               </div>
             )}
           </div>
+
 
 
 
