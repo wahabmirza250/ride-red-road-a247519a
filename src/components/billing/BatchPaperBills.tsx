@@ -14,7 +14,8 @@ import {
   Inbox,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseBrowser";
-import { readPaperBillDataUrl, ocrErrorMessage } from "@/lib/paperBillUpload";
+import { readPaperBillDataUrl } from "@/lib/paperBillUpload";
+import { classifyOcrFailure, batchStopBanner, MANUAL_ENTRY_HINT } from "@/lib/ocrFailure";
 import { sha256Hex, type PaperInboxRow } from "@/lib/paperInbox";
 import { AppLink } from "@/lib/appLink";
 import { Button } from "@/components/ui/button";
@@ -195,6 +196,9 @@ export function BatchPaperBills() {
   const [items, setItems] = useState<Item[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [recovering, setRecovering] = useState(false);
+  /** Set when auto-read hit a terminal condition (no AI credits / disabled). */
+  const [ocrHalt, setOcrHalt] = useState<string | null>(null);
+  const haltRef = useRef(false);
   const hydrated = useRef(false);
 
   const rates = useQuery({
@@ -322,6 +326,16 @@ export function BatchPaperBills() {
         continue;
       }
 
+      if (haltRef.current) {
+        // Auto-read is terminally unavailable: store the file, mark it for
+        // manual entry, and never burn another gateway request on it.
+        patch(item.key, { inboxId, uploadPath: path, phase: "ready", error: MANUAL_ENTRY_HINT });
+        if (inboxId)
+          await saveFn({
+            data: { id: inboxId, status: "needs_review", error: MANUAL_ENTRY_HINT },
+          }).catch(() => {});
+        continue;
+      }
       patch(item.key, { inboxId, uploadPath: path, phase: "reading" });
       await readOne(item.key, inboxId, file);
     }
@@ -395,20 +409,37 @@ export function BatchPaperBills() {
         });
       }
     } catch (e) {
-      const message = ocrErrorMessage(e);
+      const failure = classifyOcrFailure(e);
       // Never leave a row silently blank — say what went wrong, keep it in the
       // inbox, and let the biller retry the read or fill the fields by hand.
-      patch(key, { phase: "ready", error: message });
+      patch(key, { phase: "ready", error: failure.message });
       if (inboxId) {
-        await saveFn({ data: { id: inboxId, status: "error", error: message } }).catch(() => {});
+        await saveFn({
+          data: {
+            // A terminal auto-read outage is not a file problem: the row is
+            // simply waiting for manual entry, so it stays reviewable.
+            id: inboxId,
+            status: failure.stopBatch ? "needs_review" : "error",
+            error: failure.message,
+          },
+        }).catch(() => {});
       }
-      toast.error(`${fileName}: ${message}`);
+      if (failure.stopBatch) {
+        haltRef.current = true;
+        setOcrHalt(batchStopBanner(failure));
+        toast.error(failure.message);
+      } else {
+        toast.error(`${fileName}: ${failure.message}`);
+      }
     }
   }
 
   /** Retry the auto-read for a stored file we no longer hold in memory. */
   async function retryRead(item: Item) {
     if (!item.uploadPath) return;
+    // An explicit retry is the biller saying "try auto-read again".
+    haltRef.current = false;
+    setOcrHalt(null);
     patch(item.key, { phase: "reading", error: undefined });
     const { data, error } = await supabase.storage.from("state-pdfs").download(item.uploadPath);
     if (error || !data) {
@@ -594,6 +625,16 @@ export function BatchPaperBills() {
           </Button>
         </div>
       </div>
+
+      {ocrHalt && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-2xl border border-warning/50 bg-warning/10 px-4 py-3 text-sm text-warning-foreground"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{ocrHalt}</span>
+        </div>
+      )}
 
       {items.length === 0 && (
         <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">

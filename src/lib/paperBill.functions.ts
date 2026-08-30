@@ -501,10 +501,18 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
     );
 
     if (!response || !response.ok) {
+      // Terminal gateway conditions are reported with their status so the
+      // client can stop the batch instead of repeating a doomed request per
+      // file. Auto-read is optional — manual entry always still works.
+      if (response?.status === 402)
+        throw new Error("402 Auto-read is out of AI credits — enter the details manually.");
+      if (response?.status === 403)
+        throw new Error("403 Auto-read is disabled for this workspace — enter the details manually.");
       if (response?.status === 429)
         throw new Error("Auto-read is busy right now (429) — try again in a moment.");
       throw new Error(`Auto-read failed (${lastError || "no response"})`);
     }
+
 
 
 
