@@ -351,6 +351,21 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
       })
       .eq("id", trip.id);
 
+    // 6. Close out the durable inbox row. From here the upload is complete and
+    //    permanently linked to its trip + bill, so it can never be re-imported.
+    if (inboxRow) {
+      await supabase
+        .from("paper_inbox_files")
+        .update({
+          status: "done",
+          error: null,
+          trip_id: trip.id,
+          billing_record_id: billingRecord?.id ?? null,
+          processed_at: new Date().toISOString(),
+        })
+        .eq("id", inboxRow.id);
+    }
+
     return {
       trip_id: trip.id,
       billing_record_id: billingRecord?.id ?? null,
@@ -359,7 +374,9 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
       miles: calc.miles,
       total: calc.total,
       proof_path: proofPath,
+      already_imported: false,
     };
+
   });
 
 /**
