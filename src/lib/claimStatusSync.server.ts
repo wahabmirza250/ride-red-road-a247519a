@@ -696,8 +696,12 @@ export async function runClaimStatusSync(
   } = {},
 ): Promise<SyncRunResult> {
   const deadline = Date.now() + (opts.budgetMs ?? RUN_BUDGET_MS);
-  const perCompany = opts.perCompanyLimit ?? maxPerCompany();
-  const globalCap = opts.globalLimit ?? maxGlobal();
+  // Defensive hard clamp: whatever configuration or caller asks for, ONE
+  // scheduler invocation may only ever create/poll a single checker job.
+  const perCompany = 1;
+  const globalCap = 1;
+  void opts.perCompanyLimit;
+  void opts.globalLimit;
   const workerId = `w-${Math.random().toString(36).slice(2, 8)}-${Date.now()}`;
 
   const empty: SyncRunResult = {
