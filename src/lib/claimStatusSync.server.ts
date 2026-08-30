@@ -27,12 +27,12 @@ export function envInt(name: string, fallback: number, min: number, max: number)
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, Math.floor(n)));
 }
-/** Max concurrent read-only status checks for ONE company/HCPF account.
- *  These are search-only page loads (never Submit/Confirm), so a company may
- *  safely run more of them than submissions — submissions stay capped at 4. */
-export const maxPerCompany = () => envInt("CLAIM_STATUS_MAX_PER_COMPANY", 8, 1, 50);
-/** Max concurrent read-only status checks across ALL companies. */
-export const maxGlobal = () => envInt("CLAIM_STATUS_MAX_GLOBAL", 20, 1, 200);
+/** The checker service drives ONE real browser at a time. Anything above a
+ *  single in-flight job just recreates a service-side backlog and makes every
+ *  caller time out, so both caps are 1 and are hard-clamped to 1 below. */
+export const maxPerCompany = () => envInt("CLAIM_STATUS_MAX_PER_COMPANY", 1, 1, 1);
+/** Max concurrent read-only status checks across ALL companies (always 1). */
+export const maxGlobal = () => envInt("CLAIM_STATUS_MAX_GLOBAL", 1, 1, 1);
 /** How long a leased claim stays locked before it becomes eligible again. */
 export const leaseSeconds = () => envInt("CLAIM_STATUS_LEASE_SECONDS", 180, 30, 3600);
 /** Locks older than this past their expiry are swept as abandoned. */
@@ -696,8 +696,12 @@ export async function runClaimStatusSync(
   } = {},
 ): Promise<SyncRunResult> {
   const deadline = Date.now() + (opts.budgetMs ?? RUN_BUDGET_MS);
-  const perCompany = opts.perCompanyLimit ?? maxPerCompany();
-  const globalCap = opts.globalLimit ?? maxGlobal();
+  // Defensive hard clamp: whatever configuration or caller asks for, ONE
+  // scheduler invocation may only ever create/poll a single checker job.
+  const perCompany = 1;
+  const globalCap = 1;
+  void opts.perCompanyLimit;
+  void opts.globalLimit;
   const workerId = `w-${Math.random().toString(36).slice(2, 8)}-${Date.now()}`;
 
   const empty: SyncRunResult = {
@@ -738,20 +742,29 @@ export async function runClaimStatusSync(
   // service drains the checker resumes by itself, and the reason is always
   // written to the state row so the UI can show it.
   const depth = await checkerQueueDepth(opts.fetchImpl ?? fetch);
-  const backedUp = Boolean(depth && depth.queued > CHECKER_QUEUE_LIMIT);
-  const effGlobal = backedUp ? 1 : globalCap;
-  const effPerCompany = backedUp ? 1 : perCompany;
-  const backpressureReason = backedUp
-    ? `Status-checking service is backed up (${depth!.queued} jobs waiting, ${depth!.active} running). Only one probe claim was checked this run.`
+  // A single browser means: if ANY prior checker job is still pending/running,
+  // this invocation starts nothing at all. Confirmations stay untouched and
+  // the claims are simply due again on the next tick.
+  const busy = Boolean(depth && (depth.active > 0 || depth.queued > 0));
+  const effGlobal = 1;
+  const effPerCompany = 1;
+  const backpressureReason = busy
+    ? `Status-checking service is still working (${depth!.active} running, ${depth!.queued} waiting). Nothing new was started; claims stay scheduled.`
     : null;
 
   // Self-heal first: anything a crashed worker left locked becomes eligible.
   await releaseStaleLocks(supabase);
 
+  if (busy) {
+    result.reason = backpressureReason!;
+    await recordRun(supabase, result, { startedAt, perCompany, globalCap, workerId });
+    return result;
+  }
+
   try {
     const jobs = await leaseClaimStatusJobs(supabase, {
-      globalLimit: opts.recordIds?.length ? opts.recordIds.length : effGlobal,
-      perCompanyLimit: opts.recordIds?.length ? opts.recordIds.length : effPerCompany,
+      globalLimit: effGlobal,
+      perCompanyLimit: effPerCompany,
       leaseSeconds: leaseSeconds(),
       worker: workerId,
       ...(opts.recordIds?.length ? { recordIds: opts.recordIds } : {}),
