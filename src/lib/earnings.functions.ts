@@ -42,20 +42,28 @@ export const getCompanyEarnings = createServerFn({ method: "POST" })
     // Chunked: one huge `in(...)` filter exceeded the request URL limit and
     // returned nothing, which made every paid claim look unpaid ($0 earned).
     const statusByTrip = new Map<string, string>();
+    const paidByTrip = new Map<string, number | null>();
     const recs = await selectIn<any>(
       supabaseAdmin,
       "billing_records",
-      "trip_id, status",
+      "trip_id, status, portal_paid_amount",
       "trip_id",
       rows.map((r) => r.id),
     );
-    for (const r of recs) statusByTrip.set(r.trip_id, r.status);
+    for (const r of recs) {
+      statusByTrip.set(r.trip_id, r.status);
+      paidByTrip.set(
+        r.trip_id,
+        r.portal_paid_amount == null ? null : Number(r.portal_paid_amount),
+      );
+    }
 
     return aggregateEarnings(
       rows.map((r) => ({
         ...r,
         amount: totals.get(r.id)?.amount ?? null,
         billing_status: statusByTrip.get(r.id) ?? null,
+        portal_paid_amount: paidByTrip.get(r.id) ?? null,
       })),
     );
   });
