@@ -18,7 +18,12 @@ import {
   startReconcileSweep,
 } from "@/lib/reconcileSweep.functions";
 import { friendlyLinkError, money, parseClaimConflict, type PortalClaim } from "@/lib/hcpfSearch";
-import { outcomeLabel, sortByPriority, type SweepResultRow } from "@/lib/reconcileSweep";
+import {
+  CLAIM_ALREADY_LINKED_LABEL,
+  outcomeLabel,
+  sortByPriority,
+  type SweepResultRow,
+} from "@/lib/reconcileSweep";
 
 /**
  * BULK HCPF RECONCILIATION — progress + one-click confirmations.
@@ -318,9 +323,15 @@ function SweepRow({
           <span className="font-mono font-semibold">{single.claim_id}</span>
           <span>Status: {single.status ?? "—"}</span>
           <span>Paid: {money(single.paid_amount)}</span>
-          <Button size="sm" disabled={busy} onClick={() => onLink(single.claim_id)}>
-            <Check className="mr-1 h-4 w-4" /> Confirm this claim
-          </Button>
+          {single.linked ? (
+            /* Live re-check says this claim already belongs to another bill:
+               attaching it again would double-count the payment. */
+            <LinkedElsewhere claim={single} onOpen={onOpen} />
+          ) : (
+            <Button size="sm" disabled={busy} onClick={() => onLink(single.claim_id)}>
+              <Check className="mr-1 h-4 w-4" /> Confirm this claim
+            </Button>
+          )}
         </div>
       )}
 
@@ -333,9 +344,7 @@ function SweepRow({
               <span>DOS: {c.service_date ?? row.service_date ?? "—"}</span>
               <span>Paid: {money(c.paid_amount)}</span>
               {c.linked ? (
-                <span className="flex items-center gap-1 text-destructive">
-                  <ShieldAlert className="h-3.5 w-3.5" /> already linked to another bill
-                </span>
+                <LinkedElsewhere claim={c} onOpen={onOpen} />
               ) : (
                 <Button size="sm" variant="secondary" disabled={busy} onClick={() => onLink(c.claim_id)}>
                   Confirm this claim
@@ -346,6 +355,38 @@ function SweepRow({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A candidate whose claim id is ALREADY attached to a different RedArt bill.
+ * Never offer Confirm here — the bill stays on Verification Hold for a biller
+ * decision, and nothing is archived, merged or deleted automatically.
+ */
+function LinkedElsewhere({
+  claim,
+  onOpen,
+}: {
+  claim: PortalClaim;
+  onOpen?: (id: string) => void;
+}) {
+  const linked = claim.linked!;
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <span className="flex items-center gap-1 text-destructive">
+        <ShieldAlert className="h-3.5 w-3.5 shrink-0" /> {CLAIM_ALREADY_LINKED_LABEL}
+      </span>
+      <span className="text-muted-foreground">
+        claim <span className="font-mono">{claim.claim_id}</span> · bill{" "}
+        <span className="font-mono">{String(linked.billing_record_id).slice(0, 8)}</span>
+        {linked.status ? ` · ${linked.status}` : ""}
+      </span>
+      {onOpen && (
+        <Button size="sm" variant="outline" onClick={() => onOpen(linked.billing_record_id)}>
+          Open linked bill
+        </Button>
+      )}
+    </span>
   );
 }
 
