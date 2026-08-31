@@ -369,6 +369,7 @@ export type Database = {
           company_id: string | null
           created_at: string
           default_portal_id: string | null
+          default_provider_id: string | null
           id: string
           updated_at: string
         }
@@ -377,6 +378,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           default_portal_id?: string | null
+          default_provider_id?: string | null
           id?: string
           updated_at?: string
         }
@@ -385,6 +387,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           default_portal_id?: string | null
+          default_provider_id?: string | null
           id?: string
           updated_at?: string
         }
@@ -4916,6 +4919,10 @@ export type Database = {
       }
       set_default_billing_portal: {
         Args: { _company_id?: string; _portal_id: string }
+        Returns: undefined
+      }
+      set_default_billing_provider: {
+        Args: { _company_id: string; _provider_id: string }
         Returns: undefined
       }
       set_passenger_ssn: {

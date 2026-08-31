@@ -193,6 +193,18 @@ export async function resolveProviderContext(
     .maybeSingle();
   const companyId = (prof as { company_id?: string } | null)?.company_id ?? null;
 
+  // Provider identity is configuration, not a by-product of rate rows: a new
+  // company has no rates yet but can still have chosen its provider.
+  if (companyId) {
+    const { data: settings } = await supabaseAdmin
+      .from("billing_settings")
+      .select("default_provider_id")
+      .eq("company_id", companyId)
+      .maybeSingle();
+    const chosen = (settings as { default_provider_id?: string } | null)?.default_provider_id;
+    if (chosen) return { providerUserId: chosen, companyId };
+  }
+
   let query = supabaseAdmin.from("billing_rate_settings").select("provider_id");
   if (companyId) query = query.eq("company_id", companyId);
   const { data } = await query.limit(1).maybeSingle();

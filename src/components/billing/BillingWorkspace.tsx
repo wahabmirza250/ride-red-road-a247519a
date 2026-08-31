@@ -67,6 +67,9 @@ import { AttentionArchiveControls } from "@/components/billing/AttentionArchiveC
 import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
 import { ReconcileSweepCard } from "@/components/billing/ReconcileSweepCard";
 import { AutoPilotButton } from "@/components/billing/AutoPilotButton";
+import { BillingSetupPanel } from "@/components/billing/BillingSetupPanel";
+import { getBillingSetupStatus } from "@/lib/billingSetup.functions";
+import { submissionBlockedReason } from "@/lib/billingSetup";
 import { CorrectedReadyList } from "@/components/billing/CorrectedReadyList";
 import { ResubmissionEditor } from "@/components/billing/ResubmissionEditor";
 import {
@@ -503,6 +506,20 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     };
   }, [canBill, qc, sweepFn]);
 
+  // Submission stays off until provider + portal login + rates all exist.
+  const setupStatusFn = useServerFn(getBillingSetupStatus);
+  const setupStatus = useQuery({
+    queryKey: ["billing_setup_status"],
+    queryFn: () => setupStatusFn() as any,
+    enabled: canBill,
+  });
+  const setupReady = setupStatus.data ? Boolean(setupStatus.data.ready) : true;
+  const setupBlockedReason = setupStatus.data
+    ? submissionBlockedReason(setupStatus.data as any)
+    : null;
+
+
+
 
 
 
@@ -522,7 +539,11 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
 
   return (
     <div className={embedded ? "space-y-5" : "space-y-6"}>
-      {!defaultPortal && (
+      {/* A company that is not configured yet gets the setup wizard here rather
+          than a dead end — the workspace itself stays browsable. */}
+      <BillingSetupPanel compact />
+
+      {setupReady && !defaultPortal && (
         <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
@@ -566,6 +587,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         trailing={
           <AutoPilotButton
             resubmissionIds={tab === "ready_to_submit" ? [...correctedSelected] : []}
+            blockedReason={setupBlockedReason}
           />
         }
 
@@ -1205,6 +1227,16 @@ function ReadyToSubmitTab({
 
   const isAttention = variant === "attention";
 
+  // Same cached readiness the wizard uses — submission stays off until setup
+  // is complete, but the list itself is still fully browsable.
+  const setupFn = useServerFn(getBillingSetupStatus);
+  const setup = useQuery({
+    queryKey: ["billing_setup_status"],
+    queryFn: () => setupFn() as any,
+  });
+  const setupBlocked = setup.data ? submissionBlockedReason(setup.data as any) : null;
+
+
   if (!rows.length)
     return (
       <EmptyState
@@ -1269,7 +1301,8 @@ function ReadyToSubmitTab({
           />
           <Button
             onClick={submitSelected}
-            disabled={!selected.size || submittingIds.size > 0}
+            title={setupBlocked ?? undefined}
+            disabled={!selected.size || submittingIds.size > 0 || Boolean(setupBlocked)}
           >
             {submittingIds.size > 0 ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
