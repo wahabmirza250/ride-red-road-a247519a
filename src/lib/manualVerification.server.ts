@@ -15,6 +15,11 @@
  */
 import { logAudit } from "@/lib/billingHelpers";
 import {
+  mayReconcileWithProof,
+  STALE_WORKER_CLEARED_FIELDS,
+  type ReconcileProof,
+} from "@/lib/staleWorkerReconcile";
+import {
   VERIFIED_NOT_SUBMITTED_STATUS,
   portalServiceDate,
   requiresManualVerification,
@@ -30,7 +35,7 @@ async function loadRecord(supabase: any, id: string): Promise<Ctx> {
     .from("billing_records")
     .select(
       `id, status, trip_id, requires_human_step, submission_error, submit_last_error,
-       failure_code, state_confirmation_number, submit_account_key,
+       failure_code, failure_stage, submit_last_error, state_confirmation_number, submit_account_key,
        medicaid_trips!inner(
          id, pickup_at, robot_job_id, robot_last_status,
          robot_confirmation_number, submitted_confirmation,
@@ -43,7 +48,7 @@ async function loadRecord(supabase: any, id: string): Promise<Ctx> {
   return { rec: data, trip: (data as any).medicaid_trips };
 }
 
-function assertVerificationCase(ctx: Ctx) {
+function assertVerificationCase(ctx: Ctx, proof?: ReconcileProof | null, claimNumber?: string) {
   const { rec, trip } = ctx;
   const candidate = {
     status: rec.status,
@@ -64,6 +69,10 @@ function assertVerificationCase(ctx: Ctx) {
     throw new Error("This bill already has a portal claim number — there is nothing to verify.");
   }
   if (!requiresManualVerification(candidate)) {
+    // A completed read-only sweep may PROVE exactly one unused final portal
+    // claim for this company + member + service date. Against that proof a
+    // stale pre-submit "worker stopped" flag is bookkeeping, not a blocker.
+    if (mayReconcileWithProof(candidate, proof, String(claimNumber ?? ""))) return;
     throw new Error("This bill is not awaiting manual HCPF verification.");
   }
 }
@@ -71,7 +80,13 @@ function assertVerificationCase(ctx: Ctx) {
 /** (A) The biller found the claim at HCPF and entered its Claim ID. */
 export async function recordVerifiedClaimFound(
   supabase: any,
-  args: { recordId: string; actorId: string; claimNumber: string; acknowledged: boolean },
+  args: {
+    recordId: string;
+    actorId: string;
+    claimNumber: string;
+    acknowledged: boolean;
+    reconcileProof?: ReconcileProof | null;
+  },
 ) {
   if (!args.acknowledged)
     throw new Error("Confirm that you searched the HCPF portal before recording a result.");
@@ -79,7 +94,7 @@ export async function recordVerifiedClaimFound(
   if (!claim) throw new Error("Enter the Claim ID exactly as shown in the portal.");
 
   const ctx = await loadRecord(supabase, args.recordId);
-  assertVerificationCase(ctx);
+  assertVerificationCase(ctx, args.reconcileProof ?? null, claim);
 
   const nowIso = new Date().toISOString();
   const message = `Manual HCPF verification: biller found claim #${claim} at the portal. Nothing was resubmitted.`;
@@ -108,10 +123,9 @@ export async function recordVerifiedClaimFound(
       status: "submitted",
       state_confirmation_number: claim,
       submitted_at: nowIso,
-      submission_error: null,
-      requires_human_step: false,
-      failure_code: null,
-      failure_stage: null,
+      // Stale pre-submit worker flags are cleared ONLY here, together with the
+      // attached claim — never on their own.
+      ...STALE_WORKER_CLEARED_FIELDS,
     })
     .eq("id", ctx.rec.id);
   if (bErr) throw new Error(bErr.message);

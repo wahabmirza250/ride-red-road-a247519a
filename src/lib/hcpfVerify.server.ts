@@ -139,7 +139,12 @@ export async function runHcpfSearch(
  */
 export async function linkPortalClaim(
   supabase: any,
-  args: { recordId: string; actorId: string; claimNumber: string },
+  args: {
+    recordId: string;
+    actorId: string;
+    claimNumber: string;
+    reconcileProof?: import("@/lib/staleWorkerReconcile").ReconcileProof | null;
+  },
 ) {
   const claim = args.claimNumber.trim();
   const { rec, trip } = await load(supabase, args.recordId);
@@ -164,6 +169,7 @@ export async function linkPortalClaim(
       actorId: args.actorId,
       claimNumber: claim,
       acknowledged: true,
+      reconcileProof: args.reconcileProof ?? null,
     });
     await logAudit(
       supabase,
