@@ -22,10 +22,13 @@ import { autoPilotLabel } from "@/lib/autoPilot";
 export function AutoPilotButton({
   selectedIds,
   resubmissionIds,
+  blockedReason,
 }: {
   selectedIds?: string[];
   /** Explicitly selected CORRECTED resubmissions from Ready to Submit. */
   resubmissionIds?: string[];
+  /** Set when billing setup is incomplete — Auto Pilot stays off, explained. */
+  blockedReason?: string | null;
 }) {
   const qc = useQueryClient();
   const statusFn = useServerFn(getAutoPilotStatus);
@@ -114,10 +117,12 @@ export function AutoPilotButton({
         <Button
           size="sm"
           className={cn("rounded-full")}
-          disabled={busy || totalRemaining === 0}
+          disabled={busy || totalRemaining === 0 || Boolean(blockedReason)}
           onClick={() => start.mutate()}
           title={
-            correctedCount
+            blockedReason
+              ? blockedReason
+              : correctedCount
               ? `Send ${correctedCount} corrected resubmission(s)${
                   selectedIds?.length ? ` and ${selectedIds.length} selected bill(s)` : ""
                 } automatically`

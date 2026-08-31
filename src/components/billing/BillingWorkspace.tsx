@@ -587,6 +587,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         trailing={
           <AutoPilotButton
             resubmissionIds={tab === "ready_to_submit" ? [...correctedSelected] : []}
+            blockedReason={setupBlockedReason}
           />
         }
 
