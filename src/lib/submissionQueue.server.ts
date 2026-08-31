@@ -873,10 +873,12 @@ export async function runSubmissionQueueTick(
   };
 
   // CORRECTED CLAIMS RECONCILE EVEN WHILE THE QUEUE IS PAUSED.
-  // Corrected claims that were already handed to the robot must be resolved
-  // whatever the queue switch says — a pause stops SENDING, it must never leave
-  // a dispatched correction unreconciled. This only polls existing jobs; it can
-  // never dispatch, resend or create one.
+  // Driven from the corrected DRAFT rather than the bill's status, so a
+  // corrected claim an older build pushed into Needs Fix while its robot job was
+  // still live is polled and settled too. Corrections already handed to the
+  // robot must be resolved whatever the queue switch says — a pause stops
+  // SENDING, it must never leave a dispatched correction unreconciled. This only
+  // polls the EXISTING job; it can never dispatch, resend or create one.
   try {
     const { recoverCorrectedInFlight } = await import("@/lib/correctedReconcile.server");
     await recoverCorrectedInFlight(supabase, {
