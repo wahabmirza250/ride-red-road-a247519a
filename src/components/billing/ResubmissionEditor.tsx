@@ -776,7 +776,17 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
                     <p className="p-6 text-center text-sm text-muted-foreground">No events yet.</p>
                   )}
                 </TabsContent>
+
+                {/* -------- Inline attachment preview (end of scroll area) -------- */}
+                <ResubmissionReportPreview
+                  ref={previewRef}
+                  resubmissionId={id!}
+                  path={snap.state_pdf_path ?? original?.state_pdf_path ?? null}
+                  originalPath={original?.state_pdf_path ?? null}
+                  version={previewVersion}
+                />
               </div>
+
             </Tabs>
 
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 bg-muted/20 px-4 py-3 sm:px-6">
