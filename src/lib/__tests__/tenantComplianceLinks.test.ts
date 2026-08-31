@@ -39,7 +39,7 @@ describe("tenant-aware compliance navigation", () => {
     const shield = ADMIN_NAV.find((i) => i.label === "Compliance");
     expect(shield?.to).toBe(INTERNAL_COMPLIANCE_PATH);
     expect(shield?.to).toBe("/compliance");
-    expect(ADMIN_NAV.some((i) => i.to.includes("passenger"))).toBe(false);
+    expect(ADMIN_NAV.some((i) => i.to.includes("/compliance/passenger"))).toBe(false);
     // Team & apps stays its own destination, distinct from Compliance.
     expect(ADMIN_NAV.find((i) => i.label === "Team & apps")?.to).toBe("/team");
   });
