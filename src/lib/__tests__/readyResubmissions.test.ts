@@ -54,10 +54,12 @@ function row(over: Record<string, any> = {}) {
       driver_name: "Sam Driver",
       vehicle_type: "ambulatory",
       miles_override: over["miles"] ?? 10,
+      miles_override_reason: "Corrected from the trip report",
       legs: [
-        { billable: true, odometer_start: 0, odometer_end: 10 },
-        { billable: true, odometer_start: 10, odometer_end: 20 },
+        { pickup_odometer: 0, dropoff_odometer: 5 },
+        { pickup_odometer: 5, dropoff_odometer: 12 },
       ],
+
       lines: [{ line_index: 0 }],
       ...(over["snapshot"] ?? {}),
     },
