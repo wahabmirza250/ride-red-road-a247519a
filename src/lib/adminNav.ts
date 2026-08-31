@@ -17,6 +17,7 @@ import {
   LayoutGrid,
   Sparkles,
   Banknote,
+  ClipboardCheck,
 } from "lucide-react";
 import { withSlug } from "@/lib/appLink";
 
