@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertEditableResubmission, diffModifiers, MAX_MODIFIERS_PER_LINE } from "@/lib/claimModifiers";
 import { deriveDriverOptions } from "@/lib/driverOptions";
+import { ATTACHMENT_BUCKET } from "@/lib/resubmissionAttachment";
 import {
   buildSnapshotFromTrip,
   diffSnapshots,
@@ -671,3 +672,80 @@ export const discardResubmission = createServerFn({ method: "POST" })
 
 /** Backwards-compatible alias. */
 export const cancelResubmission = discardResubmission;
+
+/**
+ * Signed URL for a resubmission attachment.
+ * Only paths that this draft actually references can be signed, so the
+ * endpoint can never be used to read arbitrary storage objects.
+ */
+export const getResubmissionAttachmentUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), path: z.string().min(1).max(500) }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    await assertBiller(supabase, userId);
+    const sub = await loadOwnedDraft(supabase, userId, data.id);
+    const allowed = new Set(
+      [
+        (sub.draft_snapshot as any)?.state_pdf_path,
+        (sub.original_snapshot as any)?.state_pdf_path,
+      ].filter(Boolean) as string[],
+    );
+    if (!allowed.has(data.path))
+      throw new Error("That file is not attached to this resubmission draft.");
+    const { data: signed, error } = await supabase.storage
+      .from(ATTACHMENT_BUCKET)
+      .createSignedUrl(data.path, 60 * 15);
+    if (error) throw new Error(error.message);
+    return { url: signed?.signedUrl ?? null };
+  });
+
+/**
+ * Point the DRAFT at a newly uploaded attachment.
+ * The original trip's own `state_pdf_path` is never modified or removed —
+ * only the draft snapshot's pointer changes, and the change is audited.
+ */
+export const setResubmissionAttachment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        path: z.string().min(1).max(500).nullable(),
+        file_name: z.string().max(300).nullable().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    await assertBiller(supabase, userId);
+    const sub = await loadOwnedDraft(supabase, userId, data.id);
+    assertEditableResubmission(sub.status);
+    if (data.path && !data.path.startsWith(`${userId}/resubmissions/${data.id}/`))
+      throw new Error("An attachment must be uploaded into this draft's own folder.");
+
+    const before = normalizeSnapshot(sub.draft_snapshot ?? {});
+    const next = normalizeSnapshot({ ...before, state_pdf_path: data.path });
+    const { error } = await supabase
+      .from("claim_resubmissions")
+      .update({
+        draft_snapshot: next as any,
+        last_saved_at: new Date().toISOString(),
+        last_saved_by: userId,
+      })
+      .eq("id", data.id)
+      .eq("status", "draft");
+    if (error) throw new Error(error.message);
+
+    await recordEvent(supabase, {
+      resubmissionId: data.id,
+      companyId: sub.company_id,
+      actorId: userId,
+      action: data.path ? "attachment_replaced" : "attachment_removed",
+      changes: diffSnapshots(before, next),
+      notes: data.file_name ?? null,
+    });
+    return { ok: true, path: data.path };
+  });
