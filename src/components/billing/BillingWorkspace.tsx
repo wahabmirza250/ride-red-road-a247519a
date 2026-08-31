@@ -67,6 +67,16 @@ import { AttentionArchiveControls } from "@/components/billing/AttentionArchiveC
 import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
 import { ReconcileSweepCard } from "@/components/billing/ReconcileSweepCard";
 import { AutoPilotButton } from "@/components/billing/AutoPilotButton";
+import { CorrectedReadyList } from "@/components/billing/CorrectedReadyList";
+import { ResubmissionEditor } from "@/components/billing/ResubmissionEditor";
+import { listReadyResubmissions } from "@/lib/readyResubmissions.functions";
+import {
+  matchesSearch,
+  sortCorrected,
+  type CorrectedReadyCandidate,
+  type ReadySort,
+} from "@/lib/readyResubmissions";
+
 
 import {
   BILLING_PAGE_DESCRIPTION,
@@ -347,6 +357,38 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     refetchOnWindowFocus: true,
   });
 
+  // CORRECTED RESUBMISSIONS that were moved to Ready to Submit. They are a
+  // second, clearly-typed source for this one stage — never merged into the
+  // ordinary bill rows and never submitted implicitly.
+  const correctedFn = useServerFn(listReadyResubmissions);
+  const [correctedSelected, setCorrectedSelected] = useState<Set<string>>(new Set());
+  const [correctedSearch, setCorrectedSearch] = useState("");
+  const [correctedSort, setCorrectedSort] = useState<ReadySort>("date_desc");
+  const [openResubmissionId, setOpenResubmissionId] = useState<string | null>(null);
+
+  const corrected = useQuery({
+    queryKey: ["ready_resubmissions"],
+    queryFn: () => correctedFn({ data: {} }) as Promise<{ rows: CorrectedReadyCandidate[] }>,
+    enabled: canBill && tab === "ready_to_submit",
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
+  });
+
+  const correctedRows = useMemo(
+    () =>
+      sortCorrected(
+        (corrected.data?.rows ?? []).filter((r) => matchesSearch(r, correctedSearch)),
+        correctedSort,
+      ),
+    [corrected.data, correctedSearch, correctedSort],
+  );
+
+  // Drop selections that are no longer ready (already sent, edited elsewhere).
+  useEffect(() => {
+    const live = new Set((corrected.data?.rows ?? []).map((r) => r.id));
+    setCorrectedSelected((prev) => new Set([...prev].filter((id) => live.has(id))));
+  }, [corrected.data]);
+
 
   const settings = useQuery({
     queryKey: ["billing_settings"],
@@ -495,7 +537,12 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         }))}
         secondaryActiveLabel={secondaryActive ? secondaryLabel : null}
         onSelectSecondary={(k) => setTab(k as TabKey)}
-        trailing={<AutoPilotButton />}
+        trailing={
+          <AutoPilotButton
+            resubmissionIds={tab === "ready_to_submit" ? [...correctedSelected] : []}
+          />
+        }
+
       />
 
 
@@ -511,7 +558,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       ) : tab === "payroll" ? (
         <PayrollClaimsTab />
       ) : tab === "denied" ? (
-        <DeniedClaimsTab />
+        <DeniedClaimsTab onOpenReady={() => setTab("ready_to_submit")} />
       ) : tab === "medical_review" ? (
         <MedicalReviewTab />
 
@@ -527,13 +574,62 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
           onPreviewPdf={setPdfPreview}
         />
       ) : tab === "ready_to_submit" ? (
-        <ReadyToSubmitTab
-          rows={rows.data ?? []}
-          onOpen={setSelectedId}
-          onPreviewPdf={setPdfPreview}
-          showArchived={showArchived}
-          onToggleArchived={() => setShowArchived((v) => !v)}
-        />
+        <div className="space-y-4">
+          {corrected.data?.rows?.length ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[220px] flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    value={correctedSearch}
+                    onChange={(e) => setCorrectedSearch(e.target.value)}
+                    placeholder="Search corrected claims by passenger, Medicaid ID, driver, claim #"
+                  />
+                </div>
+                <select
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  value={correctedSort}
+                  onChange={(e) => setCorrectedSort(e.target.value as ReadySort)}
+                  aria-label="Sort corrected resubmissions"
+                >
+                  <option value="date_desc">Newest service date</option>
+                  <option value="date_asc">Oldest service date</option>
+                  <option value="amount_desc">Highest amount</option>
+                  <option value="passenger">Passenger A–Z</option>
+                </select>
+              </div>
+              <CorrectedReadyList
+                rows={correctedRows}
+                selected={correctedSelected}
+                onToggle={(id) =>
+                  setCorrectedSelected((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                  })
+                }
+                onToggleAll={() =>
+                  setCorrectedSelected((prev) =>
+                    correctedRows.every((r) => prev.has(r.id))
+                      ? new Set()
+                      : new Set(correctedRows.map((r) => r.id)),
+                  )
+                }
+                onOpen={setOpenResubmissionId}
+              />
+            </div>
+          ) : null}
+          <ReadyToSubmitTab
+            rows={rows.data ?? []}
+            onOpen={setSelectedId}
+            onPreviewPdf={setPdfPreview}
+            showArchived={showArchived}
+            onToggleArchived={() => setShowArchived((v) => !v)}
+          />
+        </div>
+
       ) : tab === "needs_attention" ? (
         <ReadyToSubmitTab
           variant="attention"
@@ -583,6 +679,15 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       )}
 
       <BillingDetailSheet id={selectedId} onClose={() => setSelectedId(null)} />
+      {/* Corrected drafts open read-only from Ready — reviewing never resends. */}
+      <ResubmissionEditor
+        id={openResubmissionId}
+        onClose={() => {
+          setOpenResubmissionId(null);
+          void qc.invalidateQueries({ queryKey: ["ready_resubmissions"] });
+        }}
+      />
+
       <PdfPreviewDialog
         url={pdfPreview?.url ?? null}
         filename={pdfPreview?.filename ?? "trip.pdf"}

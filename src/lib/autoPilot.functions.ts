@@ -30,7 +30,14 @@ export const startAutoPilotRun = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
-      .object({ ids: z.array(z.string().uuid()).max(1000).optional() })
+      .object({
+        ids: z.array(z.string().uuid()).max(1000).optional(),
+        /**
+         * Explicitly selected CORRECTED RESUBMISSIONS. A separate, typed field
+         * so a corrected claim can never be confused with an ordinary bill id.
+         */
+        resubmission_ids: z.array(z.string().uuid()).max(1000).optional(),
+      })
       .parse(d ?? {}),
   )
   .handler(async ({ data, context }) => {
@@ -42,8 +49,10 @@ export const startAutoPilotRun = createServerFn({ method: "POST" })
       companyId: companyId ?? null,
       userId,
       scopeIds: data?.ids ?? null,
+      resubmissionIds: data?.resubmission_ids ?? null,
     });
   });
+
 
 /**
  * STOP AUTO PILOT. Stops FEEDING only — bills already handed to the portal keep

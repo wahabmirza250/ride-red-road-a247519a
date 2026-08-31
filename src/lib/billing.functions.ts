@@ -197,10 +197,23 @@ export const getBillingCounts = createServerFn({ method: "GET" })
     if (attentionErr) throw new Error(attentionErr.message);
     const split = splitAttentionCounts(attentionRows ?? []);
     counts["needs_attention"] = split.needs_attention;
-    counts["ready_to_submit"] = split.ready_to_submit;
     counts["verification_hold"] = split.verification_hold;
+
+    // CORRECTED RESUBMISSIONS are part of Ready to Submit: a corrected denied
+    // claim waits here for the owner exactly like an ordinary ready bill. Same
+    // predicate (`claim_resubmissions.status = 'queued'`) as the Ready list, so
+    // the badge and the rendered cards can never disagree.
+    const { count: correctedCount } = await supabase
+      .from("claim_resubmissions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "queued");
+    const { readyTotal } = await import("@/lib/readyResubmissions");
+    counts["corrected_ready"] = Number(correctedCount ?? 0);
+    counts["ready_to_submit"] = readyTotal(split.ready_to_submit, Number(correctedCount ?? 0));
+    counts["ready_bills"] = split.ready_to_submit;
     return counts;
   });
+
 
 
 

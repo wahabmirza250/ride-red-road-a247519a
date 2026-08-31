@@ -113,14 +113,41 @@ export async function getAutoPilotState(
 /** Start (or re-use) a run. `scopeIds` limits it to the biller's selection. */
 export async function startAutoPilot(
   supabase: Sb,
-  args: { companyId: string | null; userId: string; scopeIds?: string[] | null },
-): Promise<{ runId: string | null; requested: number; fed: number }> {
+  args: {
+    companyId: string | null;
+    userId: string;
+    scopeIds?: string[] | null;
+    /** Explicitly selected corrected resubmissions (typed separately). */
+    resubmissionIds?: string[] | null;
+  },
+): Promise<{
+  runId: string | null;
+  requested: number;
+  fed: number;
+  corrected_queued: number;
+  corrected_skipped: Array<{ id: string; reason: string; code: string }>;
+}> {
   const existing = await activeRun(supabase, args.companyId);
   const scopeIds = args.scopeIds?.length ? args.scopeIds : null;
   const eligible = await listEligibleBillIds(supabase, {
     companyId: args.companyId,
     scopeIds,
   });
+
+  // CORRECTED RESUBMISSIONS. Pressing Auto Pilot IS the explicit confirmation,
+  // and the corrected claims go through the same safe submit path as bills.
+  let correctedQueued = 0;
+  let correctedSkipped: Array<{ id: string; reason: string; code: string }> = [];
+  if (args.resubmissionIds?.length) {
+    const { submitCorrectedResubmissions } = await import("@/lib/correctedSubmit.server");
+    const out = await submitCorrectedResubmissions(supabase, args.userId, {
+      resubmissionIds: args.resubmissionIds,
+      confirm: true,
+      companyId: args.companyId,
+    });
+    correctedQueued = out.queued;
+    correctedSkipped = out.skipped;
+  }
 
   let runId: string | null = existing?.id ?? null;
   if (!runId) {
@@ -143,8 +170,15 @@ export async function startAutoPilot(
     companyId: args.companyId,
     userId: args.userId,
   });
-  return { runId, requested: eligible.length, fed: fed.enqueued };
+  return {
+    runId,
+    requested: eligible.length + (args.resubmissionIds?.length ?? 0),
+    fed: fed.enqueued + correctedQueued,
+    corrected_queued: correctedQueued,
+    corrected_skipped: correctedSkipped,
+  };
 }
+
 
 /** Stop feeding. Nothing already sent to the portal is touched. */
 export async function stopAutoPilot(
