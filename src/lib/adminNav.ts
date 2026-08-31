@@ -17,13 +17,14 @@ import {
   LayoutGrid,
   Sparkles,
   Banknote,
+  ClipboardCheck,
 } from "lucide-react";
 import { withSlug } from "@/lib/appLink";
 
 /**
  * Admin dashboard rail configuration.
  *
- * The Compliance shield is the INTERNAL company compliance dashboard
+ * The Compliance icon is the INTERNAL company compliance dashboard
  * (`/{companySlug}/compliance`). It must never point at the public passenger
  * compliance/booking surface, and it must never drop the tenant slug — see
  * `complianceShieldTarget` below, which is what the rail (and the tests) use.
@@ -41,7 +42,7 @@ export const ADMIN_NAV_GROUPS = [
   [
     { to: "/drivers", label: "Drivers", icon: Users },
     { to: "/salary", label: "Salary", icon: Banknote },
-    { to: COMPLIANCE_PATH(), label: "Compliance", icon: Shield },
+    { to: COMPLIANCE_PATH(), label: "Compliance", icon: ClipboardCheck },
     { to: "/passengers", label: "Passengers", icon: UserRound },
   ],
   [
@@ -49,8 +50,8 @@ export const ADMIN_NAV_GROUPS = [
     { to: "/incidents", label: "Incidents", icon: AlertTriangle },
   ],
   [
-    // Distinct icon: the shield belongs to Compliance only, so the two entries
-    // can't be mistaken for each other in the rail.
+    // Distinct icon: Compliance uses a clipboard-with-check and Team & apps uses a
+    // grid, so the two entries can't be mistaken for each other in the rail.
     { to: "/team", label: "Team & apps", icon: LayoutGrid },
     { to: "/events", label: "Events", icon: Sparkles },
   ],

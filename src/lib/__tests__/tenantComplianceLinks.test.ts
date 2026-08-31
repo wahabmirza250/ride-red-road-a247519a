@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ClipboardCheck, LayoutGrid, Shield } from "lucide-react";
 import { APP_PREFIXES, isAppPath, isTenantLinkBlocked, withSlug } from "@/lib/appLink";
 import {
   ADMIN_NAV,
@@ -7,9 +8,10 @@ import {
 } from "@/lib/adminNav";
 
 /**
- * Regression: the Compliance shield in the admin rail must open the INTERNAL
- * company compliance dashboard under the active tenant slug — never the public
- * passenger compliance surface, and never a bare slug-less URL.
+ * Regression: the Compliance icon in the admin rail must be visually distinct
+ * from Team & apps, and it must open the INTERNAL company compliance dashboard
+ * under the active tenant slug — never the public passenger compliance surface,
+ * and never a bare slug-less URL.
  */
 describe("tenant-aware compliance navigation", () => {
   it("treats compliance (and siblings) as app paths", () => {
@@ -42,6 +44,15 @@ describe("tenant-aware compliance navigation", () => {
     expect(ADMIN_NAV.some((i) => i.to.includes("/compliance/passenger"))).toBe(false);
     // Team & apps stays its own destination, distinct from Compliance.
     expect(ADMIN_NAV.find((i) => i.label === "Team & apps")?.to).toBe("/team");
+  });
+
+  it("uses visually distinct icons for Compliance and Team & apps", () => {
+    const compliance = ADMIN_NAV.find((i) => i.label === "Compliance");
+    const team = ADMIN_NAV.find((i) => i.label === "Team & apps");
+    expect(compliance?.icon).toBe(ClipboardCheck);
+    expect(team?.icon).toBe(LayoutGrid);
+    expect(compliance?.icon).not.toBe(team?.icon);
+    expect(compliance?.icon).not.toBe(Shield);
   });
 
   it("blocks navigation instead of falling back when the slug is unknown", () => {
