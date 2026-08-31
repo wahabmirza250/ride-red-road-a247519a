@@ -773,6 +773,29 @@ export async function startRobotSubmission(
     expected_service_lines: 2,
   };
 
+  // CORRECTED RESUBMISSION OVERLAY.
+  // A first-time submission never has a queued resubmission draft, so its
+  // payload is untouched. When the biller queued a corrected draft for this
+  // trip, the saved snapshot (dates, member id, odometers, service lines,
+  // modifiers) replaces the corresponding payload fields — the original trip
+  // rows themselves are never edited.
+  const { data: queuedDraft } = await supabase
+    .from("claim_resubmissions")
+    .select("id, draft_snapshot")
+    .eq("original_trip_id", trip.id)
+    .eq("status", "queued")
+    .maybeSingle();
+  if (queuedDraft?.draft_snapshot) {
+    const { applyResubmissionOverrides } = await import("@/lib/resubmissionDraft");
+    Object.assign(
+      payload,
+      applyResubmissionOverrides(payload as Record<string, any>, queuedDraft.draft_snapshot, {
+        serviceDateMDY: (iso: string) => formatTripDateMDY(iso) || iso,
+      }),
+    );
+    (payload as Record<string, any>).resubmission_id = queuedDraft.id;
+  }
+
   const preflight = validateRobotPayloadPreflight(payload, { doesSubmit });
   if (!preflight.ok) {
     const msg = formatRobotPreflightFailure(preflight);

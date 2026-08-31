@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/format";
 import { listDeniedClaims, prepareResubmission } from "@/lib/resubmission.functions";
-import { ResubmissionDialog } from "@/components/billing/ResubmissionDialog";
+import { ResubmissionEditor } from "@/components/billing/ResubmissionEditor";
 
 /** Denied claims and their linked resubmission drafts. */
 export function DeniedClaimsTab() {
@@ -140,7 +140,7 @@ export function DeniedClaimsTab() {
         </Button>
       </div>
 
-      <ResubmissionDialog id={openId} onClose={() => setOpenId(null)} />
+      <ResubmissionEditor id={openId} onClose={() => setOpenId(null)} />
     </div>
   );
 }
