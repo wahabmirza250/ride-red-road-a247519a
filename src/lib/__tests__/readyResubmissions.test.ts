@@ -197,7 +197,7 @@ describe("corrected submit safety", () => {
 
   it("keeps the corrected draft when the bill is gone (failure loses no work)", () => {
     const plan = planCorrectedSubmit(
-      [{ id: "s1", status: "queued", original_trip_id: "trip-missing" }],
+      [{ id: "s-unprepared", status: "queued", original_trip_id: "trip-missing" }],
       records,
     );
     expect(plan.recordIds).toEqual([]);
