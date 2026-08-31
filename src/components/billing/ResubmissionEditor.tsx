@@ -884,12 +884,13 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
+                disabled={queue.isPending}
                 onClick={() => {
                   setConfirmQueue(false);
-                  queue.mutate();
+                  if (!queue.isPending) queue.mutate();
                 }}
               >
-                Yes, queue it
+                {queue.isPending ? "Saving & queueing…" : "Yes, queue it"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
