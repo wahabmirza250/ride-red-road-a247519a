@@ -82,6 +82,7 @@ export const listBillingRecords = createServerFn({ method: "POST" })
            riders(full_name, medicaid_id)
          )`,
       )
+      .is("resubmission_id", null)
       .in("status", statuses);
     if (!data.include_archived) query = query.is("attention_archived_at", null);
     // A staged read must see every candidate before the predicate runs,

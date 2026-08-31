@@ -39,6 +39,7 @@ export async function listBillingRecordsClient(
          riders(full_name, medicaid_id)
        )`,
     )
+    .is("resubmission_id", null)
     .in("status", effectiveStatuses as never[]);
   if (!opts.includeArchived) query = query.is("attention_archived_at", null);
   const { data: rows, error } = opts.stage
@@ -121,6 +122,7 @@ export async function getBillingCountsClient() {
       const { count, error } = await supabase
         .from("billing_records")
         .select("id", { count: "exact", head: true })
+        .is("resubmission_id", null)
         .eq("status", s as never);
       if (error) throw new Error(error.message);
       counts[s] = count ?? 0;
@@ -138,6 +140,7 @@ export async function getBillingCountsClient() {
   const { data: attentionRows, error: attentionErr } = await supabase
     .from("billing_records")
     .select(ATTENTION_COUNT_SELECT)
+    .is("resubmission_id", null)
     .in("status", ATTENTION_COUNT_STATUSES as unknown as never[])
     .is("attention_archived_at", null)
     .limit(ATTENTION_COUNT_LIMIT);
