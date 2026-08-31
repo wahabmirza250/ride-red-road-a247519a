@@ -304,20 +304,17 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
     // land in `pending_review`; paper bills skip straight to `approved`, so we
     // must create it here or the bill never shows up in the billing workflow
     // (and therefore never reaches the portal robot).
-    const { data: billingRecord, error: brErr } = await supabase
-      .from("billing_records")
-      .upsert(
-        {
-          trip_id: trip.id,
-          trip_form_id: trip.id,
-          company_id: companyId,
-          status: "approved",
-        },
-        { onConflict: "trip_id" },
-      )
-      .select("id")
-      .single();
-    if (brErr) throw new Error(brErr.message);
+    // NOTE: never `upsert(..., { onConflict: "trip_id" })` — the uniqueness of
+    // an original bill lives in a PARTIAL index (WHERE resubmission_id IS NULL)
+    // which ON CONFLICT cannot target.
+    const { ensureOriginalBillingRecord } = await import("@/lib/originalBillingRecord.server");
+    const billingRecord = await ensureOriginalBillingRecord(supabase, {
+      tripId: trip.id,
+      tripFormId: trip.id,
+      companyId,
+      status: "approved",
+    });
+
 
 
     // 4. Legs
