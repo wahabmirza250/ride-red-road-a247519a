@@ -38,8 +38,9 @@ export type CorrectedSubmitPlan = {
 };
 
 /**
- * Map selected resubmissions onto their billing records.
- * `records` is trip_id -> billing_record id.
+ * Map selected resubmissions onto their CORRECTED billing records.
+ * `records` is resubmission_id -> corrected billing_record id. It is never the
+ * original denied record: that row is immutable and can never be re-queued.
  */
 export function planCorrectedSubmit(
   rows: CorrectedSubmitRow[],
@@ -48,6 +49,7 @@ export function planCorrectedSubmit(
   const plan: CorrectedSubmitPlan = { recordIds: [], pairs: [], skipped: [] };
   const seenResubmission = new Set<string>();
   const seenRecord = new Set<string>();
+  const seenTrip = new Set<string>();
 
   for (const row of rows ?? []) {
     if (seenResubmission.has(row.id)) continue;
@@ -61,17 +63,17 @@ export function planCorrectedSubmit(
       });
       continue;
     }
-    const recordId = records.get(row.original_trip_id);
+    const recordId = records.get(row.id);
     if (!recordId) {
       plan.skipped.push({
         resubmission_id: row.id,
         code: "no_billing_record",
-        reason: "The billing record for the original claim no longer exists.",
+        reason: "A submission record for this corrected claim could not be prepared.",
       });
       continue;
     }
-    if (seenRecord.has(recordId)) {
-      // Two corrected drafts resolving to the same bill would be two claims for
+    if (seenRecord.has(recordId) || seenTrip.has(row.original_trip_id)) {
+      // Two corrected drafts resolving to the same trip would be two claims for
       // one trip. Only the first is sent; the other is reported, never silently
       // dropped.
       plan.skipped.push({
@@ -82,6 +84,7 @@ export function planCorrectedSubmit(
       continue;
     }
     seenRecord.add(recordId);
+    seenTrip.add(row.original_trip_id);
     plan.recordIds.push(recordId);
     plan.pairs.push({
       resubmission_id: row.id,
@@ -91,6 +94,7 @@ export function planCorrectedSubmit(
   }
   return plan;
 }
+
 
 /** The original denied claim number can never become the new confirmation. */
 export function isOriginalClaimReuse(
