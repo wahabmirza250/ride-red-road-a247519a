@@ -554,7 +554,8 @@ export function canQueueDraft(
 ): { ok: boolean; reason: string } {
   if (!confirmed)
     return { ok: false, reason: "Queueing needs an explicit confirmation from the biller." };
-  if (sub?.status !== "draft") return { ok: false, reason: "Already queued or submitted." };
+  if (sub?.status !== "draft" && sub?.status !== "queued")
+    return { ok: false, reason: `This corrected claim is already ${sub?.status ?? "gone"}.` };
   const validation = validateDraft(normalizeSnapshot(snapshot ?? {}));
   if (!validation.ok)
     return { ok: false, reason: validation.issues[0]?.message ?? "The corrected claim is not valid yet." };

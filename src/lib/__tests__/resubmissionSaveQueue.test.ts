@@ -161,8 +161,10 @@ describe("save-then-queue safety", () => {
       await runSaveAndQueue(h.deps, { snapshot: snap, confirm: true }),
     ];
     expect(a.kind).toBe("queued");
-    expect(b.kind).toBe("conflict");
-    expect(h.queueCalls).toHaveLength(1);
+    // A Ready-to-Submit copy stays editable, so a second click re-saves but
+    // can never create a second job.
+    expect(b.kind).toBe("saved_not_queued");
+    expect(h.queueCalls).toHaveLength(2);
   });
 
   it("refuses a stale tab's expected version without queueing", async () => {
@@ -194,8 +196,14 @@ describe("save-then-queue safety", () => {
     expect(res.kind).toBe("queued");
   });
 
-  it("never queues a resubmission that already left the draft state", async () => {
+  it("still lets a Ready-to-Submit (queued) copy be corrected and re-confirmed", async () => {
     const h = harness({ load: async () => ({ status: "queued", draft_version: 1 }) });
+    const res = await runSaveAndQueue(h.deps, { snapshot: validSnapshot(), confirm: true });
+    expect(res.kind).toBe("queued");
+  });
+
+  it("never queues a copy that a worker already claimed", async () => {
+    const h = harness({ load: async () => ({ status: "processing", draft_version: 1 }) });
     const res = await runSaveAndQueue(h.deps, { snapshot: validSnapshot(), confirm: true });
     expect(res.kind).toBe("conflict");
     expect(h.queueCalls).toHaveLength(0);

@@ -90,7 +90,10 @@ export async function runSaveAndQueue(
 
   const row = await deps.load();
   if (!row) return { kind: "conflict", reason: "Resubmission not found." };
-  if (row.status !== "draft")
+  // `queued` = Ready to Submit: nothing has been handed to a worker, so the
+  // biller may still correct it and re-confirm. Only `processing` and beyond
+  // are closed to edits.
+  if (row.status !== "draft" && row.status !== "queued")
     return {
       kind: "conflict",
       reason: `This resubmission is already ${row.status} — nothing was queued a second time.`,

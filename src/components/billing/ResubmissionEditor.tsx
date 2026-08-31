@@ -129,7 +129,9 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
 
   const original = q.data?.original_snapshot ? normalizeSnapshot(q.data.original_snapshot) : null;
   const driverOptions = (q.data?.drivers ?? []) as { id: string; name: string }[];
-  const isDraft = q.data?.resubmission?.status === "draft";
+  const status = q.data?.resubmission?.status;
+  // "queued" = Ready to Submit: still editable until a worker claims it.
+  const isDraft = status === "draft" || status === "queued";
   const validation = useMemo(() => (snap ? validateDraft(snap) : { ok: false, issues: [] }), [snap]);
   const changes = useMemo(
     () => (snap && original ? diffSnapshots(original, snap) : []),

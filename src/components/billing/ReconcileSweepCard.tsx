@@ -9,6 +9,7 @@ import { AlertTriangle, Check, Loader2, PauseCircle, Play, RefreshCw, SearchChec
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
+  autoFinalizeReconcileSweep,
   confirmSweepClaim,
   confirmSweepNoClaim,
   getReconcileSweep,
@@ -33,6 +34,7 @@ export function ReconcileSweepCard({ onOpenRecord }: { onOpenRecord?: (id: strin
   const kickFn = useServerFn(kickReconcileSweep);
   const linkFn = useServerFn(confirmSweepClaim);
   const noneFn = useServerFn(confirmSweepNoClaim);
+  const finalizeFn = useServerFn(autoFinalizeReconcileSweep);
   const [expanded, setExpanded] = useState(true);
 
   const q = useQuery({
@@ -117,6 +119,28 @@ export function ReconcileSweepCard({ onOpenRecord }: { onOpenRecord?: (id: strin
 
   const busy = link.isPending || none.isPending || start.isPending;
   const sweep = q.data?.sweep ?? null;
+  const finalize = useMutation({
+    mutationFn: (sweepId: string) =>
+      finalizeFn({ data: { sweep_id: sweepId } }) as Promise<{
+        finalized: number;
+        skipped: { reason: string }[];
+      }>,
+    onSuccess: (res) => {
+      if (res.finalized)
+        toast.success(
+          `${res.finalized} bill${res.finalized === 1 ? "" : "s"} finalized automatically from a single, unused, final portal claim.`,
+        );
+      if (res.skipped.length)
+        toast.message(
+          `${res.skipped.length} single match${res.skipped.length === 1 ? "" : "es"} stayed on hold: ${res.skipped[0]?.reason ?? "needs a biller"}`,
+        );
+      if (!res.finalized && !res.skipped.length) toast.message("Nothing safe to finalize yet.");
+      qc.invalidateQueries({ queryKey: ["reconcile_sweep"] });
+      qc.invalidateQueries({ queryKey: ["billing_counts"] });
+    },
+    onError: (e: any) => toast.error(String(e?.message ?? e)),
+  });
+
   const p = q.data?.progress;
   const rows = sortByPriority((q.data?.rows ?? []) as SweepResultRow[]);
   const pct = p && p.total ? Math.round(((p.total - p.remaining) / p.total) * 100) : 0;
@@ -131,10 +155,26 @@ export function ReconcileSweepCard({ onOpenRecord }: { onOpenRecord?: (id: strin
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
             Searches HCPF for every bill here that has no claim number, one portal session per
             account at a time. Nothing is submitted, resubmitted or moved — each bill stays in this
-            tab until you confirm the result below.
+            tab until you confirm the result below — except a single, unused claim the portal
+            already shows as Paid or Denied, which is attached and finalized automatically.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {sweep && (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={finalize.isPending}
+              onClick={() => finalize.mutate(sweep.id)}
+            >
+              {finalize.isPending ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="mr-1 h-4 w-4" />
+              )}
+              Finalize safe matches
+            </Button>
+          )}
           {!sweep || sweep.status === "done" ? (
             <Button size="sm" disabled={busy} onClick={() => start.mutate()}>
               {start.isPending ? (
@@ -180,7 +220,7 @@ export function ReconcileSweepCard({ onOpenRecord }: { onOpenRecord?: (id: strin
       {p && p.total > 0 && (
         <>
           <Progress value={pct} className="h-2" />
-          <div className="grid grid-cols-3 gap-2 text-center text-xs sm:grid-cols-7">
+          <div className="grid grid-cols-3 gap-2 text-center text-xs sm:grid-cols-8">
             <Stat label="Total" value={p.total} />
             <Stat label="Searched" value={p.searched} />
             <Stat label="1 match" value={p.single} />
@@ -188,6 +228,7 @@ export function ReconcileSweepCard({ onOpenRecord }: { onOpenRecord?: (id: strin
             <Stat label="Multiple" value={p.multiple} />
             <Stat label="Errors" value={p.errors} />
             <Stat label="Remaining" value={p.remaining} />
+            <Stat label="Resolved" value={p.confirmed} />
           </div>
         </>
       )}

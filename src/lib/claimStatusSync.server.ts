@@ -96,18 +96,8 @@ export type SyncRunResult = {
 };
 
 /** Portal wording → the status we store. Anything unknown returns null. */
-export function normalizePortalStatus(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  const s = raw.trim().toLowerCase();
-  if (!s) return null;
-  if (/\bpaid\b|payment issued|finalized payment/.test(s)) return "paid";
-  if (/\bdenied\b|finalized denial/.test(s)) return "denied";
-  if (/\breject/.test(s)) return "rejected";
-  if (/suspend|\bpend(ed|ing)?\b|in process|in review/.test(s)) return "suspended";
-  if (/\bapproved\b|accepted/.test(s)) return "approved";
-  if (/\bsubmitted\b|received/.test(s)) return "submitted";
-  return null;
-}
+import { normalizePortalStatus } from "@/lib/portalStatus";
+export { normalizePortalStatus };
 
 type Candidate = {
   record_id: string;

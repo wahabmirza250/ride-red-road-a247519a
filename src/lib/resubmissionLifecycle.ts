@@ -37,6 +37,18 @@ export const ACTIVE_RESUBMISSION_STATUSES: ResubmissionStatus[] = [
   "processing",
 ];
 
+/**
+ * Statuses whose corrected draft may still be EDITED, saved and (re)queued by
+ * a biller. `queued` means Ready to Submit — nothing has been handed to a
+ * worker yet, so re-saving corrections is safe and re-queueing is a no-op.
+ * Once a copy is `processing` or beyond, the editor is read-only.
+ */
+export const EDITABLE_RESUBMISSION_STATUSES: ResubmissionStatus[] = ["draft", "queued"];
+
+export function isEditableResubmission(status: string | null | undefined): boolean {
+  return (EDITABLE_RESUBMISSION_STATUSES as string[]).includes(String(status ?? ""));
+}
+
 /** The ONE status that means "visible and selectable in Ready to Submit". */
 export const READY_RESUBMISSION_STATUS: ResubmissionStatus = "queued";
 
