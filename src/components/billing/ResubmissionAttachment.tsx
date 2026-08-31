@@ -117,12 +117,21 @@ export function ResubmissionAttachment({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="outline" disabled={!path || busy} onClick={() => open(false)}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!path || busy}
+          onClick={() => (onViewInline ? onViewInline() : void open(false))}
+        >
           <Eye className="mr-1.5 h-3.5 w-3.5" /> View
+        </Button>
+        <Button size="sm" variant="outline" disabled={!path || busy} onClick={() => open(false)}>
+          <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open in new tab
         </Button>
         <Button size="sm" variant="outline" disabled={!path || busy} onClick={() => open(true)}>
           <Download className="mr-1.5 h-3.5 w-3.5" /> Download
         </Button>
+
         <Button
           size="sm"
           variant="secondary"
