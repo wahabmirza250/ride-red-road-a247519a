@@ -67,6 +67,9 @@ import { AttentionArchiveControls } from "@/components/billing/AttentionArchiveC
 import { BatchProgressCard } from "@/components/billing/BatchProgressCard";
 import { ReconcileSweepCard } from "@/components/billing/ReconcileSweepCard";
 import { AutoPilotButton } from "@/components/billing/AutoPilotButton";
+import { BillingSetupPanel } from "@/components/billing/BillingSetupPanel";
+import { getBillingSetupStatus } from "@/lib/billingSetup.functions";
+import { submissionBlockedReason } from "@/lib/billingSetup";
 import { CorrectedReadyList } from "@/components/billing/CorrectedReadyList";
 import { ResubmissionEditor } from "@/components/billing/ResubmissionEditor";
 import {
