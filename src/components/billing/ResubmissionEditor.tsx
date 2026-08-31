@@ -46,12 +46,21 @@ import {
 } from "@/lib/resubmissionDraft";
 import { tabForField } from "@/lib/resubmissionSaveQueue";
 import {
+  applyCalculatedLines,
+  billingSummaryText,
+  compareServiceLines,
+  computeDraftBilling,
+  money,
+} from "@/lib/resubmissionBilling";
+import { LiveBillingBar } from "@/components/billing/LiveBillingBar";
+import {
   discardResubmission,
   getResubmission,
   reviewResubmission,
   saveAndQueueResubmission,
   saveResubmissionDraft,
 } from "@/lib/resubmission.functions";
+
 
 const emptyLeg = (index: number, date: string | null): DraftLeg => ({
   leg_index: index,
