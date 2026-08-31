@@ -751,12 +751,14 @@ export const saveAndQueueResubmission = createServerFn({ method: "POST" })
                 : snapshot.correction_reason,
           });
         },
-        queue: async (s) => queueDraftRow(supabase, userId, { ...sub, draft_snapshot: s }, s),
-      },
-      { snapshot, confirm: data.confirm === true, expected_version: data.expected_version ?? null },
-    );
+      queue: async (s) => queueDraftRow(supabase, userId, { ...sub, draft_snapshot: s }, s),
+    };
 
-    return result;
+    return await runSaveAndQueue(deps, {
+      snapshot,
+      confirm: data.confirm === true,
+      expected_version: data.expected_version ?? null,
+    });
   });
 
 
