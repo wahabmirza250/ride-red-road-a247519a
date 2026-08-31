@@ -708,10 +708,8 @@ export const saveAndQueueResubmission = createServerFn({ method: "POST" })
     const snapshot = normalizeSnapshot(data.snapshot);
 
     let changes: ReturnType<typeof diffSnapshots> = [];
-    const result = await runSaveAndQueue(
-      {
-
-        load: async () => ({ status: sub.status, draft_version: sub.draft_version ?? 1 }),
+    const deps: SaveQueueDeps = {
+      load: async () => ({ status: sub.status, draft_version: sub.draft_version ?? 1 }),
         validate: (s) => validateDraft(s),
         persist: async (s) => {
           const out = await persistDraftSnapshot(supabase, userId, sub, s);
