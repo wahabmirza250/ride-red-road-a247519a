@@ -503,6 +503,20 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     };
   }, [canBill, qc, sweepFn]);
 
+  // Submission stays off until provider + portal login + rates all exist.
+  const setupStatusFn = useServerFn(getBillingSetupStatus);
+  const setupStatus = useQuery({
+    queryKey: ["billing_setup_status"],
+    queryFn: () => setupStatusFn() as any,
+    enabled: canBill,
+  });
+  const setupReady = setupStatus.data ? Boolean(setupStatus.data.ready) : true;
+  const setupBlockedReason = setupStatus.data
+    ? submissionBlockedReason(setupStatus.data as any)
+    : null;
+
+
+
 
 
 
