@@ -872,6 +872,21 @@ export async function runSubmissionQueueTick(
     ms: 0,
   };
 
+  // CORRECTED CLAIMS RECONCILE EVEN WHILE THE QUEUE IS PAUSED.
+  // Corrected claims that were already handed to the robot must be resolved
+  // whatever the queue switch says — a pause stops SENDING, it must never leave
+  // a dispatched correction unreconciled. This only polls existing jobs; it can
+  // never dispatch, resend or create one.
+  try {
+    const { recoverCorrectedInFlight } = await import("@/lib/correctedReconcile.server");
+    await recoverCorrectedInFlight(supabase, {
+      companyId: opts.companyId ?? null,
+      actorId: opts.actorId ?? null,
+    });
+  } catch {
+    /* a corrected-claim hiccup must never break a tick */
+  }
+
   const { paused, reason } = await isSubmissionQueuePaused(supabase);
   if (paused) {
     const out = { ...base, reason: reason ?? "Submission queue is paused", ms: Date.now() - t0 };
