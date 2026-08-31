@@ -42,7 +42,7 @@ export const ADMIN_NAV_GROUPS = [
   [
     { to: "/drivers", label: "Drivers", icon: Users },
     { to: "/salary", label: "Salary", icon: Banknote },
-    { to: COMPLIANCE_PATH(), label: "Compliance", icon: Shield },
+    { to: COMPLIANCE_PATH(), label: "Compliance", icon: ClipboardCheck },
     { to: "/passengers", label: "Passengers", icon: UserRound },
   ],
   [
