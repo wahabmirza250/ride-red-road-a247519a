@@ -223,7 +223,7 @@ describe("robot payload uses the corrected draft", () => {
         { line_index: 2, units: 1, miles: 7, modifiers: [] },
       ],
     });
-    const out = applyResubmissionOverrides({ ...basePayload }, snap);
+    const out = applyResubmissionOverrides<Record<string, any>>({ ...basePayload }, snap);
     expect(out.trip_date).toBe("08/02/2026");
     expect(out.member_id).toBe("B7654321");
     expect(out.patient_number).toBe("B7654321");
@@ -245,7 +245,7 @@ describe("robot payload uses the corrected draft", () => {
       miles_override: 30,
       miles_override_reason: "Mapped distance per HCPF denial letter",
     });
-    const out = applyResubmissionOverrides({ ...basePayload }, snap);
+    const out = applyResubmissionOverrides<Record<string, any>>({ ...basePayload }, snap);
     expect(out.miles).toBe(30);
     expect(out.dropoff_odometer).toBe(1030);
   });
