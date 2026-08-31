@@ -136,6 +136,23 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
     [snap, original],
   );
 
+  // Live billing — recomputed on every keystroke from company-scoped rates.
+  const rates = (q.data?.rates ?? []) as any[];
+  const billing = useMemo(
+    () => (snap ? computeDraftBilling(snap, rates) : null),
+    [snap, rates],
+  );
+  const consistency = useMemo(
+    () => (snap && billing ? compareServiceLines(snap, billing) : null),
+    [snap, billing],
+  );
+  const applyCalculated = () => {
+    setSnap((s) => (s && billing ? applyCalculatedLines(s, billing) : s));
+    toast.success("Calculated values applied to the service lines — not saved yet.");
+  };
+
+
+
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [previewVersion, setPreviewVersion] = useState(0);
   const focusPreview = () => {
