@@ -301,6 +301,17 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
                 <TabsTrigger value="history">History</TabsTrigger>
               </TabsList>
 
+              {billing && consistency ? (
+                <LiveBillingBar
+                  billing={billing}
+                  consistency={consistency}
+                  canApply={isDraft}
+                  onApply={applyCalculated}
+                />
+              ) : null}
+
+
+
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
                 {/* ---------------- TRIP ---------------- */}
                 <TabsContent value="trip" className="mt-0 space-y-4">
