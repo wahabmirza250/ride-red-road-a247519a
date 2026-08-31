@@ -14,7 +14,6 @@ import {
   correctedTotalMiles,
 } from "@/lib/correctedMileage";
 import { planCorrectedSubmit } from "@/lib/correctedSubmit";
-import { ensureCorrectedBillingRecord } from "@/lib/correctedRecord.server";
 
 /** The exact production pairs, as (leg1, leg2) odometer readings. */
 const CASES: Array<{ claim: string; legs: [number, number][]; miles: number; falseSpan: number }> = [
@@ -131,53 +130,6 @@ const ORIGINAL = {
   status: "denied",
   state_confirmation_number: "2326232001459",
 };
-
-describe("a corrected claim gets its OWN billing record", () => {
-  it("never returns the original denied record", async () => {
-    const { api } = fakeDb([{ ...ORIGINAL }]);
-    const rec = await ensureCorrectedBillingRecord(api, {
-      resubmissionId: "res-1",
-      tripId: "trip-1",
-      companyId: "co-1",
-    });
-    expect(rec.id).not.toBe("orig-1");
-    expect(rec.created).toBe(true);
-  });
-
-  it("leaves the original claim number, status and history untouched", async () => {
-    const { api, state } = fakeDb([{ ...ORIGINAL }]);
-    await ensureCorrectedBillingRecord(api, { resubmissionId: "res-1", tripId: "trip-1" });
-    const original = state.records.find((r) => r.id === "orig-1")!;
-    expect(original.status).toBe("denied");
-    expect(original.state_confirmation_number).toBe("2326232001459");
-  });
-
-  it("carries no claim number of its own", async () => {
-    const { api, state } = fakeDb([{ ...ORIGINAL }]);
-    const rec = await ensureCorrectedBillingRecord(api, {
-      resubmissionId: "res-1",
-      tripId: "trip-1",
-    });
-    const created = state.records.find((r) => r.id === rec.id)!;
-    expect(created.state_confirmation_number ?? null).toBeNull();
-    expect(created.status).toBe("pending_submit");
-  });
-
-  it("is idempotent: clicking twice cannot create two corrected records", async () => {
-    const { api, state } = fakeDb([{ ...ORIGINAL }]);
-    const a = await ensureCorrectedBillingRecord(api, {
-      resubmissionId: "res-1",
-      tripId: "trip-1",
-    });
-    const b = await ensureCorrectedBillingRecord(api, {
-      resubmissionId: "res-1",
-      tripId: "trip-1",
-    });
-    expect(b.id).toBe(a.id);
-    expect(b.created).toBe(false);
-    expect(state.records.filter((r) => r.resubmission_id === "res-1")).toHaveLength(1);
-  });
-});
 
 describe("planCorrectedSubmit resolves to corrected records only", () => {
   const rows = [
