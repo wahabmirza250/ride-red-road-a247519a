@@ -920,19 +920,6 @@ export async function runSubmissionQueueTick(
     opts.companyId ?? null,
   );
 
-  // CORRECTED CLAIMS. Driven from the corrected DRAFT rather than the bill's
-  // status, so a corrected claim an older build pushed into Needs Fix while its
-  // robot job was still live is polled and settled too. Read-only towards the
-  // automation service: it polls the EXISTING job, it never sends anything.
-  try {
-    const { recoverCorrectedInFlight } = await import("@/lib/correctedReconcile.server");
-    await recoverCorrectedInFlight(supabase, {
-      companyId: opts.companyId ?? null,
-      actorId: opts.actorId ?? null,
-    });
-  } catch {
-    /* a corrected-claim hiccup must never break a tick */
-  }
 
   // SAFETY NET: release anything an older build parked behind a wave gate, so
   // queued work can never sit invisible.
