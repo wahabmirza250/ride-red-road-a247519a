@@ -255,6 +255,7 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
               <Badge variant="destructive">Original: {sub?.original_status ?? "denied"}</Badge>
               <span className="font-mono">{sub?.original_claim_number ?? "no claim ID"}</span>
               <Badge variant="secondary">Draft v{sub?.draft_version ?? 1}</Badge>
+              {dirty ? <Badge variant="outline">Unsaved changes</Badge> : null}
               <Badge variant={isDraft ? "outline" : "default"}>{sub?.status}</Badge>
               {sub?.original_denial_reason ? (
                 <span className="truncate text-muted-foreground">
