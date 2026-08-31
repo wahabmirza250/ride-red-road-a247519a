@@ -46,7 +46,7 @@ export const listProviderCandidates = createServerFn({ method: "GET" })
       .from("user_roles")
       .select("user_id, role")
       .in("user_id", ids)
-      .in("role", ELIGIBLE_PROVIDER_ROLES as unknown as string[]);
+      .in("role", ELIGIBLE_PROVIDER_ROLES as unknown as any);
 
     const byUser = new Map<string, string[]>();
     for (const r of (roles ?? []) as any[]) {
