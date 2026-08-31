@@ -3,7 +3,9 @@ import { deriveDriverOptions, profileDisplayName } from "@/lib/driverOptions";
 import {
   ALLOWED_ATTACHMENT_MIME,
   MAX_ATTACHMENT_BYTES,
+  attachmentKind,
   attachmentPath,
+  isAllowedAttachmentPath,
   isDraftAttachmentPath,
   validateAttachment,
 } from "@/lib/resubmissionAttachment";
@@ -233,5 +235,53 @@ describe("audit reliability", () => {
 
   it("succeeds silently when the audit event is written", async () => {
     await expect(recordEvent(async () => ({ error: null }), "draft_queued")).resolves.toBeUndefined();
+  });
+});
+
+/** Mirrors getResubmissionAttachmentUrl's authorization step. */
+function authorizeSign(
+  sub: { draft_snapshot: any; original_snapshot: any },
+  tripPath: string | null,
+  path: string,
+) {
+  const ok = isAllowedAttachmentPath(path, {
+    draftPath: sub.draft_snapshot?.state_pdf_path ?? null,
+    originalSnapshotPath: sub.original_snapshot?.state_pdf_path ?? null,
+    originalTripPath: tripPath,
+  });
+  if (!ok) throw new Error("That file is not attached to this resubmission draft.");
+  return { url: `signed:${path}`, is_original: !!tripPath && path === tripPath };
+}
+
+describe("legacy resubmission attachment viewing (claim 2326233001065)", () => {
+  const legacy = { draft_snapshot: { state_pdf_path: null }, original_snapshot: null };
+  const tripPath = "07b00ae8-5c42-4b9a-a94c-91c4ba354f14/86d14134-4ea2-4770-b6cf-0801003b0c27.pdf";
+
+  it("signs the original trip report when both snapshots are null", () => {
+    const res = authorizeSign(legacy, tripPath, tripPath);
+    expect(res.url).toContain(tripPath);
+    expect(res.is_original).toBe(true);
+  });
+
+  it("still refuses any path the draft does not reference", () => {
+    expect(() => authorizeSign(legacy, tripPath, "other-user/secret.pdf")).toThrow(
+      /not attached to this resubmission draft/,
+    );
+    expect(() => authorizeSign(legacy, null, tripPath)).toThrow(/not attached/);
+  });
+
+  it("signs a draft replacement and reports it is not the original", () => {
+    const withDraft = {
+      draft_snapshot: { state_pdf_path: "u1/resubmissions/sub-1/9.pdf" },
+      original_snapshot: null,
+    };
+    expect(authorizeSign(withDraft, tripPath, "u1/resubmissions/sub-1/9.pdf").is_original).toBe(false);
+  });
+
+  it("classifies preview rendering by file type", () => {
+    expect(attachmentKind(tripPath)).toBe("pdf");
+    expect(attachmentKind("a/b.PNG")).toBe("image");
+    expect(attachmentKind("a/b.zip")).toBe("other");
+    expect(attachmentKind(null)).toBe("other");
   });
 });
