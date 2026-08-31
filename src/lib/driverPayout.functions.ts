@@ -203,7 +203,7 @@ async function collectPaidClaims(
 
   const ids = wanted.map((t: any) => t.id as string);
   const [{ data: records }, { data: items }] = await Promise.all([
-    supabase.from("billing_records").select("trip_id, status").in("trip_id", ids),
+    supabase.from("billing_records").select("trip_id, status").is("resubmission_id", null).in("trip_id", ids),
     supabase
       .from("driver_claim_payout_items")
       .select("trip_id, payout_id, driver_claim_payouts(paid_at)")

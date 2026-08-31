@@ -228,6 +228,7 @@ export const prepareResubmission = createServerFn({ method: "POST" })
         .from("billing_records")
         .select("status, submission_error, state_confirmation_number")
         .eq("trip_id", data.trip_id)
+        .is("resubmission_id", null)
         .maybeSingle(),
     ]);
     if (!trip) throw new Error("Claim not found.");
@@ -632,6 +633,7 @@ async function queueDraftRow(
     .from("billing_records")
     .select("id, company_id, submit_idempotency_key")
     .eq("trip_id", sub.original_trip_id)
+    .is("resubmission_id", null)
     .maybeSingle();
   if (!rec) throw new Error("The billing record for this claim no longer exists.");
 

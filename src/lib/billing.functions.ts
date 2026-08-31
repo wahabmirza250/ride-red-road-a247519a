@@ -82,6 +82,7 @@ export const listBillingRecords = createServerFn({ method: "POST" })
            riders(full_name, medicaid_id)
          )`,
       )
+      .is("resubmission_id", null)
       .in("status", statuses);
     if (!data.include_archived) query = query.is("attention_archived_at", null);
     // A staged read must see every candidate before the predicate runs,
@@ -171,6 +172,7 @@ export const getBillingCounts = createServerFn({ method: "GET" })
         const { count, error } = await supabase
           .from("billing_records")
           .select("id", { count: "exact", head: true })
+          .is("resubmission_id", null)
           .eq("status", s);
         if (error) throw new Error(error.message);
         return [s, count ?? 0] as const;
@@ -191,6 +193,7 @@ export const getBillingCounts = createServerFn({ method: "GET" })
     const { data: attentionRows, error: attentionErr } = await supabase
       .from("billing_records")
       .select(ATTENTION_COUNT_SELECT)
+      .is("resubmission_id", null)
       .in("status", ATTENTION_COUNT_STATUSES as unknown as string[])
       .is("attention_archived_at", null)
       .limit(ATTENTION_COUNT_LIMIT);

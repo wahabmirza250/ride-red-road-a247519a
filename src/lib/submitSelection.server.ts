@@ -34,11 +34,30 @@ export type SubmitSelectionResult = {
 /** Statuses a bill may be submitted from. */
 export const SUBMITTABLE_STATUSES = ["approved", "needs_fix", "pending_submit", "queued"] as const;
 
+/**
+ * Corrected-resubmission context, keyed by the CORRECTED billing record id.
+ * Its presence means: this row is a corrected claim's own record, its miles
+ * come from the corrected legs/lines, and the ORIGINAL denied record is not
+ * involved in any way.
+ */
+export type CorrectedContext = {
+  resubmissionId: string;
+  legs: Array<{ leg_index?: number | null; pickup_odometer?: number | null; dropoff_odometer?: number | null }>;
+  lines: Array<{ line_index?: number | null; miles?: number | null }>;
+  serviceDate?: string | null;
+};
+
 export async function submitSelectedRecords(
   supabase: any,
   userId: string,
-  args: { ids: string[]; acknowledgeDuplicate?: boolean; label?: string | null },
+  args: {
+    ids: string[];
+    acknowledgeDuplicate?: boolean;
+    label?: string | null;
+    corrected?: Map<string, CorrectedContext>;
+  },
 ): Promise<SubmitSelectionResult> {
+
   if (REAL_SUBMISSIONS_PAUSED) {
     throw new Error(
       "Real portal submissions are paused while service-line verification is being fixed.",
@@ -86,12 +105,16 @@ export async function submitSelectedRecords(
 
   for (const rec of recs ?? []) {
     const trip: any = (rec as any).medicaid_trips;
+    const corrected = args.corrected?.get(rec.id as string) ?? null;
     const priorClaim: string | null =
       trip?.robot_confirmation_number ?? trip?.submitted_confirmation ?? null;
     const unverified = trip?.robot_last_status === UNVERIFIED_SUBMIT_STATUS;
-    const isResubmit = !!priorClaim || unverified;
+    // A corrected claim has its OWN record and its own attempt history; the
+    // original claim's outcome belongs to the original record alone.
+    const isResubmit = corrected ? true : !!priorClaim || unverified;
 
     if (
+      !corrected &&
       requiresManualVerification({
         status: rec.status,
         requires_human_step: (rec as any).requires_human_step,
@@ -131,17 +154,31 @@ export async function submitSelectedRecords(
     }
     // Corrupt mileage / impossible service date must never be sent.
     {
-      const { claimSanityIssues, milesFromOdometer } = await import("@/lib/claimSanity");
-      const issues = claimSanityIssues({
-        billed_miles: milesFromOdometer(trip?.odometer_start, trip?.odometer_end),
-        service_date: trip?.pickup_at ?? null,
-      });
+      const { claimSanityIssues } = await import("@/lib/claimSanity");
+      let issues: Array<{ code: string; message: string }>;
+      if (corrected) {
+        // PER-LEG / PER-LINE, never a whole-day odometer span.
+        const { correctedMileageIssues } = await import("@/lib/correctedMileage");
+        issues = [
+          ...correctedMileageIssues({ legs: corrected.legs, lines: corrected.lines }),
+          ...claimSanityIssues({ service_date: corrected.serviceDate ?? trip?.pickup_at ?? null }),
+        ];
+      } else {
+        const { milesFromOdometer } = await import("@/lib/claimSanity");
+        issues = claimSanityIssues({
+          billed_miles: milesFromOdometer(trip?.odometer_start, trip?.odometer_end),
+          service_date: trip?.pickup_at ?? null,
+        });
+      }
       if (issues.length) {
         skipped.push({
           id: rec.id as string,
           code: "missing_data",
           reason: issues[0]!.message,
         });
+        // Only ever writes the record being submitted. For a corrected claim
+        // that is the CORRECTED record — the original denied bill is never
+        // touched by a corrected attempt.
         await supabase
           .from("billing_records")
           .update({
@@ -156,6 +193,7 @@ export async function submitSelectedRecords(
         continue;
       }
     }
+
     if ((rec as any).requires_human_step) {
       skipped.push({
         id: rec.id as string,

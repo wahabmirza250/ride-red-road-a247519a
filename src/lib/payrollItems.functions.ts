@@ -103,6 +103,7 @@ export const listPayrollClaims = createServerFn({ method: "POST" })
           ? supabase
               .from("billing_records")
               .select("trip_id, status, submitted_at, updated_at")
+              .is("resubmission_id", null)
               .in("trip_id", ids)
           : Promise.resolve({ data: [] as any[] }),
         ids.length

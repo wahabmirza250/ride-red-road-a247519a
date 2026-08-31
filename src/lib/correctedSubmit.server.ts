@@ -39,17 +39,32 @@ export async function submitCorrectedResubmissions(
 
   let q = supabase
     .from("claim_resubmissions")
-    .select("id, company_id, status, original_trip_id, original_claim_number, idempotency_key")
+    .select(
+      "id, company_id, status, original_trip_id, original_claim_number, idempotency_key, draft_snapshot",
+    )
     .in("id", ids);
   if (args.companyId) q = q.eq("company_id", args.companyId);
   const { data: rows, error } = await q;
   if (error) throw new Error(error.message);
 
-  const tripIds = [...new Set(((rows ?? []) as any[]).map((r) => r.original_trip_id))];
-  const { data: recs } = tripIds.length
-    ? await supabase.from("billing_records").select("id, trip_id").in("trip_id", tripIds)
-    : { data: [] as any[] };
-  const recordOf = new Map(((recs ?? []) as any[]).map((r) => [r.trip_id, r.id as string]));
+  // EVERY corrected claim gets its OWN submission record. The original denied
+  // record keeps its claim number, its denied status and its history; it is
+  // never read for status, never re-queued and never written here.
+  const { ensureCorrectedBillingRecord } = await import("@/lib/correctedRecord.server");
+  const recordOf = new Map<string, string>();
+  const prepFailed: Array<{ id: string; reason: string }> = [];
+  for (const row of ((rows ?? []) as any[]).filter((r) => String(r.status ?? "") === "queued")) {
+    try {
+      const rec = await ensureCorrectedBillingRecord(supabase, {
+        resubmissionId: row.id,
+        tripId: row.original_trip_id,
+        companyId: row.company_id ?? args.companyId ?? null,
+      });
+      recordOf.set(row.id, rec.id);
+    } catch (e: any) {
+      prepFailed.push({ id: row.id, reason: String(e?.message ?? e) });
+    }
+  }
 
   const plan = planCorrectedSubmit((rows ?? []) as any[], recordOf);
   const skipped = plan.skipped.map((s) => ({
@@ -57,7 +72,9 @@ export async function submitCorrectedResubmissions(
     reason: s.reason,
     code: s.code as string,
   }));
+  for (const f of prepFailed) skipped.push({ id: f.id, reason: f.reason, code: "no_billing_record" });
   if (!plan.recordIds.length) return { requested: ids.length, queued: 0, started: 0, skipped, audit_failed: false };
+
 
   // ATOMIC CLAIM BEFORE ANY JOB EXISTS.
   // queued -> processing, one conditional UPDATE per row (expected status AND
@@ -80,6 +97,19 @@ export async function submitCorrectedResubmissions(
     return { requested: ids.length, queued: 0, started: 0, skipped, audit_failed: false };
   }
 
+  // The mileage gate must judge the CORRECTED legs/lines, each on its own —
+  // never a first-pickup-to-last-dropoff span across a same-day gap.
+  const correctedCtx = new Map<string, any>();
+  for (const p of claimedPairs) {
+    const snap = (byId.get(p.resubmission_id) as any)?.draft_snapshot ?? {};
+    correctedCtx.set(p.billing_record_id, {
+      resubmissionId: p.resubmission_id,
+      legs: Array.isArray(snap?.legs) ? snap.legs : [],
+      lines: Array.isArray(snap?.lines) ? snap.lines : [],
+      serviceDate: snap?.service_date ?? null,
+    });
+  }
+
   const { submitSelectedRecords } = await import("@/lib/submitSelection.server");
   let res: any;
   try {
@@ -89,7 +119,9 @@ export async function submitCorrectedResubmissions(
       // corrected version is a deliberate, acknowledged new attempt.
       acknowledgeDuplicate: true,
       label: `Corrected resubmission (${claimedPairs.length})`,
+      corrected: correctedCtx,
     });
+
   } catch (e: any) {
     // We cannot PROVE no job was created, so the rows stay in `processing`
     // (out of Ready, never auto-retried) and are resolved by verification.

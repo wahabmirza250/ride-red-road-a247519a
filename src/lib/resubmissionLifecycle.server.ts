@@ -73,8 +73,10 @@ export async function claimResubmissionsForSubmit(
         claimed_at: nowIso,
         claimed_by: userId,
         failure_reason: null,
-        ...(recordOf && row.original_trip_id && recordOf.get(row.original_trip_id)
-          ? { submission_billing_record_id: recordOf.get(row.original_trip_id) }
+        // Keyed by RESUBMISSION id: this is the corrected claim's own record,
+        // never the original denied record.
+        ...(recordOf && recordOf.get(row.id)
+          ? { submission_billing_record_id: recordOf.get(row.id) }
           : {}),
       })
       .eq("id", row.id)

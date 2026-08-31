@@ -227,6 +227,7 @@ export const setClaimStatus = createServerFn({ method: "POST" })
       .from("billing_records")
       .select("id, status")
       .eq("trip_id", data.tripId)
+      .is("resubmission_id", null)
       .maybeSingle();
     if (findErr) throw new Error(findErr.message);
     if (!rec) throw new Error("No billing record exists for this claim yet.");
