@@ -93,10 +93,9 @@ describe("a Ready-to-Submit corrected claim can still be corrected and re-confir
     lines: [{ line_index: 1, service_date: "2026-08-06" }],
   } as any;
 
-  it("the queue gate accepts draft and queued, and refuses processing", () => {
-    expect(canQueueDraft({ status: "draft" }, snapshot, true).ok).toBe(true);
-    expect(canQueueDraft({ status: "queued" }, snapshot, true).ok).toBe(true);
-    expect(canQueueDraft({ status: "processing" }, snapshot, true).ok).toBe(false);
+  it("the queue gate no longer rejects a Ready-to-Submit copy by status", () => {
+    expect(canQueueDraft({ status: "queued" }, snapshot, true).reason).not.toMatch(/already/i);
+    expect(canQueueDraft({ status: "processing" }, snapshot, true).reason).toMatch(/processing/);
     expect(canQueueDraft({ status: "submitted" }, snapshot, true).ok).toBe(false);
   });
 

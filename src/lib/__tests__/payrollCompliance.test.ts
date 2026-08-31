@@ -150,9 +150,10 @@ describe("service-line modifiers", () => {
     ]);
   });
 
-  it("only allows edits while the resubmission is a draft", () => {
+  it("only allows edits before a worker claims the corrected copy", () => {
     expect(() => assertEditableResubmission("draft")).not.toThrow();
-    for (const s of ["queued", "submitted", "paid", "denied", null]) {
+    expect(() => assertEditableResubmission("queued")).not.toThrow();
+    for (const s of ["processing", "submitted", "paid", "denied", null]) {
       expect(() => assertEditableResubmission(s as string)).toThrow();
     }
   });

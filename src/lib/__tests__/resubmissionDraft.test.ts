@@ -265,8 +265,9 @@ describe("draft lifecycle guards", () => {
     const snap = baseDraft();
     expect(canQueueDraft({ status: "draft" }, snap, false).ok).toBe(false);
     expect(canQueueDraft({ status: "draft" }, snap, true).ok).toBe(true);
-    // Second click: the row is no longer a draft -> no second job.
-    expect(canQueueDraft({ status: "queued" }, snap, true).ok).toBe(false);
+    // Ready to Submit is still editable; only a claimed copy is closed.
+    expect(canQueueDraft({ status: "queued" }, snap, true).ok).toBe(true);
+    expect(canQueueDraft({ status: "processing" }, snap, true).ok).toBe(false);
     expect(canQueueDraft({ status: "draft" }, { ...snap, medicaid_id: null }, true).ok).toBe(false);
   });
 });
