@@ -622,6 +622,20 @@ async function processJob(
       };
     }
     await supabase.from("medicaid_trips").update({ portal_status: hit.status }).eq("id", job.trip_id);
+    // A corrected resubmission that produced this claim follows the portal
+    // truth on the NEW claim only: submitted -> paid / denied.
+    try {
+      const { reconcileResubmissionFinancialStatus } = await import(
+        "@/lib/resubmissionLifecycle.server"
+      );
+      await reconcileResubmissionFinancialStatus(supabase, {
+        recordId: job.record_id,
+        portalStatus: hit.status,
+        actorId: opts.actorId ?? null,
+      });
+    } catch {
+      /* never block a read-only status check on the corrected-copy mirror */
+    }
     await supabase.from("billing_audit_log").insert({
       billing_record_id: job.record_id,
       action: SYNC_ACTION,

@@ -28,7 +28,39 @@ export type ReconcileResult = {
   confirmation_number?: string | null;
 };
 
+/**
+ * Public entry point. It delegates to the unchanged reconciliation below and
+ * then, in ONE place, maps the outcome onto a corrected resubmission that was
+ * atomically claimed for this billing record (linked by
+ * `claim_resubmissions.submission_billing_record_id`, never guessed from the
+ * trip). Uncertain outcomes deliberately change nothing: the corrected claim
+ * stays in `processing`, out of Ready to Submit, and is never auto-resubmitted.
+ */
 export async function reconcileRobotJob(
+  supabase: any,
+  recordId: string,
+  actorId: string | null,
+): Promise<ReconcileResult> {
+  const result = await reconcileRobotJobInner(supabase, recordId, actorId);
+  try {
+    const { data: after } = await supabase
+      .from("billing_records")
+      .select("status")
+      .eq("id", recordId)
+      .maybeSingle();
+    const { reconcileResubmissionForRecord } = await import("@/lib/resubmissionLifecycle.server");
+    await reconcileResubmissionForRecord(supabase, {
+      recordId,
+      actorId,
+      outcome: { ...result, billingStatus: after?.status ?? null },
+    });
+  } catch {
+    /* reconciliation of the corrected copy must never break the bill result */
+  }
+  return result;
+}
+
+async function reconcileRobotJobInner(
   supabase: any,
   recordId: string,
   actorId: string | null,

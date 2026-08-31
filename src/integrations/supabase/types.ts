@@ -686,6 +686,8 @@ export type Database = {
       }
       claim_resubmissions: {
         Row: {
+          claimed_at: string | null
+          claimed_by: string | null
           company_id: string | null
           correction_reason: string | null
           created_at: string
@@ -694,6 +696,7 @@ export type Database = {
           discarded_by: string | null
           draft_snapshot: Json | null
           draft_version: number
+          failure_reason: string | null
           id: string
           idempotency_key: string | null
           last_saved_at: string | null
@@ -707,11 +710,14 @@ export type Database = {
           original_trip_id: string
           resubmission_claim_number: string | null
           status: string
+          submission_billing_record_id: string | null
           submitted_at: string | null
           submitted_by: string | null
           updated_at: string
         }
         Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
           company_id?: string | null
           correction_reason?: string | null
           created_at?: string
@@ -720,6 +726,7 @@ export type Database = {
           discarded_by?: string | null
           draft_snapshot?: Json | null
           draft_version?: number
+          failure_reason?: string | null
           id?: string
           idempotency_key?: string | null
           last_saved_at?: string | null
@@ -733,11 +740,14 @@ export type Database = {
           original_trip_id: string
           resubmission_claim_number?: string | null
           status?: string
+          submission_billing_record_id?: string | null
           submitted_at?: string | null
           submitted_by?: string | null
           updated_at?: string
         }
         Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
           company_id?: string | null
           correction_reason?: string | null
           created_at?: string
@@ -746,6 +756,7 @@ export type Database = {
           discarded_by?: string | null
           draft_snapshot?: Json | null
           draft_version?: number
+          failure_reason?: string | null
           id?: string
           idempotency_key?: string | null
           last_saved_at?: string | null
@@ -759,6 +770,7 @@ export type Database = {
           original_trip_id?: string
           resubmission_claim_number?: string | null
           status?: string
+          submission_billing_record_id?: string | null
           submitted_at?: string | null
           submitted_by?: string | null
           updated_at?: string
@@ -776,6 +788,13 @@ export type Database = {
             columns: ["original_trip_id"]
             isOneToOne: false
             referencedRelation: "medicaid_trips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_resubmissions_submission_billing_record_id_fkey"
+            columns: ["submission_billing_record_id"]
+            isOneToOne: false
+            referencedRelation: "billing_records"
             referencedColumns: ["id"]
           },
         ]
