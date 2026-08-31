@@ -9,6 +9,7 @@ import { assertBilling } from "@/lib/billingHelpers";
 import {
   loadSweepProgress,
   markSweepRowConfirmed,
+  autoFinalizeSweep,
   runSweepTick,
   setSweepStatus,
   startSweep,
@@ -104,4 +105,29 @@ export const kickReconcileSweep = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertBilling(supabase, userId);
     return runSweepTick(supabase);
+  });
+
+/**
+ * Finalize every SAFE single match of a sweep (exactly one unused candidate,
+ * matching member + service date, final Paid/Denied portal status). Read-only
+ * at the portal: nothing is submitted, resubmitted or queued.
+ */
+export const autoFinalizeReconcileSweep = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ sweep_id: z.string().uuid(), dry_run: z.boolean().optional() })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertBilling(supabase, userId);
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(userId);
+    return autoFinalizeSweep(supabase, {
+      sweepId: data.sweep_id,
+      companyId,
+      actorId: userId,
+      dryRun: data.dry_run === true,
+    });
   });
