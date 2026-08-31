@@ -158,3 +158,42 @@ export function sanitizeSweepError(raw: unknown): string {
   if (!clean) return "The read-only portal lookup could not run.";
   return clean.length > 200 ? `${clean.slice(0, 197)}...` : clean;
 }
+
+/**
+ * LIVE LINKAGE OVERLAY.
+ *
+ * `candidates[].linked` is a snapshot taken at search time. Bills get linked
+ * afterwards (by a biller, by the status checker, by another sweep row), so a
+ * stale snapshot must never be trusted to enable a Confirm button or an
+ * automatic finalization. Every render and every action re-checks the claim id
+ * against the live `billing_records` table and overwrites the snapshot — in
+ * both directions: a claim linked since the search becomes linked, and a claim
+ * whose old link disappeared becomes free again.
+ *
+ * A claim linked to the row's OWN bill is not a conflict.
+ */
+export function applyLiveLinks<T extends { billing_record_id: string; candidates: PortalClaim[] }>(
+  rows: T[],
+  live: Map<string, { billing_record_id: string; trip_id?: string | null; status?: string | null }>,
+): T[] {
+  return rows.map((row) => ({
+    ...row,
+    candidates: (row.candidates ?? []).map((c) => {
+      const hit = live.get(String(c.claim_id ?? "").trim());
+      if (!hit || hit.billing_record_id === row.billing_record_id) return { ...c, linked: null };
+      return { ...c, linked: hit as PortalClaim["linked"] };
+    }),
+  }));
+}
+
+/** Every claim id mentioned by these rows, de-duplicated. */
+export function candidateClaimIds(rows: { candidates: PortalClaim[] }[]): string[] {
+  const set = new Set<string>();
+  for (const r of rows) for (const c of r.candidates ?? []) {
+    const id = String(c.claim_id ?? "").trim();
+    if (id) set.add(id);
+  }
+  return [...set];
+}
+
+export const CLAIM_ALREADY_LINKED_LABEL = "Claim already linked to another RedArt bill";
