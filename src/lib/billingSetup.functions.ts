@@ -42,14 +42,18 @@ export const listProviderCandidates = createServerFn({ method: "GET" })
     const ids = (profiles ?? []).filter((p: any) => p.is_active !== false).map((p: any) => p.id);
     if (!ids.length) return [];
 
+    // Roles must be scoped to THIS company. A billing role held in another
+    // company must never qualify someone as this company's provider.
     const { data: roles } = await supabaseAdmin
       .from("user_roles")
-      .select("user_id, role")
+      .select("user_id, role, company_id")
       .in("user_id", ids)
+      .eq("company_id", companyId)
       .in("role", ELIGIBLE_PROVIDER_ROLES as unknown as any);
 
     const byUser = new Map<string, string[]>();
     for (const r of (roles ?? []) as any[]) {
+      if (r.company_id !== companyId) continue;
       byUser.set(r.user_id, [...(byUser.get(r.user_id) ?? []), r.role]);
     }
 
