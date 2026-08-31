@@ -5,6 +5,7 @@ import { assertEditableResubmission, diffModifiers, MAX_MODIFIERS_PER_LINE } fro
 import {
   buildSnapshotFromTrip,
   diffSnapshots,
+  canQueueDraft,
   effectiveMiles,
   normalizeSnapshot,
   validateDraft,
@@ -577,16 +578,9 @@ export const queueResubmission = createServerFn({ method: "POST" })
     await assertBiller(supabase, userId);
     const sub = await loadOwnedDraft(supabase, userId, data.id);
 
-    if (sub.status !== "draft") return { queued: false, reason: "Already queued or submitted." };
-
     const draft = normalizeSnapshot(sub.draft_snapshot ?? {});
-    const validation = validateDraft(draft);
-    if (!validation.ok)
-      return {
-        queued: false,
-        reason: validation.issues[0]?.message ?? "The corrected claim is not valid yet.",
-        validation,
-      };
+    const gate = canQueueDraft(sub, draft, data.confirm === true);
+    if (!gate.ok) return { queued: false, reason: gate.reason, validation: validateDraft(draft) };
 
     const { data: rec } = await supabase
       .from("billing_records")
