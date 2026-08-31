@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { getCompanySlug } from "@/lib/companyContext";
 
@@ -24,8 +25,11 @@ export const APP_PREFIXES = new Set([
   "schedules",
   "drivers",
   "payroll",
+  "payroll-statement",
   "driver-pay",
   "salary",
+  "compliance",
+  "communications",
   "passengers",
   "reports",
   "incidents",
@@ -59,11 +63,36 @@ export function withSlug(slug: string | null, path: string): string {
   return `/${slug}${path}`;
 }
 
+/**
+ * A tenant-scoped app path with no resolved slug must NEVER fall through to the
+ * bare public URL: that lands on another tenant's space or the "you need your
+ * provider's link" gate. Callers render a disabled state instead.
+ */
+export function isTenantLinkBlocked(slug: string | null, path: string): boolean {
+  return !slug && isAppPath(path);
+}
+
 type AnyProps = Record<string, unknown>;
 
 /** `<Link>` that automatically prefixes app paths with the company slug. */
 export function AppLink({ to, ...rest }: { to: string } & AnyProps) {
   const slug = useCompanySlug();
+  if (isTenantLinkBlocked(slug, to)) {
+    const { className, children, ...others } = rest as {
+      className?: string;
+      children?: ReactNode;
+    } & AnyProps;
+    return (
+      <span
+        aria-disabled="true"
+        title="Loading your provider workspace…"
+        className={[className, "pointer-events-none opacity-50"].filter(Boolean).join(" ")}
+        {...(others as object)}
+      >
+        {children as ReactNode}
+      </span>
+    );
+  }
   const target = withSlug(slug, to);
   return <Link to={target as never} {...(rest as object)} />;
 }
@@ -72,6 +101,9 @@ export function AppLink({ to, ...rest }: { to: string } & AnyProps) {
 export function useAppNavigate() {
   const navigate = useNavigate();
   const slug = useCompanySlug();
-  return (opts: { to: string } & AnyProps) =>
-    navigate({ ...opts, to: withSlug(slug, opts.to) } as never);
+  return (opts: { to: string } & AnyProps) => {
+    if (isTenantLinkBlocked(slug, opts.to)) return;
+    return navigate({ ...opts, to: withSlug(slug, opts.to) } as never);
+  };
 }
+
