@@ -20,6 +20,10 @@ import { findLinkedBills, portalDateMDY } from "@/lib/hcpfSearch.server";
 import { searchClaimByTrip } from "@/lib/tripClaimSearch.server";
 import { stageOfFlatRow, flattenAttentionRow, ATTENTION_COUNT_LIMIT } from "@/lib/attentionCounts";
 import {
+  decideAutoFinalize,
+  type AutoFinalizeSummary,
+} from "@/lib/sweepAutoFinalize";
+import {
   classifySearch,
   sanitizeSweepError,
   summarize,
@@ -414,6 +418,114 @@ export async function autoLinkSingleCandidate(
   );
 }
 
+/**
+ * AUTO-FINALIZE EVERY SAFE SINGLE MATCH OF A SWEEP.
+ *
+ * Uses the same audited attach writer as the biller's "Confirm this claim"
+ * action, then copies the portal's own final status and money onto the bill so
+ * it lands in Paid / Denied / Rejected. Multiple, none, error and any row that
+ * fails a single safety check are left untouched and reported.
+ *
+ * Read-only at the portal: nothing is submitted, resubmitted or queued.
+ */
+export async function autoFinalizeSweep(
+  supabase: any,
+  args: { sweepId: string; companyId?: string | null; actorId?: string | null; dryRun?: boolean },
+): Promise<AutoFinalizeSummary> {
+  const { data } = await supabase
+    .from("claim_reconcile_results")
+    .select("id, billing_record_id, company_id, member_id, service_date, outcome, candidates, confirmed_at")
+    .eq("sweep_id", args.sweepId)
+    .is("confirmed_at", null)
+    .limit(1000);
+
+  const summary: AutoFinalizeSummary = { finalized: 0, skipped: [] };
+  for (const raw of (data ?? []) as any[]) {
+    const row = { ...raw, candidates: Array.isArray(raw.candidates) ? raw.candidates : [] };
+    const decision = decideAutoFinalize(row, { companyId: args.companyId ?? null });
+    if (!decision.ok) {
+      if (row.outcome === "single")
+        summary.skipped.push({
+          id: row.id,
+          billing_record_id: row.billing_record_id,
+          reason: decision.reason,
+        });
+      continue;
+    }
+    if (args.dryRun) {
+      summary.finalized += 1;
+      continue;
+    }
+    try {
+      await finalizeSingleMatch(supabase, {
+        resultId: row.id,
+        recordId: row.billing_record_id,
+        claim: decision.claim,
+        status: decision.status,
+        actorId: args.actorId ?? null,
+      });
+      summary.finalized += 1;
+    } catch (e: any) {
+      const reason = sanitizeSweepError(e);
+      summary.skipped.push({ id: row.id, billing_record_id: row.billing_record_id, reason });
+      await supabase.from("claim_reconcile_results").update({ error: reason }).eq("id", row.id);
+    }
+  }
+  return summary;
+}
+
+/** Attach one final claim and move the bill to its real final stage. */
+export async function finalizeSingleMatch(
+  supabase: any,
+  args: {
+    resultId: string;
+    recordId: string;
+    claim: PortalClaim;
+    status: "paid" | "denied" | "rejected";
+    actorId?: string | null;
+  },
+) {
+  await autoLinkSingleCandidate(supabase, {
+    recordId: args.recordId,
+    resultId: args.resultId,
+    claim: args.claim,
+    actorId: args.actorId ?? null,
+  });
+
+  const nowIso = new Date().toISOString();
+  const patch: Record<string, unknown> = {
+    status: args.status,
+    status_checked_at: nowIso,
+    status_check_error: null,
+    status_check_attempts: 0,
+    updated_at: nowIso,
+  };
+  if (typeof args.claim.paid_amount === "number") {
+    patch["portal_paid_amount"] = args.claim.paid_amount;
+    patch["portal_paid_at"] = args.status === "paid" ? nowIso : null;
+  }
+  if (typeof args.claim.charge_amount === "number")
+    patch["portal_charged_amount"] = args.claim.charge_amount;
+  if (args.claim.status) patch["portal_status_raw"] = args.claim.status;
+
+  const { error } = await supabase.from("billing_records").update(patch).eq("id", args.recordId);
+  if (error) throw new Error(error.message);
+
+  await supabase
+    .from("claim_reconcile_results")
+    .update({ confirm_kind: "auto_single", confirmed_at: nowIso, error: null, locked_until: null })
+    .eq("id", args.resultId);
+
+  await logAudit(
+    supabase,
+    args.recordId,
+    args.actorId ?? null,
+    "hcpf_auto_finalized",
+    `Exactly one unused HCPF claim (#${args.claim.claim_id}) matched this member and service date and the portal shows it as ${args.status}. The claim was attached and the bill moved to ${args.status}. Read-only: nothing was submitted, resubmitted or changed at the portal.`,
+    args.actorId ? "user" : "system",
+  );
+}
+
 export type SweepTickResult = {
   ok: boolean;
   leased: number;
@@ -537,6 +649,12 @@ async function finishIdleSweeps(supabase: any) {
         .from("claim_reconcile_sweeps")
         .update({ status: "done", finished_at: new Date().toISOString() })
         .eq("id", s.id);
+      // Safe single matches resolve themselves; everything else waits for a biller.
+      try {
+        await autoFinalizeSweep(supabase, { sweepId: s.id, actorId: null });
+      } catch {
+        /* a finalize failure never un-finishes the sweep */
+      }
     }
   }
 }

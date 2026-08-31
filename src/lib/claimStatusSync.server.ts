@@ -96,7 +96,8 @@ export type SyncRunResult = {
 };
 
 /** Portal wording → the status we store. Anything unknown returns null. */
-export { normalizePortalStatus } from "@/lib/portalStatus";
+import { normalizePortalStatus } from "@/lib/portalStatus";
+export { normalizePortalStatus };
 
 type Candidate = {
   record_id: string;
