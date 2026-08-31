@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertEditableResubmission, diffModifiers, MAX_MODIFIERS_PER_LINE } from "@/lib/claimModifiers";
+import { deriveDriverOptions } from "@/lib/driverOptions";
+import { ATTACHMENT_BUCKET } from "@/lib/resubmissionAttachment";
 import {
   buildSnapshotFromTrip,
   diffSnapshots,
@@ -38,7 +40,7 @@ async function recordEvent(
     notes?: string | null;
   },
 ) {
-  await supabase.from("claim_resubmission_events").insert({
+  const { error } = await supabase.from("claim_resubmission_events").insert({
     resubmission_id: args.resubmissionId,
     company_id: args.companyId,
     actor_id: args.actorId,
@@ -46,6 +48,26 @@ async function recordEvent(
     changes: args.changes ?? [],
     notes: args.notes ?? null,
   });
+  if (error)
+    throw new Error(
+      `The ${args.action.replace(/_/g, " ")} could not be recorded in the audit trail, so it was not completed: ${error.message}`,
+    );
+}
+
+/**
+ * Company-scoped driver list for the editor's picker.
+ * `drivers` has no name column; names come from the linked profiles.
+ */
+async function listCompanyDrivers(supabase: any, companyId: string | null) {
+  let q = supabase.from("drivers").select("id, user_id, unit_number").limit(500);
+  if (companyId) q = q.eq("company_id", companyId);
+  const { data: rows, error } = await q;
+  if (error) throw new Error(error.message);
+  const userIds = ((rows ?? []) as any[]).map((r) => r.user_id).filter(Boolean);
+  const { data: profiles } = userIds.length
+    ? await supabase.from("profiles").select("id, first_name, last_name, email").in("id", userIds)
+    : { data: [] as any[] };
+  return deriveDriverOptions((rows ?? []) as any[], (profiles ?? []) as any[]);
 }
 
 /** Load the draft and prove the caller's company owns it. */
@@ -362,11 +384,9 @@ export const getResubmission = createServerFn({ method: "POST" })
     const draft = sub.draft_snapshot ?? original;
 
     // Drivers list for the editor's driver picker (company-scoped by RLS).
-    const { data: drivers } = await supabase
-      .from("drivers")
-      .select("id, full_name")
-      .order("full_name")
-      .limit(500);
+    // public.drivers has NO full_name column — the display name lives on the
+    // linked profile, so read id + user_id and derive the label here.
+    const drivers = await listCompanyDrivers(supabase, sub.company_id);
 
     return {
       resubmission: sub,
@@ -652,3 +672,80 @@ export const discardResubmission = createServerFn({ method: "POST" })
 
 /** Backwards-compatible alias. */
 export const cancelResubmission = discardResubmission;
+
+/**
+ * Signed URL for a resubmission attachment.
+ * Only paths that this draft actually references can be signed, so the
+ * endpoint can never be used to read arbitrary storage objects.
+ */
+export const getResubmissionAttachmentUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), path: z.string().min(1).max(500) }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    await assertBiller(supabase, userId);
+    const sub = await loadOwnedDraft(supabase, userId, data.id);
+    const allowed = new Set(
+      [
+        (sub.draft_snapshot as any)?.state_pdf_path,
+        (sub.original_snapshot as any)?.state_pdf_path,
+      ].filter(Boolean) as string[],
+    );
+    if (!allowed.has(data.path))
+      throw new Error("That file is not attached to this resubmission draft.");
+    const { data: signed, error } = await supabase.storage
+      .from(ATTACHMENT_BUCKET)
+      .createSignedUrl(data.path, 60 * 15);
+    if (error) throw new Error(error.message);
+    return { url: signed?.signedUrl ?? null };
+  });
+
+/**
+ * Point the DRAFT at a newly uploaded attachment.
+ * The original trip's own `state_pdf_path` is never modified or removed —
+ * only the draft snapshot's pointer changes, and the change is audited.
+ */
+export const setResubmissionAttachment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        path: z.string().min(1).max(500).nullable(),
+        file_name: z.string().max(300).nullable().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    await assertBiller(supabase, userId);
+    const sub = await loadOwnedDraft(supabase, userId, data.id);
+    assertEditableResubmission(sub.status);
+    if (data.path && !data.path.startsWith(`${userId}/resubmissions/${data.id}/`))
+      throw new Error("An attachment must be uploaded into this draft's own folder.");
+
+    const before = normalizeSnapshot(sub.draft_snapshot ?? {});
+    const next = normalizeSnapshot({ ...before, state_pdf_path: data.path });
+    const { error } = await supabase
+      .from("claim_resubmissions")
+      .update({
+        draft_snapshot: next as any,
+        last_saved_at: new Date().toISOString(),
+        last_saved_by: userId,
+      })
+      .eq("id", data.id)
+      .eq("status", "draft");
+    if (error) throw new Error(error.message);
+
+    await recordEvent(supabase, {
+      resubmissionId: data.id,
+      companyId: sub.company_id,
+      actorId: userId,
+      action: data.path ? "attachment_replaced" : "attachment_removed",
+      changes: diffSnapshots(before, next),
+      notes: data.file_name ?? null,
+    });
+    return { ok: true, path: data.path };
+  });

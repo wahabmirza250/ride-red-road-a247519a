@@ -330,6 +330,7 @@ const LABELS: Record<string, string> = {
   identity_verified: "Identity verified",
   signed_by_escort: "Signed by escort",
   signature_on_file: "Signature on file",
+  state_pdf_path: "Supporting attachment",
   miles_override: "Mileage override",
   miles_override_reason: "Mileage override reason",
   correction_reason: "Correction reason",
