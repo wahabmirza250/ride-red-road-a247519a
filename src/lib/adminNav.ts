@@ -50,8 +50,8 @@ export const ADMIN_NAV_GROUPS = [
     { to: "/incidents", label: "Incidents", icon: AlertTriangle },
   ],
   [
-    // Distinct icon: the shield belongs to Compliance only, so the two entries
-    // can't be mistaken for each other in the rail.
+    // Distinct icon: Compliance uses a clipboard-with-check and Team & apps uses a
+    // grid, so the two entries can't be mistaken for each other in the rail.
     { to: "/team", label: "Team & apps", icon: LayoutGrid },
     { to: "/events", label: "Events", icon: Sparkles },
   ],
