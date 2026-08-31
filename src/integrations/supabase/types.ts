@@ -220,6 +220,7 @@ export type Database = {
           portal_status_raw: string | null
           rejection_reason: string | null
           requires_human_step: boolean
+          resubmission_id: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           state_confirmation_number: string | null
@@ -268,6 +269,7 @@ export type Database = {
           portal_status_raw?: string | null
           rejection_reason?: string | null
           requires_human_step?: boolean
+          resubmission_id?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           state_confirmation_number?: string | null
@@ -316,6 +318,7 @@ export type Database = {
           portal_status_raw?: string | null
           rejection_reason?: string | null
           requires_human_step?: boolean
+          resubmission_id?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           state_confirmation_number?: string | null
@@ -355,9 +358,16 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "billing_records_resubmission_id_fkey"
+            columns: ["resubmission_id"]
+            isOneToOne: false
+            referencedRelation: "claim_resubmissions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "billing_records_trip_id_fkey1"
             columns: ["trip_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "medicaid_trips"
             referencedColumns: ["id"]
           },
