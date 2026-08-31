@@ -169,6 +169,7 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
       toast.success(
         res.changes?.length ? `Draft saved (${res.changes.length} change(s) audited)` : "Draft saved",
       );
+      setSavedSnap(JSON.stringify(snap));
       void qc.invalidateQueries({ queryKey: ["resubmission", id] });
       void qc.invalidateQueries({ queryKey: ["denied_claims"] });
     },
@@ -181,19 +182,44 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not review the draft"),
   });
 
+  // Saves the CURRENT on-screen snapshot and only then queues it, so a draft
+  // that was never explicitly saved can no longer be queued from stale data.
   const queue = useMutation({
-    mutationFn: () => queueFn({ data: { id: id!, confirm: true } }) as Promise<any>,
+    mutationFn: () =>
+      queueFn({
+        data: {
+          id: id!,
+          snapshot: snap as any,
+          confirm: true,
+          expected_version: Number(q.data?.resubmission?.draft_version ?? 1),
+        },
+      }) as Promise<any>,
     onSuccess: (res) => {
-      if (res.queued) {
-        toast.success("Corrected claim queued for HCPF");
+      if (res.kind === "queued") {
+        setSavedSnap(JSON.stringify(snap));
+        toast.success("Corrected claim saved and queued for HCPF");
+        void qc.invalidateQueries({ queryKey: ["resubmission", id] });
         void qc.invalidateQueries({ queryKey: ["denied_claims"] });
         onClose();
-      } else {
-        toast.info(res.reason ?? "Nothing to queue");
+        return;
       }
+      if (res.kind === "invalid") {
+        setTab(tabForField(res.field));
+        toast.error(res.reason);
+        return;
+      }
+      if (res.kind === "saved_not_queued") {
+        setSavedSnap(JSON.stringify(snap));
+        void qc.invalidateQueries({ queryKey: ["resubmission", id] });
+        toast.warning(res.reason);
+        return;
+      }
+      toast.info(res.reason ?? "Nothing to queue");
+      void qc.invalidateQueries({ queryKey: ["resubmission", id] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not queue the resubmission"),
   });
+
 
   const discard = useMutation({
     mutationFn: () => discardFn({ data: { id: id! } }) as Promise<any>,
