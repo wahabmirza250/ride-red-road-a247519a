@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertEditableResubmission, diffModifiers, MAX_MODIFIERS_PER_LINE } from "@/lib/claimModifiers";
 import { deriveDriverOptions } from "@/lib/driverOptions";
-import { ATTACHMENT_BUCKET } from "@/lib/resubmissionAttachment";
+import { ATTACHMENT_BUCKET, isAllowedAttachmentPath } from "@/lib/resubmissionAttachment";
 import {
   buildSnapshotFromTrip,
   diffSnapshots,
@@ -687,20 +687,37 @@ export const getResubmissionAttachmentUrl = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertBiller(supabase, userId);
     const sub = await loadOwnedDraft(supabase, userId, data.id);
-    const allowed = new Set(
-      [
-        (sub.draft_snapshot as any)?.state_pdf_path,
-        (sub.original_snapshot as any)?.state_pdf_path,
-      ].filter(Boolean) as string[],
-    );
-    if (!allowed.has(data.path))
-      throw new Error("That file is not attached to this resubmission draft.");
+
+    // Legacy drafts have null snapshots; the editor falls back to the original
+    // trip's stored report, so that exact path must be signable too. RLS +
+    // the owned draft prove company isolation — no arbitrary path is signed.
+    let originalTripPath: string | null = null;
+    if (sub.original_trip_id) {
+      const { data: trip } = await supabase
+        .from("medicaid_trips")
+        .select("state_pdf_path")
+        .eq("id", sub.original_trip_id)
+        .maybeSingle();
+      originalTripPath = (trip?.state_pdf_path as string | null) ?? null;
+    }
+
+    const ok = isAllowedAttachmentPath(data.path, {
+      draftPath: (sub.draft_snapshot as any)?.state_pdf_path ?? null,
+      originalSnapshotPath: (sub.original_snapshot as any)?.state_pdf_path ?? null,
+      originalTripPath,
+    });
+    if (!ok) throw new Error("That file is not attached to this resubmission draft.");
+
     const { data: signed, error } = await supabase.storage
       .from(ATTACHMENT_BUCKET)
       .createSignedUrl(data.path, 60 * 15);
     if (error) throw new Error(error.message);
-    return { url: signed?.signedUrl ?? null };
+    return {
+      url: signed?.signedUrl ?? null,
+      is_original: !!originalTripPath && data.path === originalTripPath,
+    };
   });
+
 
 /**
  * Point the DRAFT at a newly uploaded attachment.

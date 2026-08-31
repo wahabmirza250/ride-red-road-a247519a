@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Download, Eye, Loader2, Paperclip, Upload } from "lucide-react";
+import { Download, ExternalLink, Eye, Loader2, Paperclip, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,12 +30,15 @@ export function ResubmissionAttachment({
   originalPath,
   disabled,
   onChange,
+  onViewInline,
 }: {
   resubmissionId: string;
   path: string | null;
   originalPath: string | null;
   disabled?: boolean;
   onChange: (path: string | null) => void;
+  /** Scrolls/focuses the inline preview at the end of the editor. */
+  onViewInline?: () => void;
 }) {
   const signFn = useServerFn(getResubmissionAttachmentUrl);
   const setFn = useServerFn(setResubmissionAttachment);
@@ -44,6 +47,7 @@ export function ResubmissionAttachment({
 
   const isOriginal = !!path && path === originalPath;
   const fileName = path ? path.split("/").pop() : null;
+
 
   async function open(download: boolean) {
     if (!path) return;
@@ -113,12 +117,21 @@ export function ResubmissionAttachment({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="outline" disabled={!path || busy} onClick={() => open(false)}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!path || busy}
+          onClick={() => (onViewInline ? onViewInline() : void open(false))}
+        >
           <Eye className="mr-1.5 h-3.5 w-3.5" /> View
+        </Button>
+        <Button size="sm" variant="outline" disabled={!path || busy} onClick={() => open(false)}>
+          <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open in new tab
         </Button>
         <Button size="sm" variant="outline" disabled={!path || busy} onClick={() => open(true)}>
           <Download className="mr-1.5 h-3.5 w-3.5" /> Download
         </Button>
+
         <Button
           size="sm"
           variant="secondary"

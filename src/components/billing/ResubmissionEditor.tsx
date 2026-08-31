@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { MODIFIER_OPTIONS } from "@/lib/claimModifiers";
 import { ResubmissionAttachment } from "@/components/billing/ResubmissionAttachment";
+import { ResubmissionReportPreview } from "@/components/billing/ResubmissionReportPreview";
 import {
   diffSnapshots,
   effectiveMiles,
@@ -118,6 +119,14 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
     () => (snap && original ? diffSnapshots(original, snap) : []),
     [snap, original],
   );
+
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const [previewVersion, setPreviewVersion] = useState(0);
+  const focusPreview = () => {
+    previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    previewRef.current?.focus({ preventScroll: true });
+  };
+
 
   const patch = (p: Partial<DraftSnapshot>) => setSnap((s) => (s ? { ...s, ...p } : s));
   const patchLeg = (i: number, p: Partial<DraftLeg>) =>
@@ -370,9 +379,15 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
                       path={snap.state_pdf_path}
                       originalPath={original?.state_pdf_path ?? null}
                       disabled={!isDraft}
-                      onChange={(p) => patch({ state_pdf_path: p })}
+                      onChange={(p) => {
+                        patch({ state_pdf_path: p });
+                        setPreviewVersion((v) => v + 1);
+                        focusPreview();
+                      }}
+                      onViewInline={focusPreview}
                     />
                   </Field>
+
 
                   <Field label="Correction reason / notes (audited)">
                     <Textarea
@@ -761,7 +776,17 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
                     <p className="p-6 text-center text-sm text-muted-foreground">No events yet.</p>
                   )}
                 </TabsContent>
+
+                {/* -------- Inline attachment preview (end of scroll area) -------- */}
+                <ResubmissionReportPreview
+                  ref={previewRef}
+                  resubmissionId={id!}
+                  path={snap.state_pdf_path ?? original?.state_pdf_path ?? null}
+                  originalPath={original?.state_pdf_path ?? null}
+                  version={previewVersion}
+                />
               </div>
+
             </Tabs>
 
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 bg-muted/20 px-4 py-3 sm:px-6">
