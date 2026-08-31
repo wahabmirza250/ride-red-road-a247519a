@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertEditableResubmission, diffModifiers, MAX_MODIFIERS_PER_LINE } from "@/lib/claimModifiers";
 import { deriveDriverOptions } from "@/lib/driverOptions";
-import { ATTACHMENT_BUCKET } from "@/lib/resubmissionAttachment";
+import { ATTACHMENT_BUCKET, isAllowedAttachmentPath } from "@/lib/resubmissionAttachment";
 import {
   buildSnapshotFromTrip,
   diffSnapshots,
