@@ -399,6 +399,92 @@ export const getResubmission = createServerFn({ method: "POST" })
     };
   });
 
+/**
+ * Persist a corrected snapshot and synchronize claim_service_lines.
+ * Shared by "Save draft" and by the save-then-queue workflow so both paths
+ * write exactly the same rows. Never submits anything.
+ */
+async function persistDraftSnapshot(
+  supabase: any,
+  userId: string,
+  sub: any,
+  next: DraftSnapshot,
+): Promise<{ version: number; changes: ReturnType<typeof diffSnapshots> }> {
+  const previous = normalizeSnapshot(sub.draft_snapshot ?? sub.original_snapshot ?? {});
+  const changes = diffSnapshots(previous, next);
+  const version = Number(sub.draft_version ?? 1) + (changes.length ? 1 : 0);
+
+  const { error: upErr } = await supabase
+    .from("claim_resubmissions")
+    .update({
+      draft_snapshot: next as any,
+      draft_version: version,
+      correction_reason: next.correction_reason,
+      mileage_override_reason: next.miles_override_reason,
+      notes: next.correction_reason,
+      last_saved_at: new Date().toISOString(),
+      last_saved_by: userId,
+    })
+    .eq("id", sub.id)
+    .eq("status", "draft");
+  if (upErr) throw new Error(upErr.message);
+
+  // Mirror the snapshot's lines into claim_service_lines so the payload
+  // builder and the modifier audit keep a normalized source of truth.
+  const { data: existingLines } = await supabase
+    .from("claim_service_lines")
+    .select("id, line_index, modifiers")
+    .eq("resubmission_id", sub.id);
+  const byIndex = new Map(((existingLines ?? []) as any[]).map((l) => [Number(l.line_index), l]));
+
+  for (const line of next.lines) {
+    const row = {
+      company_id: sub.company_id,
+      resubmission_id: sub.id,
+      trip_id: sub.original_trip_id,
+      line_index: line.line_index,
+      service_date: line.service_date,
+      procedure_code: line.procedure_code,
+      place_of_service: line.place_of_service,
+      diagnosis_code: line.diagnosis_code,
+      units: line.units,
+      miles: line.miles,
+      amount: line.amount,
+      modifiers: line.modifiers,
+    };
+    const existing = byIndex.get(line.line_index);
+    if (existing) {
+      await supabase.from("claim_service_lines").update(row).eq("id", existing.id);
+      const entries = diffModifiers(
+        ((existing.modifiers ?? []) as string[]).map((m) => m.toUpperCase()),
+        line.modifiers,
+        next.correction_reason,
+      );
+      if (entries.length)
+        await supabase.from("claim_modifier_audit").insert(
+          entries.map((e) => ({
+            company_id: sub.company_id,
+            service_line_id: existing.id,
+            resubmission_id: sub.id,
+            action: e.action,
+            modifier: e.modifier,
+            reason: e.reason,
+            actor_id: userId,
+          })),
+        );
+      byIndex.delete(line.line_index);
+    } else {
+      await supabase.from("claim_service_lines").insert(row);
+    }
+  }
+  // Lines removed by the biller (e.g. round trip -> one way).
+  for (const stale of byIndex.values()) {
+    await supabase.from("claim_service_lines").delete().eq("id", stale.id);
+  }
+
+  return { version, changes };
+}
+
 /** Save (never submit) the corrected draft snapshot and its service lines. */
 export const saveResubmissionDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -412,77 +498,7 @@ export const saveResubmissionDraft = createServerFn({ method: "POST" })
     assertEditableResubmission(sub.status);
 
     const next = normalizeSnapshot(data.snapshot);
-    const previous = normalizeSnapshot(sub.draft_snapshot ?? sub.original_snapshot ?? {});
-    const changes = diffSnapshots(previous, next);
-    const version = Number(sub.draft_version ?? 1) + (changes.length ? 1 : 0);
-
-    const { error: upErr } = await supabase
-      .from("claim_resubmissions")
-      .update({
-        draft_snapshot: next as any,
-        draft_version: version,
-        correction_reason: next.correction_reason,
-        mileage_override_reason: next.miles_override_reason,
-        notes: next.correction_reason,
-        last_saved_at: new Date().toISOString(),
-        last_saved_by: userId,
-      })
-      .eq("id", data.id)
-      .eq("status", "draft");
-    if (upErr) throw new Error(upErr.message);
-
-    // Mirror the snapshot's lines into claim_service_lines so the payload
-    // builder and the modifier audit keep a normalized source of truth.
-    const { data: existingLines } = await supabase
-      .from("claim_service_lines")
-      .select("id, line_index, modifiers")
-      .eq("resubmission_id", data.id);
-    const byIndex = new Map(((existingLines ?? []) as any[]).map((l) => [Number(l.line_index), l]));
-
-    for (const line of next.lines) {
-      const row = {
-        company_id: sub.company_id,
-        resubmission_id: data.id,
-        trip_id: sub.original_trip_id,
-        line_index: line.line_index,
-        service_date: line.service_date,
-        procedure_code: line.procedure_code,
-        place_of_service: line.place_of_service,
-        diagnosis_code: line.diagnosis_code,
-        units: line.units,
-        miles: line.miles,
-        amount: line.amount,
-        modifiers: line.modifiers,
-      };
-      const existing = byIndex.get(line.line_index);
-      if (existing) {
-        await supabase.from("claim_service_lines").update(row).eq("id", existing.id);
-        const entries = diffModifiers(
-          ((existing.modifiers ?? []) as string[]).map((m) => m.toUpperCase()),
-          line.modifiers,
-          next.correction_reason,
-        );
-        if (entries.length)
-          await supabase.from("claim_modifier_audit").insert(
-            entries.map((e) => ({
-              company_id: sub.company_id,
-              service_line_id: existing.id,
-              resubmission_id: data.id,
-              action: e.action,
-              modifier: e.modifier,
-              reason: e.reason,
-              actor_id: userId,
-            })),
-          );
-        byIndex.delete(line.line_index);
-      } else {
-        await supabase.from("claim_service_lines").insert(row);
-      }
-    }
-    // Lines removed by the biller (e.g. round trip -> one way).
-    for (const stale of byIndex.values()) {
-      await supabase.from("claim_service_lines").delete().eq("id", stale.id);
-    }
+    const { version, changes } = await persistDraftSnapshot(supabase, userId, sub, next);
 
     await recordEvent(supabase, {
       resubmissionId: data.id,
@@ -502,6 +518,7 @@ export const saveResubmissionDraft = createServerFn({ method: "POST" })
       validation,
     };
   });
+
 
 /** Review step: records that the biller reviewed and returns the full diff. */
 export const reviewResubmission = createServerFn({ method: "POST" })
