@@ -91,10 +91,11 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
   const getFn = useServerFn(getResubmission);
   const saveFn = useServerFn(saveResubmissionDraft);
   const reviewFn = useServerFn(reviewResubmission);
-  const queueFn = useServerFn(queueResubmission);
+  const queueFn = useServerFn(saveAndQueueResubmission);
   const discardFn = useServerFn(discardResubmission);
 
   const [snap, setSnap] = useState<DraftSnapshot | null>(null);
+  const [savedSnap, setSavedSnap] = useState<string>("");
   const [tab, setTab] = useState("trip");
   const [confirmQueue, setConfirmQueue] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -108,9 +109,14 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
 
   useEffect(() => {
     if (!q.data) return;
-    setSnap(normalizeSnapshot(q.data.draft_snapshot ?? q.data.original_snapshot ?? {}));
+    const loaded = normalizeSnapshot(q.data.draft_snapshot ?? q.data.original_snapshot ?? {});
+    setSnap(loaded);
+    setSavedSnap(JSON.stringify(loaded));
     setTab("trip");
   }, [q.data]);
+
+  const dirty = !!snap && JSON.stringify(snap) !== savedSnap;
+
 
   const original = q.data?.original_snapshot ? normalizeSnapshot(q.data.original_snapshot) : null;
   const driverOptions = (q.data?.drivers ?? []) as { id: string; name: string }[];
