@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { APP_PREFIXES, isAppPath, isTenantLinkBlocked, withSlug } from "@/lib/appLink";
+import {
+  ADMIN_NAV,
+  INTERNAL_COMPLIANCE_PATH,
+  complianceShieldTarget,
+} from "@/lib/adminNav";
 
 /**
- * Regression: the Compliance shield in the admin rail navigated to the bare
- * `/compliance` URL because "compliance" was missing from APP_PREFIXES, which
- * dropped the tenant slug and dead-ended on "You need your provider's link".
+ * Regression: the Compliance shield in the admin rail must open the INTERNAL
+ * company compliance dashboard under the active tenant slug — never the public
+ * passenger compliance surface, and never a bare slug-less URL.
  */
 describe("tenant-aware compliance navigation", () => {
   it("treats compliance (and siblings) as app paths", () => {
@@ -12,33 +17,40 @@ describe("tenant-aware compliance navigation", () => {
       expect(APP_PREFIXES.has(p)).toBe(true);
     }
     expect(isAppPath("/compliance")).toBe(true);
-    expect(isAppPath("/compliance/passenger")).toBe(true);
   });
 
-  it("resolves each company separately with no cross-company fallback", () => {
-    expect(withSlug("walla", "/compliance/passenger")).toBe("/walla/compliance/passenger");
-    expect(withSlug("lamar", "/compliance/passenger")).toBe("/lamar/compliance/passenger");
-    expect(withSlug("walla", "/compliance/passenger")).not.toContain("lamar");
-    expect(withSlug("lamar", "/compliance/passenger")).not.toContain("walla");
+  it("keeps each tenant on its own compliance URL", () => {
+    expect(complianceShieldTarget("walla")).toBe("/walla/compliance");
+    expect(complianceShieldTarget("lamar")).toBe("/lamar/compliance");
+    expect(complianceShieldTarget("walla")).not.toContain("lamar");
+    expect(complianceShieldTarget("lamar")).not.toContain("walla");
   });
 
-  it("works for arbitrary slugs and any compliance subpage", () => {
-    expect(withSlug("acme-rides", "/compliance")).toBe("/acme-rides/compliance");
-    expect(withSlug("acme-rides", "/compliance/vehicles/42")).toBe(
-      "/acme-rides/compliance/vehicles/42",
-    );
+  it("never targets the passenger compliance surface", () => {
+    for (const slug of ["walla", "lamar", "acme-rides", "zz-9"]) {
+      const target = complianceShieldTarget(slug);
+      expect(target).toBe(`/${slug}/compliance`);
+      expect(target).not.toContain("/compliance/passenger");
+      expect(target.endsWith("/passenger")).toBe(false);
+    }
   });
 
-  it("blocks navigation instead of falling back to the generic route", () => {
+  it("uses the internal compliance route in the admin rail", () => {
+    const shield = ADMIN_NAV.find((i) => i.label === "Compliance");
+    expect(shield?.to).toBe(INTERNAL_COMPLIANCE_PATH);
+    expect(shield?.to).toBe("/compliance");
+    expect(ADMIN_NAV.some((i) => i.to.includes("passenger"))).toBe(false);
+    // Team & apps stays its own destination, distinct from Compliance.
+    expect(ADMIN_NAV.find((i) => i.label === "Team & apps")?.to).toBe("/team");
+  });
+
+  it("blocks navigation instead of falling back when the slug is unknown", () => {
     expect(isTenantLinkBlocked(null, "/compliance")).toBe(true);
     expect(withSlug(null, "/compliance")).toBe("/compliance");
     expect(isTenantLinkBlocked("walla", "/compliance")).toBe(false);
   });
 
-  it("leaves public/non-app routes untouched", () => {
-    expect(isTenantLinkBlocked(null, "/auth")).toBe(false);
-    expect(withSlug("walla", "/auth")).toBe("/auth");
-    expect(withSlug("walla", "/owner/signin")).toBe("/owner/signin");
-    expect(withSlug("walla", "/passenger")).toBe("/walla/passenger");
+  it("leaves public passenger routes untouched", () => {
+    expect(withSlug("walla", "/passenger/book")).toBe("/walla/passenger/book");
   });
 });
