@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { normalizeSnapshot, type DraftSnapshot } from "@/lib/resubmissionDraft";
+import { normalizeSnapshot, validateDraft, type DraftSnapshot } from "@/lib/resubmissionDraft";
 import {
   readBackMatches,
   runSaveAndQueue,
@@ -38,7 +38,7 @@ function harness(overrides: Partial<SaveQueueDeps> = {}) {
   const queueCalls: DraftSnapshot[] = [];
   const deps: SaveQueueDeps = {
     load: async () => ({ status: db.status, draft_version: db.draft_version }),
-    validate: (s) => require("@/lib/resubmissionDraft").validateDraft(s),
+    validate: (s) => validateDraft(s),
     persist: async (s) => {
       db.draft_snapshot = s;
       db.draft_version += 1;
