@@ -440,7 +440,7 @@ async function persistDraftSnapshot(
       last_saved_by: userId,
     })
     .eq("id", sub.id)
-    .eq("status", "draft");
+    .in("status", ["draft", "queued"]);
   if (upErr) throw new Error(upErr.message);
 
   // Mirror the snapshot's lines into claim_service_lines so the payload
@@ -656,7 +656,7 @@ async function queueDraftRow(
       idempotency_key: idempotencyKey,
     })
     .eq("id", sub.id)
-    .eq("status", "draft")
+    .in("status", ["draft", "queued"])
     .select("id, original_trip_id")
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -788,7 +788,7 @@ export const discardResubmission = createServerFn({ method: "POST" })
       .from("claim_resubmissions")
       .update({ status: "cancelled", discarded_at: new Date().toISOString(), discarded_by: userId })
       .eq("id", data.id)
-      .eq("status", "draft");
+      .in("status", ["draft", "queued"]);
     if (error) throw new Error(error.message);
     await recordEvent(supabase, {
       resubmissionId: data.id,
@@ -883,7 +883,7 @@ export const setResubmissionAttachment = createServerFn({ method: "POST" })
         last_saved_by: userId,
       })
       .eq("id", data.id)
-      .eq("status", "draft");
+      .in("status", ["draft", "queued"]);
     if (error) throw new Error(error.message);
 
     await recordEvent(supabase, {

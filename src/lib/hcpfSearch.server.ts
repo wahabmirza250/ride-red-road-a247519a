@@ -112,7 +112,7 @@ export async function findLinkedBills(
     .from("billing_records")
     .select(
       `id, trip_id, status, state_confirmation_number,
-       medicaid_trips(pickup_at, odometer_start, odometer_end, computed_miles,
+       medicaid_trips(pickup_at, odometer_start, odometer_end, miles,
          riders(full_name, medicaid_id))`,
     )
     .in("state_confirmation_number", ids);
@@ -129,7 +129,7 @@ export async function findLinkedBills(
       service_date: t?.pickup_at ?? null,
       odometer_start: t?.odometer_start ?? null,
       odometer_end: t?.odometer_end ?? null,
-      miles: t?.computed_miles ?? null,
+      miles: t?.miles ?? null,
     });
   }
   return map;

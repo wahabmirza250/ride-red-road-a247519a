@@ -26,7 +26,7 @@ import { recordVerifiedClaimFound } from "@/lib/manualVerification.server";
 const RECORD_SELECT = `id, status, trip_id, company_id, miles, units, requires_human_step,
   submission_error, submit_last_error, failure_code, state_confirmation_number, submit_account_key,
   medicaid_trips(
-    id, pickup_at, rider_id, company_id, odometer_start, odometer_end, computed_miles,
+    id, pickup_at, rider_id, company_id, odometer_start, odometer_end, miles,
     robot_job_id, robot_last_status, robot_last_message,
     robot_confirmation_number, submitted_confirmation,
     riders(full_name, medicaid_id)
@@ -77,7 +77,7 @@ export async function loadVerificationContext(
     service_date: portalDateMDY(trip?.pickup_at ?? null),
     odometer_start: trip?.odometer_start ?? null,
     odometer_end: trip?.odometer_end ?? null,
-    miles: trip?.computed_miles ?? rec.miles ?? null,
+    miles: trip?.miles ?? rec.miles ?? null,
     units: rec.units ?? null,
     provider_account: String(rec.submit_account_key ?? "").trim(),
     robot_job_id: String(trip?.robot_job_id ?? "").trim(),

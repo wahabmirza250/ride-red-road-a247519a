@@ -83,6 +83,8 @@ export function diffModifiers(
 
 /** Resubmission drafts are the ONLY place modifiers may be edited. */
 export function assertEditableResubmission(status: string | null | undefined) {
-  if (status !== "draft")
-    throw new Error("Modifiers can only be changed while the resubmission is still a draft.");
+  if (status !== "draft" && status !== "queued")
+    throw new Error(
+      "Modifiers can only be changed while the corrected claim is still a draft or waiting in Ready to Submit.",
+    );
 }
