@@ -154,7 +154,7 @@ export async function recordVerifiedNoClaim(
     );
 
   const ctx = await loadRecord(supabase, args.recordId);
-  assertVerificationCase(ctx, args.reconcileProof ?? null, claim);
+  assertVerificationCase(ctx);
 
   const nowIso = new Date().toISOString();
   const message =
