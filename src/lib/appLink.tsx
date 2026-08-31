@@ -80,7 +80,7 @@ export function AppLink({ to, ...rest }: { to: string } & AnyProps) {
   if (isTenantLinkBlocked(slug, to)) {
     const { className, children, ...others } = rest as {
       className?: string;
-      children?: React.ReactNode;
+      children?: ReactNode;
     } & AnyProps;
     return (
       <span
@@ -89,7 +89,7 @@ export function AppLink({ to, ...rest }: { to: string } & AnyProps) {
         className={[className, "pointer-events-none opacity-50"].filter(Boolean).join(" ")}
         {...(others as object)}
       >
-        {children as React.ReactNode}
+        {children as ReactNode}
       </span>
     );
   }
