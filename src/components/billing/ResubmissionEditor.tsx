@@ -44,11 +44,12 @@ import {
   type DraftServiceLine,
   type DraftSnapshot,
 } from "@/lib/resubmissionDraft";
+import { tabForField } from "@/lib/resubmissionSaveQueue";
 import {
   discardResubmission,
   getResubmission,
-  queueResubmission,
   reviewResubmission,
+  saveAndQueueResubmission,
   saveResubmissionDraft,
 } from "@/lib/resubmission.functions";
 
