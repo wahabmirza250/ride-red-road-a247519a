@@ -370,9 +370,15 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
                       path={snap.state_pdf_path}
                       originalPath={original?.state_pdf_path ?? null}
                       disabled={!isDraft}
-                      onChange={(p) => patch({ state_pdf_path: p })}
+                      onChange={(p) => {
+                        patch({ state_pdf_path: p });
+                        setPreviewVersion((v) => v + 1);
+                        focusPreview();
+                      }}
+                      onViewInline={focusPreview}
                     />
                   </Field>
+
 
                   <Field label="Correction reason / notes (audited)">
                     <Textarea
