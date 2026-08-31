@@ -1,28 +1,8 @@
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { AppLink, useAppNavigate } from "@/lib/appLink";
 import { useEffect } from "react";
-import {
-  LayoutDashboard,
-  Route as RouteIcon,
-  Users,
-  UserRound,
-  MessageSquare,
-  BarChart3,
-  AlertTriangle,
-  CalendarClock,
-  Newspaper,
-  Gamepad2,
-  Trophy,
-  LogOut,
-  FileSignature,
-  Sun,
-  Moon,
-  Radio,
-  Megaphone,
-  Shield,
-  Sparkles,
-  Banknote,
-} from "lucide-react";
+import { Gamepad2, LogOut, Sun, Moon } from "lucide-react";
+import { ADMIN_NAV, ADMIN_NAV_GROUPS } from "@/lib/adminNav";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useTheme } from "@/lib/theme";
@@ -45,43 +25,7 @@ export const Route = createFileRoute("/$companySlug/_authenticated")({
   component: AuthenticatedLayout,
 });
 
-const ADMIN_NAV_GROUPS = [
-  [
-    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/live-ops", label: "Dispatch", icon: Radio },
-  ],
-  [
-    { to: "/trips", label: "Trips", icon: RouteIcon },
-    { to: "/medicaid-billing", label: "Medicaid Billing", icon: FileSignature },
-    { to: "/schedules", label: "Schedules", icon: CalendarClock },
-  ],
-  [
-    { to: "/drivers", label: "Drivers", icon: Users },
-    { to: "/salary", label: "Salary", icon: Banknote },
-    { to: "/compliance", label: "Compliance", icon: Shield },
-    { to: "/passengers", label: "Passengers", icon: UserRound },
-  ],
-  [
-    { to: "/reports", label: "Reports", icon: BarChart3 },
-    { to: "/incidents", label: "Incidents", icon: AlertTriangle },
-  ],
-  [
-    { to: "/team", label: "Team & apps", icon: Shield },
-    { to: "/events", label: "Events", icon: Sparkles },
-  ],
-  [
-    { to: "/messages", label: "Messages", icon: MessageSquare },
-    { to: "/communications", label: "Communications", icon: MessageSquare },
-    { to: "/news-feed", label: "News Feed", icon: Megaphone },
-    { to: "/news", label: "News", icon: Newspaper },
-  ],
-  [
-    { to: "/games", label: "Games", icon: Gamepad2 },
-    { to: "/rewards-settings", label: "Rewards", icon: Trophy },
-  ],
-] as const;
 
-const ADMIN_NAV = ADMIN_NAV_GROUPS.flat();
 
 
 function AuthenticatedLayout() {
