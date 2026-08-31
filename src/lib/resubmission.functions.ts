@@ -407,8 +407,10 @@ export const getResubmission = createServerFn({ method: "POST" })
       original_snapshot: original ? normalizeSnapshot(original) : null,
       draft_snapshot: draft ? normalizeSnapshot(draft) : null,
       drivers: (drivers ?? []) as any[],
+      rates: (rates ?? []) as any[],
     };
   });
+
 
 /**
  * Persist a corrected snapshot and synchronize claim_service_lines.
