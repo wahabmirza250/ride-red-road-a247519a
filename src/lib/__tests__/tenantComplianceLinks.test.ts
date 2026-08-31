@@ -46,6 +46,15 @@ describe("tenant-aware compliance navigation", () => {
     expect(ADMIN_NAV.find((i) => i.label === "Team & apps")?.to).toBe("/team");
   });
 
+  it("uses visually distinct icons for Compliance and Team & apps", () => {
+    const compliance = ADMIN_NAV.find((i) => i.label === "Compliance");
+    const team = ADMIN_NAV.find((i) => i.label === "Team & apps");
+    expect(compliance?.icon).toBe(ClipboardCheck);
+    expect(team?.icon).toBe(LayoutGrid);
+    expect(compliance?.icon).not.toBe(team?.icon);
+    expect(compliance?.icon).not.toBe(Shield);
+  });
+
   it("blocks navigation instead of falling back when the slug is unknown", () => {
     expect(isTenantLinkBlocked(null, "/compliance")).toBe(true);
     expect(withSlug(null, "/compliance")).toBe("/compliance");
