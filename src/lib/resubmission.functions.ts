@@ -710,6 +710,7 @@ export const saveAndQueueResubmission = createServerFn({ method: "POST" })
     let changes: ReturnType<typeof diffSnapshots> = [];
     const result = await runSaveAndQueue(
       {
+
         load: async () => ({ status: sub.status, draft_version: sub.draft_version ?? 1 }),
         validate: (s) => validateDraft(s),
         persist: async (s) => {
