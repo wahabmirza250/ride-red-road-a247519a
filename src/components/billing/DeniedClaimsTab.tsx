@@ -10,13 +10,14 @@ import { listDeniedClaims, prepareResubmission } from "@/lib/resubmission.functi
 import { ResubmissionEditor } from "@/components/billing/ResubmissionEditor";
 
 /** Denied claims and their linked resubmission drafts. */
-export function DeniedClaimsTab() {
+export function DeniedClaimsTab({ onOpenReady }: { onOpenReady?: () => void } = {}) {
   const qc = useQueryClient();
   const listFn = useServerFn(listDeniedClaims);
   const prepareFn = useServerFn(prepareResubmission);
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState<string | null>(null);
   const pageSize = 50;
+
 
   const q = useQuery({
     queryKey: ["denied_claims", page],
@@ -94,25 +95,51 @@ export function DeniedClaimsTab() {
                         {r.claim_status === "denied" ? "Denied" : "Rejected"}
                       </span>
                       {r.resubmission_status ? (
-                        <Badge variant="secondary" className="ml-1.5">
-                          {r.resubmission_status}
+                        <Badge
+                          variant={r.resubmission_status === "queued" ? "default" : "secondary"}
+                          className="ml-1.5"
+                        >
+                          {r.resubmission_status === "queued"
+                            ? "Resubmission ready"
+                            : r.resubmission_status}
                         </Badge>
                       ) : null}
                     </td>
                     <td className="p-3 text-right">
-                      <Button
-                        size="sm"
-                        variant={r.resubmission_id ? "outline" : "default"}
-                        className="rounded-full"
-                        disabled={prepare.isPending}
-                        onClick={() =>
-                          r.resubmission_id ? setOpenId(r.resubmission_id) : prepare.mutate(r.trip_id)
-                        }
-                      >
-                        <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                        {r.resubmission_id ? "View / Edit draft" : "Review & edit"}
-                      </Button>
+                      {/* A queued resubmission is finished work waiting in Ready
+                          to Submit — never presented as an unsaved draft. */}
+                      {r.resubmission_status === "queued" ? (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-full"
+                            onClick={() => setOpenId(r.resubmission_id)}
+                          >
+                            View corrected claim
+                          </Button>
+                          <Button size="sm" className="rounded-full" onClick={() => onOpenReady?.()}>
+                            Open Ready to Submit
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant={r.resubmission_id ? "outline" : "default"}
+                          className="rounded-full"
+                          disabled={prepare.isPending}
+                          onClick={() =>
+                            r.resubmission_id
+                              ? setOpenId(r.resubmission_id)
+                              : prepare.mutate(r.trip_id)
+                          }
+                        >
+                          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                          {r.resubmission_id ? "View / Edit draft" : "Review & edit"}
+                        </Button>
+                      )}
                     </td>
+
                   </tr>
                 ))}
               </tbody>

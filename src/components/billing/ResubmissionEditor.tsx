@@ -223,9 +223,12 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
     onSuccess: (res) => {
       if (res.kind === "queued") {
         setSavedSnap(JSON.stringify(snap));
-        toast.success("Corrected claim saved and queued for HCPF");
+        toast.success("Corrected claim is now in Ready to Submit.");
         void qc.invalidateQueries({ queryKey: ["resubmission", id] });
         void qc.invalidateQueries({ queryKey: ["denied_claims"] });
+        void qc.invalidateQueries({ queryKey: ["ready_resubmissions"] });
+        void qc.invalidateQueries({ queryKey: ["billing_counts"] });
+
         onClose();
         return;
       }
@@ -941,15 +944,17 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
                   disabled={!isDraft || tab !== "review" || !validation.ok || queue.isPending}
                   onClick={() => setConfirmQueue(true)}
                   title={
-                    tab !== "review" ? "Open Review changes first" : "Queue this corrected claim"
+                    tab !== "review"
+                      ? "Open Review changes first"
+                      : "Move this corrected claim to Ready to Submit"
                   }
                 >
                   {queue.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                   {queue.isPending
-                    ? "Saving & queueing…"
+                    ? "Saving & moving to Ready…"
                     : dirty
-                      ? "Save & queue corrected claim"
-                      : "Queue corrected claim for HCPF"}
+                      ? "Save & move to Ready to Submit"
+                      : "Move corrected claim to Ready to Submit"}
                 </Button>
 
               </div>
@@ -960,11 +965,12 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
         <AlertDialog open={confirmQueue} onOpenChange={setConfirmQueue}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Queue this corrected claim for HCPF?</AlertDialogTitle>
+              <AlertDialogTitle>Move this corrected claim to Ready to Submit?</AlertDialogTitle>
               <AlertDialogDescription>
-                A brand-new claim attempt is created with its own idempotency key. The original
-                claim ID is never reused and the original denied claim stays untouched. Nothing is
-                sent until the queue picks it up.
+                The corrected claim moves to the Ready to Submit tab, where you can inspect it and
+                start Auto Pilot yourself. Nothing is sent to HCPF now. A brand-new claim attempt
+                with its own idempotency key is created only when you start Auto Pilot — the
+                original claim ID is never reused and the original denied claim stays untouched.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -976,8 +982,9 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
                   if (!queue.isPending) queue.mutate();
                 }}
               >
-                {queue.isPending ? "Saving & queueing…" : "Yes, queue it"}
+                {queue.isPending ? "Saving & moving to Ready…" : "Yes, move to Ready to Submit"}
               </AlertDialogAction>
+
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

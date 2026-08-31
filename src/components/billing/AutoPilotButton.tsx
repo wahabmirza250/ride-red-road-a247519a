@@ -19,11 +19,19 @@ import { autoPilotLabel } from "@/lib/autoPilot";
  * Stopping only stops feeding NEW bills — anything already at the portal keeps
  * going and is never cancelled.
  */
-export function AutoPilotButton({ selectedIds }: { selectedIds?: string[] }) {
+export function AutoPilotButton({
+  selectedIds,
+  resubmissionIds,
+}: {
+  selectedIds?: string[];
+  /** Explicitly selected CORRECTED resubmissions from Ready to Submit. */
+  resubmissionIds?: string[];
+}) {
   const qc = useQueryClient();
   const statusFn = useServerFn(getAutoPilotStatus);
   const startFn = useServerFn(startAutoPilotRun);
   const stopFn = useServerFn(stopAutoPilotRun);
+
 
   const { data } = useQuery({
     queryKey: ["auto_pilot_status"],
@@ -38,24 +46,40 @@ export function AutoPilotButton({ selectedIds }: { selectedIds?: string[] }) {
   const enqueued = Number(s.enqueued ?? 0);
   const label = autoPilotLabel({ running, remaining, inFlight, enqueued });
 
+  const correctedCount = resubmissionIds?.length ?? 0;
+  /** What Auto Pilot would send right now: ready bills + picked corrections. */
+  const totalRemaining = remaining + correctedCount;
+
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["auto_pilot_status"] });
     void qc.invalidateQueries({ queryKey: ["billing_list"] });
     void qc.invalidateQueries({ queryKey: ["billing_counts"] });
+    void qc.invalidateQueries({ queryKey: ["ready_resubmissions"] });
+    void qc.invalidateQueries({ queryKey: ["denied_claims"] });
   };
 
   const start = useMutation({
     mutationFn: () =>
-      startFn({ data: selectedIds?.length ? { ids: selectedIds } : {} }) as any,
+      startFn({
+        data: {
+          ...(selectedIds?.length ? { ids: selectedIds } : {}),
+          ...(correctedCount ? { resubmission_ids: resubmissionIds } : {}),
+        },
+      }) as any,
     onSuccess: (r: any) => {
+      const corrected = Number(r?.corrected_queued ?? 0);
       toast.success(
-        `Auto Pilot started — ${r?.requested ?? 0} bill(s) queued up, ${r?.fed ?? 0} sending now. ` +
-          "The rest continue automatically.",
+        `Auto Pilot started — ${r?.requested ?? 0} bill(s) queued up, ${r?.fed ?? 0} sending now.` +
+          (corrected ? ` Includes ${corrected} corrected resubmission(s).` : "") +
+          " The rest continue automatically.",
       );
+      for (const s of (r?.corrected_skipped ?? []) as any[])
+        toast.warning(`Corrected claim not sent: ${s.reason}`);
       refresh();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not start Auto Pilot"),
   });
+
 
   const stop = useMutation({
     mutationFn: () => stopFn() as any,
@@ -90,12 +114,16 @@ export function AutoPilotButton({ selectedIds }: { selectedIds?: string[] }) {
         <Button
           size="sm"
           className={cn("rounded-full")}
-          disabled={busy || remaining === 0}
+          disabled={busy || totalRemaining === 0}
           onClick={() => start.mutate()}
           title={
-            selectedIds?.length
-              ? `Send the ${selectedIds.length} selected bill(s) automatically`
-              : "Send every ready bill automatically"
+            correctedCount
+              ? `Send ${correctedCount} corrected resubmission(s)${
+                  selectedIds?.length ? ` and ${selectedIds.length} selected bill(s)` : ""
+                } automatically`
+              : selectedIds?.length
+                ? `Send the ${selectedIds.length} selected bill(s) automatically`
+                : "Send every ready bill automatically"
           }
         >
           {busy ? (
@@ -103,8 +131,9 @@ export function AutoPilotButton({ selectedIds }: { selectedIds?: string[] }) {
           ) : (
             <Rocket className="mr-1 h-3.5 w-3.5" />
           )}
-          Auto Pilot{remaining > 0 ? ` (${remaining})` : ""}
+          Auto Pilot{totalRemaining > 0 ? ` (${totalRemaining})` : ""}
         </Button>
+
       )}
     </div>
   );
