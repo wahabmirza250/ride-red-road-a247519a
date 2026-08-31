@@ -181,7 +181,7 @@ function fixture(over: { correctedStatus?: string; failureReason?: string | null
 }
 
 function mockJobStatus(status: number, body: any) {
-  const fetchMock = vi.fn(async () => ({
+  const fetchMock = vi.fn(async (_url: any, _init?: any) => ({
     ok: status >= 200 && status < 300,
     status,
     text: async () => (typeof body === "string" ? body : JSON.stringify(body)),
