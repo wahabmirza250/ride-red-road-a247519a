@@ -6,10 +6,11 @@ const read = (p: string) => readFileSync(p, "utf8");
 describe("dispatch consolidation (games preserved)", () => {
   it("admin navigation has one Dispatch destination, no Planner, and visible Games access", () => {
     const nav = read("src/routes/$companySlug/_authenticated/route.tsx");
-    expect(nav).not.toMatch(/"\/planner"/);
-    expect(nav).toMatch(/\{ to: "\/games", label: "Games", icon: Gamepad2 \}/);
+    const navConfig = read("src/lib/adminNav.ts");
+    expect(navConfig).not.toMatch(/"\/planner"/);
+    expect(navConfig).toMatch(/\{ to: "\/games", label: "Games", icon: Gamepad2 \}/);
     expect(nav).toMatch(/<AppLink[\s\S]*?to="\/games"[\s\S]*?aria-label="Games"/);
-    expect(nav).toMatch(/\{ to: "\/live-ops", label: "Dispatch"/);
+    expect(navConfig).toMatch(/\{ to: "\/live-ops", label: "Dispatch"/);
   });
 
   it("legacy planner URL redirects into the dispatch workspace plan tab", () => {
