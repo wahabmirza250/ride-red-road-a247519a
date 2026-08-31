@@ -30,12 +30,15 @@ export function ResubmissionAttachment({
   originalPath,
   disabled,
   onChange,
+  onViewInline,
 }: {
   resubmissionId: string;
   path: string | null;
   originalPath: string | null;
   disabled?: boolean;
   onChange: (path: string | null) => void;
+  /** Scrolls/focuses the inline preview at the end of the editor. */
+  onViewInline?: () => void;
 }) {
   const signFn = useServerFn(getResubmissionAttachmentUrl);
   const setFn = useServerFn(setResubmissionAttachment);
@@ -44,6 +47,7 @@ export function ResubmissionAttachment({
 
   const isOriginal = !!path && path === originalPath;
   const fileName = path ? path.split("/").pop() : null;
+
 
   async function open(download: boolean) {
     if (!path) return;
