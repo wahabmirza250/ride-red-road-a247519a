@@ -38,7 +38,7 @@ async function recordEvent(
     notes?: string | null;
   },
 ) {
-  await supabase.from("claim_resubmission_events").insert({
+  const { error } = await supabase.from("claim_resubmission_events").insert({
     resubmission_id: args.resubmissionId,
     company_id: args.companyId,
     actor_id: args.actorId,
@@ -46,6 +46,10 @@ async function recordEvent(
     changes: args.changes ?? [],
     notes: args.notes ?? null,
   });
+  if (error)
+    throw new Error(
+      `The ${args.action.replace(/_/g, " ")} could not be recorded in the audit trail, so it was not completed: ${error.message}`,
+    );
 }
 
 /** Load the draft and prove the caller's company owns it. */
@@ -362,11 +366,9 @@ export const getResubmission = createServerFn({ method: "POST" })
     const draft = sub.draft_snapshot ?? original;
 
     // Drivers list for the editor's driver picker (company-scoped by RLS).
-    const { data: drivers } = await supabase
-      .from("drivers")
-      .select("id, full_name")
-      .order("full_name")
-      .limit(500);
+    // public.drivers has NO full_name column — the display name lives on the
+    // linked profile, so read id + user_id and derive the label here.
+    const drivers = await listCompanyDrivers(supabase, sub.company_id);
 
     return {
       resubmission: sub,
