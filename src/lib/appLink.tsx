@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { getCompanySlug } from "@/lib/companyContext";
 
