@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { MODIFIER_OPTIONS } from "@/lib/claimModifiers";
+import { ResubmissionAttachment } from "@/components/billing/ResubmissionAttachment";
 import {
   diffSnapshots,
   effectiveMiles,
@@ -110,6 +111,7 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
   }, [q.data]);
 
   const original = q.data?.original_snapshot ? normalizeSnapshot(q.data.original_snapshot) : null;
+  const driverOptions = (q.data?.drivers ?? []) as { id: string; name: string }[];
   const isDraft = q.data?.resubmission?.status === "draft";
   const validation = useMemo(() => (snap ? validateDraft(snap) : { ok: false, issues: [] }), [snap]);
   const changes = useMemo(
@@ -257,11 +259,27 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
                       />
                     </Field>
                     <Field label="Driver">
-                      <Input
-                        value={snap.driver_name ?? ""}
+                      <select
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        value={snap.driver_id ?? ""}
                         disabled={!isDraft}
-                        onChange={(e) => patch({ driver_name: e.target.value || null })}
-                      />
+                        onChange={(e) => {
+                          const picked = driverOptions.find((d) => d.id === e.target.value);
+                          patch({
+                            driver_id: picked?.id ?? null,
+                            driver_name: picked?.name ?? snap.driver_name ?? null,
+                          });
+                        }}
+                      >
+                        <option value="">
+                          {snap.driver_name ? `${snap.driver_name} (current)` : "Select a driver…"}
+                        </option>
+                        {driverOptions.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
                     </Field>
                     <Field label="Vehicle type">
                       <select
@@ -346,12 +364,13 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
                     />
                   </div>
 
-                  <Field label="Supporting trip report (PDF path on file)">
-                    <Input
-                      value={snap.state_pdf_path ?? ""}
+                  <Field label="Supporting trip report">
+                    <ResubmissionAttachment
+                      resubmissionId={id!}
+                      path={snap.state_pdf_path}
+                      originalPath={original?.state_pdf_path ?? null}
                       disabled={!isDraft}
-                      placeholder="state-pdfs/…"
-                      onChange={(e) => patch({ state_pdf_path: e.target.value || null })}
+                      onChange={(p) => patch({ state_pdf_path: p })}
                     />
                   </Field>
 
