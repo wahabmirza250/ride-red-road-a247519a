@@ -522,7 +522,7 @@ export async function finalizeSingleMatch(
     args.actorId ?? null,
     "hcpf_auto_finalized",
     `Exactly one unused HCPF claim (#${args.claim.claim_id}) matched this member and service date and the portal shows it as ${args.status}. The claim was attached and the bill moved to ${args.status}. Read-only: nothing was submitted, resubmitted or changed at the portal.`,
-    args.actorId ? "user" : "system",
+    args.actorId ? "admin" : "system",
   );
 }
 
