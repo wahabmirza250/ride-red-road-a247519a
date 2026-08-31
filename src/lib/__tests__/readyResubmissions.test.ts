@@ -145,7 +145,11 @@ describe("corrected resubmissions in Ready to Submit", () => {
 });
 
 describe("corrected submit safety", () => {
-  const records = new Map([["trip-1", "rec-1"]]);
+  // Keyed by RESUBMISSION id: each corrected claim has its own record.
+  const records = new Map([
+    ["s1", "rec-1"],
+    ["s2", "rec-2"],
+  ]);
 
   it("sends nothing without an explicit confirmation", () => {
     expect(correctedSubmitAllowed(undefined).ok).toBe(false);
