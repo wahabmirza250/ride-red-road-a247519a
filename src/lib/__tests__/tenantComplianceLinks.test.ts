@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ClipboardCheck, LayoutGrid, Shield } from "lucide-react";
 import { APP_PREFIXES, isAppPath, isTenantLinkBlocked, withSlug } from "@/lib/appLink";
 import {
   ADMIN_NAV,
@@ -7,9 +8,10 @@ import {
 } from "@/lib/adminNav";
 
 /**
- * Regression: the Compliance shield in the admin rail must open the INTERNAL
- * company compliance dashboard under the active tenant slug — never the public
- * passenger compliance surface, and never a bare slug-less URL.
+ * Regression: the Compliance icon in the admin rail must be visually distinct
+ * from Team & apps, and it must open the INTERNAL company compliance dashboard
+ * under the active tenant slug — never the public passenger compliance surface,
+ * and never a bare slug-less URL.
  */
 describe("tenant-aware compliance navigation", () => {
   it("treats compliance (and siblings) as app paths", () => {
