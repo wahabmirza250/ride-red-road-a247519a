@@ -119,6 +119,14 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
     [snap, original],
   );
 
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const [previewVersion, setPreviewVersion] = useState(0);
+  const focusPreview = () => {
+    previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    previewRef.current?.focus({ preventScroll: true });
+  };
+
+
   const patch = (p: Partial<DraftSnapshot>) => setSnap((s) => (s ? { ...s, ...p } : s));
   const patchLeg = (i: number, p: Partial<DraftLeg>) =>
     setSnap((s) =>
