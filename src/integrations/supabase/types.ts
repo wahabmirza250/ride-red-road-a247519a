@@ -643,15 +643,66 @@ export type Database = {
         }
         Relationships: []
       }
+      claim_resubmission_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          changes: Json
+          company_id: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          resubmission_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          changes?: Json
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          resubmission_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          changes?: Json
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          resubmission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_resubmission_events_resubmission_id_fkey"
+            columns: ["resubmission_id"]
+            isOneToOne: false
+            referencedRelation: "claim_resubmissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claim_resubmissions: {
         Row: {
           company_id: string | null
+          correction_reason: string | null
           created_at: string
           created_by: string | null
+          discarded_at: string | null
+          discarded_by: string | null
+          draft_snapshot: Json | null
+          draft_version: number
           id: string
+          idempotency_key: string | null
+          last_saved_at: string | null
+          last_saved_by: string | null
+          mileage_override_reason: string | null
           notes: string | null
           original_claim_number: string | null
           original_denial_reason: string | null
+          original_snapshot: Json | null
           original_status: string | null
           original_trip_id: string
           resubmission_claim_number: string | null
@@ -662,12 +713,22 @@ export type Database = {
         }
         Insert: {
           company_id?: string | null
+          correction_reason?: string | null
           created_at?: string
           created_by?: string | null
+          discarded_at?: string | null
+          discarded_by?: string | null
+          draft_snapshot?: Json | null
+          draft_version?: number
           id?: string
+          idempotency_key?: string | null
+          last_saved_at?: string | null
+          last_saved_by?: string | null
+          mileage_override_reason?: string | null
           notes?: string | null
           original_claim_number?: string | null
           original_denial_reason?: string | null
+          original_snapshot?: Json | null
           original_status?: string | null
           original_trip_id: string
           resubmission_claim_number?: string | null
@@ -678,12 +739,22 @@ export type Database = {
         }
         Update: {
           company_id?: string | null
+          correction_reason?: string | null
           created_at?: string
           created_by?: string | null
+          discarded_at?: string | null
+          discarded_by?: string | null
+          draft_snapshot?: Json | null
+          draft_version?: number
           id?: string
+          idempotency_key?: string | null
+          last_saved_at?: string | null
+          last_saved_by?: string | null
+          mileage_override_reason?: string | null
           notes?: string | null
           original_claim_number?: string | null
           original_denial_reason?: string | null
+          original_snapshot?: Json | null
           original_status?: string | null
           original_trip_id?: string
           resubmission_claim_number?: string | null
@@ -714,10 +785,12 @@ export type Database = {
           amount: number | null
           company_id: string | null
           created_at: string
+          diagnosis_code: string | null
           id: string
           line_index: number
           miles: number | null
           modifiers: string[]
+          place_of_service: string | null
           procedure_code: string | null
           resubmission_id: string
           service_date: string | null
@@ -729,10 +802,12 @@ export type Database = {
           amount?: number | null
           company_id?: string | null
           created_at?: string
+          diagnosis_code?: string | null
           id?: string
           line_index?: number
           miles?: number | null
           modifiers?: string[]
+          place_of_service?: string | null
           procedure_code?: string | null
           resubmission_id: string
           service_date?: string | null
@@ -744,10 +819,12 @@ export type Database = {
           amount?: number | null
           company_id?: string | null
           created_at?: string
+          diagnosis_code?: string | null
           id?: string
           line_index?: number
           miles?: number | null
           modifiers?: string[]
+          place_of_service?: string | null
           procedure_code?: string | null
           resubmission_id?: string
           service_date?: string | null
