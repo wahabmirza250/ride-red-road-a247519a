@@ -692,12 +692,16 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
           />
         </div>
       ) : (
-        <SubmittedTab
-          rows={rows.data ?? []}
-          onOpen={setSelectedId}
-          onPreviewPdf={setPdfPreview}
-        />
+        <div className="space-y-4">
+          <CorrectedStateList rows={correctedOther.data?.rows ?? []} stage="submitted" />
+          <SubmittedTab
+            rows={rows.data ?? []}
+            onOpen={setSelectedId}
+            onPreviewPdf={setPdfPreview}
+          />
+        </div>
       )}
+
 
       {(rows.data?.length ?? 0) >= pageSize && (
         <div className="flex justify-center py-4">
