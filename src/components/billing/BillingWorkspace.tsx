@@ -69,7 +69,11 @@ import { ReconcileSweepCard } from "@/components/billing/ReconcileSweepCard";
 import { AutoPilotButton } from "@/components/billing/AutoPilotButton";
 import { CorrectedReadyList } from "@/components/billing/CorrectedReadyList";
 import { ResubmissionEditor } from "@/components/billing/ResubmissionEditor";
-import { listReadyResubmissions } from "@/lib/readyResubmissions.functions";
+import {
+  listReadyResubmissions,
+  listResubmissionsByStage,
+} from "@/lib/readyResubmissions.functions";
+import { CorrectedStateList } from "@/components/billing/CorrectedStateList";
 import {
   matchesSearch,
   sortCorrected,
@@ -198,7 +202,7 @@ const TABS: {
     key: "awaiting_portal",
     label: "Processing",
     statuses: ["submitting", "queued", "pending_submit"],
-    countKeys: ["submitting", "queued", "pending_submit"],
+    countKeys: ["submitting", "queued", "pending_submit", "awaiting_portal_extra"],
   },
 
 
@@ -389,6 +393,28 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     setCorrectedSelected((prev) => new Set([...prev].filter((id) => live.has(id))));
   }, [corrected.data]);
 
+
+  // Corrected copies that already LEFT Ready: claimed (processing), failed
+  // (never sent) or submitted with a NEW claim number.
+  const stageFn = useServerFn(listResubmissionsByStage);
+  const correctedStage: "processing" | "failed" | "submitted" | null =
+    tab === "awaiting_portal"
+      ? "processing"
+      : tab === "needs_attention"
+        ? "failed"
+        : tab === "submitted"
+          ? "submitted"
+          : null;
+  const correctedOther = useQuery({
+    queryKey: ["corrected_stage", correctedStage],
+    queryFn: () =>
+      stageFn({ data: { stage: correctedStage! } }) as Promise<{
+        rows: CorrectedReadyCandidate[];
+      }>,
+    enabled: canBill && Boolean(correctedStage),
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
+  });
 
   const settings = useQuery({
     queryKey: ["billing_settings"],
@@ -631,14 +657,21 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         </div>
 
       ) : tab === "needs_attention" ? (
-        <ReadyToSubmitTab
-          variant="attention"
-          rows={rows.data ?? []}
-          onOpen={setSelectedId}
-          onPreviewPdf={setPdfPreview}
-          showArchived={showArchived}
-          onToggleArchived={() => setShowArchived((v) => !v)}
-        />
+        <div className="space-y-4">
+          <CorrectedStateList
+            rows={correctedOther.data?.rows ?? []}
+            stage="failed"
+            onOpen={setOpenResubmissionId}
+          />
+          <ReadyToSubmitTab
+            variant="attention"
+            rows={rows.data ?? []}
+            onOpen={setSelectedId}
+            onPreviewPdf={setPdfPreview}
+            showArchived={showArchived}
+            onToggleArchived={() => setShowArchived((v) => !v)}
+          />
+        </div>
 
       ) : tab === "verification_hold" ? (
         <ReadyToSubmitTab
@@ -650,11 +683,14 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
           onToggleArchived={() => setShowArchived((v) => !v)}
         />
       ) : tab === "awaiting_portal" ? (
-        <AwaitingPortalTab
-          rows={rows.data ?? []}
-          onOpen={setSelectedId}
-          onPreviewPdf={setPdfPreview}
-        />
+        <div className="space-y-4">
+          <CorrectedStateList rows={correctedOther.data?.rows ?? []} stage="processing" />
+          <AwaitingPortalTab
+            rows={rows.data ?? []}
+            onOpen={setSelectedId}
+            onPreviewPdf={setPdfPreview}
+          />
+        </div>
       ) : (
         <SubmittedTab
           rows={rows.data ?? []}
