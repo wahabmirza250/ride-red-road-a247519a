@@ -24,7 +24,7 @@ import { withSlug } from "@/lib/appLink";
 /**
  * Admin dashboard rail configuration.
  *
- * The Compliance shield is the INTERNAL company compliance dashboard
+ * The Compliance icon is the INTERNAL company compliance dashboard
  * (`/{companySlug}/compliance`). It must never point at the public passenger
  * compliance/booking surface, and it must never drop the tenant slug — see
  * `complianceShieldTarget` below, which is what the rail (and the tests) use.
