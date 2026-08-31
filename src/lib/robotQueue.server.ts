@@ -122,7 +122,7 @@ export async function listActiveRobotJobs(
   let q = supabase
     .from("billing_records")
     .select(
-      `id, medicaid_trips!inner(robot_job_started_at, robot_job_id, robot_last_status, rider_id, riders(medicaid_id))`,
+      `id, resubmission_id, medicaid_trips!inner(robot_job_started_at, robot_job_id, robot_last_status, rider_id, riders(medicaid_id))`,
     )
     .eq("status", "submitting");
   if (opts.companyId) q = q.eq("company_id", opts.companyId);
@@ -141,7 +141,11 @@ export async function listActiveRobotJobs(
     if (!trip?.robot_job_id) continue;
     const st = trip.robot_last_status ?? null;
     // Awaiting human/read-only verification — no live portal session.
-    if (isQuarantinedRobotStatus(st) || isActiveVerifyRobotStatus(st)) continue;
+    // A CORRECTED claim shares the trip with the original denied claim, so the
+    // trip's robot status may be the ORIGINAL's leftover. Its own record status
+    // (`submitting`) is the truth, so it keeps holding a real slot.
+    if (!r.resubmission_id && (isQuarantinedRobotStatus(st) || isActiveVerifyRobotStatus(st)))
+      continue;
     const started = trip.robot_job_started_at ? new Date(trip.robot_job_started_at).getTime() : 0;
     if (started && now - started > ROBOT_JOB_STALE_MS) continue; // dead job, not blocking
     out.push({
@@ -347,7 +351,9 @@ export async function reconcileInFlight(
 
   let q = supabase
     .from("billing_records")
-    .select(`id, trip_id, medicaid_trips!inner(id, robot_job_id, robot_last_status, robot_last_message)`)
+    .select(
+      `id, trip_id, resubmission_id, medicaid_trips!inner(id, robot_job_id, robot_last_status, robot_last_message)`,
+    )
     .eq("status", "submitting")
     .order("updated_at", { ascending: true });
   if (companyId) q = q.eq("company_id", companyId);
@@ -360,10 +366,14 @@ export async function reconcileInFlight(
   const outcomes = await Promise.all(
     targets.map(async (r: any) => {
       const robotStatus = String(r.medicaid_trips?.robot_last_status ?? "");
+      // CORRECTED CLAIM: the trip's robot status belongs to the ORIGINAL denied
+      // claim, so neither the quarantine branch nor the unverified-claim search
+      // may fire here. Its own job is polled through the corrected path.
+      const corrected = Boolean(r.resubmission_id);
       // Already handed to a human — stop the automatic lookups AND take the
       // bill out of the active `submitting` state so it can never sit there
       // silently holding a queue slot. Evidence/audit history are preserved.
-      if (robotStatus === "NEEDS_HUMAN_LOOKUP") {
+      if (!corrected && robotStatus === "NEEDS_HUMAN_LOOKUP") {
         try {
           const { quarantineForHumanVerification } = await import("@/lib/robotJobLost.server");
           const { QUARANTINE_MESSAGE } = await import("@/lib/robotJobLost");
@@ -384,7 +394,7 @@ export async function reconcileInFlight(
         // Confirm was clicked but the page timed out: treat as still in flight
         // and keep running read-only portal searches until the claim turns up.
         const res =
-          robotStatus === "SUBMITTED_UNVERIFIED"
+          !corrected && robotStatus === "SUBMITTED_UNVERIFIED"
             ? await resolveUnverifiedClaim(supabase, r.id, actorId)
             : await reconcileRobotJob(supabase, r.id, actorId);
         return !res.pending;

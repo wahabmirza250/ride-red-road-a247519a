@@ -144,8 +144,15 @@ export function isAmbiguousSubmitError(msg: string | null | undefined): boolean 
  * DB-side proof that a bill may already have reached the portal. Checked before
  * ANY retry: if there is any evidence at all, the bill is routed to awaiting
  * verification instead of being resubmitted.
+ *
+ * CORRECTED CLAIMS. A corrected record shares its `medicaid_trips` row with the
+ * ORIGINAL denied claim, which always carries a claim number, a `submitted`
+ * status and portal history. That is evidence about the ORIGINAL claim, never
+ * about the correction, so for a record with `resubmission_id` only the
+ * corrected record's OWN confirmation number counts.
  */
 export function hasPortalClaimEvidence(rec: any): boolean {
+  if (rec?.resubmission_id) return Boolean(rec?.state_confirmation_number);
   const trip = rec?.medicaid_trips ?? rec ?? {};
   if (trip.robot_confirmation_number || trip.submitted_confirmation) return true;
   if (rec?.state_confirmation_number) return true;
@@ -204,7 +211,7 @@ export type QueueTickResult = {
 };
 
 const TRIP_SELECT = `id, status, trip_id, company_id, submit_attempt_count,
-   submit_last_error, state_confirmation_number,
+   submit_last_error, state_confirmation_number, resubmission_id,
    medicaid_trips!inner(
      id, company_id, pickup_at, odometer_start, odometer_end, signature_path,
      state_pdf_path, identity_verified, robot_job_id, robot_job_started_at,
@@ -334,7 +341,7 @@ export async function recoverStuckInFlightSubmissions(
   let q = supabase
     .from("billing_records")
     .select(
-      `id, trip_id, requires_human_step, submission_error, updated_at,
+      `id, trip_id, company_id, resubmission_id, requires_human_step, submission_error, updated_at,
        medicaid_trips!inner(id, robot_job_id, robot_job_started_at, robot_last_status, robot_last_message)`,
     )
     .eq("status", "submitting");
@@ -348,6 +355,31 @@ export async function recoverStuckInFlightSubmissions(
     const trip: any = r.medicaid_trips ?? {};
     const robotStatus = String(trip.robot_last_status ?? "");
     const started = trip.robot_job_started_at ?? r.updated_at ?? null;
+
+    // CORRECTED CLAIM. The shared trip's robot status and claim number belong to
+    // the ORIGINAL denied claim, so they must never be read as this correction's
+    // outcome — that is exactly how the 2026-08-31 batch got quarantined with
+    // "Claim already exists at the portal". A corrected job stays in flight until
+    // the corrected reconciler settles it, or until the absolute ceiling turns it
+    // into a verification hold on the CORRECTED rows alone. It is never retried.
+    if (r.resubmission_id) {
+      if (!trip.robot_job_id) continue; // handled by recoverOrphanedSubmissions
+      if (!exceededInFlightCeiling(started, now)) continue;
+      try {
+        const { holdCorrectedForCeiling } = await import("@/lib/correctedReconcile.server");
+        await holdCorrectedForCeiling(supabase, {
+          recordId: r.id,
+          resubmissionId: r.resubmission_id,
+          companyId: r.company_id ?? null,
+          actorId: null,
+        });
+        n++;
+      } catch {
+        /* a single corrected claim must never stop the sweep */
+      }
+      continue;
+    }
+
 
     // TERMINAL HUMAN STATE: automation is done with this bill. It must not stay
     // counted as active `submitting` — quarantine it now, keeping all evidence.
@@ -840,6 +872,23 @@ export async function runSubmissionQueueTick(
     ms: 0,
   };
 
+  // CORRECTED CLAIMS RECONCILE EVEN WHILE THE QUEUE IS PAUSED.
+  // Driven from the corrected DRAFT rather than the bill's status, so a
+  // corrected claim an older build pushed into Needs Fix while its robot job was
+  // still live is polled and settled too. Corrections already handed to the
+  // robot must be resolved whatever the queue switch says — a pause stops
+  // SENDING, it must never leave a dispatched correction unreconciled. This only
+  // polls the EXISTING job; it can never dispatch, resend or create one.
+  try {
+    const { recoverCorrectedInFlight } = await import("@/lib/correctedReconcile.server");
+    await recoverCorrectedInFlight(supabase, {
+      companyId: opts.companyId ?? null,
+      actorId: opts.actorId ?? null,
+    });
+  } catch {
+    /* a corrected-claim hiccup must never break a tick */
+  }
+
   const { paused, reason } = await isSubmissionQueuePaused(supabase);
   if (paused) {
     const out = { ...base, reason: reason ?? "Submission queue is paused", ms: Date.now() - t0 };
@@ -872,6 +921,7 @@ export async function runSubmissionQueueTick(
     opts.actorId ?? null,
     opts.companyId ?? null,
   );
+
 
   // SAFETY NET: release anything an older build parked behind a wave gate, so
   // queued work can never sit invisible.

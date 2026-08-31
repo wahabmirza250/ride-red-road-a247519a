@@ -1,4 +1,5 @@
 import { CLAIMS_NAV_SPEC } from "@/lib/portalNavigation";
+import { robotPassFor } from "@/lib/correctedJob";
 /**
  * SERVER-SIDE HELPERS for the billing workflow.
  *
@@ -779,14 +780,32 @@ export async function startRobotSubmission(
   // trip, the saved snapshot (dates, member id, odometers, service lines,
   // modifiers) replaces the corresponding payload fields — the original trip
   // rows themselves are never edited.
-  const { data: queuedDraft } = await supabase
-    .from("claim_resubmissions")
-    .select("id, draft_snapshot")
-    .eq("original_trip_id", trip.id)
-    // `processing` = already claimed for THIS run; the overlay must still apply
-    // so the robot is fed the corrected snapshot and never the denied original.
-    .in("status", ["queued", "processing"])
+  //
+  // THE LINK IS THE BILLING RECORD, NOT THE TRIP. A corrected claim has its own
+  // billing record carrying `resubmission_id`; the shared trip may still hold
+  // the original denied claim's history. Resolving by record id means the
+  // corrected run can never be confused with the original one — and it is what
+  // marks the whole run as `robot_pass = "resubmit"` below.
+  const { data: recLink } = await supabase
+    .from("billing_records")
+    .select("resubmission_id")
+    .eq("id", billingRecordId)
     .maybeSingle();
+  const correctedResubmissionId: string | null = (recLink?.resubmission_id as string) ?? null;
+
+  const draftQuery = correctedResubmissionId
+    ? supabase
+        .from("claim_resubmissions")
+        .select("id, draft_snapshot")
+        .eq("id", correctedResubmissionId)
+    : supabase
+        .from("claim_resubmissions")
+        .select("id, draft_snapshot")
+        .eq("original_trip_id", trip.id)
+        // `processing` = already claimed for THIS run; the overlay must still
+        // apply so the robot is fed the corrected snapshot, never the original.
+        .in("status", ["queued", "processing"]);
+  const { data: queuedDraft } = await draftQuery.maybeSingle();
   if (queuedDraft?.draft_snapshot) {
     const { applyResubmissionOverrides } = await import("@/lib/resubmissionDraft");
     Object.assign(
@@ -796,6 +815,10 @@ export async function startRobotSubmission(
       }),
     );
     (payload as Record<string, any>).resubmission_id = queuedDraft.id;
+  }
+  if (correctedResubmissionId) {
+    (payload as Record<string, any>).resubmission_id = correctedResubmissionId;
+    (payload as Record<string, any>).is_resubmission = true;
   }
 
   const preflight = validateRobotPayloadPreflight(payload, { doesSubmit });
@@ -879,7 +902,10 @@ export async function startRobotSubmission(
       robot_last_status: "started",
       robot_last_message: null,
       robot_last_checked_at: nowIso,
-      robot_pass: doesSubmit ? "submit" : "capture",
+      // A corrected claim is ALWAYS recorded as "resubmit", so the shared trip
+      // row states that the live job belongs to a correction and never to the
+      // original denied claim.
+      robot_pass: robotPassFor({ doesSubmit, resubmissionId: correctedResubmissionId }),
       ...(mode === "capture"
         ? { robot_captured_claim: null, robot_captured_at: null }
         : {}),
@@ -905,134 +931,22 @@ export const TRIP_SELECT_FOR_ROBOT = `id, status, trip_id,
    )`;
 
 /**
- * FALSE-FAILURE GUARD.
+ * PORTAL-OUTCOME EVIDENCE PREDICATES.
  *
- * The HCPF portal's Confirm button posts back slowly. Playwright can click it
- * successfully and then time out only while waiting for the resulting
- * navigation to settle. The automation service reports that as a hard error,
- * but the claim IS live at the portal — retrying would double-submit.
- *
- * Detects "the Confirm click landed, the wait afterwards timed out".
+ * The implementations now live in the client-safe `@/lib/submitEvidence` so
+ * pure decision modules (and the billing UI) can apply the SAME rules instead
+ * of re-implementing near-copies. They are re-exported here unchanged, which
+ * keeps every existing import — and the suite's `vi.mock("@/lib/billingHelpers")`
+ * stubs — working exactly as before.
  */
-export function looksLikePostConfirmTimeout(raw: string | null | undefined): boolean {
-  if (!raw) return false;
-  const t = String(raw);
-  const clickedConfirm =
-    /ConfirmCmnButton/i.test(t) || /confirm/i.test(t);
-  const clickLanded = /click action done/i.test(t);
-  const timedOutAfter =
-    /waiting for scheduled navigations to finish/i.test(t) || /Timeout \d+ms exceeded/i.test(t);
-  return clickedConfirm && clickLanded && timedOutAfter;
-}
+export {
+  looksLikePostConfirmTimeout,
+  looksLikePossiblySubmittedTimeout,
+  looksLikeNoServiceLinesFailure,
+  UNVERIFIED_SUBMIT_STATUS,
+  hasExplicitPreSubmitFailureEvidence,
+  MAX_AUTO_TIMEOUT_RETRIES,
+  looksLikeRetryableTimeout,
+} from "@/lib/submitEvidence";
 
-/**
- * Any timeout/closed-browser after the robot reached Submit/Confirm is an
- * ambiguous portal outcome. It must go to read-only verification, never back to
- * the submit queue, because a real claim may already exist.
- */
-export function looksLikePossiblySubmittedTimeout(raw: string | null | undefined): boolean {
-  if (!raw) return false;
-  const t = String(raw);
-  const reachedSubmitOrConfirm =
-    /ConfirmCmnButton|SubmitClaimProf3|Submit\s*Claim|Confirm Professional Claim|click(?:ed)?\s*(?:Submit|Confirm)/i.test(t) ||
-    (/confirm|submit/i.test(t) && /click action done|after clicking|postback/i.test(t));
-  const timeoutOrClosed =
-    /Timeout \d+ms exceeded|timed out|navigation timeout|browser has been closed|Target page, context or browser has been closed|closed browser|page closed/i.test(t);
-  return reachedSubmitOrConfirm && timeoutOrClosed;
-}
-
-/**
- * DEFINITIVELY NOT SUBMITTED.
- *
- * The portal rejected Step 3 (or the run aborted on the pre-Submit guard)
- * because no service line was committed, so no claim exists and the record is
- * safe to fix and retry. Must be checked BEFORE the post-confirm timeout
- * guard, which parks a record as possibly-submitted.
- */
-export function looksLikeNoServiceLinesFailure(raw: string | null | undefined): boolean {
-  if (!raw) return false;
-  const t = String(raw);
-  return (
-    /At least one Service Detail must be entered/i.test(t) ||
-    /no committed service lines/i.test(t) ||
-    /service line[s]? (?:were |was )?not committed/i.test(t) ||
-    (/Did not reach Confirm page after Submit click/i.test(t) &&
-      /SubmitClaimProf3/i.test(t))
-  );
-}
-
-/** Status parked on a trip whose claim may already exist at the portal. */
-export const UNVERIFIED_SUBMIT_STATUS = "SUBMITTED_UNVERIFIED";
-
-/**
- * EXPLICIT PRE-SUBMIT FAILURE EVIDENCE.
- *
- * The ONLY thing that makes a failed portal run automatically retryable. The
- * worker/result must state, in machine-verifiable form, that the session died
- * BEFORE any Submit/Confirm boundary — e.g. a stage marker, `submit_reached=false`,
- * or a browser/launch level failure that means no page was ever driven.
- *
- * A bare "Job timed out after 480s" carries NO such evidence: the run could have
- * died anywhere, including after Submit. Those are parked, never re-queued.
- */
-const PRE_SUBMIT_EVIDENCE_PATTERNS = [
-  /\bstage\s*[:=]\s*["']?(?:launch|startup|login|signin|search|member_lookup|eligibility|step\s*1|step1|form_fill|navigate)\b/i,
-  /\bsubmit_reached\s*[:=]\s*(?:false|0|no)\b/i,
-  /\breached_submit\s*[:=]\s*(?:false|0|no)\b/i,
-  /\bpre[_-]?submit(?:_failure)?\b/i,
-  /failed before (?:the )?(?:Submit|Confirm)/i,
-  /never (?:reached|clicked) (?:the )?(?:Submit|Confirm)/i,
-  /browserType\.launch/i,
-  /\bpage\.goto\b/i,
-  /\b(?:EAGAIN|ENOMEM|resource temporarily unavailable)\b/i,
-  /timed out (?:while )?(?:on|during|at) (?:the )?(?:portal )?(?:login|sign[- ]?in)\b/i,
-];
-
-export function hasExplicitPreSubmitFailureEvidence(raw: string | null | undefined): boolean {
-  if (!raw) return false;
-  const t = String(raw);
-  // Anything that even hints the run reached Submit/Confirm disqualifies it,
-  // unless the message explicitly states the boundary was never crossed.
-  const explicitlyBefore =
-    /failed before (?:the )?(?:Submit|Confirm)/i.test(t) ||
-    /never (?:reached|clicked) (?:the )?(?:Submit|Confirm)/i.test(t) ||
-    /\b(?:submit_reached|reached_submit)\s*[:=]\s*(?:false|0|no)\b/i.test(t);
-  if (looksLikePossiblySubmittedTimeout(t)) return false;
-  if (/submit|confirm/i.test(t) && !explicitlyBefore) return false;
-  return PRE_SUBMIT_EVIDENCE_PATTERNS.some((re) => re.test(t));
-}
-
-/** Max automatic retries the reconciler will fire for a timed-out bill. */
-export const MAX_AUTO_TIMEOUT_RETRIES = 2;
-
-/**
- * TRANSIENT TIMEOUT (safe to retry automatically).
- *
- * A timeout alone is NOT enough. The message must also carry explicit
- * pre-Submit failure evidence, proving HCPF could not have received the claim.
- * Data problems (required field, member/Medicaid ID lookup failures, validation
- * errors) stay excluded.
- */
-export function looksLikeRetryableTimeout(raw: string | null | undefined): boolean {
-  if (!raw) return false;
-  const t = String(raw);
-  const dataProblem =
-    /required field/i.test(t) ||
-    /indicates a required/i.test(t) ||
-    /medicaid/i.test(t) ||
-    /member (?:id|not found|lookup)/i.test(t) ||
-    /invalid/i.test(t) ||
-    /not eligible|eligibility/i.test(t) ||
-    /duplicate/i.test(t) ||
-    looksLikePossiblySubmittedTimeout(t) ||
-    /date .*future/i.test(t);
-  if (dataProblem) return false;
-  const timedOut =
-    /timed out/i.test(t) ||
-    /timeout \d+ms exceeded/i.test(t) ||
-    /navigation timeout/i.test(t) ||
-    /ETIMEDOUT/i.test(t);
-  if (!timedOut) return false;
-  return hasExplicitPreSubmitFailureEvidence(t);
-}
 

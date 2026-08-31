@@ -9,6 +9,7 @@ import { isAmbiguousOutcomeMessage, isPreSubmitPacingCondition } from "@/lib/sub
 import { isPortalNavigationFailure } from "@/lib/portalNavigation";
 import { UNVERIFIED_STATUS } from "@/lib/resendGate";
 import { requiresManualVerification } from "@/lib/needsVerification";
+import { isCorrectedHoldCode, CORRECTED_ORIGINAL_REUSE_CODE } from "@/lib/correctedJob";
 
 export type NeedsFixCategory =
   | "submitted"
@@ -35,16 +36,41 @@ export type NeedsFixInput = {
   state_confirmation_number?: string | null;
   robot_confirmation_number?: string | null;
   robot_last_status?: string | null;
+  /** Set when this row is a CORRECTED claim's own billing record. */
+  resubmission_id?: string | null;
 };
 
 export function needsFixSummary(rec: NeedsFixInput): NeedsFixSummary {
-  if (rec.state_confirmation_number || rec.robot_confirmation_number)
+  // A corrected claim shares its trip with the original denied claim, so the
+  // trip-level confirmation number is the ORIGINAL's. Only the corrected
+  // record's own number may ever label a correction "Submitted".
+  const corrected = Boolean(rec.resubmission_id);
+  if (rec.state_confirmation_number || (!corrected && rec.robot_confirmation_number))
     return {
       category: "submitted",
       label: "Submitted",
       nextAction: "Claim number on file — nothing to resend.",
       editable: false,
     };
+
+  if (rec.failure_code === CORRECTED_ORIGINAL_REUSE_CODE)
+    return {
+      category: "unverified",
+      label: "Corrected claim returned the original number",
+      nextAction:
+        "Check HCPF for a NEW claim on this date. Nothing was resent and nothing will be.",
+      editable: false,
+    };
+
+  if (isCorrectedHoldCode(rec.failure_code))
+    return {
+      category: "unverified",
+      label: "Corrected claim needs HCPF verification",
+      nextAction:
+        "Check HCPF for a new claim on this date — the correction was NOT resent.",
+      editable: false,
+    };
+
 
   const msg = rec.submission_error ?? rec.submit_last_error ?? null;
 

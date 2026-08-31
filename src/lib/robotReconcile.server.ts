@@ -15,6 +15,7 @@ import {
   UNVERIFIED_SUBMIT_STATUS,
 } from "@/lib/billingHelpers";
 import { extractConfirmationNumber, normalizeCapturedClaim } from "@/lib/claimReview";
+import { isCorrectedRecord } from "@/lib/correctedJob";
 import {
   isPortalStep1ValidationFailure,
   isPreSubmitPacingCondition,
@@ -42,6 +43,10 @@ export async function reconcileRobotJob(
   actorId: string | null,
 ): Promise<ReconcileResult> {
   const result = await reconcileRobotJobInner(supabase, recordId, actorId);
+  // A CORRECTED claim was already reconciled end-to-end against its own billing
+  // record and its own draft. Running the generic mapping again would be a
+  // second write on rows the corrected path has just settled.
+  if ((result as any)?.corrected) return result;
   try {
     const { data: after } = await supabase
       .from("billing_records")
@@ -71,13 +76,30 @@ async function reconcileRobotJobInner(
   const { data: rec, error } = await supabase
       .from("billing_records")
       .select(
-        `id, status, trip_id, state_confirmation_number,
-         medicaid_trips!inner(id, robot_job_id, robot_worker_id, robot_worker_url, robot_pass, robot_last_status, robot_last_message, robot_last_checked_at, status, submitted_confirmation, robot_confirmation_number)`,
+        `id, status, trip_id, resubmission_id, state_confirmation_number,
+         medicaid_trips!inner(id, robot_job_id, robot_worker_id, robot_worker_url, robot_pass, robot_last_status, robot_last_message, robot_last_checked_at, robot_job_started_at, status, submitted_confirmation, robot_confirmation_number)`,
       )
       .eq("id", data.id)
       .single();
     if (error) throw new Error(error.message);
     const trip: any = rec.medicaid_trips;
+
+    // CORRECTED RESUBMISSION.
+    // The trip is SHARED with the original denied claim, so everything below —
+    // the "already submitted" short circuit, the unverified-claim search and the
+    // NEEDS_HUMAN_LOOKUP early return — would answer with the ORIGINAL claim's
+    // history. A record carrying `resubmission_id` is reconciled against its own
+    // job, its own record and its own draft instead. `robot_pass` is deliberately
+    // NOT consulted: the 2026-08-31 batch was dispatched before it was written
+    // as "resubmit", and those rows must recover too.
+    if (isCorrectedRecord(rec)) {
+      const { reconcileCorrectedRobotJob } = await import("@/lib/correctedReconcile.server");
+      return await reconcileCorrectedRobotJob(supabase, {
+        record: rec as any,
+        trip,
+        actorId: userId,
+      });
+    }
 
     // Already reconciled/submitted: a stale robot job result must never be
     // allowed to downgrade a trip that has a real portal confirmation number.
