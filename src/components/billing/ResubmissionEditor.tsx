@@ -46,12 +46,21 @@ import {
 } from "@/lib/resubmissionDraft";
 import { tabForField } from "@/lib/resubmissionSaveQueue";
 import {
+  applyCalculatedLines,
+  billingSummaryText,
+  compareServiceLines,
+  computeDraftBilling,
+  money,
+} from "@/lib/resubmissionBilling";
+import { LiveBillingBar } from "@/components/billing/LiveBillingBar";
+import {
   discardResubmission,
   getResubmission,
   reviewResubmission,
   saveAndQueueResubmission,
   saveResubmissionDraft,
 } from "@/lib/resubmission.functions";
+
 
 const emptyLeg = (index: number, date: string | null): DraftLeg => ({
   leg_index: index,
@@ -126,6 +135,23 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
     () => (snap && original ? diffSnapshots(original, snap) : []),
     [snap, original],
   );
+
+  // Live billing — recomputed on every keystroke from company-scoped rates.
+  const rates = (q.data?.rates ?? []) as any[];
+  const billing = useMemo(
+    () => (snap ? computeDraftBilling(snap, rates) : null),
+    [snap, rates],
+  );
+  const consistency = useMemo(
+    () => (snap && billing ? compareServiceLines(snap, billing) : null),
+    [snap, billing],
+  );
+  const applyCalculated = () => {
+    setSnap((s) => (s && billing ? applyCalculatedLines(s, billing) : s));
+    toast.success("Calculated values applied to the service lines — not saved yet.");
+  };
+
+
 
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [previewVersion, setPreviewVersion] = useState(0);
@@ -274,6 +300,17 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
                 </TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
               </TabsList>
+
+              {billing && consistency ? (
+                <LiveBillingBar
+                  billing={billing}
+                  consistency={consistency}
+                  canApply={isDraft}
+                  onApply={applyCalculated}
+                />
+              ) : null}
+
+
 
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
                 {/* ---------------- TRIP ---------------- */}
@@ -739,6 +776,55 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
 
                 {/* ---------------- REVIEW ---------------- */}
                 <TabsContent value="review" className="mt-0 space-y-4">
+                  {billing ? (
+                    <div className="rounded-2xl border p-4 text-sm">
+                      <div className="mb-2 font-semibold">Billing summary</div>
+                      <p className="text-muted-foreground">{billingSummaryText(billing)}</p>
+                      <ul className="mt-2 space-y-1">
+                        {billing.lines.map((l) => (
+                          <li key={l.procedure_code} className="flex justify-between gap-3">
+                            <span>
+                              {l.label} ({l.procedure_code}) — {l.breakdown}
+                            </span>
+                            <span className="font-semibold">{money(l.amount)}</span>
+                          </li>
+                        ))}
+                        {billing.extra_charge > 0 ? (
+                          <li className="flex justify-between gap-3">
+                            <span>Other configured service lines</span>
+                            <span className="font-semibold">{money(billing.extra_charge)}</span>
+                          </li>
+                        ) : null}
+                        <li className="flex justify-between gap-3 border-t pt-1">
+                          <span className="font-semibold">Total claim amount</span>
+                          <span className="font-bold">
+                            {billing.total == null ? "Rate missing" : money(billing.total)}
+                          </span>
+                        </li>
+                      </ul>
+                      {consistency && consistency.checked && !consistency.ok ? (
+                        <ul className="mt-2 list-disc pl-5 text-xs text-amber-600 dark:text-amber-400">
+                          {consistency.differences.map((d, i) => (
+                            <li key={i}>{d.message}</li>
+                          ))}
+                          {consistency.manual_overrides.map((m, i) => (
+                            <li key={`o-${i}`}>
+                              {m.procedure_code}: manual amount {money(m.actual)} (calculated{" "}
+                              {money(m.expected)}).
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      {billing.warnings.length ? (
+                        <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
+                          {billing.warnings.map((w, i) => (
+                            <li key={i}>{w.message}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  ) : null}
+
                   {!validation.ok && (
                     <div className="space-y-1 rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
                       <div className="flex items-center gap-2 font-semibold">
