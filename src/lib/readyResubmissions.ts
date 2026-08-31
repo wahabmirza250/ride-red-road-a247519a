@@ -50,6 +50,12 @@ export type CorrectedReadyCandidate = {
   line_count: number;
   has_attachment: boolean;
   warnings: string[];
+  /** Lifecycle state of the corrected copy (queued/processing/failed/...). */
+  status?: string | null;
+  /** The NEW portal confirmation. Never the original claim number. */
+  resubmission_claim_number?: string | null;
+  /** Why a corrected claim failed or was returned to Ready. */
+  failure_reason?: string | null;
 };
 
 export type CorrectedRow = {
@@ -65,6 +71,8 @@ export type CorrectedRow = {
   status?: string | null;
   draft_snapshot?: any;
   original_snapshot?: any;
+  resubmission_claim_number?: string | null;
+  failure_reason?: string | null;
 };
 
 export type CorrectedLine = {
@@ -125,6 +133,9 @@ export function buildCorrectedCandidate(args: {
     line_count: lines.length || (snap.lines ?? []).length,
     has_attachment: Boolean(snap.state_pdf_path || args.tripPdfPath),
     warnings: billing.warnings.map((w) => w.message),
+    status: args.row.status ?? null,
+    resubmission_claim_number: args.row.resubmission_claim_number ?? null,
+    failure_reason: args.row.failure_reason ?? null,
   };
 }
 

@@ -203,13 +203,27 @@ export const getBillingCounts = createServerFn({ method: "GET" })
     // claim waits here for the owner exactly like an ordinary ready bill. Same
     // predicate (`claim_resubmissions.status = 'queued'`) as the Ready list, so
     // the badge and the rendered cards can never disagree.
-    const { count: correctedCount } = await supabase
-      .from("claim_resubmissions")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "queued");
+    const correctedCountFor = async (status: string) => {
+      const { count } = await supabase
+        .from("claim_resubmissions")
+        .select("id", { count: "exact", head: true })
+        .eq("status", status);
+      return Number(count ?? 0);
+    };
+    const [correctedCount, correctedProcessing, correctedFailed] = await Promise.all([
+      correctedCountFor("queued"),
+      correctedCountFor("processing"),
+      correctedCountFor("failed"),
+    ]);
     const { readyTotal } = await import("@/lib/readyResubmissions");
-    counts["corrected_ready"] = Number(correctedCount ?? 0);
-    counts["ready_to_submit"] = readyTotal(split.ready_to_submit, Number(correctedCount ?? 0));
+    counts["corrected_ready"] = correctedCount;
+    counts["corrected_processing"] = correctedProcessing;
+    counts["corrected_failed"] = correctedFailed;
+    // A claimed corrected claim is really working at the portal, and a failed
+    // one really needs a person — both belong in those stage badges.
+    counts["awaiting_portal_extra"] = correctedProcessing;
+    counts["needs_attention"] = split.needs_attention + correctedFailed;
+    counts["ready_to_submit"] = readyTotal(split.ready_to_submit, correctedCount);
     counts["ready_bills"] = split.ready_to_submit;
     return counts;
   });

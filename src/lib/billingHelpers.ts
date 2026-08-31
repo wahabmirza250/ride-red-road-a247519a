@@ -783,7 +783,9 @@ export async function startRobotSubmission(
     .from("claim_resubmissions")
     .select("id, draft_snapshot")
     .eq("original_trip_id", trip.id)
-    .eq("status", "queued")
+    // `processing` = already claimed for THIS run; the overlay must still apply
+    // so the robot is fed the corrected snapshot and never the denied original.
+    .in("status", ["queued", "processing"])
     .maybeSingle();
   if (queuedDraft?.draft_snapshot) {
     const { applyResubmissionOverrides } = await import("@/lib/resubmissionDraft");
