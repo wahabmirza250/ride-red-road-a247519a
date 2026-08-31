@@ -415,7 +415,10 @@ describe("a PROVEN pre-Submit failure returns the correction to Ready", () => {
     const f = fixture();
     mockJobStatus(200, {
       status: "error",
-      result: { status: "ERROR", reason: "no service line was committed" },
+      result: {
+        status: "ERROR",
+        reason: "At least one Service Detail must be entered.",
+      },
     });
 
     const out = await reconcileRobotJob(f.supabase as any, "corr-1", "user-1");
