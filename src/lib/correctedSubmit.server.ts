@@ -97,6 +97,19 @@ export async function submitCorrectedResubmissions(
     return { requested: ids.length, queued: 0, started: 0, skipped, audit_failed: false };
   }
 
+  // The mileage gate must judge the CORRECTED legs/lines, each on its own —
+  // never a first-pickup-to-last-dropoff span across a same-day gap.
+  const correctedCtx = new Map<string, any>();
+  for (const p of claimedPairs) {
+    const snap = (byId.get(p.resubmission_id) as any)?.draft_snapshot ?? {};
+    correctedCtx.set(p.billing_record_id, {
+      resubmissionId: p.resubmission_id,
+      legs: Array.isArray(snap?.legs) ? snap.legs : [],
+      lines: Array.isArray(snap?.lines) ? snap.lines : [],
+      serviceDate: snap?.service_date ?? null,
+    });
+  }
+
   const { submitSelectedRecords } = await import("@/lib/submitSelection.server");
   let res: any;
   try {
@@ -106,7 +119,9 @@ export async function submitCorrectedResubmissions(
       // corrected version is a deliberate, acknowledged new attempt.
       acknowledgeDuplicate: true,
       label: `Corrected resubmission (${claimedPairs.length})`,
+      corrected: correctedCtx,
     });
+
   } catch (e: any) {
     // We cannot PROVE no job was created, so the rows stay in `processing`
     // (out of Ready, never auto-retried) and are resolved by verification.
