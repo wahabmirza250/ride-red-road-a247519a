@@ -1300,7 +1300,8 @@ function ReadyToSubmitTab({
           />
           <Button
             onClick={submitSelected}
-            disabled={!selected.size || submittingIds.size > 0}
+            title={setupBlocked ?? undefined}
+            disabled={!selected.size || submittingIds.size > 0 || Boolean(setupBlocked)}
           >
             {submittingIds.size > 0 ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
