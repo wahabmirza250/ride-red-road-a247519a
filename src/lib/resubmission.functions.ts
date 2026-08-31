@@ -13,6 +13,7 @@ import {
   validateDraft,
   type DraftSnapshot,
 } from "@/lib/resubmissionDraft";
+import { runSaveAndQueue, type SaveQueueDeps } from "@/lib/resubmissionSaveQueue";
 
 async function assertBiller(supabase: any, userId: string) {
   const [{ data: a }, { data: b }, { data: c }] = await Promise.all([
@@ -399,6 +400,92 @@ export const getResubmission = createServerFn({ method: "POST" })
     };
   });
 
+/**
+ * Persist a corrected snapshot and synchronize claim_service_lines.
+ * Shared by "Save draft" and by the save-then-queue workflow so both paths
+ * write exactly the same rows. Never submits anything.
+ */
+async function persistDraftSnapshot(
+  supabase: any,
+  userId: string,
+  sub: any,
+  next: DraftSnapshot,
+): Promise<{ version: number; changes: ReturnType<typeof diffSnapshots> }> {
+  const previous = normalizeSnapshot(sub.draft_snapshot ?? sub.original_snapshot ?? {});
+  const changes = diffSnapshots(previous, next);
+  const version = Number(sub.draft_version ?? 1) + (changes.length ? 1 : 0);
+
+  const { error: upErr } = await supabase
+    .from("claim_resubmissions")
+    .update({
+      draft_snapshot: next as any,
+      draft_version: version,
+      correction_reason: next.correction_reason,
+      mileage_override_reason: next.miles_override_reason,
+      notes: next.correction_reason,
+      last_saved_at: new Date().toISOString(),
+      last_saved_by: userId,
+    })
+    .eq("id", sub.id)
+    .eq("status", "draft");
+  if (upErr) throw new Error(upErr.message);
+
+  // Mirror the snapshot's lines into claim_service_lines so the payload
+  // builder and the modifier audit keep a normalized source of truth.
+  const { data: existingLines } = await supabase
+    .from("claim_service_lines")
+    .select("id, line_index, modifiers")
+    .eq("resubmission_id", sub.id);
+  const byIndex = new Map(((existingLines ?? []) as any[]).map((l) => [Number(l.line_index), l]));
+
+  for (const line of next.lines) {
+    const row = {
+      company_id: sub.company_id,
+      resubmission_id: sub.id,
+      trip_id: sub.original_trip_id,
+      line_index: line.line_index,
+      service_date: line.service_date,
+      procedure_code: line.procedure_code,
+      place_of_service: line.place_of_service,
+      diagnosis_code: line.diagnosis_code,
+      units: line.units,
+      miles: line.miles,
+      amount: line.amount,
+      modifiers: line.modifiers,
+    };
+    const existing = byIndex.get(line.line_index);
+    if (existing) {
+      await supabase.from("claim_service_lines").update(row).eq("id", existing.id);
+      const entries = diffModifiers(
+        ((existing.modifiers ?? []) as string[]).map((m) => m.toUpperCase()),
+        line.modifiers,
+        next.correction_reason,
+      );
+      if (entries.length)
+        await supabase.from("claim_modifier_audit").insert(
+          entries.map((e) => ({
+            company_id: sub.company_id,
+            service_line_id: existing.id,
+            resubmission_id: sub.id,
+            action: e.action,
+            modifier: e.modifier,
+            reason: e.reason,
+            actor_id: userId,
+          })),
+        );
+      byIndex.delete(line.line_index);
+    } else {
+      await supabase.from("claim_service_lines").insert(row);
+    }
+  }
+  // Lines removed by the biller (e.g. round trip -> one way).
+  for (const stale of byIndex.values()) {
+    await supabase.from("claim_service_lines").delete().eq("id", stale.id);
+  }
+
+  return { version, changes };
+}
+
 /** Save (never submit) the corrected draft snapshot and its service lines. */
 export const saveResubmissionDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -412,77 +499,7 @@ export const saveResubmissionDraft = createServerFn({ method: "POST" })
     assertEditableResubmission(sub.status);
 
     const next = normalizeSnapshot(data.snapshot);
-    const previous = normalizeSnapshot(sub.draft_snapshot ?? sub.original_snapshot ?? {});
-    const changes = diffSnapshots(previous, next);
-    const version = Number(sub.draft_version ?? 1) + (changes.length ? 1 : 0);
-
-    const { error: upErr } = await supabase
-      .from("claim_resubmissions")
-      .update({
-        draft_snapshot: next as any,
-        draft_version: version,
-        correction_reason: next.correction_reason,
-        mileage_override_reason: next.miles_override_reason,
-        notes: next.correction_reason,
-        last_saved_at: new Date().toISOString(),
-        last_saved_by: userId,
-      })
-      .eq("id", data.id)
-      .eq("status", "draft");
-    if (upErr) throw new Error(upErr.message);
-
-    // Mirror the snapshot's lines into claim_service_lines so the payload
-    // builder and the modifier audit keep a normalized source of truth.
-    const { data: existingLines } = await supabase
-      .from("claim_service_lines")
-      .select("id, line_index, modifiers")
-      .eq("resubmission_id", data.id);
-    const byIndex = new Map(((existingLines ?? []) as any[]).map((l) => [Number(l.line_index), l]));
-
-    for (const line of next.lines) {
-      const row = {
-        company_id: sub.company_id,
-        resubmission_id: data.id,
-        trip_id: sub.original_trip_id,
-        line_index: line.line_index,
-        service_date: line.service_date,
-        procedure_code: line.procedure_code,
-        place_of_service: line.place_of_service,
-        diagnosis_code: line.diagnosis_code,
-        units: line.units,
-        miles: line.miles,
-        amount: line.amount,
-        modifiers: line.modifiers,
-      };
-      const existing = byIndex.get(line.line_index);
-      if (existing) {
-        await supabase.from("claim_service_lines").update(row).eq("id", existing.id);
-        const entries = diffModifiers(
-          ((existing.modifiers ?? []) as string[]).map((m) => m.toUpperCase()),
-          line.modifiers,
-          next.correction_reason,
-        );
-        if (entries.length)
-          await supabase.from("claim_modifier_audit").insert(
-            entries.map((e) => ({
-              company_id: sub.company_id,
-              service_line_id: existing.id,
-              resubmission_id: data.id,
-              action: e.action,
-              modifier: e.modifier,
-              reason: e.reason,
-              actor_id: userId,
-            })),
-          );
-        byIndex.delete(line.line_index);
-      } else {
-        await supabase.from("claim_service_lines").insert(row);
-      }
-    }
-    // Lines removed by the biller (e.g. round trip -> one way).
-    for (const stale of byIndex.values()) {
-      await supabase.from("claim_service_lines").delete().eq("id", stale.id);
-    }
+    const { version, changes } = await persistDraftSnapshot(supabase, userId, sub, next);
 
     await recordEvent(supabase, {
       resubmissionId: data.id,
@@ -502,6 +519,7 @@ export const saveResubmissionDraft = createServerFn({ method: "POST" })
       validation,
     };
   });
+
 
 /** Review step: records that the biller reviewed and returns the full diff. */
 export const reviewResubmission = createServerFn({ method: "POST" })
@@ -588,6 +606,54 @@ export const setServiceLineModifiers = createServerFn({ method: "POST" })
  * Never automatic: the caller must pass an explicit confirmation. The original
  * claim number is never reused — the queue mints a fresh idempotency key.
  */
+/**
+ * Move exactly ONE draft row to `queued` with a fresh idempotency key.
+ * Never records the audit event itself, so both callers keep one clear order.
+ */
+async function queueDraftRow(
+  supabase: any,
+  userId: string,
+  sub: any,
+  draft: DraftSnapshot,
+): Promise<{ queued: boolean; reason?: string; trip_id?: string | null; idempotency_key?: string | null }> {
+  const { data: rec } = await supabase
+    .from("billing_records")
+    .select("id, company_id, submit_idempotency_key")
+    .eq("trip_id", sub.original_trip_id)
+    .maybeSingle();
+  if (!rec) throw new Error("The billing record for this claim no longer exists.");
+
+  const { buildIdempotencyKey, versionOfKey } = await import("@/lib/submissionIdempotency");
+  const idempotencyKey = buildIdempotencyKey({
+    accountKey: null,
+    companyId: sub.company_id ?? rec.company_id ?? null,
+    tripId: sub.original_trip_id,
+    serviceDate: draft.service_date,
+    version: versionOfKey(rec.submit_idempotency_key ?? null) + 1,
+  });
+
+  // Idempotent: only a draft may transition, so a second click is a no-op.
+  const { data: moved, error } = await supabase
+    .from("claim_resubmissions")
+    .update({
+      status: "queued",
+      submitted_by: userId,
+      submitted_at: new Date().toISOString(),
+      idempotency_key: idempotencyKey,
+    })
+    .eq("id", sub.id)
+    .eq("status", "draft")
+    .select("id, original_trip_id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!moved) return { queued: false, reason: "Already queued or submitted." };
+  return {
+    queued: true,
+    trip_id: moved.original_trip_id as string,
+    idempotency_key: idempotencyKey,
+  };
+}
+
 export const queueResubmission = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -602,37 +668,8 @@ export const queueResubmission = createServerFn({ method: "POST" })
     const gate = canQueueDraft(sub, draft, data.confirm === true);
     if (!gate.ok) return { queued: false, reason: gate.reason, validation: validateDraft(draft) };
 
-    const { data: rec } = await supabase
-      .from("billing_records")
-      .select("id, company_id, submit_idempotency_key")
-      .eq("trip_id", sub.original_trip_id)
-      .maybeSingle();
-    if (!rec) throw new Error("The billing record for this claim no longer exists.");
-
-    const { buildIdempotencyKey, versionOfKey } = await import("@/lib/submissionIdempotency");
-    const idempotencyKey = buildIdempotencyKey({
-      accountKey: null,
-      companyId: sub.company_id ?? rec.company_id ?? null,
-      tripId: sub.original_trip_id,
-      serviceDate: draft.service_date,
-      version: versionOfKey(rec.submit_idempotency_key ?? null) + 1,
-    });
-
-    // Idempotent: only a draft may transition, so a second click is a no-op.
-    const { data: moved, error } = await supabase
-      .from("claim_resubmissions")
-      .update({
-        status: "queued",
-        submitted_by: userId,
-        submitted_at: new Date().toISOString(),
-        idempotency_key: idempotencyKey,
-      })
-      .eq("id", data.id)
-      .eq("status", "draft")
-      .select("id, original_trip_id")
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!moved) return { queued: false, reason: "Already queued or submitted." };
+    const res = await queueDraftRow(supabase, userId, sub, draft);
+    if (!res.queued) return res;
 
     await recordEvent(supabase, {
       resubmissionId: data.id,
@@ -640,11 +677,90 @@ export const queueResubmission = createServerFn({ method: "POST" })
       actorId: userId,
       action: "draft_queued",
       changes: diffSnapshots(sub.original_snapshot ?? {}, draft),
-      notes: `Explicitly queued for HCPF with key ${idempotencyKey}. Original claim ${sub.original_claim_number ?? "n/a"} untouched.`,
+      notes: `Explicitly queued for HCPF with key ${res.idempotency_key}. Original claim ${sub.original_claim_number ?? "n/a"} untouched.`,
     });
 
-    return { queued: true, trip_id: moved.original_trip_id as string, idempotency_key: idempotencyKey };
+    return { queued: true, trip_id: res.trip_id, idempotency_key: res.idempotency_key };
   });
+
+/**
+ * SAVE THEN QUEUE — the only path the editor's queue button uses.
+ *
+ * Takes the biller's CURRENT snapshot so a draft that was never explicitly
+ * saved can still be queued with the corrections actually on screen.
+ */
+export const saveAndQueueResubmission = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        snapshot: snapshotSchema,
+        confirm: z.literal(true),
+        expected_version: z.number().int().nullable().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    await assertBiller(supabase, userId);
+    const sub = await loadOwnedDraft(supabase, userId, data.id);
+    const snapshot = normalizeSnapshot(data.snapshot);
+
+    let changes: ReturnType<typeof diffSnapshots> = [];
+    const deps: SaveQueueDeps = {
+      load: async () => ({ status: sub.status, draft_version: sub.draft_version ?? 1 }),
+        validate: (s) => validateDraft(s),
+        persist: async (s) => {
+          const out = await persistDraftSnapshot(supabase, userId, sub, s);
+          changes = out.changes;
+          return out.version;
+        },
+        readBack: async () => {
+          const [{ data: row }, { data: lines }] = await Promise.all([
+            supabase
+              .from("claim_resubmissions")
+              .select("draft_snapshot, draft_version")
+              .eq("id", data.id)
+              .maybeSingle(),
+            supabase
+              .from("claim_service_lines")
+              .select("line_index, service_date")
+              .eq("resubmission_id", data.id)
+              .order("line_index"),
+          ]);
+          return {
+            draft_snapshot: (row?.draft_snapshot as any) ?? null,
+            draft_version: (row?.draft_version as number | null) ?? null,
+            lines: ((lines ?? []) as any[]).map((l) => ({
+              line_index: Number(l.line_index),
+              service_date: (l.service_date as string | null) ?? null,
+            })),
+          };
+        },
+        audit: async (action, version) => {
+          await recordEvent(supabase, {
+            resubmissionId: data.id,
+            companyId: sub.company_id,
+            actorId: userId,
+            action,
+            changes: action === "draft_saved" ? changes : diffSnapshots(sub.original_snapshot ?? {}, snapshot),
+            notes:
+              action === "draft_queued"
+                ? `Saved (v${version}) and explicitly queued for HCPF. Original claim ${sub.original_claim_number ?? "n/a"} untouched.`
+                : snapshot.correction_reason,
+          });
+        },
+      queue: async (s) => queueDraftRow(supabase, userId, { ...sub, draft_snapshot: s }, s),
+    };
+
+    return await runSaveAndQueue(deps, {
+      snapshot,
+      confirm: data.confirm === true,
+      expected_version: data.expected_version ?? null,
+    });
+  });
+
 
 /** Discard a draft so the denial can be reworked later. Original untouched. */
 export const discardResubmission = createServerFn({ method: "POST" })
