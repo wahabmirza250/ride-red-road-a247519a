@@ -345,7 +345,8 @@ export const getResubmission = createServerFn({ method: "POST" })
     await assertBiller(supabase, userId);
     const sub = await loadOwnedDraft(supabase, userId, data.id);
 
-    const [{ data: lines }, { data: audit }, { data: events }, { data: trip }] = await Promise.all([
+    const [{ data: lines }, { data: audit }, { data: events }, { data: trip }, { data: rates }] =
+      await Promise.all([
       supabase.from("claim_service_lines").select("*").eq("resubmission_id", data.id).order("line_index"),
       supabase
         .from("claim_modifier_audit")
@@ -359,7 +360,16 @@ export const getResubmission = createServerFn({ method: "POST" })
         .order("created_at", { ascending: false })
         .limit(100),
       supabase.from("medicaid_trips").select(TRIP_SNAPSHOT_SELECT).eq("id", sub.original_trip_id).maybeSingle(),
+      // Company-scoped rate settings (RLS keeps other companies' rates out) so
+      // the editor can price the draft live without hard-coding any amount.
+      supabase
+        .from("billing_rate_settings")
+        .select(
+          "id, provider_id, vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
+        )
+        .eq("company_id", sub.company_id),
     ]);
+
 
     const { data: legs } = trip
       ? await supabase
