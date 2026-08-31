@@ -34,11 +34,30 @@ export type SubmitSelectionResult = {
 /** Statuses a bill may be submitted from. */
 export const SUBMITTABLE_STATUSES = ["approved", "needs_fix", "pending_submit", "queued"] as const;
 
+/**
+ * Corrected-resubmission context, keyed by the CORRECTED billing record id.
+ * Its presence means: this row is a corrected claim's own record, its miles
+ * come from the corrected legs/lines, and the ORIGINAL denied record is not
+ * involved in any way.
+ */
+export type CorrectedContext = {
+  resubmissionId: string;
+  legs: Array<{ leg_index?: number | null; pickup_odometer?: number | null; dropoff_odometer?: number | null }>;
+  lines: Array<{ line_index?: number | null; miles?: number | null }>;
+  serviceDate?: string | null;
+};
+
 export async function submitSelectedRecords(
   supabase: any,
   userId: string,
-  args: { ids: string[]; acknowledgeDuplicate?: boolean; label?: string | null },
+  args: {
+    ids: string[];
+    acknowledgeDuplicate?: boolean;
+    label?: string | null;
+    corrected?: Map<string, CorrectedContext>;
+  },
 ): Promise<SubmitSelectionResult> {
+
   if (REAL_SUBMISSIONS_PAUSED) {
     throw new Error(
       "Real portal submissions are paused while service-line verification is being fixed.",
