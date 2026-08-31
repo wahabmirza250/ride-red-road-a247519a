@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { MODIFIER_OPTIONS } from "@/lib/claimModifiers";
 import { ResubmissionAttachment } from "@/components/billing/ResubmissionAttachment";
+import { ResubmissionReportPreview } from "@/components/billing/ResubmissionReportPreview";
 import {
   diffSnapshots,
   effectiveMiles,
