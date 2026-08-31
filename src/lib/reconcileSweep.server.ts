@@ -24,6 +24,8 @@ import {
   type AutoFinalizeSummary,
 } from "@/lib/sweepAutoFinalize";
 import {
+  applyLiveLinks,
+  candidateClaimIds,
   classifySearch,
   sanitizeSweepError,
   summarize,
@@ -375,7 +377,13 @@ export async function resolveCompanyUuid(
  */
 export async function autoLinkSingleCandidate(
   supabase: any,
-  args: { recordId: string; resultId: string; claim: PortalClaim; actorId?: string | null },
+  args: {
+    recordId: string;
+    resultId: string;
+    claim: PortalClaim;
+    actorId?: string | null;
+    reconcileProof?: import("@/lib/staleWorkerReconcile").ReconcileProof | null;
+  },
 ) {
   if (args.claim.linked) throw new Error("That claim is already linked to another RedArt bill.");
   const { linkPortalClaim } = await import("@/lib/hcpfVerify.server");
@@ -383,6 +391,7 @@ export async function autoLinkSingleCandidate(
     recordId: args.recordId,
     actorId: (args.actorId ?? null) as any,
     claimNumber: args.claim.claim_id,
+    reconcileProof: args.reconcileProof ?? null,
   });
 
   const patch: Record<string, unknown> = {};
@@ -440,8 +449,15 @@ export async function autoFinalizeSweep(
     .limit(1000);
 
   const summary: AutoFinalizeSummary = { finalized: 0, skipped: [] };
-  for (const raw of (data ?? []) as any[]) {
-    const row = { ...raw, candidates: Array.isArray(raw.candidates) ? raw.candidates : [] };
+  // The `linked` flag stored at search time is a snapshot. Re-check every
+  // candidate against the live table so a claim attached to another bill since
+  // the sweep can never be finalized a second time.
+  const raws = ((data ?? []) as any[]).map((r) => ({
+    ...r,
+    candidates: Array.isArray(r.candidates) ? r.candidates : [],
+  }));
+  const live = await liveLinkMap(supabase, args.companyId ?? null, raws);
+  for (const row of applyLiveLinks(raws, live)) {
     const decision = decideAutoFinalize(row, { companyId: args.companyId ?? null });
     if (!decision.ok) {
       if (row.outcome === "single")
@@ -490,6 +506,10 @@ export async function finalizeSingleMatch(
     resultId: args.resultId,
     claim: args.claim,
     actorId: args.actorId ?? null,
+    // The sweep proved exactly one unused final claim for this company,
+    // member and date: that proof — and only that proof — also clears a stale
+    // pre-submit "worker stopped" flag as part of the same attach.
+    reconcileProof: { source: "sweep_single_match", claim_id: args.claim.claim_id },
   });
 
   const nowIso = new Date().toISOString();
@@ -690,11 +710,33 @@ export async function loadSweepProgress(
     )
     .eq("sweep_id", sweep.id)
     .limit(1000);
-  const rows = ((data ?? []) as any[]).map((r) => ({
+  const raw = ((data ?? []) as any[]).map((r) => ({
     ...r,
     candidates: Array.isArray(r.candidates) ? r.candidates : [],
   })) as SweepResultRow[];
+  // Always render against LIVE linkage, never the search-time snapshot.
+  const rows = applyLiveLinks(raw, await liveLinkMap(supabase, companyId, raw));
   return { sweep, progress: summarize(rows), rows };
+}
+
+/**
+ * Live `claim id -> owning bill` map for every candidate of these rows.
+ * A lookup failure must never silently "free" a claim, so it throws.
+ */
+export async function liveLinkMap(
+  supabase: any,
+  companyId: string | null,
+  rows: { candidates: PortalClaim[] }[],
+): Promise<Map<string, { billing_record_id: string; trip_id?: string | null; status?: string | null }>> {
+  const ids = candidateClaimIds(rows);
+  if (!ids.length) return new Map();
+  const found = await findLinkedBills(supabase, companyId, ids);
+  return new Map(
+    [...found.entries()].map(([claim, bill]) => [
+      claim,
+      { billing_record_id: bill.billing_record_id, trip_id: bill.trip_id, status: bill.status },
+    ]),
+  );
 }
 
 /** Mark a sweep row as resolved by a biller. The claim link itself is written
