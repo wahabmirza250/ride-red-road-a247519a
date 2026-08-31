@@ -52,6 +52,22 @@ async function recordEvent(
     );
 }
 
+/**
+ * Company-scoped driver list for the editor's picker.
+ * `drivers` has no name column; names come from the linked profiles.
+ */
+async function listCompanyDrivers(supabase: any, companyId: string | null) {
+  let q = supabase.from("drivers").select("id, user_id, unit_number").limit(500);
+  if (companyId) q = q.eq("company_id", companyId);
+  const { data: rows, error } = await q;
+  if (error) throw new Error(error.message);
+  const userIds = ((rows ?? []) as any[]).map((r) => r.user_id).filter(Boolean);
+  const { data: profiles } = userIds.length
+    ? await supabase.from("profiles").select("id, first_name, last_name, email").in("id", userIds)
+    : { data: [] as any[] };
+  return deriveDriverOptions((rows ?? []) as any[], (profiles ?? []) as any[]);
+}
+
 /** Load the draft and prove the caller's company owns it. */
 async function loadOwnedDraft(supabase: any, userId: string, id: string) {
   const { data: sub, error } = await supabase
