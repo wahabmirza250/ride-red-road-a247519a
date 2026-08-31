@@ -857,8 +857,14 @@ export function ResubmissionEditor({ id, onClose }: { id: string | null; onClose
                     tab !== "review" ? "Open Review changes first" : "Queue this corrected claim"
                   }
                 >
-                  Queue corrected claim for HCPF
+                  {queue.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+                  {queue.isPending
+                    ? "Saving & queueing…"
+                    : dirty
+                      ? "Save & queue corrected claim"
+                      : "Queue corrected claim for HCPF"}
                 </Button>
+
               </div>
             </div>
           </>
