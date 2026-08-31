@@ -60,3 +60,39 @@ export function attachmentPath(args: {
 export function isDraftAttachmentPath(path: string | null | undefined): boolean {
   return /\/resubmissions\//.test(String(path ?? ""));
 }
+
+/**
+ * The complete set of storage paths a resubmission draft is allowed to read.
+ *
+ * Legacy drafts (created before snapshots existed) carry a null
+ * `state_pdf_path` in BOTH snapshots while the untouched original trip still
+ * has one — the editor shows that derived original, so signing must accept it.
+ * Nothing outside these three references can ever be signed.
+ */
+export function allowedAttachmentPaths(args: {
+  draftPath?: string | null;
+  originalSnapshotPath?: string | null;
+  originalTripPath?: string | null;
+}): Set<string> {
+  return new Set(
+    [args.draftPath, args.originalSnapshotPath, args.originalTripPath]
+      .map((p) => (typeof p === "string" ? p.trim() : ""))
+      .filter(Boolean),
+  );
+}
+
+export function isAllowedAttachmentPath(
+  path: string,
+  args: Parameters<typeof allowedAttachmentPaths>[0],
+): boolean {
+  return allowedAttachmentPaths(args).has(String(path ?? "").trim());
+}
+
+/** Rough media kind for preview rendering. */
+export function attachmentKind(path: string | null | undefined): "pdf" | "image" | "other" {
+  const ext = String(path ?? "").split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "pdf") return "pdf";
+  if (["jpg", "jpeg", "png", "webp", "heic", "gif"].includes(ext)) return "image";
+  return "other";
+}
+
