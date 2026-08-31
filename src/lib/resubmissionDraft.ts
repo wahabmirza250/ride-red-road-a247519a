@@ -531,3 +531,31 @@ export function applyResubmissionOverrides<T extends Record<string, any>>(
 
   return out as T;
 }
+
+/** Only ONE live draft may exist per denied claim (also enforced by a DB index). */
+export function activeDraftConflict(
+  existing: { id: string; status: string } | null | undefined,
+): { blocked: boolean; id: string | null; reason: string } {
+  if (existing && (existing.status === "draft" || existing.status === "queued"))
+    return {
+      blocked: true,
+      id: existing.id,
+      reason: "This denied claim already has an active resubmission draft.",
+    };
+  return { blocked: false, id: null, reason: "" };
+}
+
+/** Queueing is explicit, idempotent and only ever valid from a draft. */
+export function canQueueDraft(
+  sub: { status?: string | null } | null | undefined,
+  snapshot: any,
+  confirmed: boolean,
+): { ok: boolean; reason: string } {
+  if (!confirmed)
+    return { ok: false, reason: "Queueing needs an explicit confirmation from the biller." };
+  if (sub?.status !== "draft") return { ok: false, reason: "Already queued or submitted." };
+  const validation = validateDraft(normalizeSnapshot(snapshot ?? {}));
+  if (!validation.ok)
+    return { ok: false, reason: validation.issues[0]?.message ?? "The corrected claim is not valid yet." };
+  return { ok: true, reason: "" };
+}

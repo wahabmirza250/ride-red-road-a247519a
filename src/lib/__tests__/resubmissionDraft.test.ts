@@ -250,3 +250,23 @@ describe("robot payload uses the corrected draft", () => {
     expect(out.dropoff_odometer).toBe(1030);
   });
 });
+
+describe("draft lifecycle guards", () => {
+  it("prevents a second active draft for the same denied claim", async () => {
+    const { activeDraftConflict } = await import("@/lib/resubmissionDraft");
+    expect(activeDraftConflict({ id: "a", status: "draft" }).blocked).toBe(true);
+    expect(activeDraftConflict({ id: "a", status: "queued" }).blocked).toBe(true);
+    expect(activeDraftConflict({ id: "a", status: "cancelled" }).blocked).toBe(false);
+    expect(activeDraftConflict(null).blocked).toBe(false);
+  });
+
+  it("queues only on an explicit confirmation, once, and only when valid", async () => {
+    const { canQueueDraft } = await import("@/lib/resubmissionDraft");
+    const snap = baseDraft();
+    expect(canQueueDraft({ status: "draft" }, snap, false).ok).toBe(false);
+    expect(canQueueDraft({ status: "draft" }, snap, true).ok).toBe(true);
+    // Second click: the row is no longer a draft -> no second job.
+    expect(canQueueDraft({ status: "queued" }, snap, true).ok).toBe(false);
+    expect(canQueueDraft({ status: "draft" }, { ...snap, medicaid_id: null }, true).ok).toBe(false);
+  });
+});
