@@ -1226,6 +1226,16 @@ function ReadyToSubmitTab({
 
   const isAttention = variant === "attention";
 
+  // Same cached readiness the wizard uses — submission stays off until setup
+  // is complete, but the list itself is still fully browsable.
+  const setupFn = useServerFn(getBillingSetupStatus);
+  const setup = useQuery({
+    queryKey: ["billing_setup_status"],
+    queryFn: () => setupFn() as any,
+  });
+  const setupBlocked = setup.data ? submissionBlockedReason(setup.data as any) : null;
+
+
   if (!rows.length)
     return (
       <EmptyState
