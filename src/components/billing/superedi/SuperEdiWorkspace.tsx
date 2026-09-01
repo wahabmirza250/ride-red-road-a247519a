@@ -174,16 +174,13 @@ export function SuperEdiWorkspace() {
     setLimit(PAGE_SIZE);
   }
 
-  // `getEdiHealth` never throws: it returns the bridge's own result envelope,
-  // so an unreachable backend is a successful query with `ok: false`.
-  const healthResult = health.data;
-  const healthOk = healthResult?.ok === true;
-  const healthTone = health.isLoading ? "info" : healthOk ? "ready" : "error";
-  const healthLabel = health.isLoading
-    ? "Checking backend…"
-    : healthResult?.ok === true
-      ? `EDI backend ${String(healthResult.data?.status ?? "online")}`
-      : (healthResult?.error ?? "EDI backend unreachable");
+  // The probe never throws: an unreachable backend is a successful query whose
+  // payload says `ok: false`, so onboarding copy comes from one pure mapper.
+  const connection = useMemo(
+    () => describeEdiConnection(health.data ?? null, health.isLoading),
+    [health.data, health.isLoading],
+  );
+
 
   return (
     <div className="space-y-5">
