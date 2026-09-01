@@ -149,3 +149,82 @@ export function getEdiBatchStatus(batchId: number | string) {
     method: "GET",
   });
 }
+
+/* ------------------------------------------------------------------ */
+/* Submission pipeline: create claim → validate → batch → 837P → queue */
+/* ------------------------------------------------------------------ */
+
+export type EdiClaim = { id?: number; status?: string; [k: string]: unknown };
+export type EdiBatch = { id?: number; status?: string; file_id?: number | null; [k: string]: unknown };
+export type EdiFile = { id?: number; status?: string; content?: string; [k: string]: unknown };
+
+/**
+ * POST /api/v1/claims/ — creates (or links) the EDI claim for one trip.
+ * The EDI backend owns all X12/HCPF rules; this only forwards the payload.
+ */
+export function createEdiClaim(payload: Record<string, unknown>) {
+  return callEdi<EdiClaim>({ path: "/api/v1/claims/", method: "POST", body: payload });
+}
+
+/** GET /api/v1/claims/{id}/ */
+export function getEdiClaim(claimId: number | string) {
+  return callEdi<EdiClaim>({
+    path: `/api/v1/claims/${encodeURIComponent(String(claimId))}/`,
+    method: "GET",
+  });
+}
+
+/** POST /api/v1/submission-batches/ — groups validated claims into a batch. */
+export function createEdiBatch(payload: { claim_ids: (number | string)[]; environment?: string }) {
+  return callEdi<EdiBatch>({
+    path: "/api/v1/submission-batches/",
+    method: "POST",
+    body: payload,
+  });
+}
+
+/** POST /api/v1/submission-batches/{id}/generate/ — build the 837P file. */
+export function generateEdi837P(batchId: number | string) {
+  return callEdi<EdiFile>({
+    path: `/api/v1/submission-batches/${encodeURIComponent(String(batchId))}/generate/`,
+    method: "POST",
+    body: {},
+  });
+}
+
+/**
+ * POST /api/v1/submission-batches/{id}/submit/ — hands the generated file to
+ * the EDI backend's transport (SFTP/MFT). `environment` is always explicit so
+ * production can never be reached implicitly.
+ */
+export function submitEdiBatch(batchId: number | string, environment: "test" | "production") {
+  return callEdi<EdiBatch>({
+    path: `/api/v1/submission-batches/${encodeURIComponent(String(batchId))}/submit/`,
+    method: "POST",
+    body: { environment },
+  });
+}
+
+export type EdiAcknowledgements = {
+  ack_999?: unknown;
+  status_277?: unknown;
+  remittance_835?: unknown;
+  [k: string]: unknown;
+};
+
+/** GET /api/v1/claims/{id}/acknowledgements/ — 999 / 277 / 835 states. */
+export function getEdiAcknowledgements(claimId: number | string) {
+  return callEdi<EdiAcknowledgements>({
+    path: `/api/v1/claims/${encodeURIComponent(String(claimId))}/acknowledgements/`,
+    method: "GET",
+  });
+}
+
+/** GET /api/v1/claims/{id}/remittance/ — 835 payment detail when available. */
+export function getEdiRemittance(claimId: number | string) {
+  return callEdi<Record<string, unknown>>({
+    path: `/api/v1/claims/${encodeURIComponent(String(claimId))}/remittance/`,
+    method: "GET",
+  });
+}
+
