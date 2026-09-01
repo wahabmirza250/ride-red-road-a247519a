@@ -149,7 +149,7 @@ export async function holdCorrectedForVerification(
 }
 
 /** The ONE success path: a NEW claim number, written to the corrected rows. */
-async function markCorrectedSubmitted(
+export async function markCorrectedSubmitted(
   supabase: Sb,
   args: {
     recordId: string;
