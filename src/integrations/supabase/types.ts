@@ -2181,6 +2181,92 @@ export type Database = {
           },
         ]
       }
+      edi_company_settings: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          billing_name: string | null
+          city: string | null
+          company_id: string
+          contact_email: string | null
+          created_at: string
+          environment: string
+          id: string
+          npi: string | null
+          phone: string | null
+          postal_code: string | null
+          receiver_id: string | null
+          sender_id: string | null
+          sftp_directory: string | null
+          sftp_host: string | null
+          sftp_port: number | null
+          sftp_secret_configured: boolean
+          sftp_username: string | null
+          state: string | null
+          tax_id: string | null
+          taxonomy_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          billing_name?: string | null
+          city?: string | null
+          company_id: string
+          contact_email?: string | null
+          created_at?: string
+          environment?: string
+          id?: string
+          npi?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          receiver_id?: string | null
+          sender_id?: string | null
+          sftp_directory?: string | null
+          sftp_host?: string | null
+          sftp_port?: number | null
+          sftp_secret_configured?: boolean
+          sftp_username?: string | null
+          state?: string | null
+          tax_id?: string | null
+          taxonomy_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          billing_name?: string | null
+          city?: string | null
+          company_id?: string
+          contact_email?: string | null
+          created_at?: string
+          environment?: string
+          id?: string
+          npi?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          receiver_id?: string | null
+          sender_id?: string | null
+          sftp_directory?: string | null
+          sftp_host?: string | null
+          sftp_port?: number | null
+          sftp_secret_configured?: boolean
+          sftp_username?: string | null
+          state?: string | null
+          tax_id?: string | null
+          taxonomy_code?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edi_company_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           created_at: string
