@@ -98,14 +98,20 @@ export function ediValidationIssues(validation: unknown): EdiValidationIssue[] {
     }
   };
   push(v["errors"], "error");
+  push(v["validation_errors"], "error");
   push(v["warnings"], "warning");
   push(v["issues"], "error");
   return out;
 }
 
+/**
+ * Readiness for 837P generation. The EDI backend reports `ready`; older
+ * builds reported `is_valid` / `valid`.
+ */
 export function ediIsValid(validation: unknown): boolean | null {
   if (!validation || typeof validation !== "object") return null;
   const v = validation as Record<string, unknown>;
+  if (typeof v["ready"] === "boolean") return v["ready"] as boolean;
   if (typeof v["is_valid"] === "boolean") return v["is_valid"] as boolean;
   if (typeof v["valid"] === "boolean") return v["valid"] as boolean;
   const issues = ediValidationIssues(validation);
