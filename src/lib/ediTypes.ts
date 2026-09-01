@@ -59,6 +59,8 @@ export type EdiClaimState = {
 export type EdiTripDetail = {
   record_id: string;
   trip_id: string;
+  /** RedArt rider behind this bill — the local key of the EDI patient link. */
+  rider_id: string | null;
   company_id: string;
   status: string;
   member: {

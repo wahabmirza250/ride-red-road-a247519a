@@ -1,18 +1,24 @@
 /**
- * Typed client for the EDI backend.
+ * Typed client for the EDI backend — tenant-neutral reads only.
  *
- * Every call is made SERVER-SIDE: the browser calls the authenticated
- * `ediRequest` server function, which forwards through the secure
- * `redart-edi-bridge` Edge Function (or, when the deployment provides them,
- * server-only `EDI_API_*` secrets). No EDI username / password / JWT ever
- * exists in frontend code and the browser never talks to the EDI host.
+ * Every call is made SERVER-SIDE: the browser calls an authenticated server
+ * function, which forwards through the secure `redart-edi-bridge` Edge
+ * Function (or, when the deployment provides them, server-only `EDI_API_*`
+ * secrets). No EDI username / password / JWT ever exists in frontend code and
+ * the browser never talks to the EDI host.
  *
- * All endpoint paths come from `EDI_PATHS` — the documented contract.
+ * SECURITY: `ediRequest` is deliberately NOT a general proxy. It forwards only
+ * the two tenant-neutral read-only endpoints (`/api/health/` and the
+ * integration catalog). Anything that names a claim, batch or 837P file id
+ * goes through `ediActions.functions` / `ediBulk.functions`, which prove the
+ * resource belongs to the caller's company first — otherwise one company could
+ * read another's claims simply by guessing an id.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { EDI_PATHS, type EdiRequest, type EdiResult } from "@/lib/ediTransport";
+import { EDI_PATH_BLOCKED, isSafeEdiReadPath } from "@/lib/ediGuard";
 import type { EdiConnectionProbe } from "@/lib/ediConnection";
 import { ediErrorMessage } from "@/lib/edi";
 
@@ -20,13 +26,11 @@ export type { EdiRequest, EdiResult } from "@/lib/ediTransport";
 
 const RequestSchema = z.object({
   path: z.string().min(1).max(300),
-  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).optional(),
-  body: z.unknown().optional(),
+  method: z.enum(["GET"]).optional(),
 });
 
 /**
- * Authenticated proxy to the EDI backend. Billing staff only, and only paths
- * under `/api/` — the path allow-list lives in the server transport.
+ * Authenticated read of a tenant-neutral EDI endpoint. Billing staff only.
  *
  * The backend body is returned JSON-encoded so the RPC boundary stays strictly
  * serializable whatever shape the EDI backend replies with.
@@ -43,12 +47,12 @@ export const ediRequest = createServerFn({ method: "POST" })
       const { assertBilling } = await import("@/lib/billingHelpers");
       await assertBilling(supabase, userId);
 
+      if (!isSafeEdiReadPath(data.path, "GET")) {
+        return { ok: false, data_json: null, error: EDI_PATH_BLOCKED, status: 403 };
+      }
+
       const { ediFetch } = await import("@/lib/ediBridge.server");
-      const res = await ediFetch(supabase, {
-        path: data.path,
-        ...(data.method ? { method: data.method } : {}),
-        ...(data.body === undefined ? {} : { body: data.body }),
-      });
+      const res = await ediFetch(supabase, { path: data.path, method: "GET" });
 
       if (res.ok) {
         return {
@@ -63,18 +67,12 @@ export const ediRequest = createServerFn({ method: "POST" })
   );
 
 /**
- * Low-level call used by every helper below. Never throws — callers get a
- * discriminated result so the UI can render the backend's own message.
+ * Low-level call behind the two read helpers below. Never throws — callers get
+ * a discriminated result so the UI can render the backend's own message.
  */
 export async function callEdi<T = unknown>(req: EdiRequest): Promise<EdiResult<T>> {
   try {
-    const res = await ediRequest({
-      data: {
-        path: req.path,
-        ...(req.method ? { method: req.method } : {}),
-        ...(req.body === undefined ? {} : { body: req.body }),
-      },
-    });
+    const res = await ediRequest({ data: { path: req.path, method: "GET" } });
     if (!res.ok) {
       return {
         ok: false,
@@ -90,7 +88,7 @@ export async function callEdi<T = unknown>(req: EdiRequest): Promise<EdiResult<T
 }
 
 /* ------------------------------------------------------------------ */
-/* Typed endpoint helpers (documented paths only)                      */
+/* Backend payload shapes                                              */
 /* ------------------------------------------------------------------ */
 
 export type EdiHealth = { status?: string; version?: string; [k: string]: unknown };
@@ -130,7 +128,7 @@ export type EdiFile = {
   [k: string]: unknown;
 };
 
-/** GET /api/health/ */
+/** GET /api/health/ — tenant-neutral. */
 export function getEdiHealth() {
   return callEdi<EdiHealth>({ path: EDI_PATHS.health(), method: "GET" });
 }
@@ -138,73 +136,6 @@ export function getEdiHealth() {
 /** GET /api/v1/integration/lovable/ — the backend's own endpoint catalog. */
 export function getEdiIntegrationCatalog() {
   return callEdi<EdiCatalog>({ path: EDI_PATHS.integrationCatalog(), method: "GET" });
-}
-
-/** POST /api/v1/claims/ */
-export function createEdiClaim(payload: Record<string, unknown>) {
-  return callEdi<EdiClaim>({ path: EDI_PATHS.claims(), method: "POST", body: payload });
-}
-
-/** POST /api/v1/claims/from-trip/ — when the trip already exists in the EDI backend. */
-export function createEdiClaimFromTrip(payload: Record<string, unknown>) {
-  return callEdi<EdiClaim>({ path: EDI_PATHS.claimFromTrip(), method: "POST", body: payload });
-}
-
-/** GET /api/v1/claims/{id}/ */
-export function getEdiClaim(claimId: number | string) {
-  return callEdi<EdiClaim>({ path: EDI_PATHS.claim(claimId), method: "GET" });
-}
-
-/** POST /api/v1/claims/{id}/validate/ */
-export function validateEdiClaim(claimId: number | string) {
-  return callEdi<EdiValidationResult>({
-    path: EDI_PATHS.claimValidate(claimId),
-    method: "POST",
-    body: {},
-  });
-}
-
-/** GET /api/v1/claims/{id}/status/ */
-export function getEdiClaimStatus(claimId: number | string) {
-  return callEdi<EdiClaimStatus>({ path: EDI_PATHS.claimStatus(claimId), method: "GET" });
-}
-
-/** POST /api/v1/submission-batches/ */
-export function createEdiBatch(payload: Record<string, unknown> = {}) {
-  return callEdi<EdiBatch>({ path: EDI_PATHS.batches(), method: "POST", body: payload });
-}
-
-/** POST /api/v1/submission-batches/{id}/add-claim/ */
-export function addClaimToEdiBatch(batchId: number | string, claimId: number | string) {
-  return callEdi<EdiBatch>({
-    path: EDI_PATHS.batchAddClaim(batchId),
-    method: "POST",
-    body: { claim_id: claimId },
-  });
-}
-
-/** GET /api/v1/submission-batches/{id}/ */
-export function getEdiBatch(batchId: number | string) {
-  return callEdi<EdiBatch>({ path: EDI_PATHS.batch(batchId), method: "GET" });
-}
-
-/** POST /api/v1/edi-files/generate-837p/ — one file for the whole batch. */
-export function generateEdi837P(batchId: number | string) {
-  return callEdi<EdiFile>({
-    path: EDI_PATHS.generate837p(),
-    method: "POST",
-    body: { batch_id: batchId },
-  });
-}
-
-/** GET /api/v1/edi-files/{id}/ */
-export function getEdiFile(fileId: number | string) {
-  return callEdi<EdiFile>({ path: EDI_PATHS.ediFile(fileId), method: "GET" });
-}
-
-/** POST /api/v1/edi-files/{id}/upload/ — hands the generated file to transport. */
-export function uploadEdiFile(fileId: number | string) {
-  return callEdi<EdiFile>({ path: EDI_PATHS.ediFileUpload(fileId), method: "POST", body: {} });
 }
 
 /* ------------------------------------------------------------------ */

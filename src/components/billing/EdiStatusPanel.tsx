@@ -4,8 +4,13 @@
  * Only rendered with real data: if the record has no `edi_claim_id` we show a
  * neutral "not linked" note and no actions. Nothing here submits to HCPF and
  * nothing here duplicates X12/HCPF rules — the EDI backend owns all of that.
+ *
+ * SECURITY: the panel never sends an EDI claim id. It sends the RedArt billing
+ * record id, and the server resolves the claim from that company's own row —
+ * so a tampered request cannot reach another company's claim.
  */
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Loader2, RefreshCw, ShieldCheck, PlugZap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,7 +23,7 @@ import {
   hasEdiClaim,
   type EdiClaimRef,
 } from "@/lib/edi";
-import { getEdiClaimStatus, validateEdiClaim } from "@/lib/edi.functions";
+import { ediRecordAction } from "@/lib/ediActions.functions";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -45,43 +50,71 @@ export function EdiStatusBadge({ status }: { status?: string | null }) {
   );
 }
 
-export function EdiStatusPanel({ record }: { record: EdiClaimRef | null | undefined }) {
+export function EdiStatusPanel({
+  record,
+  recordId,
+  companyId = null,
+}: {
+  record: EdiClaimRef | null | undefined;
+  /** RedArt billing record id — the only id the browser ever sends. */
+  recordId: string;
+  companyId?: string | null;
+}) {
   const claimId = ediClaimId(record);
+  const runAction = useServerFn(ediRecordAction);
   const [validation, setValidation] = useState<unknown>(record?.edi_validation ?? null);
   const [status, setStatus] = useState<string | null>(record?.edi_status ?? null);
   const [syncedAt, setSyncedAt] = useState<string | null>(record?.edi_last_sync_at ?? null);
   const [busy, setBusy] = useState<"validate" | "status" | null>(null);
 
+  const call = async (action: "validate" | "status") => {
+    return runAction({ data: { company_id: companyId, record_id: recordId, action } });
+  };
+
   const runValidate = async () => {
-    if (!claimId) return;
+    if (!recordId) return;
     setBusy("validate");
-    const res = await validateEdiClaim(claimId);
-    setBusy(null);
-    if (!res.ok) {
-      toast.error(`EDI validation failed — ${res.error}`);
-      return;
+    try {
+      const res = await call("validate");
+      if (!res.ok) {
+        toast.error(`EDI validation failed — ${res.error}`);
+        return;
+      }
+      const payload = res.data_json ? JSON.parse(res.data_json) : null;
+      setValidation(payload);
+      setSyncedAt(new Date().toISOString());
+      const valid = ediIsValid(payload);
+      if (valid === false) toast.warning("Not ready — EDI backend reported validation errors");
+      else if (valid === true) toast.success("Ready for 837P generation");
+      else toast.success("EDI validation complete");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "EDI validation failed");
+    } finally {
+      setBusy(null);
     }
-    setValidation(res.data);
-    setSyncedAt(new Date().toISOString());
-    const valid = ediIsValid(res.data);
-    if (valid === false) toast.warning("Not ready — EDI backend reported validation errors");
-    else if (valid === true) toast.success("Ready for 837P generation");
-    else toast.success("EDI validation complete");
   };
 
   const runStatus = async () => {
-    if (!claimId) return;
+    if (!recordId) return;
     setBusy("status");
-    const res = await getEdiClaimStatus(claimId);
-    setBusy(null);
-    if (!res.ok) {
-      toast.error(`Could not refresh EDI status — ${res.error}`);
-      return;
+    try {
+      const res = await call("status");
+      if (!res.ok) {
+        toast.error(`Could not refresh EDI status — ${res.error}`);
+        return;
+      }
+      const payload = (res.data_json ? JSON.parse(res.data_json) : null) as {
+        status?: string;
+      } | null;
+      const next = payload?.status ?? null;
+      setStatus(next);
+      setSyncedAt(new Date().toISOString());
+      toast.success(next ? `EDI status: ${next}` : "EDI status refreshed");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not refresh EDI status");
+    } finally {
+      setBusy(null);
     }
-    const next = (res.data as { status?: string } | null)?.status ?? null;
-    setStatus(next);
-    setSyncedAt(new Date().toISOString());
-    toast.success(next ? `EDI status: ${next}` : "EDI status refreshed");
   };
 
   const issues = ediValidationIssues(validation);

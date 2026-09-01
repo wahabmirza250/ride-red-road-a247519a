@@ -17,10 +17,10 @@ const RECORD_SELECT = `id, trip_id, company_id, status, created_at,
   edi_claim_id, edi_batch_id, edi_file_id, edi_status, edi_validation,
   edi_status_detail, edi_environment,
   edi_last_sync_at, edi_last_error,
-  medicaid_trips!inner(id, pickup_at, pickup_address, dropoff_address, miles,
+  medicaid_trips!inner(id, rider_id, pickup_at, pickup_address, dropoff_address, miles,
     odometer_start, odometer_end, trip_kind, vehicle_type, state_pdf_path,
     signature_path, company_id,
-    riders(full_name, medicaid_id, dob, address, phone),
+    riders(id, full_name, medicaid_id, dob, address, phone),
     medicaid_trip_legs(leg_index, leg_date, pickup_odometer, dropoff_odometer,
       pickup_address, dropoff_address, pickup_time, dropoff_time))`;
 
@@ -135,6 +135,7 @@ export async function loadEdiDetails(
     return {
       record_id: rec.id,
       trip_id: rec.trip_id,
+      rider_id: rider.id ?? trip.rider_id ?? null,
       company_id: rec.company_id,
       status: rec.status,
       member: {
