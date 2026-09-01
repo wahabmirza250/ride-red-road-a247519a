@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getEdiTripDetail, saveEdiClaimState } from "@/lib/ediBilling.functions";
 import { createEdiClaim, validateEdiClaim } from "@/lib/edi.functions";
-import { ediIsValid, ediValidationMessages } from "@/lib/edi";
+import { ediIsValid, ediValidationIssues } from "@/lib/edi";
 import { buildEdiClaimPayload, localClaimBlockers } from "@/lib/ediPayload";
 import type { EdiEnvironment } from "@/lib/ediSetup";
 
@@ -100,7 +100,7 @@ export function EdiReviewTab({
     ? (JSON.parse(d.edi.edi_validation_json) as Record<string, unknown>)
     : null;
   const ready = validation ? ediIsValid(validation) : false;
-  const messages = validation ? ediValidationMessages(validation) : [];
+  const messages = validation ? ediValidationIssues(validation).map((i) => i.message) : [];
 
   return (
     <div className="space-y-5">
@@ -188,7 +188,7 @@ export function EdiReviewTab({
             {blockers.map((b) => (
               <li key={b}>{b}</li>
             ))}
-            {messages.map((m, i) => (
+            {messages.map((m: string, i: number) => (
               <li key={`v${i}`}>{m}</li>
             ))}
           </ul>
