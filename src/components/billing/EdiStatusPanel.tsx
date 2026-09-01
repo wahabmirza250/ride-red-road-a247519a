@@ -64,7 +64,8 @@ export function EdiStatusPanel({ record }: { record: EdiClaimRef | null | undefi
     setValidation(res.data);
     setSyncedAt(new Date().toISOString());
     const valid = ediIsValid(res.data);
-    if (valid === false) toast.warning("EDI backend reported validation errors");
+    if (valid === false) toast.warning("Not ready — EDI backend reported validation errors");
+    else if (valid === true) toast.success("Ready for 837P generation");
     else toast.success("EDI validation complete");
   };
 
