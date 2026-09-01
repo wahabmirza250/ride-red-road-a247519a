@@ -209,6 +209,13 @@ export type Database = {
           auto_retry_count: number
           company_id: string | null
           created_at: string
+          edi_batch_id: number | null
+          edi_claim_id: number | null
+          edi_file_id: number | null
+          edi_last_error: string | null
+          edi_last_sync_at: string | null
+          edi_status: string | null
+          edi_validation: Json | null
           failure_code: string | null
           failure_stage: string | null
           fix_notes: string | null
@@ -258,6 +265,13 @@ export type Database = {
           auto_retry_count?: number
           company_id?: string | null
           created_at?: string
+          edi_batch_id?: number | null
+          edi_claim_id?: number | null
+          edi_file_id?: number | null
+          edi_last_error?: string | null
+          edi_last_sync_at?: string | null
+          edi_status?: string | null
+          edi_validation?: Json | null
           failure_code?: string | null
           failure_stage?: string | null
           fix_notes?: string | null
@@ -307,6 +321,13 @@ export type Database = {
           auto_retry_count?: number
           company_id?: string | null
           created_at?: string
+          edi_batch_id?: number | null
+          edi_claim_id?: number | null
+          edi_file_id?: number | null
+          edi_last_error?: string | null
+          edi_last_sync_at?: string | null
+          edi_status?: string | null
+          edi_validation?: Json | null
           failure_code?: string | null
           failure_stage?: string | null
           fix_notes?: string | null
