@@ -37,11 +37,13 @@ import {
 } from "@/components/ui/select";
 import { AppLink } from "@/lib/appLink";
 import { cn } from "@/lib/utils";
-import { getEdiHealth } from "@/lib/edi.functions";
+import { probeEdiConnection } from "@/lib/edi.functions";
+import { describeEdiConnection } from "@/lib/ediConnection";
 import { canSubmitProduction, environmentLabel, evaluateEdiSetup } from "@/lib/ediSetup";
 import { getEdiCompanySettings, listEdiCompanies } from "@/lib/ediSetup.functions";
 import { listEdiWorkbench } from "@/lib/ediRecords.functions";
 import type { EdiWorkRow } from "@/lib/ediTypes";
+
 import { EdiBatchReviewTab } from "./EdiBatchReviewTab";
 import { EdiProviderSetupTab } from "./EdiProviderSetupTab";
 import { EdiRowDetailSheet } from "./EdiRowDetailSheet";
