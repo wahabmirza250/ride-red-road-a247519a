@@ -688,9 +688,10 @@ export async function startRobotSubmission(
 
 
     // Explicit rates so the automation service never has to guess or fall back
-    // to its own built-in defaults.
-    trip_rate: rates.trip,
-    mile_rate: rates.mile,
+    // to its own built-in defaults. Charge amounts are exact two-decimal text:
+    // a float artifact (54.800000000000004) breaks the portal's amount box.
+    trip_rate: withPortalMoneyFields(rates.trip, ["charge_amount"]),
+    mile_rate: withPortalMoneyFields(rates.mile, ["charge_amount"]),
     place_of_service: rates.trip.place_of_service,
     // Diagnosis (illness) code. Confirmed being sent as diagnosis_code yet
     // blank on a real claim — same alias pattern as member id / date of
