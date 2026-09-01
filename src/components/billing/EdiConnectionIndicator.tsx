@@ -31,7 +31,8 @@ export function EdiConnectionIndicator({ className }: { className?: string }) {
         ? "EDI connected"
         : "EDI unavailable";
 
-  const detail = state === "unavailable" && !health.isLoading ? health.data?.error : null;
+  const result = health.data;
+  const detail = result && !result.ok ? result.error : null;
 
   return (
     <button
