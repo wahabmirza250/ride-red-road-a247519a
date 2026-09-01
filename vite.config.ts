@@ -5,14 +5,6 @@
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-// tslib's "node" export condition is an ESM shim that re-exports the CJS build
-// through a default import. In the Worker bundle that interop resolves to
-// `undefined`, so every module pulling in pdf-lib crashed with
-// "Cannot destructure property '__extends'". Force the pure-ESM build.
-const tslibEsm = require.resolve("tslib/tslib.es6.mjs");
 
 export default defineConfig({
   // Railway runs the application as a long-lived Node service. Lovable's
@@ -25,11 +17,6 @@ export default defineConfig({
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
-  },
-  vite: {
-    resolve: {
-      alias: [{ find: /^tslib$/, replacement: tslibEsm }],
-    },
   },
 });
 
