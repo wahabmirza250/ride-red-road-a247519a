@@ -123,6 +123,21 @@ export function EdiStatusPanel({ record }: { record: EdiClaimRef | null | undefi
             ) : null}
           </div>
 
+          {ready !== null && (
+            <p
+              className={cn(
+                "mt-2 rounded-lg px-2 py-1 font-medium",
+                ready
+                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  : "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+              )}
+            >
+              {ready
+                ? "Ready for 837P generation"
+                : `Not ready — ${issues.length || "see"} validation issue${issues.length === 1 ? "" : "s"}`}
+            </p>
+          )}
+
           {record?.edi_last_error && (
             <p className="mt-2 rounded-lg bg-destructive/10 p-2 text-destructive">
               {record.edi_last_error}
