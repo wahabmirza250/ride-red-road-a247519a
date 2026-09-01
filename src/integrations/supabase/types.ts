@@ -211,10 +211,12 @@ export type Database = {
           created_at: string
           edi_batch_id: number | null
           edi_claim_id: number | null
+          edi_environment: string | null
           edi_file_id: number | null
           edi_last_error: string | null
           edi_last_sync_at: string | null
           edi_status: string | null
+          edi_status_detail: Json | null
           edi_validation: Json | null
           failure_code: string | null
           failure_stage: string | null
@@ -267,10 +269,12 @@ export type Database = {
           created_at?: string
           edi_batch_id?: number | null
           edi_claim_id?: number | null
+          edi_environment?: string | null
           edi_file_id?: number | null
           edi_last_error?: string | null
           edi_last_sync_at?: string | null
           edi_status?: string | null
+          edi_status_detail?: Json | null
           edi_validation?: Json | null
           failure_code?: string | null
           failure_stage?: string | null
@@ -323,10 +327,12 @@ export type Database = {
           created_at?: string
           edi_batch_id?: number | null
           edi_claim_id?: number | null
+          edi_environment?: string | null
           edi_file_id?: number | null
           edi_last_error?: string | null
           edi_last_sync_at?: string | null
           edi_status?: string | null
+          edi_status_detail?: Json | null
           edi_validation?: Json | null
           failure_code?: string | null
           failure_stage?: string | null
@@ -2189,12 +2195,15 @@ export type Database = {
           city: string | null
           company_id: string
           contact_email: string | null
+          contact_name: string | null
           created_at: string
           environment: string
           id: string
+          notes: string | null
           npi: string | null
           phone: string | null
           postal_code: string | null
+          production_enabled: boolean
           receiver_id: string | null
           sender_id: string | null
           sftp_directory: string | null
@@ -2205,6 +2214,7 @@ export type Database = {
           state: string | null
           tax_id: string | null
           taxonomy_code: string | null
+          transport_mode: string
           updated_at: string
         }
         Insert: {
@@ -2214,12 +2224,15 @@ export type Database = {
           city?: string | null
           company_id: string
           contact_email?: string | null
+          contact_name?: string | null
           created_at?: string
           environment?: string
           id?: string
+          notes?: string | null
           npi?: string | null
           phone?: string | null
           postal_code?: string | null
+          production_enabled?: boolean
           receiver_id?: string | null
           sender_id?: string | null
           sftp_directory?: string | null
@@ -2230,6 +2243,7 @@ export type Database = {
           state?: string | null
           tax_id?: string | null
           taxonomy_code?: string | null
+          transport_mode?: string
           updated_at?: string
         }
         Update: {
@@ -2239,12 +2253,15 @@ export type Database = {
           city?: string | null
           company_id?: string
           contact_email?: string | null
+          contact_name?: string | null
           created_at?: string
           environment?: string
           id?: string
+          notes?: string | null
           npi?: string | null
           phone?: string | null
           postal_code?: string | null
+          production_enabled?: boolean
           receiver_id?: string | null
           sender_id?: string | null
           sftp_directory?: string | null
@@ -2255,6 +2272,7 @@ export type Database = {
           state?: string | null
           tax_id?: string | null
           taxonomy_code?: string | null
+          transport_mode?: string
           updated_at?: string
         }
         Relationships: [

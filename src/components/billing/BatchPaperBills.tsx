@@ -182,7 +182,28 @@ function isValid(i: Item) {
  * comes back with its read, its draft and its last error until it has really
  * produced a trip + billing record. Nothing here submits anything.
  */
-export function BatchPaperBills() {
+/** Live counts of the import queue, for a workspace that embeds this inbox. */
+export type PaperImportProgress = {
+  total: number;
+  uploading: number;
+  extracting: number;
+  draftReady: number;
+  needsReview: number;
+  saving: number;
+  imported: number;
+  failed: number;
+};
+
+export type BatchPaperBillsProps = {
+  /** Hides the standalone page header when rendered inside another workspace. */
+  embedded?: boolean;
+  /** Fires after a confirm pass with the trips that were actually created. */
+  onImported?: (trips: { trip_id: string }[]) => void;
+  /** Fires whenever the queue changes, so a host can render batch progress. */
+  onProgress?: (progress: PaperImportProgress) => void;
+};
+
+export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaperBillsProps = {}) {
   const ratesFn = useServerFn(getBillingRatesForCalc);
   const detectFn = useServerFn(detectPaperBillOdometers);
   const createFn = useServerFn(createPaperBillTrip);
@@ -504,10 +525,27 @@ export function BatchPaperBills() {
   const readyCount = pending.filter((i) => i.phase === "ready" && isValid(i)).length;
   const blockedCount = pending.filter((i) => i.phase === "ready" && !isValid(i)).length;
 
+  // Queue-level progress for an embedding workspace (Super EDI shows this as a
+  // strip above the inbox). Derived from the same phases the rows render.
+  useEffect(() => {
+    if (!onProgress) return;
+    onProgress({
+      total: items.length,
+      uploading: items.filter((i) => i.phase === "uploading").length,
+      extracting: items.filter((i) => i.phase === "reading").length,
+      draftReady: items.filter((i) => i.phase === "ready" && isValid(i)).length,
+      needsReview: items.filter((i) => i.phase === "ready" && !isValid(i)).length,
+      saving: items.filter((i) => i.phase === "saving").length,
+      imported: items.filter((i) => i.phase === "done").length,
+      failed: items.filter((i) => i.phase === "error").length,
+    });
+  }, [items, onProgress]);
+
   async function confirmAll() {
     setConfirming(true);
     let ok = 0;
     let failed = 0;
+    const created: { trip_id: string }[] = [];
     for (const item of items) {
       if (item.phase !== "ready" || !isValid(item) || !item.uploadPath) continue;
       patch(item.key, { phase: "saving" });
@@ -534,6 +572,7 @@ export function BatchPaperBills() {
           },
         })) as Item["result"];
         patch(item.key, { phase: "done", result: res, error: undefined });
+        if (res?.trip_id) created.push({ trip_id: res.trip_id });
         ok++;
       } catch (e: any) {
         const message = e?.message ?? "Could not create the trip";
@@ -550,6 +589,7 @@ export function BatchPaperBills() {
     if (ok) toast.success(`${ok} bill${ok === 1 ? "" : "s"} imported into Ready to submit`);
     if (failed)
       toast.error(`${failed} bill${failed === 1 ? "" : "s"} could not be created — see each row`);
+    if (created.length) onImported?.(created);
   }
 
   const groups = useMemo(() => {
@@ -569,10 +609,12 @@ export function BatchPaperBills() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="Batch paper bills"
-        description="Upload several paper trip reports at once. Each file is stored, tracked and auto-read, grouped by the driver named on the paper, and calculated so you can review the whole batch before confirming. Nothing here is submitted to the portal."
-      />
+      {!embedded && (
+        <PageHeader
+          title="Batch paper bills"
+          description="Upload several paper trip reports at once. Each file is stored, tracked and auto-read, grouped by the driver named on the paper, and calculated so you can review the whole batch before confirming. Nothing here is submitted to the portal."
+        />
+      )}
 
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface p-3">
         <input

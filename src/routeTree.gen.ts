@@ -85,6 +85,7 @@ import { Route as CompanySlugAuthenticatedComplianceRouteImport } from './routes
 import { Route as CompanySlugAuthenticatedCommunicationsRouteImport } from './routes/$companySlug/_authenticated/communications'
 import { Route as CompanySlugDispatchRoutesIndexRouteImport } from './routes/$companySlug/dispatch.routes.index'
 import { Route as CompanySlugAuthenticatedPayrollIndexRouteImport } from './routes/$companySlug/_authenticated/payroll.index'
+import { Route as CompanySlugAuthenticatedMedicaidBillingIndexRouteImport } from './routes/$companySlug/_authenticated/medicaid-billing.index'
 import { Route as ApiPublicHooksSyncClaimStatusRouteImport } from './routes/api/public/hooks/sync-claim-status'
 import { Route as ApiPublicHooksSubmissionQueueTickRouteImport } from './routes/api/public/hooks/submission-queue-tick'
 import { Route as ApiPublicHooksReconcileSweepTickRouteImport } from './routes/api/public/hooks/reconcile-sweep-tick'
@@ -98,6 +99,8 @@ import { Route as CompanySlugDispatchRoutesRouteIdRouteImport } from './routes/$
 import { Route as CompanySlugAuthenticatedPayrollDriverIdRouteImport } from './routes/$companySlug/_authenticated/payroll.$driverId'
 import { Route as CompanySlugAuthenticatedPayrollStatementDriverIdRouteImport } from './routes/$companySlug/_authenticated/payroll-statement.$driverId'
 import { Route as CompanySlugAuthenticatedMedicaidTripsNewRouteImport } from './routes/$companySlug/_authenticated/medicaid-trips.new'
+import { Route as CompanySlugAuthenticatedMedicaidBillingSuperEdiRouteImport } from './routes/$companySlug/_authenticated/medicaid-billing.super-edi'
+import { Route as CompanySlugAuthenticatedMedicaidBillingHcpfRouteImport } from './routes/$companySlug/_authenticated/medicaid-billing.hcpf'
 import { Route as CompanySlugAuthenticatedTripsTripIdProofRouteImport } from './routes/$companySlug/_authenticated/trips_.$tripId.proof'
 
 const ShowcaseRoute = ShowcaseRouteImport.update({
@@ -528,6 +531,12 @@ const CompanySlugAuthenticatedPayrollIndexRoute =
     path: '/payroll/',
     getParentRoute: () => CompanySlugAuthenticatedRouteRoute,
   } as any)
+const CompanySlugAuthenticatedMedicaidBillingIndexRoute =
+  CompanySlugAuthenticatedMedicaidBillingIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => CompanySlugAuthenticatedMedicaidBillingRoute,
+  } as any)
 const ApiPublicHooksSyncClaimStatusRoute =
   ApiPublicHooksSyncClaimStatusRouteImport.update({
     id: '/api/public/hooks/sync-claim-status',
@@ -606,6 +615,18 @@ const CompanySlugAuthenticatedMedicaidTripsNewRoute =
     path: '/new',
     getParentRoute: () => CompanySlugAuthenticatedMedicaidTripsRoute,
   } as any)
+const CompanySlugAuthenticatedMedicaidBillingSuperEdiRoute =
+  CompanySlugAuthenticatedMedicaidBillingSuperEdiRouteImport.update({
+    id: '/super-edi',
+    path: '/super-edi',
+    getParentRoute: () => CompanySlugAuthenticatedMedicaidBillingRoute,
+  } as any)
+const CompanySlugAuthenticatedMedicaidBillingHcpfRoute =
+  CompanySlugAuthenticatedMedicaidBillingHcpfRouteImport.update({
+    id: '/hcpf',
+    path: '/hcpf',
+    getParentRoute: () => CompanySlugAuthenticatedMedicaidBillingRoute,
+  } as any)
 const CompanySlugAuthenticatedTripsTripIdProofRoute =
   CompanySlugAuthenticatedTripsTripIdProofRouteImport.update({
     id: '/trips_/$tripId/proof',
@@ -640,7 +661,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/games': typeof CompanySlugAuthenticatedGamesRoute
   '/$companySlug/incidents': typeof CompanySlugAuthenticatedIncidentsRoute
   '/$companySlug/live-ops': typeof CompanySlugAuthenticatedLiveOpsRoute
-  '/$companySlug/medicaid-billing': typeof CompanySlugAuthenticatedMedicaidBillingRoute
+  '/$companySlug/medicaid-billing': typeof CompanySlugAuthenticatedMedicaidBillingRouteWithChildren
   '/$companySlug/medicaid-trips': typeof CompanySlugAuthenticatedMedicaidTripsRouteWithChildren
   '/$companySlug/messages': typeof CompanySlugAuthenticatedMessagesRoute
   '/$companySlug/news': typeof CompanySlugAuthenticatedNewsRoute
@@ -687,6 +708,8 @@ export interface FileRoutesByFullPath {
   '/$companySlug/dispatch/': typeof CompanySlugDispatchIndexRoute
   '/$companySlug/driver/': typeof CompanySlugDriverIndexRoute
   '/$companySlug/passenger/': typeof CompanySlugPassengerIndexRoute
+  '/$companySlug/medicaid-billing/hcpf': typeof CompanySlugAuthenticatedMedicaidBillingHcpfRoute
+  '/$companySlug/medicaid-billing/super-edi': typeof CompanySlugAuthenticatedMedicaidBillingSuperEdiRoute
   '/$companySlug/medicaid-trips/new': typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
   '/$companySlug/payroll-statement/$driverId': typeof CompanySlugAuthenticatedPayrollStatementDriverIdRoute
   '/$companySlug/payroll/$driverId': typeof CompanySlugAuthenticatedPayrollDriverIdRoute
@@ -700,6 +723,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/reconcile-sweep-tick': typeof ApiPublicHooksReconcileSweepTickRoute
   '/api/public/hooks/submission-queue-tick': typeof ApiPublicHooksSubmissionQueueTickRoute
   '/api/public/hooks/sync-claim-status': typeof ApiPublicHooksSyncClaimStatusRoute
+  '/$companySlug/medicaid-billing/': typeof CompanySlugAuthenticatedMedicaidBillingIndexRoute
   '/$companySlug/payroll/': typeof CompanySlugAuthenticatedPayrollIndexRoute
   '/$companySlug/dispatch/routes/': typeof CompanySlugDispatchRoutesIndexRoute
   '/$companySlug/trips/$tripId/proof': typeof CompanySlugAuthenticatedTripsTripIdProofRoute
@@ -726,7 +750,6 @@ export interface FileRoutesByTo {
   '/$companySlug/games': typeof CompanySlugAuthenticatedGamesRoute
   '/$companySlug/incidents': typeof CompanySlugAuthenticatedIncidentsRoute
   '/$companySlug/live-ops': typeof CompanySlugAuthenticatedLiveOpsRoute
-  '/$companySlug/medicaid-billing': typeof CompanySlugAuthenticatedMedicaidBillingRoute
   '/$companySlug/medicaid-trips': typeof CompanySlugAuthenticatedMedicaidTripsRouteWithChildren
   '/$companySlug/messages': typeof CompanySlugAuthenticatedMessagesRoute
   '/$companySlug/news': typeof CompanySlugAuthenticatedNewsRoute
@@ -772,6 +795,8 @@ export interface FileRoutesByTo {
   '/$companySlug/dispatch': typeof CompanySlugDispatchIndexRoute
   '/$companySlug/driver': typeof CompanySlugDriverIndexRoute
   '/$companySlug/passenger': typeof CompanySlugPassengerIndexRoute
+  '/$companySlug/medicaid-billing/hcpf': typeof CompanySlugAuthenticatedMedicaidBillingHcpfRoute
+  '/$companySlug/medicaid-billing/super-edi': typeof CompanySlugAuthenticatedMedicaidBillingSuperEdiRoute
   '/$companySlug/medicaid-trips/new': typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
   '/$companySlug/payroll-statement/$driverId': typeof CompanySlugAuthenticatedPayrollStatementDriverIdRoute
   '/$companySlug/payroll/$driverId': typeof CompanySlugAuthenticatedPayrollDriverIdRoute
@@ -785,6 +810,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/reconcile-sweep-tick': typeof ApiPublicHooksReconcileSweepTickRoute
   '/api/public/hooks/submission-queue-tick': typeof ApiPublicHooksSubmissionQueueTickRoute
   '/api/public/hooks/sync-claim-status': typeof ApiPublicHooksSyncClaimStatusRoute
+  '/$companySlug/medicaid-billing': typeof CompanySlugAuthenticatedMedicaidBillingIndexRoute
   '/$companySlug/payroll': typeof CompanySlugAuthenticatedPayrollIndexRoute
   '/$companySlug/dispatch/routes': typeof CompanySlugDispatchRoutesIndexRoute
   '/$companySlug/trips/$tripId/proof': typeof CompanySlugAuthenticatedTripsTripIdProofRoute
@@ -818,7 +844,7 @@ export interface FileRoutesById {
   '/$companySlug/_authenticated/games': typeof CompanySlugAuthenticatedGamesRoute
   '/$companySlug/_authenticated/incidents': typeof CompanySlugAuthenticatedIncidentsRoute
   '/$companySlug/_authenticated/live-ops': typeof CompanySlugAuthenticatedLiveOpsRoute
-  '/$companySlug/_authenticated/medicaid-billing': typeof CompanySlugAuthenticatedMedicaidBillingRoute
+  '/$companySlug/_authenticated/medicaid-billing': typeof CompanySlugAuthenticatedMedicaidBillingRouteWithChildren
   '/$companySlug/_authenticated/medicaid-trips': typeof CompanySlugAuthenticatedMedicaidTripsRouteWithChildren
   '/$companySlug/_authenticated/messages': typeof CompanySlugAuthenticatedMessagesRoute
   '/$companySlug/_authenticated/news': typeof CompanySlugAuthenticatedNewsRoute
@@ -865,6 +891,8 @@ export interface FileRoutesById {
   '/$companySlug/dispatch/': typeof CompanySlugDispatchIndexRoute
   '/$companySlug/driver/': typeof CompanySlugDriverIndexRoute
   '/$companySlug/passenger/': typeof CompanySlugPassengerIndexRoute
+  '/$companySlug/_authenticated/medicaid-billing/hcpf': typeof CompanySlugAuthenticatedMedicaidBillingHcpfRoute
+  '/$companySlug/_authenticated/medicaid-billing/super-edi': typeof CompanySlugAuthenticatedMedicaidBillingSuperEdiRoute
   '/$companySlug/_authenticated/medicaid-trips/new': typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
   '/$companySlug/_authenticated/payroll-statement/$driverId': typeof CompanySlugAuthenticatedPayrollStatementDriverIdRoute
   '/$companySlug/_authenticated/payroll/$driverId': typeof CompanySlugAuthenticatedPayrollDriverIdRoute
@@ -878,6 +906,7 @@ export interface FileRoutesById {
   '/api/public/hooks/reconcile-sweep-tick': typeof ApiPublicHooksReconcileSweepTickRoute
   '/api/public/hooks/submission-queue-tick': typeof ApiPublicHooksSubmissionQueueTickRoute
   '/api/public/hooks/sync-claim-status': typeof ApiPublicHooksSyncClaimStatusRoute
+  '/$companySlug/_authenticated/medicaid-billing/': typeof CompanySlugAuthenticatedMedicaidBillingIndexRoute
   '/$companySlug/_authenticated/payroll/': typeof CompanySlugAuthenticatedPayrollIndexRoute
   '/$companySlug/dispatch/routes/': typeof CompanySlugDispatchRoutesIndexRoute
   '/$companySlug/_authenticated/trips_/$tripId/proof': typeof CompanySlugAuthenticatedTripsTripIdProofRoute
@@ -958,6 +987,8 @@ export interface FileRouteTypes {
     | '/$companySlug/dispatch/'
     | '/$companySlug/driver/'
     | '/$companySlug/passenger/'
+    | '/$companySlug/medicaid-billing/hcpf'
+    | '/$companySlug/medicaid-billing/super-edi'
     | '/$companySlug/medicaid-trips/new'
     | '/$companySlug/payroll-statement/$driverId'
     | '/$companySlug/payroll/$driverId'
@@ -971,6 +1002,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/reconcile-sweep-tick'
     | '/api/public/hooks/submission-queue-tick'
     | '/api/public/hooks/sync-claim-status'
+    | '/$companySlug/medicaid-billing/'
     | '/$companySlug/payroll/'
     | '/$companySlug/dispatch/routes/'
     | '/$companySlug/trips/$tripId/proof'
@@ -997,7 +1029,6 @@ export interface FileRouteTypes {
     | '/$companySlug/games'
     | '/$companySlug/incidents'
     | '/$companySlug/live-ops'
-    | '/$companySlug/medicaid-billing'
     | '/$companySlug/medicaid-trips'
     | '/$companySlug/messages'
     | '/$companySlug/news'
@@ -1043,6 +1074,8 @@ export interface FileRouteTypes {
     | '/$companySlug/dispatch'
     | '/$companySlug/driver'
     | '/$companySlug/passenger'
+    | '/$companySlug/medicaid-billing/hcpf'
+    | '/$companySlug/medicaid-billing/super-edi'
     | '/$companySlug/medicaid-trips/new'
     | '/$companySlug/payroll-statement/$driverId'
     | '/$companySlug/payroll/$driverId'
@@ -1056,6 +1089,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/reconcile-sweep-tick'
     | '/api/public/hooks/submission-queue-tick'
     | '/api/public/hooks/sync-claim-status'
+    | '/$companySlug/medicaid-billing'
     | '/$companySlug/payroll'
     | '/$companySlug/dispatch/routes'
     | '/$companySlug/trips/$tripId/proof'
@@ -1135,6 +1169,8 @@ export interface FileRouteTypes {
     | '/$companySlug/dispatch/'
     | '/$companySlug/driver/'
     | '/$companySlug/passenger/'
+    | '/$companySlug/_authenticated/medicaid-billing/hcpf'
+    | '/$companySlug/_authenticated/medicaid-billing/super-edi'
     | '/$companySlug/_authenticated/medicaid-trips/new'
     | '/$companySlug/_authenticated/payroll-statement/$driverId'
     | '/$companySlug/_authenticated/payroll/$driverId'
@@ -1148,6 +1184,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/reconcile-sweep-tick'
     | '/api/public/hooks/submission-queue-tick'
     | '/api/public/hooks/sync-claim-status'
+    | '/$companySlug/_authenticated/medicaid-billing/'
     | '/$companySlug/_authenticated/payroll/'
     | '/$companySlug/dispatch/routes/'
     | '/$companySlug/_authenticated/trips_/$tripId/proof'
@@ -1710,6 +1747,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugAuthenticatedPayrollIndexRouteImport
       parentRoute: typeof CompanySlugAuthenticatedRouteRoute
     }
+    '/$companySlug/_authenticated/medicaid-billing/': {
+      id: '/$companySlug/_authenticated/medicaid-billing/'
+      path: '/'
+      fullPath: '/$companySlug/medicaid-billing/'
+      preLoaderRoute: typeof CompanySlugAuthenticatedMedicaidBillingIndexRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedMedicaidBillingRoute
+    }
     '/api/public/hooks/sync-claim-status': {
       id: '/api/public/hooks/sync-claim-status'
       path: '/api/public/hooks/sync-claim-status'
@@ -1801,6 +1845,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompanySlugAuthenticatedMedicaidTripsNewRouteImport
       parentRoute: typeof CompanySlugAuthenticatedMedicaidTripsRoute
     }
+    '/$companySlug/_authenticated/medicaid-billing/super-edi': {
+      id: '/$companySlug/_authenticated/medicaid-billing/super-edi'
+      path: '/super-edi'
+      fullPath: '/$companySlug/medicaid-billing/super-edi'
+      preLoaderRoute: typeof CompanySlugAuthenticatedMedicaidBillingSuperEdiRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedMedicaidBillingRoute
+    }
+    '/$companySlug/_authenticated/medicaid-billing/hcpf': {
+      id: '/$companySlug/_authenticated/medicaid-billing/hcpf'
+      path: '/hcpf'
+      fullPath: '/$companySlug/medicaid-billing/hcpf'
+      preLoaderRoute: typeof CompanySlugAuthenticatedMedicaidBillingHcpfRouteImport
+      parentRoute: typeof CompanySlugAuthenticatedMedicaidBillingRoute
+    }
     '/$companySlug/_authenticated/trips_/$tripId/proof': {
       id: '/$companySlug/_authenticated/trips_/$tripId/proof'
       path: '/trips/$tripId/proof'
@@ -1810,6 +1868,27 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface CompanySlugAuthenticatedMedicaidBillingRouteChildren {
+  CompanySlugAuthenticatedMedicaidBillingHcpfRoute: typeof CompanySlugAuthenticatedMedicaidBillingHcpfRoute
+  CompanySlugAuthenticatedMedicaidBillingSuperEdiRoute: typeof CompanySlugAuthenticatedMedicaidBillingSuperEdiRoute
+  CompanySlugAuthenticatedMedicaidBillingIndexRoute: typeof CompanySlugAuthenticatedMedicaidBillingIndexRoute
+}
+
+const CompanySlugAuthenticatedMedicaidBillingRouteChildren: CompanySlugAuthenticatedMedicaidBillingRouteChildren =
+  {
+    CompanySlugAuthenticatedMedicaidBillingHcpfRoute:
+      CompanySlugAuthenticatedMedicaidBillingHcpfRoute,
+    CompanySlugAuthenticatedMedicaidBillingSuperEdiRoute:
+      CompanySlugAuthenticatedMedicaidBillingSuperEdiRoute,
+    CompanySlugAuthenticatedMedicaidBillingIndexRoute:
+      CompanySlugAuthenticatedMedicaidBillingIndexRoute,
+  }
+
+const CompanySlugAuthenticatedMedicaidBillingRouteWithChildren =
+  CompanySlugAuthenticatedMedicaidBillingRoute._addFileChildren(
+    CompanySlugAuthenticatedMedicaidBillingRouteChildren,
+  )
 
 interface CompanySlugAuthenticatedMedicaidTripsRouteChildren {
   CompanySlugAuthenticatedMedicaidTripsNewRoute: typeof CompanySlugAuthenticatedMedicaidTripsNewRoute
@@ -1836,7 +1915,7 @@ interface CompanySlugAuthenticatedRouteRouteChildren {
   CompanySlugAuthenticatedGamesRoute: typeof CompanySlugAuthenticatedGamesRoute
   CompanySlugAuthenticatedIncidentsRoute: typeof CompanySlugAuthenticatedIncidentsRoute
   CompanySlugAuthenticatedLiveOpsRoute: typeof CompanySlugAuthenticatedLiveOpsRoute
-  CompanySlugAuthenticatedMedicaidBillingRoute: typeof CompanySlugAuthenticatedMedicaidBillingRoute
+  CompanySlugAuthenticatedMedicaidBillingRoute: typeof CompanySlugAuthenticatedMedicaidBillingRouteWithChildren
   CompanySlugAuthenticatedMedicaidTripsRoute: typeof CompanySlugAuthenticatedMedicaidTripsRouteWithChildren
   CompanySlugAuthenticatedMessagesRoute: typeof CompanySlugAuthenticatedMessagesRoute
   CompanySlugAuthenticatedNewsRoute: typeof CompanySlugAuthenticatedNewsRoute
@@ -1872,7 +1951,7 @@ const CompanySlugAuthenticatedRouteRouteChildren: CompanySlugAuthenticatedRouteR
       CompanySlugAuthenticatedIncidentsRoute,
     CompanySlugAuthenticatedLiveOpsRoute: CompanySlugAuthenticatedLiveOpsRoute,
     CompanySlugAuthenticatedMedicaidBillingRoute:
-      CompanySlugAuthenticatedMedicaidBillingRoute,
+      CompanySlugAuthenticatedMedicaidBillingRouteWithChildren,
     CompanySlugAuthenticatedMedicaidTripsRoute:
       CompanySlugAuthenticatedMedicaidTripsRouteWithChildren,
     CompanySlugAuthenticatedMessagesRoute:
