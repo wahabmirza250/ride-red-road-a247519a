@@ -251,6 +251,47 @@ export function SuperEdiWorkspace() {
           </div>
         </div>
 
+        {connection.title && (
+          <div className="mt-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 text-sm font-semibold text-destructive">
+                  <PlugZap className="h-4 w-4 shrink-0" />
+                  {connection.title}
+                </p>
+                {connection.detail && (
+                  <p className="mt-1 text-xs text-muted-foreground">{connection.detail}</p>
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void health.refetch()}
+                disabled={health.isFetching}
+              >
+                {health.isFetching ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Test connection
+              </Button>
+            </div>
+            {connection.steps.length > 0 && (
+              <ol className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                {connection.steps.map((step, i) => (
+                  <li key={step} className="flex gap-2">
+                    <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-[10px] font-semibold text-destructive tabular-nums">
+                      {i + 1}
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        )}
+
         {!setupStatus.ready && (
           <button
             type="button"
@@ -268,6 +309,7 @@ export function SuperEdiWorkspace() {
             </span>
           </button>
         )}
+
 
         <nav className="mt-4 flex flex-wrap gap-1.5 rounded-2xl bg-surface-muted p-1.5">
           {TABS.map((t) => {
