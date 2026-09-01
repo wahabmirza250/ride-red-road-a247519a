@@ -7,6 +7,7 @@ import { blockingReasonLabel, canResendAfterCorrection } from "@/lib/resendGate"
 import { markCorrectedReadyToSubmit } from "@/lib/billFix.functions";
 import { requiresManualVerification } from "@/lib/needsVerification";
 import { ManualVerificationPanel } from "@/components/billing/ManualVerificationPanel";
+import { EdiStatusPanel } from "@/components/billing/EdiStatusPanel";
 import {
   Sheet,
   SheetContent,
@@ -269,6 +270,8 @@ export function BillingDetailSheet({
                 }}
               />
             )}
+
+            <EdiStatusPanel record={recAny} />
 
             {resendDecision && (
               <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3 text-xs">
