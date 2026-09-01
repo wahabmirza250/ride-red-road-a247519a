@@ -13,6 +13,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { EDI_PATHS, type EdiRequest, type EdiResult } from "@/lib/ediTransport";
+import type { EdiConnectionProbe } from "@/lib/ediConnection";
 import { ediErrorMessage } from "@/lib/edi";
 
 export type { EdiRequest, EdiResult } from "@/lib/ediTransport";
@@ -205,3 +206,46 @@ export function getEdiFile(fileId: number | string) {
 export function uploadEdiFile(fileId: number | string) {
   return callEdi<EdiFile>({ path: EDI_PATHS.ediFileUpload(fileId), method: "POST", body: {} });
 }
+
+/* ------------------------------------------------------------------ */
+/* Connection diagnostics                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Billing-staff probe of the EDI link. Reports WHICH transport the server can
+ * use and what the backend said, so onboarding can tell "nothing is connected
+ * yet" apart from "the backend answered and refused".
+ *
+ * Never returns a credential — only booleans, a status code and the backend's
+ * own message.
+ */
+export const probeEdiConnection = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<EdiConnectionProbe> => {
+    const { supabase, userId } = context;
+    const { assertBilling } = await import("@/lib/billingHelpers");
+    await assertBilling(supabase, userId);
+
+    const { ediFetch, ediDirectConfigured } = await import("@/lib/ediBridge.server");
+    const direct = ediDirectConfigured();
+    const res = await ediFetch<EdiHealth>(supabase, { path: EDI_PATHS.health(), method: "GET" });
+
+    if (res.ok) {
+      const status = res.data?.status;
+      const version = res.data?.version;
+      return {
+        ok: true,
+        direct_configured: direct,
+        transport: res.transport ?? null,
+        status_text: typeof status === "string" ? status : null,
+        version: typeof version === "string" ? version : null,
+      };
+    }
+    return {
+      ok: false,
+      error: res.error,
+      status: res.status ?? null,
+      transport: res.transport ?? "none",
+      direct_configured: direct,
+    };
+  });
