@@ -31,11 +31,22 @@ export const Route = createFileRoute("/api/public/hooks/submission-queue-tick")(
         const { runSubmissionQueueTick, isSubmissionQueuePaused, SUBMIT_RUN_BUDGET_MS } =
           await import("@/lib/submissionQueue.server");
 
+        // READ-ONLY recovery always runs, even while the queue is paused: a
+        // pause must stop SENDING, never stop resolving already-dispatched
+        // corrected claims. Nothing here submits or retries anything.
+        let verified: unknown = null;
+        try {
+          const { verifyHeldCorrectedRecords } = await import("@/lib/correctedVerify.server");
+          verified = await verifyHeldCorrectedRecords(supabaseAdmin, { limit: 5 });
+        } catch (e: any) {
+          verified = { error: e?.message ?? "corrected verification failed" };
+        }
+
         // Paused-state guard at the entry point: the scheduler keeps firing
         // regardless of queue state, so this is what actually stops the work.
         const { paused, reason } = await isSubmissionQueuePaused(supabaseAdmin);
         if (paused) {
-          return new Response(JSON.stringify({ ok: true, paused: true, reason }), {
+          return new Response(JSON.stringify({ ok: true, paused: true, reason, verified }), {
             headers: { "Content-Type": "application/json" },
           });
         }
@@ -91,7 +102,7 @@ export const Route = createFileRoute("/api/public/hooks/submission-queue-tick")(
         }
 
         return new Response(
-          JSON.stringify({ ok: true, ms: Date.now() - started, companies: results }),
+          JSON.stringify({ ok: true, ms: Date.now() - started, verified, companies: results }),
           { headers: { "Content-Type": "application/json" } },
         );
       },
