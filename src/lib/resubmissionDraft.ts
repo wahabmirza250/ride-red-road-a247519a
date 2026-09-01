@@ -516,19 +516,36 @@ export function applyResubmissionOverrides<T extends Record<string, any>>(
   const pos = snap.lines.find((l) => l.place_of_service)?.place_of_service ?? null;
   if (pos) out.place_of_service = pos;
 
-  out.service_lines = snap.lines.map((l) => ({
-    line_index: l.line_index,
-    service_date: l.service_date ? toMdy(l.service_date) : null,
-    procedure_code: l.procedure_code,
-    place_of_service: l.place_of_service,
-    diagnosis_code: l.diagnosis_code,
-    units: l.units,
-    miles: l.miles,
-    amount: l.amount,
-    modifiers: l.modifiers,
-  }));
+  out.service_lines = snap.lines.map((l) =>
+    withPortalMoneyFields(
+      {
+        line_index: l.line_index,
+        service_date: l.service_date ? toMdy(l.service_date) : null,
+        procedure_code: l.procedure_code,
+        place_of_service: l.place_of_service,
+        diagnosis_code: l.diagnosis_code,
+        units: l.units,
+        miles: l.miles,
+        // Exact currency text: a float artifact such as 54.800000000000004 is
+        // rejected by the portal's Charge Amount box.
+        amount: l.amount,
+        charge_amount: l.amount,
+        modifiers: l.modifiers,
+      },
+      ["amount", "charge_amount"],
+    ),
+  );
   out.modifiers = [...new Set(snap.lines.flatMap((l) => l.modifiers))];
   out.is_resubmission = true;
+
+  // Every money field the robot may type, as exact two-decimal text.
+  const lineTotal = snap.lines.reduce((s, l) => s + (l.amount ?? 0), 0);
+  out.total_charge = portalMoneyString(lineTotal) ?? out.total_charge;
+  for (const k of PORTAL_MONEY_KEYS) {
+    if (!(k in out)) continue;
+    const s = portalMoneyString(out[k]);
+    if (s !== null) out[k] = s;
+  }
 
   return out as T;
 }
