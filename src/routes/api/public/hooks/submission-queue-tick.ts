@@ -102,7 +102,7 @@ export const Route = createFileRoute("/api/public/hooks/submission-queue-tick")(
         }
 
         return new Response(
-          JSON.stringify({ ok: true, ms: Date.now() - started, companies: results }),
+          JSON.stringify({ ok: true, ms: Date.now() - started, verified, companies: results }),
           { headers: { "Content-Type": "application/json" } },
         );
       },
