@@ -14,12 +14,18 @@
 - [x] Provider/company onboarding UI incl. shared vs company-specific transport.
 - [x] Claim Status / Remittance list driven by documented backend data only.
 - [x] Tests: bulk-ready filtering, `ready` semantics, no local mileage threshold, documented paths.
+- [x] Connection onboarding: actionable "backend not connected" banner + Test connection, and
+      backend-dependent actions (Validate All / build batch / upload) disabled with the reason.
+- [x] Third transport option `EDI_BRIDGE_URL` (+ optional `EDI_BRIDGE_KEY`) for a bridge that lives
+      outside this project, so no code change is needed to point at it.
 
 ## Blocked (needs the user / external accounts)
 
 - EDI bridge `redart-edi-bridge` is not reachable from this project (function not found) and no
   EDI backend credentials are configured, so no live TEST round-trip can be proven from here.
-  Needed: bridge deployed to this project, or `EDI_API_BASE_URL` + `EDI_API_TOKEN` secrets.
+  Needed (any one): the bridge deployed to this project, `EDI_BRIDGE_URL` (+ `EDI_BRIDGE_KEY`)
+  pointing at the existing bridge, or `EDI_API_BASE_URL` + `EDI_API_TOKEN`. The workspace now
+  states this in-app and re-probes on demand.
 
 ## Ready next
 
