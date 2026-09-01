@@ -94,12 +94,14 @@ export function SuperEdiWorkspace() {
     enabled: companies.isSuccess,
   });
 
+  const connectionFn = useServerFn(probeEdiConnection);
   const health = useQuery({
-    queryKey: ["edi", "health"],
-    queryFn: () => getEdiHealth(),
+    queryKey: ["edi", "connection"],
+    queryFn: () => connectionFn(),
     refetchInterval: 120_000,
     retry: false,
   });
+
 
   const workbench = useQuery({
     queryKey: ["edi", "workbench", activeCompanyId, search, limit],
