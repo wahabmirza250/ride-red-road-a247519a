@@ -120,3 +120,15 @@ export function describeEdiConnection(
 export function ediActionsBlocked(view: EdiConnectionView): boolean {
   return view.state === "not_connected" || view.state === "error";
 }
+
+/**
+ * One sentence for a disabled backend-dependent button. Null while the probe is
+ * still running or the link is healthy, so buttons stay enabled by default.
+ */
+export function ediBlockedReason(view: EdiConnectionView): string | null {
+  if (!ediActionsBlocked(view)) return null;
+  return view.state === "not_connected"
+    ? "The EDI backend is not connected yet — validation, batching and submission stay disabled until it is."
+    : `The EDI backend is not answering: ${view.detail ?? "health check failed"}`;
+}
+
