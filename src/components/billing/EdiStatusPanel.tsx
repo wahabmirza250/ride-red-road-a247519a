@@ -85,6 +85,7 @@ export function EdiStatusPanel({ record }: { record: EdiClaimRef | null | undefi
   };
 
   const issues = ediValidationIssues(validation);
+  const ready = ediIsValid(validation);
 
   return (
     <div className="rounded-xl border border-border bg-surface p-3 text-xs">
