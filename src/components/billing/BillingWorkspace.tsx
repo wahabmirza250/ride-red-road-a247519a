@@ -101,6 +101,7 @@ import { attentionReasonLabel } from "@/lib/needsAttention";
 import { getStatePdfUrl } from "@/lib/nemtTrip.functions";
 import { BillingStageNav } from "@/components/billing/BillingStageNav";
 import { BillingKpiRow } from "@/components/billing/BillingKpiRow";
+import { EdiConnectionIndicator } from "@/components/billing/EdiConnectionIndicator";
 import { BillingInsights } from "@/components/billing/BillingInsights";
 
 import { MedicalReviewTab } from "@/components/billing/MedicalReviewTab";
@@ -542,6 +543,11 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       {/* A company that is not configured yet gets the setup wizard here rather
           than a dead end — the workspace itself stays browsable. */}
       <BillingSetupPanel compact />
+
+      {/* EDI backend link (test integration) — informational only. */}
+      <div className="flex justify-end">
+        <EdiConnectionIndicator />
+      </div>
 
       {setupReady && !defaultPortal && (
         <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
