@@ -22,11 +22,14 @@ import {
   ClipboardList,
   FileUp,
   Loader2,
+  PlugZap,
   Radio,
+  RefreshCw,
   Send,
   Settings2,
   Upload,
 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import {
   Select,
