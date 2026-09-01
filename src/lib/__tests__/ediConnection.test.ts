@@ -66,3 +66,29 @@ describe("describeEdiConnection", () => {
     expect(view.pill).toBe("Backend error");
   });
 });
+
+describe("configured-but-failing transports", () => {
+  it("does not tell the user to connect a backend that is already configured", () => {
+    const view = describeEdiConnection({
+      ok: false,
+      transport: "bridge_url",
+      bridge_url_configured: true,
+      status: 502,
+      error: "EDI backend is unreachable",
+    });
+    expect(view.state).toBe("error");
+    expect(view.steps.join(" ")).not.toContain("Deploy the secure");
+  });
+
+  it("still offers onboarding when nothing is configured at all", () => {
+    const view = describeEdiConnection({
+      ok: false,
+      transport: "none",
+      direct_configured: false,
+      bridge_url_configured: false,
+      error: "EDI bridge is unreachable",
+    });
+    expect(view.state).toBe("not_connected");
+    expect(view.steps.join(" ")).toContain("EDI_BRIDGE_URL");
+  });
+});
