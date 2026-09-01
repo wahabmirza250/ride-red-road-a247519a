@@ -134,7 +134,8 @@ export type EdiTripDetail = {
     edi_batch_id: number | null;
     edi_file_id: number | null;
     edi_status: string | null;
-    edi_validation: Record<string, unknown> | null;
+    /** Raw backend validation payload, JSON-encoded for safe RPC transport. */
+    edi_validation_json: string | null;
     edi_last_sync_at: string | null;
     edi_last_error: string | null;
   };
@@ -244,7 +245,9 @@ export const getEdiTripDetail = createServerFn({ method: "POST" })
         edi_batch_id: (rec as any).edi_batch_id ?? null,
         edi_file_id: (rec as any).edi_file_id ?? null,
         edi_status: (rec as any).edi_status ?? null,
-        edi_validation: ((rec as any).edi_validation ?? null) as Record<string, unknown> | null,
+        edi_validation_json: (rec as any).edi_validation
+          ? JSON.stringify((rec as any).edi_validation)
+          : null,
         edi_last_sync_at: (rec as any).edi_last_sync_at ?? null,
         edi_last_error: (rec as any).edi_last_error ?? null,
       },
