@@ -229,16 +229,17 @@ export function SuperEdiWorkspace() {
               <Radio className="mr-1 h-3 w-3" />
               {environmentLabel(environment)}
             </Pill>
-            <Pill tone={healthTone}>
-              {health.isLoading ? (
+            <Pill tone={connection.tone}>
+              {connection.state === "checking" ? (
                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              ) : !healthOk ? (
-                <AlertTriangle className="mr-1 h-3 w-3" />
-              ) : (
+              ) : connection.state === "online" ? (
                 <CheckCircle2 className="mr-1 h-3 w-3" />
+              ) : (
+                <AlertTriangle className="mr-1 h-3 w-3" />
               )}
-              {healthLabel}
+              {connection.pill}
             </Pill>
+
             <Pill tone={setupStatus.ready ? "ready" : setupStatus.claimReady ? "warn" : "error"}>
               <FileUp className="mr-1 h-3 w-3" />
               {setupStatus.ready
