@@ -23,6 +23,9 @@ export type OdometerLeg = {
   dropoff_odometer: number;
 };
 
+/** HCPF billing policy: eligibility is decided independently for each leg. */
+export const MAX_BILLABLE_MILES_PER_LEG = 52;
+
 export type ChargeLine = {
   label: string;
   procedure_code: string | null;
@@ -42,9 +45,35 @@ export type ClaimCalc = {
   missing_rates: string[];
 };
 
+function rawLegMiles(leg: OdometerLeg): number {
+  const miles = Number(leg.dropoff_odometer) - Number(leg.pickup_odometer);
+  return Number.isFinite(miles) && miles > 0 ? miles : 0;
+}
+
 export function legMiles(leg: OdometerLeg): number {
-  const m = Number(leg.dropoff_odometer) - Number(leg.pickup_odometer);
-  return Number.isFinite(m) && m > 0 ? Math.round(m * 10) / 10 : 0;
+  return Math.round(rawLegMiles(leg) * 10) / 10;
+}
+
+/**
+ * A leg over 52 miles is excluded in full. It is never capped at 52 and is
+ * never split into artificial smaller legs. Invalid/zero-mile legs are also
+ * not billable.
+ */
+export function isBillableLeg(leg: OdometerLeg): boolean {
+  // Compare the raw delta. Rounding 52.01 to one decimal before this check
+  // would incorrectly turn an excluded leg into an allowed 52-mile leg.
+  const miles = rawLegMiles(leg);
+  return miles > 0 && miles <= MAX_BILLABLE_MILES_PER_LEG;
+}
+
+export function partitionBillableLegs(legs: OdometerLeg[]): {
+  eligible: OdometerLeg[];
+  excluded: OdometerLeg[];
+} {
+  const eligible: OdometerLeg[] = [];
+  const excluded: OdometerLeg[] = [];
+  for (const leg of legs) (isBillableLeg(leg) ? eligible : excluded).push(leg);
+  return { eligible, excluded };
 }
 
 export function findRate(
@@ -68,9 +97,12 @@ export function calcClaim(args: {
   vehicleType: string;
 }): ClaimCalc {
   const { legs, rates, vehicleType } = args;
-  const trip_kind = resolveTripKind(legs);
+  // The trip charge and mileage charge both follow the same per-leg
+  // eligibility rule. A mixed trip bills only its eligible leg(s).
+  const { eligible } = partitionBillableLegs(legs);
+  const trip_kind = resolveTripKind(eligible);
   const units = trip_kind === "round_trip" ? 2 : 1;
-  const miles = Math.round(legs.reduce((sum, l) => sum + legMiles(l), 0) * 10) / 10;
+  const miles = Math.round(eligible.reduce((sum, l) => sum + legMiles(l), 0) * 10) / 10;
 
   const tripRate = findRate(rates, vehicleType, "trip");
   const mileRate = findRate(rates, vehicleType, "mile");
@@ -79,7 +111,7 @@ export function calcClaim(args: {
   if (!mileRate) missing_rates.push("mile");
 
   const lines: ChargeLine[] = [];
-  if (tripRate) {
+  if (tripRate && eligible.length > 0) {
     const rate = Number(tripRate.charge_amount);
     lines.push({
       label: "Trip charge",
@@ -90,7 +122,7 @@ export function calcClaim(args: {
       unit_word: units === 1 ? "unit (one way)" : "units (round trip)",
     });
   }
-  if (mileRate) {
+  if (mileRate && miles > 0) {
     const rate = Number(mileRate.charge_amount);
     lines.push({
       label: "Mileage charge",
