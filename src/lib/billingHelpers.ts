@@ -1,5 +1,6 @@
 import { CLAIMS_NAV_SPEC } from "@/lib/portalNavigation";
 import { robotPassFor } from "@/lib/correctedJob";
+import { withPortalMoneyFields } from "@/lib/portalCurrency";
 /**
  * SERVER-SIDE HELPERS for the billing workflow.
  *
