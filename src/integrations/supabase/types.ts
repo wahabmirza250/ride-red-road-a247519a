@@ -2187,6 +2187,121 @@ export type Database = {
           },
         ]
       }
+      edi_batches: {
+        Row: {
+          batch_number: string
+          claim_count: number
+          company_id: string
+          created_at: string
+          created_by: string | null
+          edi_batch_id: number | null
+          edi_file_id: number | null
+          environment: string
+          id: string
+          last_error: string | null
+          record_ids: string[]
+          status: string
+          trading_partner: string | null
+          updated_at: string
+        }
+        Insert: {
+          batch_number: string
+          claim_count?: number
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          edi_batch_id?: number | null
+          edi_file_id?: number | null
+          environment?: string
+          id?: string
+          last_error?: string | null
+          record_ids?: string[]
+          status?: string
+          trading_partner?: string | null
+          updated_at?: string
+        }
+        Update: {
+          batch_number?: string
+          claim_count?: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          edi_batch_id?: number | null
+          edi_file_id?: number | null
+          environment?: string
+          id?: string
+          last_error?: string | null
+          record_ids?: string[]
+          status?: string
+          trading_partner?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edi_batches_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      edi_company_mapping: {
+        Row: {
+          company_id: string
+          created_at: string
+          edi_provider_profile_id: string | null
+          edi_sftp_credentials_id: string | null
+          edi_trading_partner_id: string | null
+          environment: string
+          id: string
+          last_sync_error: string | null
+          last_synced_at: string | null
+          provider_fingerprint: string | null
+          trading_partner_fingerprint: string | null
+          trading_partner_mode: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          edi_provider_profile_id?: string | null
+          edi_sftp_credentials_id?: string | null
+          edi_trading_partner_id?: string | null
+          environment?: string
+          id?: string
+          last_sync_error?: string | null
+          last_synced_at?: string | null
+          provider_fingerprint?: string | null
+          trading_partner_fingerprint?: string | null
+          trading_partner_mode?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          edi_provider_profile_id?: string | null
+          edi_sftp_credentials_id?: string | null
+          edi_trading_partner_id?: string | null
+          environment?: string
+          id?: string
+          last_sync_error?: string | null
+          last_synced_at?: string | null
+          provider_fingerprint?: string | null
+          trading_partner_fingerprint?: string | null
+          trading_partner_mode?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edi_company_mapping_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       edi_company_settings: {
         Row: {
           address_line1: string | null
@@ -2280,6 +2395,50 @@ export type Database = {
             foreignKeyName: "edi_company_settings_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      edi_entity_links: {
+        Row: {
+          company_id: string
+          created_at: string
+          edi_entity_id: string
+          entity_type: string
+          environment: string
+          fingerprint: string | null
+          id: string
+          local_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          edi_entity_id: string
+          entity_type: string
+          environment?: string
+          fingerprint?: string | null
+          id?: string
+          local_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          edi_entity_id?: string
+          entity_type?: string
+          environment?: string
+          fingerprint?: string | null
+          id?: string
+          local_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edi_entity_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },

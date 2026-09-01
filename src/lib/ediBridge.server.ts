@@ -22,6 +22,7 @@ import {
   type EdiRequest,
   type EdiResult,
 } from "@/lib/ediTransport";
+import { isEdiApiPath } from "@/lib/ediGuard";
 import { ediErrorMessage } from "@/lib/edi";
 
 const BRIDGE = "redart-edi-bridge";
@@ -54,11 +55,15 @@ function joinUrl(base: string, path: string): string {
   return `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 
-/** Guards against a caller trying to point the proxy at anything but the EDI API. */
+/**
+ * Shape guard: only EDI API paths, never an absolute URL or a traversal.
+ *
+ * This is the LAST line of defence, not the tenant check. Which resources a
+ * caller may name is decided earlier, in `ediOwnership.server` — this only
+ * makes sure the transport cannot be pointed at another host.
+ */
 export function isAllowedEdiPath(path: string): boolean {
-  if (typeof path !== "string" || !path.startsWith("/api/")) return false;
-  if (path.includes("://") || path.includes("..") || path.includes("\\")) return false;
-  return true;
+  return isEdiApiPath(path);
 }
 
 async function readBridgeError(error: unknown): Promise<{ detail: unknown; status?: number }> {

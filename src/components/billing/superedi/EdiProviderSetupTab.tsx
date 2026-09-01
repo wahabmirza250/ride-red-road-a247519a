@@ -48,6 +48,7 @@ import {
   type EdiTransportMode,
 } from "@/lib/ediSetup";
 import { getEdiCompanySettings, saveEdiCompanySettings } from "@/lib/ediSetup.functions";
+import { EdiBackendSyncCard } from "./EdiBackendSyncCard";
 import { Panel, Pill } from "./ediUi";
 
 type Draft = EdiCompanySettings;
@@ -341,6 +342,8 @@ export function EdiProviderSetupTab({
           </Panel>
         </div>
       </div>
+
+      <EdiBackendSyncCard companyId={companyId} onSynced={onSaved} />
     </div>
   );
 }
