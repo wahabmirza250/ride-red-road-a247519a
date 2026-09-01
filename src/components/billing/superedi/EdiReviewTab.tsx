@@ -99,7 +99,7 @@ export function EdiReviewTab({
   const validation = d.edi.edi_validation_json
     ? (JSON.parse(d.edi.edi_validation_json) as Record<string, unknown>)
     : null;
-  const ready = validation ? ediIsValid(validation) : false;
+  const ready = validation ? ediIsValid(validation) === true : false;
   const messages = validation ? ediValidationIssues(validation).map((i) => i.message) : [];
 
   return (

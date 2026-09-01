@@ -54,7 +54,7 @@ export function EdiSubmissionTab({
   const validation = d?.edi.edi_validation_json
     ? (JSON.parse(d.edi.edi_validation_json) as Record<string, unknown>)
     : null;
-  const ready = validation ? ediIsValid(validation) : false;
+  const ready = validation ? ediIsValid(validation) === true : false;
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["edi_trip_detail", recordId] });
 
