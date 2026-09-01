@@ -30,4 +30,11 @@ describe("edi helpers", () => {
     expect(ediIsValid({ is_valid: false })).toBe(false);
     expect(ediIsValid(null)).toBe(null);
   });
+
+  it("reads readiness and validation_errors from the guide payload", () => {
+    expect(ediIsValid({ ready: true })).toBe(true);
+    expect(ediIsValid({ ready: false, validation_errors: ["missing NPI"] })).toBe(false);
+    const issues = ediValidationIssues({ validation_errors: [{ code: "E1", message: "missing NPI" }] });
+    expect(issues).toEqual([{ code: "E1", message: "missing NPI", severity: "error" }]);
+  });
 });
