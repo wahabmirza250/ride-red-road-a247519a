@@ -41,7 +41,7 @@ import {
 import { AppLink } from "@/lib/appLink";
 import { cn } from "@/lib/utils";
 import { probeEdiConnection } from "@/lib/edi.functions";
-import { describeEdiConnection } from "@/lib/ediConnection";
+import { describeEdiConnection, ediActionsBlocked, ediBlockedReason } from "@/lib/ediConnection";
 import { canSubmitProduction, environmentLabel, evaluateEdiSetup } from "@/lib/ediSetup";
 import { getEdiCompanySettings, listEdiCompanies } from "@/lib/ediSetup.functions";
 import { listEdiWorkbench } from "@/lib/ediRecords.functions";
@@ -183,6 +183,8 @@ export function SuperEdiWorkspace() {
     () => describeEdiConnection(health.data ?? null, health.isLoading),
     [health.data, health.isLoading],
   );
+  const backendBlocked = ediActionsBlocked(connection);
+  const blockedReason = ediBlockedReason(connection);
 
 
   return (
@@ -391,11 +393,12 @@ export function SuperEdiWorkspace() {
               onRowsUpdated={onRowsUpdated}
               onOpenRow={setOpenRow}
               onOpenSubmission={() => setTab("submit")}
-              claimReady={setupStatus.claimReady}
+              claimReady={setupStatus.claimReady && !backendBlocked}
               setupHint={
-                setupStatus.claimReady
+                blockedReason ??
+                (setupStatus.claimReady
                   ? null
-                  : (setupStatus.issues[0]?.message ?? "Provider setup required")
+                  : (setupStatus.issues[0]?.message ?? "Provider setup required"))
               }
             />
           )}
@@ -414,6 +417,7 @@ export function SuperEdiWorkspace() {
               selectedRows={selectedRows}
               environment={environment}
               productionReady={productionReady}
+              blockedReason={blockedReason}
               onRowsUpdated={onRowsUpdated}
               onOpenReview={() => setTab("review")}
             />
