@@ -15,6 +15,12 @@ const require = createRequire(import.meta.url);
 const tslibEsm = require.resolve("tslib/tslib.es6.mjs");
 
 export default defineConfig({
+  // Railway runs the application as a long-lived Node service. Lovable's
+  // default Cloudflare Worker bundle only exports `fetch` and cannot listen on
+  // Railway's assigned PORT, so production builds must use Nitro's Node preset.
+  nitro: {
+    preset: "node-server",
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
@@ -26,5 +32,4 @@ export default defineConfig({
     },
   },
 });
-
 
