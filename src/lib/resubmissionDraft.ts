@@ -9,6 +9,11 @@
  * The original snapshot is captured once, at draft creation, so the audit view
  * can always show Original -> Corrected even years later.
  */
+import {
+  PORTAL_MONEY_KEYS,
+  portalMoneyString,
+  withPortalMoneyFields,
+} from "@/lib/portalCurrency";
 
 export const MAX_MODIFIERS = 4;
 
