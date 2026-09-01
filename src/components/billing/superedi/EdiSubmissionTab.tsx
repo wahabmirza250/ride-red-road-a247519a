@@ -46,6 +46,7 @@ export function EdiSubmissionTab({
   selectedRows,
   environment,
   productionReady,
+  blockedReason,
   onRowsUpdated,
   onOpenReview,
 }: {
@@ -54,6 +55,8 @@ export function EdiSubmissionTab({
   environment: EdiEnvironment;
   /** Company is cleared for live submission (setup complete + production on). */
   productionReady: boolean;
+  /** Non-null when the backend link is down: every backend action is pointless. */
+  blockedReason: string | null;
   onRowsUpdated: (rows: EdiWorkRow[]) => void;
   onOpenReview: () => void;
 }) {
@@ -174,6 +177,13 @@ export function EdiSubmissionTab({
         />
       </div>
 
+      {blockedReason && (
+        <div className="flex items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{blockedReason}</span>
+        </div>
+      )}
+
       <Panel
         title="Build the 837P"
         action={
@@ -206,7 +216,8 @@ export function EdiSubmissionTab({
               <Button
                 size="sm"
                 className="rounded-full"
-                disabled={counts.ready === 0 || build.isPending}
+                disabled={counts.ready === 0 || build.isPending || !!blockedReason}
+                title={blockedReason ?? undefined}
                 onClick={() => build.mutate()}
               >
                 {build.isPending ? (
@@ -235,7 +246,8 @@ export function EdiSubmissionTab({
                 size="sm"
                 variant="outline"
                 className="rounded-full"
-                disabled={!fileId || upload.isPending}
+                disabled={!fileId || upload.isPending || !!blockedReason}
+                title={blockedReason ?? undefined}
                 onClick={() => upload.mutate("test")}
               >
                 {upload.isPending && upload.variables === "test" ? (
@@ -249,11 +261,13 @@ export function EdiSubmissionTab({
                 size="sm"
                 variant="destructive"
                 className="rounded-full"
-                disabled={!fileId || !productionReady || upload.isPending}
+                disabled={!fileId || !productionReady || upload.isPending || !!blockedReason}
                 title={
-                  productionReady
-                    ? "Requires a typed confirmation"
-                    : "Enable production for this company in Provider Setup first"
+                  blockedReason
+                    ? blockedReason
+                    : productionReady
+                      ? "Requires a typed confirmation"
+                      : "Enable production for this company in Provider Setup first"
                 }
                 onClick={() => setConfirmOpen(true)}
               >
