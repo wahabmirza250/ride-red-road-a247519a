@@ -57,19 +57,26 @@ export async function callEdi<T = unknown>(req: EdiRequest): Promise<EdiResult<T
       };
     }
 
-    // The bridge may relay a non-2xx upstream response in the payload.
+    // Deployed bridge envelope: { success: boolean, status: number, data: upstreamBody }.
+    // Older shape { ok, body } is still tolerated.
     if (data && typeof data === "object") {
       const d = data as Record<string, unknown>;
       const status = typeof d["status"] === "number" ? (d["status"] as number) : undefined;
-      if (d["ok"] === false || (status !== undefined && (status < 200 || status >= 300))) {
+      const failed =
+        d["success"] === false ||
+        d["ok"] === false ||
+        (status !== undefined && (status < 200 || status >= 300));
+      const inner = "data" in d ? d["data"] : "body" in d ? d["body"] : undefined;
+
+      if (failed) {
         return {
           ok: false,
-          error: ediErrorMessage(d["body"] ?? d["error"] ?? d, "EDI request failed"),
+          error: ediErrorMessage(inner ?? d["error"] ?? d, "EDI request failed"),
           ...(status ? { status } : {}),
         };
       }
-      if ("body" in d && Object.keys(d).length <= 3) {
-        return { ok: true, data: d["body"] as T };
+      if (("success" in d || "ok" in d || "status" in d) && inner !== undefined) {
+        return { ok: true, data: inner as T };
       }
     }
 
