@@ -101,8 +101,14 @@ export type EdiClaimStatus = {
   updated_at?: string;
   [k: string]: unknown;
 };
+/**
+ * Validate endpoint payload (per the EDI API guide): readiness lives in
+ * `ready`; `is_valid`/`valid` are tolerated for older backend builds.
+ */
 export type EdiValidationResult = {
+  ready?: boolean;
   is_valid?: boolean;
+  validation_errors?: unknown[];
   errors?: unknown[];
   warnings?: unknown[];
   [k: string]: unknown;
