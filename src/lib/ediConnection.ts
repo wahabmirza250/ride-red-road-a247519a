@@ -15,9 +15,11 @@ export type EdiConnectionProbe = {
   error?: string | null;
   status?: number | null;
   /** Which transport the server actually used / could use. */
-  transport?: "bridge" | "direct" | "none" | null;
+  transport?: "bridge" | "bridge_url" | "direct" | "none" | null;
   /** True when server-only `EDI_API_BASE_URL` is present in this deployment. */
   direct_configured?: boolean;
+  /** True when server-only `EDI_BRIDGE_URL` points at a bridge outside this project. */
+  bridge_url_configured?: boolean;
   /** Backend-reported health payload, when it answered. */
   status_text?: string | null;
   version?: string | null;
@@ -40,13 +42,14 @@ export type EdiConnectionView = {
 
 const CONNECT_STEPS = [
   "Deploy the secure `redart-edi-bridge` backend function to this project — it holds the EDI credentials server-side.",
-  "Or add the server-only secrets EDI_API_BASE_URL and EDI_API_TOKEN in Project Settings → Secrets.",
+  "Or, if that bridge already runs elsewhere, add the server-only secret EDI_BRIDGE_URL (plus EDI_BRIDGE_KEY if it needs a key) in Project Settings → Secrets.",
+  "Or call the EDI API directly with the server-only secrets EDI_API_BASE_URL and EDI_API_TOKEN.",
   "Then press Test connection. Nothing is filed with a payer until setup is complete and you explicitly submit.",
 ];
 
 const ERROR_STEPS = [
   "Confirm the EDI credentials stored server-side are still valid for this environment.",
-  "Check the EDI backend is up, then press Test connection.",
+  "Check the EDI backend is up and the configured bridge / API URL is right, then press Test connection.",
 ];
 
 function trim(text: string, max = 220): string {
@@ -88,10 +91,11 @@ export function describeEdiConnection(
   }
 
   const error = (probe.error ?? "").trim();
+  const configured = Boolean(probe.direct_configured || probe.bridge_url_configured);
   const notConnected =
-    probe.transport === "none" ||
-    probe.status === 404 ||
-    (!probe.direct_configured && isEdiConnectionError(error)) ||
+    (!configured && probe.transport === "none") ||
+    (!configured && probe.status === 404) ||
+    (!configured && isEdiConnectionError(error)) ||
     error === "";
 
   if (notConnected) {

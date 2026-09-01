@@ -226,8 +226,11 @@ export const probeEdiConnection = createServerFn({ method: "GET" })
     const { assertBilling } = await import("@/lib/billingHelpers");
     await assertBilling(supabase, userId);
 
-    const { ediFetch, ediDirectConfigured } = await import("@/lib/ediBridge.server");
+    const { ediFetch, ediDirectConfigured, ediBridgeUrlConfigured } = await import(
+      "@/lib/ediBridge.server"
+    );
     const direct = ediDirectConfigured();
+    const bridgeUrl = ediBridgeUrlConfigured();
     const res = await ediFetch<EdiHealth>(supabase, { path: EDI_PATHS.health(), method: "GET" });
 
     if (res.ok) {
@@ -236,6 +239,7 @@ export const probeEdiConnection = createServerFn({ method: "GET" })
       return {
         ok: true,
         direct_configured: direct,
+        bridge_url_configured: bridgeUrl,
         transport: res.transport ?? null,
         status_text: typeof status === "string" ? status : null,
         version: typeof version === "string" ? version : null,
@@ -247,5 +251,6 @@ export const probeEdiConnection = createServerFn({ method: "GET" })
       status: res.status ?? null,
       transport: res.transport ?? "none",
       direct_configured: direct,
+      bridge_url_configured: bridgeUrl,
     };
   });
