@@ -6,7 +6,10 @@
  * it is unit-testable and safe on both client and server.
  */
 import type { EdiTripDetail } from "@/lib/ediBilling.functions";
-import { formatPortalMoney } from "@/lib/portalCurrency";
+import { portalMoneyString } from "@/lib/portalCurrency";
+
+/** Exact two-decimal money string; never a float artefact like 54.800000000001. */
+const money = (v: number): string => portalMoneyString(v) ?? "0.00";
 
 export type EdiClaimPayload = {
   external_id: string;
@@ -55,15 +58,15 @@ export function buildEdiClaimPayload(
     },
     service_date: ediServiceDate(detail.trip.service_date),
     diagnosis_code: detail.diagnosis_code,
-    total_charge: formatPortalMoney(detail.total_charge),
+    total_charge: money(detail.total_charge),
     miles: detail.trip.miles,
     long_distance: detail.trip.long_distance,
     service_lines: detail.lines.map((l) => ({
       procedure_code: l.procedure_code,
       modifiers: l.modifiers,
       units: l.units,
-      charge_amount: formatPortalMoney(l.amount),
-      unit_rate: formatPortalMoney(l.rate),
+      charge_amount: money(l.amount),
+      unit_rate: money(l.rate),
     })),
   };
 }
