@@ -195,6 +195,8 @@ export type PaperImportProgress = {
 };
 
 export type BatchPaperBillsProps = {
+  /** Explicit tenant selected in Super EDI. Server-side authorization still applies. */
+  companyId?: string | null;
   /** Hides the standalone page header when rendered inside another workspace. */
   embedded?: boolean;
   /** Fires after a confirm pass with the trips that were actually created. */
@@ -203,7 +205,7 @@ export type BatchPaperBillsProps = {
   onProgress?: (progress: PaperImportProgress) => void;
 };
 
-export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaperBillsProps = {}) {
+export function BatchPaperBills({ companyId, embedded, onImported, onProgress }: BatchPaperBillsProps = {}) {
   const ratesFn = useServerFn(getBillingRatesForCalc);
   const detectFn = useServerFn(detectPaperBillOdometers);
   const createFn = useServerFn(createPaperBillTrip);
@@ -220,24 +222,24 @@ export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaper
   /** Set when auto-read hit a terminal condition (no AI credits / disabled). */
   const [ocrHalt, setOcrHalt] = useState<string | null>(null);
   const haltRef = useRef(false);
-  const hydrated = useRef(false);
+  const hydratedCompany = useRef<string | null | undefined>(undefined);
 
   const rates = useQuery({
-    queryKey: ["paper_bill_rates"],
-    queryFn: () => ratesFn() as Promise<RateRow[]>,
+    queryKey: ["paper_bill_rates", companyId],
+    queryFn: () => ratesFn({ data: { company_id: companyId } }) as Promise<RateRow[]>,
     staleTime: 5 * 60 * 1000,
   });
 
   const inbox = useQuery({
-    queryKey: ["paper_inbox"],
-    queryFn: () => listFn() as Promise<PaperInboxRow[]>,
+    queryKey: ["paper_inbox", companyId],
+    queryFn: () => listFn({ data: { company_id: companyId } }) as Promise<PaperInboxRow[]>,
     staleTime: 15 * 1000,
   });
 
   // Hydrate once from the durable inbox — nothing typed locally is lost.
   useEffect(() => {
-    if (hydrated.current || !inbox.data) return;
-    hydrated.current = true;
+    if (hydratedCompany.current === companyId || !inbox.data) return;
+    hydratedCompany.current = companyId;
     setItems(inbox.data.map(itemFromRow));
   }, [inbox.data]);
 
@@ -252,6 +254,7 @@ export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaper
       await saveFn({
         data: {
           id: item.inboxId,
+          company_id: companyId,
           draft: { ...draftOf(item), rider: item.rider },
           ...(extra?.data ?? {}),
         },
@@ -324,7 +327,7 @@ export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaper
       try {
         const hash = await sha256Hex(await file.arrayBuffer());
         const res = (await registerFn({
-          data: { storage_path: path, file_name: file.name, mime: item.mime, content_hash: hash },
+          data: { company_id: companyId, storage_path: path, file_name: file.name, mime: item.mime, content_hash: hash },
         })) as { row: PaperInboxRow; duplicate: boolean };
         inboxId = res.row.id;
         if (res.duplicate) {
@@ -353,7 +356,7 @@ export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaper
         patch(item.key, { inboxId, uploadPath: path, phase: "ready", error: MANUAL_ENTRY_HINT });
         if (inboxId)
           await saveFn({
-            data: { id: inboxId, status: "needs_review", error: MANUAL_ENTRY_HINT },
+            data: { company_id: companyId, id: inboxId, status: "needs_review", error: MANUAL_ENTRY_HINT },
           }).catch(() => {});
         continue;
       }
@@ -369,7 +372,7 @@ export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaper
     const fileName = name ?? (file as File).name ?? "trip-report";
     if (inboxId) {
       try {
-        await saveFn({ data: { id: inboxId, status: "reading", error: null, bump_attempt: true } });
+        await saveFn({ data: { company_id: companyId, id: inboxId, status: "reading", error: null, bump_attempt: true } });
       } catch {
         /* keep reading even if the marker write fails */
       }
@@ -420,6 +423,7 @@ export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaper
             void saveFn({
               data: {
                 id: inboxId,
+                company_id: companyId,
                 status: "needs_review",
                 error: null,
                 ocr: res as any,
@@ -440,6 +444,7 @@ export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaper
             // A terminal auto-read outage is not a file problem: the row is
             // simply waiting for manual entry, so it stays reviewable.
             id: inboxId,
+            company_id: companyId,
             status: failure.stopBatch ? "needs_review" : "error",
             error: failure.message,
           },
@@ -467,7 +472,7 @@ export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaper
       const message = error?.message ?? "The stored file could not be read";
       patch(item.key, { phase: "ready", error: message });
       if (item.inboxId)
-        await saveFn({ data: { id: item.inboxId, status: "error", error: message } }).catch(
+        await saveFn({ data: { company_id: companyId, id: item.inboxId, status: "error", error: message } }).catch(
           () => {},
         );
       return;
@@ -481,7 +486,7 @@ export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaper
     setItems((prev) => prev.filter((i) => i.key !== item.key));
     if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
     try {
-      if (item.inboxId) await discardFn({ data: { id: item.inboxId } });
+      if (item.inboxId) await discardFn({ data: { company_id: companyId, id: item.inboxId } });
       else if (item.uploadPath)
         await supabase.storage.from("state-pdfs").remove([item.uploadPath]);
     } catch (e: any) {
@@ -494,13 +499,13 @@ export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaper
   async function recoverOrphans() {
     setRecovering(true);
     try {
-      const res = (await adoptFn()) as {
+      const res = (await adoptFn({ data: { company_id: companyId } })) as {
         adopted: number;
         skipped: number;
         failures: { path: string; error: string }[];
       };
-      const rows = (await listFn()) as PaperInboxRow[];
-      hydrated.current = true;
+      const rows = (await listFn({ data: { company_id: companyId } })) as PaperInboxRow[];
+      hydratedCompany.current = companyId;
       setItems(rows.map(itemFromRow));
       toast.success(
         `${res.adopted} stored file${res.adopted === 1 ? "" : "s"} recovered into the inbox` +
@@ -553,6 +558,7 @@ export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaper
       try {
         const res = (await createFn({
           data: {
+            company_id: companyId,
             rider_id: item.rider?.id ?? null,
             new_rider: item.rider
               ? null
@@ -578,7 +584,7 @@ export function BatchPaperBills({ embedded, onImported, onProgress }: BatchPaper
         const message = e?.message ?? "Could not create the trip";
         patch(item.key, { phase: "ready", error: message });
         if (item.inboxId)
-          await saveFn({ data: { id: item.inboxId, status: "error", error: message } }).catch(
+          await saveFn({ data: { company_id: companyId, id: item.inboxId, status: "error", error: message } }).catch(
             () => {},
           );
         failed++;

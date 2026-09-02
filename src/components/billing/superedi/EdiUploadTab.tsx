@@ -114,7 +114,12 @@ export function EdiUploadTab({
           already imported is recognised and never creates a second bill. Nothing is filed with the
           payer from this screen.
         </p>
-        <BatchPaperBills embedded onImported={adoptImportedTrips} onProgress={setProgress} />
+        <BatchPaperBills
+          embedded
+          companyId={companyId}
+          onImported={adoptImportedTrips}
+          onProgress={setProgress}
+        />
       </Panel>
 
       <Panel

@@ -38,15 +38,25 @@ export const searchBillingRiders = createServerFn({ method: "POST" })
 
 export const getBillingRatesForCalc = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) =>
+    z.object({ company_id: z.string().uuid().nullable().optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
     await assertBilling(context.supabase);
-    const { data, error } = await context.supabase
+    const { resolveEdiScope } = await import("@/lib/ediCompany.server");
+    const { companyId } = await resolveEdiScope(
+      context.supabase,
+      context.userId,
+      data.company_id ?? null,
+    );
+    const { data: rows, error } = await context.supabase
       .from("billing_rate_settings")
       .select(
         "vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
-      );
+      )
+      .eq("company_id", companyId);
     if (error) throw new Error(error.message);
-    return (data ?? []) as RateRow[];
+    return (rows ?? []) as RateRow[];
   });
 
 /* ------------------------------ paper bill ------------------------------ */
@@ -61,6 +71,7 @@ const LegInput = z.object({
 
 
 const PaperBillInput = z.object({
+  company_id: z.string().uuid().nullable().optional(),
   rider_id: z.string().uuid().nullable().optional(),
   new_rider: z
     .object({
@@ -107,8 +118,8 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertBilling(supabase);
 
-    const { requireCompanyId } = await import("@/lib/company.server");
-    const companyId = await requireCompanyId(userId);
+    const { resolveEdiScope } = await import("@/lib/ediCompany.server");
+    const { companyId } = await resolveEdiScope(supabase, userId, data.company_id ?? null);
 
     // 0. Idempotency. The durable paper-inbox row is the single source of
     //    truth for "did this stored file already become a trip?". Re-running
@@ -241,7 +252,8 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
       .from("billing_rate_settings")
       .select(
         "vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
-      );
+      )
+      .eq("company_id", companyId);
     const calc = calcClaim({
       legs,
       rates: (rateRows ?? []) as RateRow[],

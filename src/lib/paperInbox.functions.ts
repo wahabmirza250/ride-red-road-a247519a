@@ -17,11 +17,23 @@ import {
 } from "@/lib/paperInbox";
 import { assertBillingAccess as assertBilling } from "@/lib/paperInbox.server";
 
+const CompanyScope = { company_id: z.string().uuid().nullable().optional() };
+
+async function scopedCompany(
+  context: { supabase: unknown; userId: string },
+  requested?: string | null,
+) {
+  const { resolveEdiScope } = await import("@/lib/ediCompany.server");
+  return (await resolveEdiScope(context.supabase, context.userId, requested)).companyId;
+}
+
 /** Every outstanding + recently finished upload for the signed-in company. */
 export const listPaperInbox = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) => z.object(CompanyScope).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
     await assertBilling(context.supabase);
+    const companyId = await scopedCompany(context, data.company_id);
 
     // Recover work interrupted by a timeout, closed browser or server restart:
     // anything left "reading"/"importing" past the ceiling becomes a visible,
@@ -35,12 +47,14 @@ export const listPaperInbox = createServerFn({ method: "GET" })
         error: "The previous attempt was interrupted before it finished — retry this file.",
       })
       .in("status", ["reading", "importing"])
+      .eq("company_id", companyId)
       .is("trip_id", null)
       .lt("updated_at", cutoff);
 
     const { data, error } = await context.supabase
       .from("paper_inbox_files")
       .select(SELECT)
+      .eq("company_id", companyId)
       .order("created_at", { ascending: true })
       .limit(500);
     if (error) throw new Error(error.message);
@@ -58,6 +72,7 @@ export const registerPaperInboxFile = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
+        ...CompanyScope,
         storage_path: z.string().min(1),
         file_name: z.string().min(1).max(300),
         mime: z.string().min(1).max(120),
@@ -68,8 +83,7 @@ export const registerPaperInboxFile = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertBilling(supabase);
-    const { requireCompanyId } = await import("@/lib/company.server");
-    const companyId = await requireCompanyId(userId);
+    const companyId = await scopedCompany(context, data.company_id);
 
     const { data: byPath } = await supabase
       .from("paper_inbox_files")
@@ -122,6 +136,7 @@ export const savePaperInboxState = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
+        ...CompanyScope,
         id: z.string().uuid(),
         status: z.enum(["uploaded", "reading", "needs_review", "error"]).optional(),
         error: z.string().max(2000).nullable().optional(),
@@ -134,11 +149,13 @@ export const savePaperInboxState = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     await assertBilling(supabase);
+    const companyId = await scopedCompany(context, data.company_id);
 
     const { data: current, error: readErr } = await supabase
       .from("paper_inbox_files")
       .select("id, status, trip_id, attempts")
       .eq("id", data.id)
+      .eq("company_id", companyId)
       .maybeSingle();
     if (readErr) throw new Error(readErr.message);
     if (!current) throw new Error("That upload is no longer in the inbox");
@@ -157,6 +174,7 @@ export const savePaperInboxState = createServerFn({ method: "POST" })
       .from("paper_inbox_files")
       .update(patch as never)
       .eq("id", data.id)
+      .eq("company_id", companyId)
       .select(SELECT)
       .single();
     if (error) throw new Error(error.message);
@@ -166,14 +184,16 @@ export const savePaperInboxState = createServerFn({ method: "POST" })
 /** Remove an upload the biller does not want (only before it became a trip). */
 export const discardPaperInboxFile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ ...CompanyScope, id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     await assertBilling(supabase);
+    const companyId = await scopedCompany(context, data.company_id);
     const { data: row } = await supabase
       .from("paper_inbox_files")
       .select("id, status, trip_id, storage_path")
       .eq("id", data.id)
+      .eq("company_id", companyId)
       .maybeSingle();
     if (!row) return { removed: false };
     if (row.status === "done" && row.trip_id)
@@ -181,7 +201,11 @@ export const discardPaperInboxFile = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.storage.from("state-pdfs").remove([row.storage_path]);
-    const { error } = await supabase.from("paper_inbox_files").delete().eq("id", data.id);
+    const { error } = await supabase
+      .from("paper_inbox_files")
+      .delete()
+      .eq("id", data.id)
+      .eq("company_id", companyId);
     if (error) throw new Error(error.message);
     return { removed: true };
   });
@@ -194,11 +218,11 @@ export const discardPaperInboxFile = createServerFn({ method: "POST" })
  */
 export const adoptOrphanPaperInboxFiles = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) => z.object(CompanyScope).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertBilling(supabase);
-    const { requireCompanyId } = await import("@/lib/company.server");
-    const companyId = await requireCompanyId(userId);
+    const companyId = await scopedCompany(context, data.company_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: members } = await supabaseAdmin
