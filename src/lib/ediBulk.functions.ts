@@ -57,9 +57,11 @@ export const ediValidateSelection = createServerFn({ method: "POST" })
       data,
       context,
     }): Promise<{ results: EdiValidationOutcome[]; summary: EdiValidationSummary; rows: EdiWorkRow[] }> => {
-      const { supabase, userId } = context;
-      const { resolveEdiScope } = await import("@/lib/ediCompany.server");
-      const { companyId } = await resolveEdiScope(supabase, userId, data.company_id ?? null);
+      const { supabase: authSupabase, userId } = context;
+      const { resolveEdiScope, ediDataClient } = await import("@/lib/ediCompany.server");
+      const scope = await resolveEdiScope(authSupabase, userId, data.company_id ?? null);
+      const { companyId } = scope;
+      const supabase = await ediDataClient(authSupabase, scope);
 
       const { assertRecordsOwned, bindClaimToRecord } = await import("@/lib/ediOwnership.server");
       await assertRecordsOwned(supabase, companyId, data.record_ids);
@@ -168,9 +170,11 @@ export const ediBuildBatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ ...CompanyScope, record_ids: RecordIds }).parse(d))
   .handler(async ({ data, context }): Promise<EdiBatchBuildResult> => {
-    const { supabase, userId } = context;
-    const { resolveEdiScope } = await import("@/lib/ediCompany.server");
-    const { companyId } = await resolveEdiScope(supabase, userId, data.company_id ?? null);
+    const { supabase: authSupabase, userId } = context;
+    const { resolveEdiScope, ediDataClient } = await import("@/lib/ediCompany.server");
+    const scope = await resolveEdiScope(authSupabase, userId, data.company_id ?? null);
+    const { companyId } = scope;
+    const supabase = await ediDataClient(authSupabase, scope);
 
     const { assertRecordsOwned } = await import("@/lib/ediOwnership.server");
     await assertRecordsOwned(supabase, companyId, data.record_ids);
@@ -392,9 +396,11 @@ export const ediUploadFileToTradingPartner = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { resolveEdiScope } = await import("@/lib/ediCompany.server");
-    const { companyId } = await resolveEdiScope(supabase, userId, data.company_id ?? null);
+    const { supabase: authSupabase, userId } = context;
+    const { resolveEdiScope, ediDataClient } = await import("@/lib/ediCompany.server");
+    const scope = await resolveEdiScope(authSupabase, userId, data.company_id ?? null);
+    const { companyId } = scope;
+    const supabase = await ediDataClient(authSupabase, scope);
 
     const { assertRecordsOwned } = await import("@/lib/ediOwnership.server");
     const ids = data.record_ids ?? [];
@@ -450,9 +456,11 @@ export const ediRefreshStatuses = createServerFn({ method: "POST" })
       data,
       context,
     }): Promise<{ updated: number; failed: { record_id: string; reason: string }[]; rows: EdiWorkRow[] }> => {
-      const { supabase, userId } = context;
-      const { resolveEdiScope } = await import("@/lib/ediCompany.server");
-      const { companyId } = await resolveEdiScope(supabase, userId, data.company_id ?? null);
+      const { supabase: authSupabase, userId } = context;
+      const { resolveEdiScope, ediDataClient } = await import("@/lib/ediCompany.server");
+      const scope = await resolveEdiScope(authSupabase, userId, data.company_id ?? null);
+      const { companyId } = scope;
+      const supabase = await ediDataClient(authSupabase, scope);
 
       const { assertRecordsOwned } = await import("@/lib/ediOwnership.server");
       await assertRecordsOwned(supabase, companyId, data.record_ids);

@@ -19,12 +19,16 @@ import { assertBillingAccess as assertBilling } from "@/lib/paperInbox.server";
 
 const CompanyScope = { company_id: z.string().uuid().nullable().optional() };
 
-async function scopedCompany(
+async function scopedClient(
   context: { supabase: unknown; userId: string },
   requested?: string | null,
 ) {
-  const { resolveEdiScope } = await import("@/lib/ediCompany.server");
-  return (await resolveEdiScope(context.supabase, context.userId, requested)).companyId;
+  const { resolveEdiScope, ediDataClient } = await import("@/lib/ediCompany.server");
+  const scope = await resolveEdiScope(context.supabase, context.userId, requested);
+  return {
+    companyId: scope.companyId,
+    supabase: await ediDataClient(context.supabase, scope),
+  };
 }
 
 /** Every outstanding + recently finished upload for the signed-in company. */
@@ -33,14 +37,14 @@ export const listPaperInbox = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => z.object(CompanyScope).parse(d ?? {}))
   .handler(async ({ data, context }) => {
     await assertBilling(context.supabase);
-    const companyId = await scopedCompany(context, data.company_id);
+    const { companyId, supabase } = await scopedClient(context, data.company_id);
 
     // Recover work interrupted by a timeout, closed browser or server restart:
     // anything left "reading"/"importing" past the ceiling becomes a visible,
     // retryable error instead of a row that spins forever. Rows that actually
     // finished (trip_id set) are never touched.
     const cutoff = new Date(Date.now() - STUCK_AFTER_MS).toISOString();
-    await context.supabase
+    await supabase
       .from("paper_inbox_files")
       .update({
         status: "error",
@@ -51,7 +55,7 @@ export const listPaperInbox = createServerFn({ method: "GET" })
       .is("trip_id", null)
       .lt("updated_at", cutoff);
 
-    const { data, error } = await context.supabase
+    const { data, error } = await supabase
       .from("paper_inbox_files")
       .select(SELECT)
       .eq("company_id", companyId)
@@ -81,9 +85,9 @@ export const registerPaperInboxFile = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    await assertBilling(supabase);
-    const companyId = await scopedCompany(context, data.company_id);
+    const { userId } = context;
+    await assertBilling(context.supabase);
+    const { companyId, supabase } = await scopedClient(context, data.company_id);
 
     const { data: byPath } = await supabase
       .from("paper_inbox_files")
@@ -147,9 +151,8 @@ export const savePaperInboxState = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
-    await assertBilling(supabase);
-    const companyId = await scopedCompany(context, data.company_id);
+    await assertBilling(context.supabase);
+    const { companyId, supabase } = await scopedClient(context, data.company_id);
 
     const { data: current, error: readErr } = await supabase
       .from("paper_inbox_files")
@@ -186,9 +189,8 @@ export const discardPaperInboxFile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ ...CompanyScope, id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
-    await assertBilling(supabase);
-    const companyId = await scopedCompany(context, data.company_id);
+    await assertBilling(context.supabase);
+    const { companyId, supabase } = await scopedClient(context, data.company_id);
     const { data: row } = await supabase
       .from("paper_inbox_files")
       .select("id, status, trip_id, storage_path")
@@ -220,9 +222,9 @@ export const adoptOrphanPaperInboxFiles = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object(CompanyScope).parse(d ?? {}))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    await assertBilling(supabase);
-    const companyId = await scopedCompany(context, data.company_id);
+    const { userId } = context;
+    await assertBilling(context.supabase);
+    const { companyId, supabase } = await scopedClient(context, data.company_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: members } = await supabaseAdmin

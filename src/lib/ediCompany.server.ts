@@ -16,6 +16,19 @@ export type EdiScope = {
   isPlatformOwner: boolean;
 };
 
+/**
+ * Use the signed-in client for the caller's own tenant. After
+ * `resolveEdiScope` has explicitly authorised a platform owner to manage a
+ * different tenant, use the server-only client so ordinary tenant RLS does
+ * not silently turn valid cross-company reads/writes into empty results.
+ */
+export async function ediDataClient(supabase: Sb, scope: EdiScope): Promise<Sb> {
+  if (scope.companyId === scope.ownCompanyId) return supabase;
+  if (!scope.isPlatformOwner) throw new Error("Forbidden: cross-company EDI access denied");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+
 export async function isPlatformOwner(supabase: Sb): Promise<boolean> {
   const { data, error } = await supabase.rpc("is_platform_owner");
   if (error) return false;

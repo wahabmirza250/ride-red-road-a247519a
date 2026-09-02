@@ -43,13 +43,15 @@ export const getBillingRatesForCalc = createServerFn({ method: "GET" })
   )
   .handler(async ({ data, context }) => {
     await assertBilling(context.supabase);
-    const { resolveEdiScope } = await import("@/lib/ediCompany.server");
-    const { companyId } = await resolveEdiScope(
+    const { resolveEdiScope, ediDataClient } = await import("@/lib/ediCompany.server");
+    const scope = await resolveEdiScope(
       context.supabase,
       context.userId,
       data.company_id ?? null,
     );
-    const { data: rows, error } = await context.supabase
+    const { companyId } = scope;
+    const dataSupabase = await ediDataClient(context.supabase, scope);
+    const { data: rows, error } = await dataSupabase
       .from("billing_rate_settings")
       .select(
         "vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
@@ -115,11 +117,13 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => PaperBillInput.parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    await assertBilling(supabase);
+    const { supabase: authSupabase, userId } = context;
+    await assertBilling(authSupabase);
 
-    const { resolveEdiScope } = await import("@/lib/ediCompany.server");
-    const { companyId } = await resolveEdiScope(supabase, userId, data.company_id ?? null);
+    const { resolveEdiScope, ediDataClient } = await import("@/lib/ediCompany.server");
+    const scope = await resolveEdiScope(authSupabase, userId, data.company_id ?? null);
+    const { companyId } = scope;
+    const supabase = await ediDataClient(authSupabase, scope);
 
     // 0. Idempotency. The durable paper-inbox row is the single source of
     //    truth for "did this stored file already become a trip?". Re-running
