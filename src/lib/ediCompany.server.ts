@@ -26,7 +26,18 @@ export async function ediDataClient(supabase: Sb, scope: EdiScope): Promise<Sb> 
   if (scope.companyId === scope.ownCompanyId) return supabase;
   if (!scope.isPlatformOwner) throw new Error("Forbidden: cross-company EDI access denied");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
+  // Cross-company database work needs the server-only client, but Edge
+  // Functions must still receive the signed-in caller's JWT.  A service-role
+  // client created from a modern non-JWT secret is rejected by functions with
+  // verify_jwt enabled.  Keep admin access for tables/RPCs and route only the
+  // Functions client through the already-authenticated caller.
+  return new Proxy(supabaseAdmin, {
+    get(target, property, receiver) {
+      if (property === "functions") return supabase.functions;
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
 }
 
 export async function isPlatformOwner(supabase: Sb): Promise<boolean> {
