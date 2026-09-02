@@ -55,14 +55,14 @@ export const listPaperInbox = createServerFn({ method: "GET" })
       .is("trip_id", null)
       .lt("updated_at", cutoff);
 
-    const { data, error } = await supabase
+    const { data: rows, error } = await supabase
       .from("paper_inbox_files")
       .select(SELECT)
       .eq("company_id", companyId)
       .order("created_at", { ascending: true })
       .limit(500);
     if (error) throw new Error(error.message);
-    return (data ?? []) as PaperInboxRow[];
+    return (rows ?? []) as PaperInboxRow[];
   });
 
 

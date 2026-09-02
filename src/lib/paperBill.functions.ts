@@ -44,13 +44,13 @@ export const getBillingRatesForCalc = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     await assertBilling(context.supabase);
     const { resolveEdiScope, ediDataClient } = await import("@/lib/ediCompany.server");
-    const scope = await resolveEdiScope(
+    const rateScope = await resolveEdiScope(
       context.supabase,
       context.userId,
       data.company_id ?? null,
     );
-    const { companyId } = scope;
-    const dataSupabase = await ediDataClient(context.supabase, scope);
+    const { companyId } = rateScope;
+    const dataSupabase = await ediDataClient(context.supabase, rateScope);
     const { data: rows, error } = await dataSupabase
       .from("billing_rate_settings")
       .select(
@@ -121,9 +121,9 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
     await assertBilling(authSupabase);
 
     const { resolveEdiScope, ediDataClient } = await import("@/lib/ediCompany.server");
-    const scope = await resolveEdiScope(authSupabase, userId, data.company_id ?? null);
-    const { companyId } = scope;
-    const supabase = await ediDataClient(authSupabase, scope);
+    const createScope = await resolveEdiScope(authSupabase, userId, data.company_id ?? null);
+    const { companyId } = createScope;
+    const supabase = await ediDataClient(authSupabase, createScope);
 
     // 0. Idempotency. The durable paper-inbox row is the single source of
     //    truth for "did this stored file already become a trip?". Re-running
