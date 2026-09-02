@@ -23,23 +23,17 @@ export const checkVehicleRates = createServerFn({ method: "POST" })
     if (!vehicle_type) throw new Error("vehicle_type required");
     return { vehicle_type };
   })
-  .handler(async ({ data, context }): Promise<RateCheck> => {
+  .handler(async ({ data }): Promise<RateCheck> => {
     // Drivers cannot read billing_rate_settings under RLS (billing/admin only),
-    // so this read-only rate lookup runs with the admin client, scoped to the
-    // caller's own company.
+    // so this read-only lookup runs with the admin client against the single
+    // platform-wide rate schedule.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    const { data: profile } = await (context.supabase as any)
-      .from("profiles")
-      .select("company_id")
-      .eq("id", context.userId)
-      .maybeSingle();
 
     let q = (supabaseAdmin as any)
       .from("billing_rate_settings")
       .select("unit_type")
       .eq("vehicle_type", data.vehicle_type);
-    if (profile?.company_id) q = q.eq("company_id", profile.company_id);
+    q = q.is("company_id", null);
 
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);

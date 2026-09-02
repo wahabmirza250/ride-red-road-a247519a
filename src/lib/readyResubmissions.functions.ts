@@ -56,7 +56,7 @@ async function loadCorrected(
       .select(
         "id, provider_id, vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
       )
-      .eq("company_id", companyId ?? subs[0].company_id),
+      .is("company_id", null),
   ]);
 
   const pdfOf = new Map(((trips ?? []) as any[]).map((t) => [t.id, t.state_pdf_path]));

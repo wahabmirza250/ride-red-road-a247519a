@@ -22,6 +22,7 @@ export const listBillingRateSettings = createServerFn({ method: "GET" })
     const { data, error } = await (context.supabase as any)
       .from("billing_rate_settings")
       .select("*")
+      .is("company_id", null)
       .order("vehicle_type", { ascending: true });
     if (error) throw new Error(error.message);
     return (data ?? []) as BillingRateSetting[];
@@ -58,12 +59,12 @@ export const upsertBillingRateSetting = createServerFn({ method: "POST" })
     },
   )
   .handler(async ({ data, context }) => {
-    const { requireCompanyId } = await import("@/lib/company.server");
+    const { requirePlatformOwner } = await import("@/lib/company.server");
     const { saveRateRow } = await import("@/lib/billingRates.server");
-    const companyId = await requireCompanyId(context.userId);
+    await requirePlatformOwner(context.userId);
     const saved = await saveRateRow(context.supabase, {
-      company_id: companyId,
-      provider_id: context.userId,
+      company_id: null,
+      provider_id: null,
       vehicle_type: data.vehicle_type,
       unit_type: data.unit_type,
       procedure_code: data.procedure_code.trim(),
@@ -110,12 +111,12 @@ export const upsertBillingRatePair = createServerFn({ method: "POST" })
     },
   )
   .handler(async ({ data, context }) => {
-    const { requireCompanyId } = await import("@/lib/company.server");
+    const { requirePlatformOwner } = await import("@/lib/company.server");
     const { saveRatePair } = await import("@/lib/billingRates.server");
-    const companyId = await requireCompanyId(context.userId);
+    await requirePlatformOwner(context.userId);
     const saved = await saveRatePair(context.supabase, {
-      company_id: companyId,
-      provider_id: context.userId,
+      company_id: null,
+      provider_id: null,
       vehicle_type: data.vehicle_type,
       default_diagnosis_code: data.default_diagnosis_code,
       trip: data.trip,
@@ -131,9 +132,12 @@ export const deleteBillingRateSetting = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
+    const { requirePlatformOwner } = await import("@/lib/company.server");
+    await requirePlatformOwner(context.userId);
     const { error } = await (context.supabase as any)
       .from("billing_rate_settings")
       .delete()
+      .is("company_id", null)
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };

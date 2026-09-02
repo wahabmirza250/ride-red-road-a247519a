@@ -9,8 +9,8 @@
  */
 
 export type SaveRateInput = {
-  company_id: string;
-  provider_id: string;
+  company_id: string | null;
+  provider_id: string | null;
   vehicle_type: string;
   unit_type: string;
   procedure_code: string;
@@ -25,13 +25,15 @@ export async function saveRateRow(
 ) {
   const { company_id, vehicle_type, unit_type, ...rest } = input;
 
-  const { data: existing, error: findErr } = await supabase
+  let existingQuery = supabase
     .from("billing_rate_settings")
     .select("id")
-    .eq("company_id", company_id)
     .eq("vehicle_type", vehicle_type)
-    .eq("unit_type", unit_type)
-    .maybeSingle();
+    .eq("unit_type", unit_type);
+  existingQuery = company_id
+    ? existingQuery.eq("company_id", company_id)
+    : existingQuery.is("company_id", null);
+  const { data: existing, error: findErr } = await existingQuery.maybeSingle();
   if (findErr) throw new Error(findErr.message);
 
   if (existing?.id) {
@@ -57,8 +59,8 @@ export async function saveRateRow(
 export async function saveRatePair(
   supabase: { from: (t: string) => any },
   args: {
-    company_id: string;
-    provider_id: string;
+    company_id: string | null;
+    provider_id: string | null;
     vehicle_type: string;
     default_diagnosis_code: string;
     trip: { procedure_code: string; charge_amount: number; place_of_service: string };

@@ -285,7 +285,7 @@ export async function requireCompanyRates(
   const { data: rows, error } = await supabase
     .from("billing_rate_settings")
     .select("vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code")
-    .eq("company_id", companyId)
+    .is("company_id", null)
     .eq("vehicle_type", vehicleType);
   if (error) throw new Error(`Could not read billing rates: ${error.message}`);
 

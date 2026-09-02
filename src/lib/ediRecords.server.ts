@@ -38,13 +38,13 @@ export type LoadEdiRecordsOptions = {
 };
 
 /** Company billing rates, keyed by vehicle type. */
-async function loadRates(supabase: Sb, companyId: string) {
+async function loadRates(supabase: Sb, _companyId: string) {
   const { data } = await supabase
     .from("billing_rate_settings")
     .select(
       "vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
     )
-    .eq("company_id", companyId);
+    .is("company_id", null);
   const byVehicle = new Map<string, any[]>();
   for (const row of (data ?? []) as any[]) {
     const key = String(row.vehicle_type ?? "ambulatory");

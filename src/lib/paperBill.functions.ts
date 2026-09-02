@@ -54,7 +54,7 @@ export const getBillingRatesForCalc = createServerFn({ method: "GET" })
       .select(
         "vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
       )
-      .eq("company_id", companyId);
+      .is("company_id", null);
     if (error) throw new Error(error.message);
     return (rows ?? []) as RateRow[];
   });
@@ -253,7 +253,7 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
       .select(
         "vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
       )
-      .eq("company_id", companyId);
+      .is("company_id", null);
     const calc = calcClaim({
       legs,
       rates: (rateRows ?? []) as RateRow[],

@@ -89,7 +89,7 @@ export const getBillingSetupStatus = createServerFn({ method: "GET" })
       supabaseAdmin
         .from("billing_rate_settings")
         .select("vehicle_type, unit_type")
-        .eq("company_id", companyId),
+        .is("company_id", null),
     ]);
 
     const settings = (settingsRes.data ?? null) as any;

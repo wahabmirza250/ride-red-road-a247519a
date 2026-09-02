@@ -36,24 +36,14 @@ export async function computeClaimTotals(
     (t) => parseCaptured(t?.robot_captured_claim?.total_charged_amount) == null,
   );
 
-  // Rates for every company involved, in one query.
-  const companyIds = Array.from(
-    new Set(needCalc.map((t) => t.company_id).filter(Boolean)),
-  ) as string[];
-  const ratesByCompany = new Map<string, RateRow[]>();
-  if (companyIds.length) {
-    const { data } = await supabase
-      .from("billing_rate_settings")
-      .select(
-        "company_id, vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
-      )
-      .in("company_id", companyIds);
-    for (const r of (data ?? []) as any[]) {
-      const list = ratesByCompany.get(r.company_id) ?? [];
-      list.push(r as RateRow);
-      ratesByCompany.set(r.company_id, list);
-    }
-  }
+  // One platform-wide rate schedule prices every managed company.
+  const { data: rateRows } = await supabase
+    .from("billing_rate_settings")
+    .select(
+      "vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
+    )
+    .is("company_id", null);
+  const universalRates = (rateRows ?? []) as RateRow[];
 
   // Odometer legs for trips that didn't ship them inline.
   const legsByTrip = new Map<string, any[]>();
@@ -86,7 +76,7 @@ export async function computeClaimTotals(
       continue;
     }
 
-    const rates = ratesByCompany.get(t.company_id) ?? [];
+    const rates = universalRates;
     const rawLegs = (legsByTrip.get(t.id) ?? []).slice().sort(
       (a: any, b: any) => Number(a.leg_index) - Number(b.leg_index),
     );

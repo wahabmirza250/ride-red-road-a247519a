@@ -368,7 +368,7 @@ export const getResubmission = createServerFn({ method: "POST" })
         .select(
           "id, provider_id, vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
         )
-        .eq("company_id", sub.company_id),
+        .is("company_id", null),
     ]);
 
 
