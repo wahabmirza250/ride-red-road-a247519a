@@ -13,6 +13,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/lib/theme";
 import { Toaster } from "@/components/ui/sonner";
+import { GlobalThemeToggle } from "@/components/GlobalThemeToggle";
 
 function NotFoundComponent() {
   return (
@@ -80,31 +81,31 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { name: "theme-color", content: "#fafafa" },
-      { title: "RedArt LLC — NEMT Dispatch" },
+      { name: "theme-color", content: "#071b3a" },
+      { title: "NEMT Solutions — Dispatch, Billing & EDI" },
       {
         name: "description",
         content:
-          "Non-emergency medical transportation platform for RedArt LLC — Colorado Medicaid dispatch, driver, and passenger operations.",
+          "NEMT operations software for dispatch, drivers, Medicaid billing and electronic EDI claims.",
       },
-      { name: "author", content: "RedArt LLC" },
-      { property: "og:title", content: "RedArt LLC — NEMT Dispatch" },
+      { name: "author", content: "NEMT Solutions" },
+      { property: "og:title", content: "NEMT Solutions — Dispatch, Billing & EDI" },
       {
         property: "og:description",
-        content: "Non-emergency medical transportation platform for RedArt LLC — Colorado Medicaid dispatch, driver, and passenger operations.",
+        content: "NEMT operations software for dispatch, drivers, Medicaid billing and electronic EDI claims.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "RedArt LLC — NEMT Dispatch" },
-      { name: "twitter:description", content: "Non-emergency medical transportation platform for RedArt LLC — Colorado Medicaid dispatch, driver, and passenger operations." },
+      { name: "twitter:title", content: "NEMT Solutions — Dispatch, Billing & EDI" },
+      { name: "twitter:description", content: "NEMT operations software for dispatch, drivers, Medicaid billing and electronic EDI claims." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c046532c-0d2c-4762-8772-ac774765be74/id-preview-fc9f982c--1c3c174b-6cbe-4b49-974e-a1f94a0d4813.lovable.app-1783660942040.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c046532c-0d2c-4762-8772-ac774765be74/id-preview-fc9f982c--1c3c174b-6cbe-4b49-974e-a1f94a0d4813.lovable.app-1783660942040.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "icon", href: "/brand/nemt-box-logo.png", type: "image/png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/favicon.png" },
+      { rel: "apple-touch-icon", href: "/brand/nemt-box-logo.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       {
         rel: "preconnect",
@@ -145,6 +146,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
+          <GlobalThemeToggle />
           <Outlet />
           <Toaster position="top-right" richColors closeButton />
         </AuthProvider>

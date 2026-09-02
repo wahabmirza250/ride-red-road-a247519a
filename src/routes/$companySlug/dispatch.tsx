@@ -63,11 +63,11 @@ function DispatchLayout() {
 
 
   return (
-    <div className="fleet-shell surface-blue min-h-screen pb-24">
+    <div className="app-theme-controls fleet-shell surface-blue min-h-screen pb-24">
       <header className="fleet-topbar sticky top-0 z-30 flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <BrandMark className="h-8 w-8" />
-          <span className="font-display text-sm font-semibold tracking-tight">RedArt Dispatch</span>
+          <span className="font-display text-sm font-semibold tracking-tight">NEMT Solutions</span>
           <CompanyLogo />
         </div>
         <div className="flex items-center gap-1">

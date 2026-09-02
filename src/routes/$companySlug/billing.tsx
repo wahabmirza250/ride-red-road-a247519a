@@ -88,13 +88,13 @@ function BillingLayout() {
   const initials = (user.email ?? "A").slice(0, 2).toUpperCase();
 
   return (
-    <div className="surface-red min-h-screen bg-background pb-24 lg:pb-0">
+    <div className="app-theme-controls surface-red min-h-screen bg-background pb-24 lg:pb-0">
       {/* ---------------- Sidebar: slim, deep navy, lots of breathing room --------------- */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[210px] flex-col bg-navy px-3 py-5 text-white/70 lg:flex">
         <div className="flex items-center gap-2 px-2 pb-8">
           <BrandMark className="h-8 w-8 shrink-0" />
           <span className="truncate text-sm font-semibold tracking-tight text-white">
-            RedArt Billing
+            NEMT Solutions
           </span>
         </div>
 

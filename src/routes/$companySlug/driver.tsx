@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { AccessDenied } from "@/components/AccessDenied";
 import { CompanyLogo } from "@/components/CompanyLogo";
+import { BrandMark } from "@/components/Brand";
 
 export const Route = createFileRoute("/$companySlug/driver")({
   ssr: false,
@@ -55,13 +56,11 @@ function DriverLayout() {
 
 
   return (
-    <div className="fleet-shell surface-yellow driver-nav-pad min-h-screen">
+    <div className="app-theme-controls fleet-shell surface-yellow driver-nav-pad min-h-screen">
       <header className="fleet-topbar sticky top-0 z-30 flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-            R
-          </span>
-          <span className="text-sm font-semibold">Driver</span>
+          <BrandMark className="h-9 w-9" />
+          <span className="text-sm font-semibold">NEMT Driver</span>
           <CompanyLogo />
         </div>
         <div className="flex items-center gap-1">

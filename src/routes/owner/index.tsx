@@ -55,11 +55,11 @@ export const Route = createFileRoute("/owner/")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Owner Console — RedArt Digital" },
-      { name: "description", content: "Platform owner console for managing RedArt transportation companies." },
+      { title: "Owner Console — NEMT Solutions" },
+      { name: "description", content: "Platform owner console for managing NEMT transportation companies." },
       { name: "robots", content: "noindex" },
-      { property: "og:title", content: "Owner Console — RedArt Digital" },
-      { property: "og:description", content: "Platform owner console for managing RedArt transportation companies." },
+      { property: "og:title", content: "Owner Console — NEMT Solutions" },
+      { property: "og:description", content: "Platform owner console for managing NEMT transportation companies." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -141,7 +141,7 @@ function OwnerConsole() {
   if (!allowed) {
     return (
       <AccessDenied
-        appName="RedArt owner console"
+        appName="NEMT Solutions owner console"
         signInHref="/owner/signin"
         signInLabel="owner sign in"
         email={user?.email ?? null}
@@ -740,4 +740,3 @@ function NewCompanyDialog({ onDone }: { onDone: () => Promise<void> }) {
     </Dialog>
   );
 }
-

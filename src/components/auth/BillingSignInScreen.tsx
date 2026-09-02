@@ -3,11 +3,12 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ReceiptText, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import { signInAsRole } from "@/lib/roleGuardedSignIn";
 import { resolveOwnCompanySlug, NO_COMPANY_MESSAGE } from "@/lib/ownCompanyRedirect";
+import { BrandWordmark } from "@/components/Brand";
 
 /** Billing-staff sign in. Rendered at `/{slug}/billing/signin`. */
 export function BillingSignInScreen({ companySlug }: { companySlug?: string }) {
@@ -51,12 +52,7 @@ export function BillingSignInScreen({ companySlug }: { companySlug?: string }) {
       <AuroraBackdrop />
       <div className="w-full max-w-md animate-rise-in">
         <div className="mb-8 text-center">
-          <div className="inline-flex items-center gap-2">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lift">
-              <ReceiptText className="h-5 w-5" />
-            </span>
-            <span className="text-lg font-semibold tracking-tight">RedArt Billing</span>
-          </div>
+          <BrandWordmark className="h-12" />
           <p className="mt-2 text-sm text-muted-foreground">
             Review trips, key paper reports, and submit clean claims.
           </p>

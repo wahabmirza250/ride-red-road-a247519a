@@ -13,7 +13,7 @@ function getInitial(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>(getInitial);
 
   useEffect(() => {
     const t = getInitial();
@@ -23,6 +23,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.style.colorScheme = theme;
     window.localStorage.setItem("theme", theme);
   }, [theme]);
 

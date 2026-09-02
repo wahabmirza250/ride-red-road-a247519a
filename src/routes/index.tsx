@@ -15,7 +15,7 @@ import {
   HeartPulse,
 } from "lucide-react";
 
-// RedArt logo palette — mixed across the page for a branded, non-monochrome feel.
+// NEMT Solutions palette — mixed across the page for a branded, non-monochrome feel.
 const BRAND = {
   yellow: "#F4C430",
   red: "#C8354E",
@@ -28,13 +28,13 @@ type BrandColor = keyof typeof BRAND;
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "RedArt — Modern NEMT dispatch, drivers, and rider experience" },
+      { title: "NEMT Solutions — Dispatch, drivers, billing and EDI" },
       {
         name: "description",
         content:
-          "RedArt builds a modern non-emergency medical transport platform: realtime dispatch, a driver app, and a rider experience — all in one system built for Medicaid providers in Colorado.",
+          "NEMT Solutions brings realtime dispatch, driver operations, rider tools, Medicaid billing and EDI into one platform.",
       },
-      { property: "og:title", content: "RedArt — Modern NEMT platform" },
+      { property: "og:title", content: "NEMT Solutions — Modern NEMT software" },
       {
         property: "og:description",
         content:
@@ -51,7 +51,7 @@ function LandingPage() {
   const year = new Date().getFullYear();
 
   return (
-    <div className="dark relative isolate min-h-screen overflow-hidden bg-[#07070a] text-foreground antialiased">
+    <div className="landing-shell relative isolate min-h-screen overflow-hidden bg-background text-foreground antialiased">
       {/* Atmospheric layers — mixed logo colors, deep and minimal */}
       <div
         aria-hidden
@@ -67,7 +67,7 @@ function LandingPage() {
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,transparent_0%,#07070a_85%)]"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,transparent_0%,var(--background)_85%)]"
       />
       <div
         aria-hidden
@@ -75,7 +75,7 @@ function LandingPage() {
       />
 
       {/* Top bar */}
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#07070a]/80 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <BrandWordmark className="h-8 w-auto" />
           <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
@@ -138,7 +138,7 @@ function LandingPage() {
           className="animate-fade-in mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
           style={{ animationDelay: "180ms", animationFillMode: "both" }}
         >
-          RedArt is one platform for dispatch, drivers, and riders — purpose-built
+          NEMT Solutions is one platform for dispatch, drivers, and riders — purpose-built
           for Medicaid transport. Ride requests in, clean claims out, everything
           tracked in between.
         </p>
@@ -274,7 +274,7 @@ function LandingPage() {
                 Five billers on payroll runs close to{" "}
                 <CountUpMoney value={20000} className="align-baseline" /> a month —
                 salaries, benefits, training, turnover, and the mistakes that come with
-                manual data entry. RedArt replaces that entire workload with one automated
+                manual data entry. NEMT Solutions replaces that entire workload with one automated
                 system that never calls in sick, never mistypes a diagnosis code, and never
                 misses a deadline.
               </p>
@@ -296,7 +296,7 @@ function LandingPage() {
                 overnight.
               </p>
               <p className="mt-4 text-muted-foreground">
-                RedArt closes that gap automatically. Every trip is backed by GPS-verified
+                NEMT Solutions closes that gap automatically. Every trip is backed by GPS-verified
                 routes, timestamped odometer photos, and digitally signed proof of service —
                 captured the moment the trip happens, not typed in from memory afterward.
                 Your billing isn't just fast. It's defensible.
@@ -322,13 +322,13 @@ function LandingPage() {
                   }}
                 >
                   <Sparkles className="h-3 w-3" />
-                  Why join RedArt
+                  Why join NEMT Solutions
                 </span>
                 <h2 className="mt-5 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
                   We're building the operating system for NEMT.
                 </h2>
                 <p className="mt-4 text-muted-foreground">
-                  Whether you drive, dispatch, or run a transport provider, RedArt
+                  Whether you drive, dispatch, or run a transport provider, NEMT Solutions
                   gives you the tools bigger rideshare platforms have — tuned for
                   the reality of medical transport and Medicaid billing.
                 </p>
@@ -431,7 +431,7 @@ function LandingPage() {
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BRAND.blue }} />
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BRAND.green }} />
           </span>
-          <span>© {year} RedArt LLC · All rights reserved</span>
+          <span>© {year} NEMT Solutions · All rights reserved</span>
         </div>
         <span className="tracking-widest uppercase">Colorado · NEMT</span>
       </footer>

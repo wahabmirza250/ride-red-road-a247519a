@@ -93,7 +93,7 @@ function AuthenticatedLayout() {
   );
 
   return (
-    <div className="surface-blue fleet-shell flex min-h-screen flex-col">
+    <div className="app-theme-controls surface-blue fleet-shell flex min-h-screen flex-col">
       <ViewAsBanner />
       <div className="flex flex-1">
       {/* Sidebar — premium floating rail */}
@@ -185,7 +185,7 @@ function AuthenticatedLayout() {
         <div className="glass sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border px-4 lg:hidden">
           <div className="flex items-center gap-2">
             <BrandMark className="h-8 w-8" />
-            <span className="font-display text-sm font-semibold tracking-tight">RedArt Dispatch</span>
+            <span className="font-display text-sm font-semibold tracking-tight">NEMT Solutions</span>
             <CompanyLogo className="h-6" />
           </div>
           <div className="flex items-center gap-1">
@@ -219,7 +219,7 @@ function AuthenticatedLayout() {
         {/* Desktop top bar */}
         <div className="sticky top-0 z-30 hidden items-center justify-between gap-4 px-6 py-4 lg:flex">
           <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium fleet-text-muted">
-            <span className="fleet-text-dim">RedArt</span>
+            <span className="fleet-text-dim">NEMT Solutions</span>
             <span className="fleet-text-dim opacity-50">/</span>
             <span className="truncate font-semibold text-[color:var(--fleet-text)]">
               {activeItem?.label ?? "Dashboard"}

@@ -1,25 +1,49 @@
-import mark from "@/assets/redart-mark.png.asset.json";
-import wordmark from "@/assets/redart-wordmark.png.asset.json";
 import { cn } from "@/lib/utils";
 
-/** Square RedArt logo tile — use for favicons, avatars, collapsed sidebars, mobile bars. */
+const MARK_LIGHT = "/brand/nemt-box-logo.png";
+const MARK_DARK = "/brand/nemt-box-logo-dark.png";
+const WORDMARK_LIGHT = "/brand/nemt-logo.png";
+const WORDMARK_DARK = "/brand/nemt-logo-dark.png";
+
+function ThemeLogo({
+  light,
+  dark,
+  alt,
+  className,
+}: {
+  light: string;
+  dark: string;
+  alt: string;
+  className?: string;
+}) {
+  return (
+    <span className={cn("relative inline-block shrink-0", className)}>
+      <img src={light} alt={alt} className="h-full w-full object-contain dark:hidden" />
+      <img src={dark} alt="" aria-hidden className="hidden h-full w-full object-contain dark:block" />
+    </span>
+  );
+}
+
+/** Compact boxed logo — favicons, app rails, mobile bars and tight in-app spaces. */
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <img
-      src={mark.url}
-      alt="RedArt LLC"
-      className={cn("h-9 w-9 object-contain", className)}
+    <ThemeLogo
+      light={MARK_LIGHT}
+      dark={MARK_DARK}
+      alt="NEMT Solutions"
+      className={cn("h-9 w-9", className)}
     />
   );
 }
 
-/** Horizontal RedArt wordmark — use in expanded sidebar headers and marketing surfaces. */
+/** Horizontal logo — marketing, sign-in and wide header surfaces. */
 export function BrandWordmark({ className }: { className?: string }) {
   return (
-    <img
-      src={wordmark.url}
-      alt="RedArt LLC"
-      className={cn("h-9 w-auto object-contain", className)}
+    <ThemeLogo
+      light={WORDMARK_LIGHT}
+      dark={WORDMARK_DARK}
+      alt="NEMT Solutions"
+      className={cn("h-9 aspect-[2015/464]", className)}
     />
   );
 }
