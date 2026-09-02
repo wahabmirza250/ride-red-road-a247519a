@@ -39,9 +39,9 @@ export const listEdiWorkbench = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<EdiWorkbenchPage> => {
     const { supabase: authSupabase, userId } = context;
     const { resolveEdiScope, ediDataClient } = await import("@/lib/ediCompany.server");
-    const scope = await resolveEdiScope(authSupabase, userId, data.company_id ?? null);
-    const { companyId } = scope;
-    const supabase = await ediDataClient(authSupabase, scope);
+    const workbenchScope = await resolveEdiScope(authSupabase, userId, data.company_id ?? null);
+    const { companyId } = workbenchScope;
+    const supabase = await ediDataClient(authSupabase, workbenchScope);
 
     const { loadEdiDetails, toWorkRow } = await import("@/lib/ediRecords.server");
     const limit = data.limit ?? 100;
@@ -88,9 +88,9 @@ export const getEdiTripDetail = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<EdiTripDetail | null> => {
     const { supabase: authSupabase, userId } = context;
     const { resolveEdiScope, ediDataClient } = await import("@/lib/ediCompany.server");
-    const scope = await resolveEdiScope(authSupabase, userId, data.company_id ?? null);
-    const { companyId } = scope;
-    const supabase = await ediDataClient(authSupabase, scope);
+    const detailScope = await resolveEdiScope(authSupabase, userId, data.company_id ?? null);
+    const { companyId } = detailScope;
+    const supabase = await ediDataClient(authSupabase, detailScope);
 
     const { loadEdiDetails } = await import("@/lib/ediRecords.server");
     const [detail] = await loadEdiDetails(supabase, companyId, { recordIds: [data.record_id] });
