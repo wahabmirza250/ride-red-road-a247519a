@@ -73,6 +73,7 @@ export function buildProviderProfilePayload(s: Partial<EdiCompanySettings>): Edi
   return {
     name: trimmed(s.billing_name),
     npi: trimmed(s.npi),
+    medicaid_provider_id: trimmed(s.medicaid_provider_id),
     taxonomy_code: trimmed(s.taxonomy_code),
     tax_id: trimmed(s.tax_id),
     address_line1: trimmed(s.address_line1),
@@ -105,7 +106,9 @@ export function companySyncBlockers(s: Partial<EdiCompanySettings> | null): stri
   const out: string[] = [];
   if (!s) return ["EDI setup has not been saved for this company yet"];
   if (!trimmed(s.billing_name)) out.push("Billing / legal name is required");
-  if (!trimmed(s.npi)) out.push("Billing NPI is required");
+  if ((s.provider_identifier_type ?? "npi") === "health_first_colorado_id") {
+    if (!trimmed(s.medicaid_provider_id)) out.push("Health First Colorado Provider ID is required");
+  } else if (!trimmed(s.npi)) out.push("Billing NPI is required");
   if (!trimmed(s.address_line1) || !trimmed(s.city) || !trimmed(s.state) || !trimmed(s.postal_code))
     out.push("Complete billing address is required");
   if (!trimmed(s.sender_id) || !trimmed(s.receiver_id))

@@ -20,10 +20,13 @@ export type EdiEnvironment = "test" | "production";
  *             configuration; the secret itself lives server-side only).
  */
 export type EdiTransportMode = "shared" | "company";
+export type EdiProviderIdentifierType = "npi" | "health_first_colorado_id";
 
 export type EdiCompanySettings = {
   company_id: string;
   billing_name: string | null;
+  provider_identifier_type: EdiProviderIdentifierType;
+  medicaid_provider_id: string | null;
   npi: string | null;
   taxonomy_code: string | null;
   tax_id: string | null;
@@ -52,6 +55,8 @@ export type EdiCompanySettings = {
 
 export const EMPTY_EDI_SETTINGS: Omit<EdiCompanySettings, "company_id"> = {
   billing_name: null,
+  provider_identifier_type: "npi",
+  medicaid_provider_id: null,
   npi: null,
   taxonomy_code: null,
   tax_id: null,
@@ -81,6 +86,10 @@ export function isValidNpi(npi: string | null | undefined): boolean {
   return /^\d{10}$/.test((npi ?? "").trim());
 }
 
+export function isValidColoradoProviderId(value: string | null | undefined): boolean {
+  return /^\d{10}$/.test((value ?? "").trim());
+}
+
 export type EdiSetupIssue = { field: string; message: string };
 
 /** Fields the 837P provider loop cannot be built without. */
@@ -92,13 +101,22 @@ export function ediProviderIssues(s: Partial<EdiCompanySettings>): EdiSetupIssue
       out.push({ field: String(field), message: `${label} is required` });
   };
   req("billing_name", "Billing / legal name");
-  req("npi", "Billing NPI");
+  if ((s.provider_identifier_type ?? "npi") === "health_first_colorado_id") {
+    req("medicaid_provider_id", "Health First Colorado Provider ID");
+  } else {
+    req("npi", "Billing NPI");
+  }
   req("address_line1", "Billing address");
   req("city", "City");
   req("state", "State");
   req("postal_code", "ZIP code");
   if (s.npi && !isValidNpi(s.npi))
     out.push({ field: "npi", message: "NPI must be exactly 10 digits" });
+  if (s.medicaid_provider_id && !isValidColoradoProviderId(s.medicaid_provider_id))
+    out.push({
+      field: "medicaid_provider_id",
+      message: "Health First Colorado Provider ID must be exactly 10 digits",
+    });
   if (s.postal_code && !/^\d{5}(-?\d{4})?$/.test(String(s.postal_code).trim()))
     out.push({ field: "postal_code", message: "ZIP must be 5 or 9 digits" });
   return out;

@@ -179,6 +179,8 @@ function makeSupabase(seed: Record<string, Record<string, unknown>[]> = {}) {
 const settings: EdiCompanySettings = {
   company_id: OURS,
   billing_name: "Smoke Test Transport LLC",
+  provider_identifier_type: "npi",
+  medicaid_provider_id: null,
   npi: "1234567893",
   taxonomy_code: "343900000X",
   tax_id: "84-7654321",

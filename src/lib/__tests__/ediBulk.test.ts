@@ -244,6 +244,8 @@ describe("company setup gates", () => {
   const complete: EdiCompanySettings = {
     company_id: "c1",
     billing_name: "RedArt Transport LLC",
+    provider_identifier_type: "npi",
+    medicaid_provider_id: null,
     npi: "1234567893",
     taxonomy_code: "347B00000X",
     tax_id: "84-1234567",
@@ -284,6 +286,16 @@ describe("company setup gates", () => {
     });
     expect(status.transportReady).toBe(false);
     expect(status.issues.map((i) => i.message)).toContain(SECRET_SETUP_REQUIRED);
+  });
+
+  it("accepts an atypical Colorado provider ID without an NPI", () => {
+    const status = evaluateEdiSetup({
+      ...complete,
+      provider_identifier_type: "health_first_colorado_id",
+      medicaid_provider_id: "9000211959",
+      npi: null,
+    });
+    expect(status.providerReady).toBe(true);
   });
 
   it("keeps production behind setup, an explicit switch and a typed phrase", () => {

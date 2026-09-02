@@ -81,6 +81,8 @@ export function EdiProviderSetupTab({
         data: {
           company_id: value.company_id,
           billing_name: value.billing_name,
+          provider_identifier_type: value.provider_identifier_type,
+          medicaid_provider_id: value.medicaid_provider_id,
           npi: value.npi,
           taxonomy_code: value.taxonomy_code,
           tax_id: value.tax_id,
@@ -182,7 +184,34 @@ export function EdiProviderSetupTab({
               onChange={(v) => set("billing_name", v)}
               className="sm:col-span-2"
             />
-            <Field label="Billing NPI" value={value.npi} onChange={(v) => set("npi", v)} />
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Provider identifier</Label>
+              <Select
+                value={value.provider_identifier_type}
+                onValueChange={(v) => {
+                  setDraft({
+                    ...value,
+                    provider_identifier_type: v as Draft["provider_identifier_type"],
+                    ...(v === "health_first_colorado_id" ? { npi: null } : { medicaid_provider_id: null }),
+                  });
+                }}
+              >
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="npi">National Provider Identifier (NPI)</SelectItem>
+                  <SelectItem value="health_first_colorado_id">Health First Colorado Provider ID</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {value.provider_identifier_type === "health_first_colorado_id" ? (
+              <Field
+                label="Health First Colorado Provider ID"
+                value={value.medicaid_provider_id}
+                onChange={(v) => set("medicaid_provider_id", v)}
+              />
+            ) : (
+              <Field label="Billing NPI" value={value.npi} onChange={(v) => set("npi", v)} />
+            )}
             <Field
               label="Taxonomy code"
               value={value.taxonomy_code}

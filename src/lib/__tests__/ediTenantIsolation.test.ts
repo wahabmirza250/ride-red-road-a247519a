@@ -304,6 +304,8 @@ describe("submission batch follows the documented contract", () => {
 const settings = {
   company_id: OURS,
   billing_name: "Universal MNGHT LLC",
+  provider_identifier_type: "npi" as const,
+  medicaid_provider_id: null,
   npi: "1234567893",
   taxonomy_code: "343900000X",
   tax_id: "84-1234567",
@@ -373,6 +375,14 @@ describe("sync payloads", () => {
     expect(companySyncBlockers(null)).toHaveLength(1);
     expect(companySyncBlockers(settings)).toEqual([]);
     expect(companySyncBlockers({ ...settings, npi: null }).join(" ")).toMatch(/NPI/);
+    expect(
+      companySyncBlockers({
+        ...settings,
+        provider_identifier_type: "health_first_colorado_id",
+        medicaid_provider_id: "9000211959",
+        npi: null,
+      }),
+    ).toEqual([]);
     expect(companySyncBlockers({ ...settings, receiver_id: "" }).join(" ")).toMatch(/Receiver/);
   });
 

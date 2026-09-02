@@ -25,6 +25,8 @@ const CompanyScope = { company_id: z.string().uuid().nullable().optional() };
 const SettingsSchema = z.object({
   ...CompanyScope,
   billing_name: nullableText,
+  provider_identifier_type: z.enum(["npi", "health_first_colorado_id"]).optional(),
+  medicaid_provider_id: nullableText,
   npi: nullableText,
   taxonomy_code: nullableText,
   tax_id: nullableText,

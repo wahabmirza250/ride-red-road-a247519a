@@ -57,13 +57,15 @@ async function loadProvider(supabase: Sb, companyId: string) {
   const { data } = await supabase
     .from("edi_company_settings")
     .select(
-      "billing_name, npi, taxonomy_code, tax_id, address_line1, address_line2, city, state, postal_code, phone, sender_id, receiver_id",
+      "billing_name, provider_identifier_type, medicaid_provider_id, npi, taxonomy_code, tax_id, address_line1, address_line2, city, state, postal_code, phone, sender_id, receiver_id",
     )
     .eq("company_id", companyId)
     .maybeSingle();
   const s = (data ?? {}) as Record<string, any>;
   return {
     billing_name: s["billing_name"] ?? null,
+    provider_identifier_type: s["provider_identifier_type"] ?? "npi",
+    medicaid_provider_id: s["medicaid_provider_id"] ?? null,
     npi: s["npi"] ?? null,
     taxonomy_code: s["taxonomy_code"] ?? null,
     tax_id: s["tax_id"] ?? null,
@@ -75,7 +77,12 @@ async function loadProvider(supabase: Sb, companyId: string) {
     phone: s["phone"] ?? null,
     sender_id: s["sender_id"] ?? null,
     receiver_id: s["receiver_id"] ?? null,
-    configured: Boolean(s["billing_name"] && s["npi"]),
+    configured: Boolean(
+      s["billing_name"] &&
+        (s["provider_identifier_type"] === "health_first_colorado_id"
+          ? s["medicaid_provider_id"]
+          : s["npi"]),
+    ),
   };
 }
 
