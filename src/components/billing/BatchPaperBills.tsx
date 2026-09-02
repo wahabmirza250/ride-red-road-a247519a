@@ -203,9 +203,17 @@ export type BatchPaperBillsProps = {
   onImported?: (trips: { trip_id: string }[]) => void;
   /** Fires whenever the queue changes, so a host can render batch progress. */
   onProgress?: (progress: PaperImportProgress) => void;
+  /** Keeps imported bills inside the currently selected Super EDI company. */
+  onOpenReview?: () => void;
 };
 
-export function BatchPaperBills({ companyId, embedded, onImported, onProgress }: BatchPaperBillsProps = {}) {
+export function BatchPaperBills({
+  companyId,
+  embedded,
+  onImported,
+  onProgress,
+  onOpenReview,
+}: BatchPaperBillsProps = {}) {
   const ratesFn = useServerFn(getBillingRatesForCalc);
   const detectFn = useServerFn(detectPaperBillOdometers);
   const createFn = useServerFn(createPaperBillTrip);
@@ -734,12 +742,22 @@ export function BatchPaperBills({ companyId, embedded, onImported, onProgress }:
       </div>
 
       {items.some((i) => i.phase === "done") && (
-        <AppLink
-          to="/billing"
-          className="inline-block text-xs font-medium text-primary underline-offset-4 hover:underline"
-        >
-          Open Workflow → Ready to submit
-        </AppLink>
+        onOpenReview ? (
+          <button
+            type="button"
+            onClick={onOpenReview}
+            className="inline-block text-xs font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Open Batch Review → Ready to submit
+          </button>
+        ) : (
+          <AppLink
+            to="/billing"
+            className="inline-block text-xs font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Open Workflow → Ready to submit
+          </AppLink>
+        )
       )}
     </div>
   );

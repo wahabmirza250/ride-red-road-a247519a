@@ -119,6 +119,7 @@ export function EdiUploadTab({
           companyId={companyId}
           onImported={adoptImportedTrips}
           onProgress={setProgress}
+          onOpenReview={onOpenReview}
         />
       </Panel>
 
