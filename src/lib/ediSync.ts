@@ -71,19 +71,20 @@ export type EdiProviderPayload = Record<string, unknown>;
 
 export function buildProviderProfilePayload(s: Partial<EdiCompanySettings>): EdiProviderPayload {
   return {
-    name: trimmed(s.billing_name),
+    legal_name: trimmed(s.billing_name),
+    billing_name: trimmed(s.billing_name),
     npi: trimmed(s.npi),
-    medicaid_provider_id: trimmed(s.medicaid_provider_id),
     taxonomy_code: trimmed(s.taxonomy_code),
-    tax_id: trimmed(s.tax_id),
-    address_line1: trimmed(s.address_line1),
-    address_line2: trimmed(s.address_line2),
+    location_id: trimmed(s.medicaid_provider_id),
+    medicaid_provider_id: trimmed(s.medicaid_provider_id),
+    address_line_1: trimmed(s.address_line1),
+    address_line_2: trimmed(s.address_line2),
     city: trimmed(s.city),
     state: trimmed(s.state),
-    postal_code: trimmed(s.postal_code),
+    zip: trimmed(s.postal_code),
+    country: "US",
     phone: trimmed(s.phone),
-    contact_name: trimmed(s.contact_name),
-    contact_email: trimmed(s.contact_email),
+    email: trimmed(s.contact_email),
     is_active: true,
   };
 }
@@ -96,7 +97,9 @@ export function buildTradingPartnerPayload(
     name: trimmed(s.billing_name) ?? trimmed(s.sender_id) ?? "RedArt trading partner",
     sender_id: trimmed(s.sender_id),
     receiver_id: trimmed(s.receiver_id),
-    environment,
+    contact_name: trimmed(s.contact_name),
+    contact_phone: trimmed(s.phone),
+    environment: environment.toUpperCase(),
     is_active: true,
   };
 }

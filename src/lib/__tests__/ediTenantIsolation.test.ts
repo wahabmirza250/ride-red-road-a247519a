@@ -367,8 +367,11 @@ describe("sync payloads", () => {
       expect(text.toLowerCase()).not.toContain(secretish);
     }
     expect(provider["npi"]).toBe("1234567893");
+    expect(provider["legal_name"]).toBe(settings.billing_name);
+    expect(provider["address_line_1"]).toBe("100 Main St");
+    expect(provider["zip"]).toBe("81052");
     expect(partner["sender_id"]).toBe("SENDER01");
-    expect(partner["environment"]).toBe("test");
+    expect(partner["environment"]).toBe("TEST");
   });
 
   it("report the setup that is still missing instead of sending a half-built provider", () => {
