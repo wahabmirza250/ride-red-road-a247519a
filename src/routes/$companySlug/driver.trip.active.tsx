@@ -590,7 +590,7 @@ function ActiveTripScreen() {
             primary && (
               <Button
                 className="h-14 w-full text-base"
-                disabled={primaryBlockers.length > 0}
+                aria-disabled={false}
                 onClick={() => transition(primary)}
               >
                 {actionLabel(primary)}
@@ -609,7 +609,7 @@ function ActiveTripScreen() {
                 variant="outline"
                 className="h-12"
                 onClick={() => transition("finish")}
-                disabled={blockersFor(draft, "finish").length > 0}
+                aria-disabled={false}
               >
                 Finish trip
               </Button>
