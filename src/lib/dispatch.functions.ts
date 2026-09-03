@@ -696,3 +696,87 @@ export const getVehicleEtas = createServerFn({ method: "POST" })
     }
     return bestByType;
   });
+
+
+/** Driver presence update that does not depend on browser RLS or GPS permission. */
+export const setDriverAvailability = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { online: boolean; lat?: number | null; lng?: number | null }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
+    const { data: hasDriverRole } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "driver",
+    });
+    if (!hasDriverRole) throw new Error("Driver only");
+
+    const patch: Record<string, unknown> = {
+      status: data.online ? "available" : "offline",
+    };
+    if (data.lat != null && data.lng != null) {
+      patch.current_lat = data.lat;
+      patch.current_lng = data.lng;
+      patch.last_location_at = new Date().toISOString();
+    }
+
+    const { data: driver, error } = await supabaseAdmin
+      .from("drivers")
+      .update(patch)
+      .eq("user_id", context.userId)
+      .eq("company_id", companyId)
+      .select("id, status, current_lat, current_lng, last_location_at")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!driver) throw new Error("Driver profile not found for this company");
+    return driver;
+  });
+
+/** Atomically close a dispatch ride for its assigned driver. */
+export const completeDriverDispatchTrip = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { trip_id: string; request_id: string }) => {
+    if (!input?.trip_id || !input?.request_id) throw new Error("Trip and request are required");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
+    const { data: driver, error: driverErr } = await supabaseAdmin
+      .from("drivers")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("company_id", companyId)
+      .maybeSingle();
+    if (driverErr) throw new Error(driverErr.message);
+    if (!driver) throw new Error("Driver profile not found");
+
+    const completedAt = new Date().toISOString();
+    const { data: trip, error: tripErr } = await supabaseAdmin
+      .from("trips")
+      .update({ status: "completed", actual_dropoff_time: completedAt })
+      .eq("id", data.trip_id)
+      .eq("driver_id", driver.id)
+      .eq("company_id", companyId)
+      .select("id")
+      .maybeSingle();
+    if (tripErr) throw new Error(tripErr.message);
+    if (!trip) throw new Error("Trip is not assigned to this driver");
+
+    const { error: requestErr } = await supabaseAdmin
+      .from("ride_requests")
+      .update({ status: "completed" })
+      .eq("id", data.request_id)
+      .eq("trip_id", data.trip_id)
+      .eq("company_id", companyId);
+    if (requestErr) throw new Error(requestErr.message);
+
+    const { error: statusErr } = await supabaseAdmin
+      .from("drivers")
+      .update({ status: "available" })
+      .eq("id", driver.id);
+    if (statusErr) throw new Error(statusErr.message);
+    return { ok: true, completed_at: completedAt };
+  });
