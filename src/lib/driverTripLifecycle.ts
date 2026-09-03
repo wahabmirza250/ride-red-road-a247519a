@@ -110,6 +110,10 @@ export function blockersFor(d: ActiveTripDraft, action: TripAction): string[] {
     });
     d.legs.forEach((l, i) => {
       const name = d.legs.length > 1 ? (i === 0 ? "Outbound" : "Return") : "Trip";
+      if (!l.leg_date.trim()) missing.push(`${name}: service date`);
+      if (!l.pickup_address.trim()) missing.push(`${name}: pickup address`);
+      if (!l.dropoff_address.trim()) missing.push(`${name}: destination`);
+      if (!l.pickup_time.trim()) missing.push(`${name}: pickup time`);
       if (parseOdometer(l.pickup_odometer) === null) missing.push(`${name}: pickup odometer`);
       if (parseOdometer(l.dropoff_odometer) === null) missing.push(`${name}: drop-off odometer`);
       else if (legMiles(l) === null) missing.push(`${name}: drop-off odometer is lower than pickup`);
