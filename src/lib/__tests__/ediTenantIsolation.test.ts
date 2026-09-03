@@ -273,7 +273,7 @@ describe("submission batch follows the documented contract", () => {
     expect(body).toEqual({
       batch_number: "RA-abc123-20260101120000-xyz",
       trading_partner: 4,
-      environment: "test",
+      environment: "TEST",
     });
     expect(Object.keys(body)).not.toContain("claim_ids");
     expect(Object.keys(body)).not.toContain("claims");
