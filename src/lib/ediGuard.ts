@@ -148,7 +148,7 @@ export function buildBatchCreateBody(input: EdiBatchCreateInput): Record<string,
   return {
     batch_number: input.batchNumber,
     trading_partner: input.tradingPartner,
-    environment: input.environment,
+    environment: input.environment.toUpperCase(),
   };
 }
 
@@ -187,3 +187,4 @@ export function generateBatchNumber(
     );
   return `RA-${company}-${stamp}-${tail}`;
 }
+
