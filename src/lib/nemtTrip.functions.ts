@@ -721,13 +721,17 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => FinalizeSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const { supabaseAdmin: supabase } = await import("@/integrations/supabase/client.server");
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(userId);
 
     // Driver row (for vehicle info + id)
     const { data: driver, error: dErr } = await supabase
       .from("drivers")
       .select("id, default_vehicle_type, default_plate, default_vin, vehicle_plate")
       .eq("user_id", userId)
+      .eq("company_id", companyId)
       .maybeSingle();
     if (dErr) throw new Error(dErr.message);
     if (!driver) throw new Error("Driver profile not found");
@@ -736,10 +740,11 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
     const { data: trip, error: tErr } = await supabase
       .from("trips")
       .select(
-        "id, passenger_id, pickup_address, dropoff_address, actual_pickup_time, actual_dropoff_time, scheduled_pickup_time, round_trip_group_id, round_trip_leg",
+        "id, passenger_id, company_id, pickup_address, dropoff_address, actual_pickup_time, actual_dropoff_time, scheduled_pickup_time, round_trip_group_id, round_trip_leg",
       )
       .eq("id", data.trip_id)
       .eq("driver_id", driver.id)
+      .eq("company_id", companyId)
       .maybeSingle();
     if (tErr) throw new Error(tErr.message);
     if (!trip) throw new Error("Trip not found for this driver");
@@ -766,6 +771,7 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
       .from("passengers")
       .select("id, first_name, last_name, phone, medicaid_id, date_of_birth, address")
       .eq("id", trip.passenger_id)
+      .eq("company_id", companyId)
       .maybeSingle();
     if (pErr) throw new Error(pErr.message);
     if (!passenger) throw new Error("Passenger not found");
@@ -786,7 +792,9 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
       const { data: existing } = await supabase
         .from("riders")
         .select("id")
-        .eq("medicaid_id", passenger.medicaid_id)
+        .eq("company_id", companyId)
+        .ilike("medicaid_id", passenger.medicaid_id.trim())
+        .limit(1)
         .maybeSingle();
       if (existing) riderId = existing.id;
     }
@@ -794,6 +802,7 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
       const { data: created, error: rErr } = await supabase
         .from("riders")
         .insert({
+          company_id: companyId,
           full_name: fullName,
           medicaid_id: passenger.medicaid_id ?? `SELF-${passenger.id.slice(0, 8)}`,
           dob: passenger.date_of_birth ?? null,
@@ -860,6 +869,7 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
     const { data: existingLinkedMt } = await supabase
       .from("medicaid_trips")
       .select("id")
+      .eq("company_id", companyId)
       .in("dispatch_trip_id", Array.from(new Set([anchorTripId, trip.id])))
       .order("created_at", { ascending: true })
       .limit(1)
@@ -870,6 +880,7 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
       : await supabase
       .from("medicaid_trips")
       .select("id")
+      .eq("company_id", companyId)
       .eq("driver_id", userId)
       .eq("rider_id", riderId)
       .eq("pickup_at", pickupAtForBilling)
@@ -911,6 +922,7 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
       const { data: inserted, error: mtErr } = await supabase
         .from("medicaid_trips")
         .insert({
+          company_id: companyId,
           dispatch_trip_id: anchorTripId,
           driver_id: userId,
           rider_id: riderId,
