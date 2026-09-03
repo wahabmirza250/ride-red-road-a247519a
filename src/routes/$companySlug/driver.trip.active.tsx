@@ -22,6 +22,7 @@ import {
   Loader2,
   Navigation,
   WifiOff,
+  Trash2,
 } from "lucide-react";
 import { useLocationBroadcast } from "@/lib/useGeolocation";
 import { geocodeAddress } from "@/lib/geocode.functions";
@@ -30,6 +31,7 @@ import {
   getDriverTripDraft,
   saveDriverTripDraft,
   closeDriverTripDraft,
+  deleteDriverTripDraft,
 } from "@/lib/driverTripDrafts.functions";
 import {
   createEmptyDraft,
@@ -82,6 +84,7 @@ function ActiveTripScreen() {
   const [pos, setPos] = useState<LatLng | null>(null);
   const [destCoords, setDestCoords] = useState<LatLng | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [submitStage, setSubmitStage] = useState("");
   const [pdfs, setPdfs] = useState<GeneratedPdf[] | null>(null);
   const [preview, setPreview] = useState<{ url: string; filename: string } | null>(null);
@@ -95,6 +98,7 @@ function ActiveTripScreen() {
   const fetchDraft = useServerFn(getDriverTripDraft);
   const persist = useServerFn(saveDriverTripDraft);
   const closeDraft = useServerFn(closeDriverTripDraft);
+  const deleteDraft = useServerFn(deleteDriverTripDraft);
   const geocode = useServerFn(geocodeAddress);
   const detectOdo = useServerFn(detectOdometerFromImage);
 
@@ -314,6 +318,22 @@ function ActiveTripScreen() {
     } finally {
       setSubmitting(false);
       setSubmitStage("");
+    }
+  }
+
+  async function deleteIncompleteTrip() {
+    if (!draft?.server_draft_id || deleting) return;
+    if (!window.confirm("Delete this incomplete trip? This cannot be undone.")) return;
+    setDeleting(true);
+    try {
+      await deleteDraft({ data: { id: draft.server_draft_id } });
+      if (typeof window !== "undefined") clearDraft(window.localStorage, storageKey);
+      toast.success("Incomplete trip deleted");
+      navigate({ to: "/driver" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete this trip");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -696,6 +716,16 @@ function ActiveTripScreen() {
             onClick={() => navigate({ to: "/driver" })}
           >
             Pause — resume later from my dashboard
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-11 w-full text-sm text-red-600 hover:bg-red-500/10 hover:text-red-700"
+            disabled={deleting}
+            onClick={deleteIncompleteTrip}
+          >
+            {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            {deleting ? "Deleting…" : "Delete incomplete trip"}
           </Button>
         </div>
       </div>
