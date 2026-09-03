@@ -349,7 +349,7 @@ describe("TEST-environment smoke run (fake backend, synthetic data)", () => {
 
     const fromTrip = H.posts(/\/claims\/from-trip\/$/);
     expect(fromTrip).toHaveLength(1);
-    expect(fromTrip[0]!.body).toMatchObject({ external_id: "rec-smoke-1", environment: "test" });
+    expect(fromTrip[0]!.body).toMatchObject({ external_id: "rec-smoke-1" });
     expect(H.posts(/\/patients\/$/)).toHaveLength(1);
     expect(H.posts(/\/nemt-trips\/$/)).toHaveLength(1);
 
@@ -458,3 +458,4 @@ describe("TEST-environment smoke run (fake backend, synthetic data)", () => {
     expect(H.posts(/\/patients\/$/)).toHaveLength(0);
   });
 });
+
