@@ -176,3 +176,25 @@ export const startDriverTripDraft = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { id: inserted.id as string, reused: false };
   });
+
+
+/** Permanently delete one incomplete draft owned by the signed-in driver. */
+export const deleteDriverTripDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string }) => {
+    if (!data?.id) throw new Error("Draft id is required");
+    return data;
+  })
+  .handler(async ({ context, data }) => {
+    const { data: deleted, error } = await context.supabase
+      .from("driver_trip_drafts")
+      .delete()
+      .eq("id", data.id)
+      .eq("driver_id", context.userId)
+      .eq("status", "in_progress")
+      .select("id")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!deleted?.id) throw new Error("Only your own incomplete trip can be deleted");
+    return { ok: true, id: deleted.id as string };
+  });
