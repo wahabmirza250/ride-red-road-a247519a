@@ -9,7 +9,8 @@
  *      project, invoked with the caller's own session (its auth/secrets stay
  *      server-side).
  *   3. A direct server-to-backend call, used only when the deployment provides
- *      `EDI_API_BASE_URL` (+ `EDI_API_TOKEN` or `EDI_API_KEY`) as secrets.
+ *      `EDI_API_BASE_URL` plus either a token/API key or service credentials
+ *      (`EDI_API_SERVICE_USERNAME` + `EDI_API_SERVICE_PASSWORD`) as secrets.
  *
  * The browser NEVER talks to the EDI host and never sees a credential: it can
  * only reach this module through authenticated server functions. Nothing here
@@ -42,9 +43,39 @@ export function ediBridgeUrlConfigured(): boolean {
   return Boolean(process.env["EDI_BRIDGE_URL"]);
 }
 
-function directHeaders(): Record<string, string> {
+let cachedServiceToken: { value: string; expiresAt: number } | null = null;
+
+function configuredServiceCredentials(): { username: string; password: string } | null {
+  const username = process.env["EDI_API_SERVICE_USERNAME"] ?? process.env["EDI_SERVICE_USERNAME"];
+  const password = process.env["EDI_API_SERVICE_PASSWORD"] ?? process.env["EDI_SERVICE_PASSWORD"];
+  return username && password ? { username, password } : null;
+}
+
+async function serviceToken(base: string, forceRefresh = false): Promise<string | null> {
+  const fixedToken = process.env["EDI_API_TOKEN"];
+  if (fixedToken) return fixedToken;
+  if (!forceRefresh && cachedServiceToken && cachedServiceToken.expiresAt > Date.now()) {
+    return cachedServiceToken.value;
+  }
+
+  const credentials = configuredServiceCredentials();
+  if (!credentials) return null;
+  const res = await fetch(joinUrl(base, "/api/v1/auth/token/"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(credentials),
+  });
+  const payload = (await res.json().catch(() => null)) as { access?: unknown } | null;
+  if (!res.ok || typeof payload?.access !== "string") {
+    throw new Error(`EDI authentication failed (${res.status}).`);
+  }
+  cachedServiceToken = { value: payload.access, expiresAt: Date.now() + 4 * 60_000 };
+  return payload.access;
+}
+
+async function directHeaders(base: string, forceRefresh = false): Promise<Record<string, string>> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const token = process.env["EDI_API_TOKEN"];
+  const token = await serviceToken(base, forceRefresh);
   const apiKey = process.env["EDI_API_KEY"];
   if (token) headers["Authorization"] = `Bearer ${token}`;
   else if (apiKey) headers["X-API-Key"] = apiKey;
@@ -133,11 +164,16 @@ async function callDirect<T>(req: EdiRequest): Promise<EdiResult<T>> {
   const base = process.env["EDI_API_BASE_URL"];
   if (!base) return { ok: false, error: EDI_NOT_CONFIGURED };
   try {
-    const res = await fetch(joinUrl(base, req.path), {
+    const request = async (forceRefresh = false) => fetch(joinUrl(base, req.path), {
       method: req.method ?? "GET",
-      headers: directHeaders(),
+      headers: await directHeaders(base, forceRefresh),
       ...(req.body === undefined ? {} : { body: JSON.stringify(req.body) }),
     });
+    let res = await request();
+    if (res.status === 401 && configuredServiceCredentials()) {
+      cachedServiceToken = null;
+      res = await request(true);
+    }
     const text = await res.text();
     let payload: unknown = null;
     try {
@@ -209,3 +245,4 @@ export async function ediFetch<T = unknown>(
     return { ok: false, error: ediErrorMessage(e, EDI_NOT_CONFIGURED), transport: "none" };
   }
 }
+
