@@ -134,17 +134,17 @@ export function ediDate(value: string | null | undefined): string | null {
 
 export function buildPatientPayload(
   member: EdiTripDetail["member"],
-  providerId: number | string | null,
+  _providerId: number | string | null,
 ): Record<string, unknown> {
   const { first_name, last_name } = splitName(member.name);
   return {
     first_name,
     last_name,
-    medicaid_id: trimmed(member.medicaid_id),
-    date_of_birth: ediDate(member.dob),
-    address: trimmed(member.address),
+    medicaid_member_id: trimmed(member.medicaid_id),
+    ...(ediDate(member.dob) ? { date_of_birth: ediDate(member.dob) } : {}),
+    ...(trimmed(member.address) ? { address_line_1: trimmed(member.address) } : {}),
     phone: trimmed(member.phone),
-    ...(providerId === null || providerId === undefined ? {} : { provider: providerId }),
+    is_active: true,
   };
 }
 
@@ -159,24 +159,15 @@ export function buildNemtTripPayload(
   ids: { patientId: number | string; providerId: number | string | null },
 ): Record<string, unknown> {
   return {
-    external_id: detail.record_id,
     patient: ids.patientId,
     ...(ids.providerId === null || ids.providerId === undefined ? {} : { provider: ids.providerId }),
     service_date: ediDate(detail.trip.service_date),
-    pickup_address: trimmed(detail.trip.pickup_address),
-    dropoff_address: trimmed(detail.trip.dropoff_address),
-    miles: detail.trip.miles,
-    trip_type: trimmed(detail.trip.trip_kind),
-    vehicle_type: trimmed(detail.trip.vehicle_type),
-    total_charge: money(detail.total_charge),
-    diagnosis_code: trimmed(detail.diagnosis_code),
-    service_lines: detail.lines.map((l) => ({
-      procedure_code: l.procedure_code,
-      modifiers: l.modifiers,
-      units: l.units,
-      unit_rate: money(l.rate),
-      charge_amount: money(l.amount),
-    })),
+    pickup: trimmed(detail.trip.pickup_address),
+    dropoff: trimmed(detail.trip.dropoff_address),
+    one_way_miles: detail.trip.miles,
+    mileage_units: detail.trip.miles,
+    charge: money(detail.total_charge),
+    is_active: true,
   };
 }
 
@@ -190,9 +181,24 @@ export function tripFingerprint(detail: EdiTripDetail): string {
 export function buildClaimFromTripPayload(
   tripId: number | string,
   recordId: string,
-  environment: EdiEnvironment,
+  _environment: EdiEnvironment,
+  detail?: EdiTripDetail,
 ): Record<string, unknown> {
-  return { trip_id: tripId, external_id: recordId, environment };
+  return {
+    trip_id: tripId,
+    external_id: recordId,
+    ...(detail ? {
+      diagnosis_code: trimmed(detail.diagnosis_code),
+      place_of_service: "41",
+      service_lines: detail.lines.map((line) => ({
+        procedure_code: line.procedure_code,
+        modifiers: line.modifiers,
+        units: line.units,
+        mileage: line.procedure_code === "S0215" ? detail.trip.miles : null,
+        charge: money(line.amount),
+      })),
+    } : {}),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -232,3 +238,4 @@ export function summarizeCompanySync(
   if (updated) bits.push(`${updated} updated`);
   return `EDI backend updated: ${bits.join(", ")}.`;
 }
+
