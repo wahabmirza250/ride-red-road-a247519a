@@ -1,6 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+async function activeCompanyId(userId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("company_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw new Error("Could not identify your company");
+  if (!data?.company_id) throw new Error("Your account is not connected to a company");
+  return data.company_id;
+}
+
 /** Passenger picker for the dispatch "Add ride" form (staff only). */
 export const dispatchListPassengers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -8,9 +20,12 @@ export const dispatchListPassengers = createServerFn({ method: "GET" })
     const { requireStaff } = await import("@/lib/staffGuard.server");
     await requireStaff(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const companyId = await activeCompanyId(context.userId);
     const { data, error } = await supabaseAdmin
       .from("passengers")
       .select("id, first_name, last_name, medicaid_id, phone")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
       .order("first_name");
     if (error) throw new Error(error.message);
     return (data ?? []).map((p) => ({
@@ -19,6 +34,86 @@ export const dispatchListPassengers = createServerFn({ method: "GET" })
       medicaid_id: p.medicaid_id ?? "",
       phone: p.phone ?? "",
     }));
+  });
+
+type CreatePassengerInput = {
+  full_name: string;
+  medicaid_id: string;
+  date_of_birth?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  notes?: string | null;
+};
+
+/** Create (or safely reuse) a passenger inside the signed-in company. */
+export const dispatchCreatePassenger = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: CreatePassengerInput) => {
+    if (!input?.full_name?.trim()) throw new Error("Passenger name is required");
+    if (!input?.medicaid_id?.trim()) throw new Error("Medicaid ID is required");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const { requireStaff, logDispatchEvent } = await import("@/lib/staffGuard.server");
+    const { isAdmin } = await requireStaff(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const companyId = await activeCompanyId(context.userId);
+    const medicaidId = data.medicaid_id.trim().toUpperCase();
+
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from("passengers")
+      .select("id, first_name, last_name, medicaid_id, phone")
+      .eq("company_id", companyId)
+      .ilike("medicaid_id", medicaidId)
+      .maybeSingle();
+    if (lookupError) throw new Error("Could not check this Medicaid ID");
+    if (existing) {
+      return {
+        id: existing.id,
+        name: `${existing.first_name ?? ""} ${existing.last_name ?? ""}`.trim() || "Passenger",
+        medicaid_id: existing.medicaid_id ?? medicaidId,
+        phone: existing.phone ?? "",
+        reused: true,
+      };
+    }
+
+    const parts = data.full_name.trim().split(/\s+/);
+    const firstName = parts.shift()!;
+    const lastName = parts.join(" ") || null;
+    const { data: passenger, error } = await supabaseAdmin
+      .from("passengers")
+      .insert({
+        company_id: companyId,
+        first_name: firstName,
+        last_name: lastName,
+        medicaid_id: medicaidId,
+        date_of_birth: data.date_of_birth || null,
+        phone: data.phone?.trim() || null,
+        address: data.address?.trim() || null,
+        notes: data.notes?.trim() || null,
+        is_active: true,
+      })
+      .select("id, first_name, last_name, medicaid_id, phone")
+      .single();
+    if (error) {
+      if (error.code === "23505") throw new Error("This Medicaid ID already exists for your company");
+      throw new Error("Could not add passenger");
+    }
+
+    await logDispatchEvent({
+      kind: "passenger_created",
+      actor_id: context.userId,
+      actor_role: isAdmin ? "admin" : "dispatch",
+      summary: `Added passenger ${data.full_name.trim()} from Add ride`,
+      data: { passenger_id: passenger.id, company_id: companyId },
+    });
+    return {
+      id: passenger.id,
+      name: `${passenger.first_name ?? ""} ${passenger.last_name ?? ""}`.trim() || "Passenger",
+      medicaid_id: passenger.medicaid_id ?? medicaidId,
+      phone: passenger.phone ?? "",
+      reused: false,
+    };
   });
 
 type ScheduleInput = {
@@ -34,12 +129,6 @@ type ScheduleInput = {
   notes?: string | null;
 };
 
-/**
- * Schedule a ride for now or any future date/time straight from the dispatch
- * board. Same shape as the admin planner's trip creation, but usable by the
- * dispatch role too (writes run through the service client after the staff
- * guard, since dispatch has no direct insert grant on trips).
- */
 export const dispatchScheduleRide = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: ScheduleInput) => {
@@ -54,21 +143,26 @@ export const dispatchScheduleRide = createServerFn({ method: "POST" })
     const { requireStaff, logDispatchEvent } = await import("@/lib/staffGuard.server");
     const { isAdmin } = await requireStaff(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const companyId = await activeCompanyId(context.userId);
+
+    const { data: passenger } = await supabaseAdmin
+      .from("passengers").select("id").eq("id", data.passenger_id)
+      .eq("company_id", companyId).maybeSingle();
+    if (!passenger) throw new Error("Selected passenger does not belong to this company");
 
     const driverId = data.driver_id || null;
     if (driverId) {
       const { data: driver } = await supabaseAdmin
-        .from("drivers")
-        .select("id")
-        .eq("id", driverId)
-        .maybeSingle();
-      if (!driver) throw new Error("Selected driver not found");
+        .from("drivers").select("id").eq("id", driverId)
+        .eq("company_id", companyId).maybeSingle();
+      if (!driver) throw new Error("Selected driver does not belong to this company");
     }
 
     const iso = new Date(data.scheduled_pickup_time).toISOString();
     const { data: trip, error } = await supabaseAdmin
       .from("trips")
       .insert({
+        company_id: companyId,
         passenger_id: data.passenger_id,
         driver_id: driverId,
         status: driverId ? "assigned" : "scheduled",
@@ -93,8 +187,7 @@ export const dispatchScheduleRide = createServerFn({ method: "POST" })
       trip_id: trip.id,
       driver_id: driverId,
       summary: `Scheduled ride ${data.pickup_address} → ${data.dropoff_address} for ${new Date(iso).toLocaleString()}`,
-      data: { scheduled_pickup_time: iso },
+      data: { scheduled_pickup_time: iso, company_id: companyId },
     });
-
     return trip;
   });
