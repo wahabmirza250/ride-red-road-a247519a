@@ -403,7 +403,11 @@ function ActiveTripScreen() {
   const legName = draft.legs.length > 1 ? (lc.active_leg === 0 ? "Outbound" : "Return") : "Trip";
   const actions = allowedActions(draft);
   const primary = actions[0] ?? null;
-  const primaryBlockers = primary ? blockersFor(draft, primary) : [];
+  const primaryBlockers = lc.phase === "ready_to_finish"
+    ? blockersFor(draft, "finish")
+    : primary
+      ? blockersFor(draft, primary)
+      : [];
   const rider = draft.rider_slots[0]?.rider;
   const showMap = lc.phase === "draft" || lc.phase === "to_pickup" || lc.phase === "in_trip";
 
