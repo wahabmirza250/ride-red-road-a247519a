@@ -744,10 +744,15 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
       )
       .eq("id", data.trip_id)
       .eq("driver_id", driver.id)
-      .eq("company_id", companyId)
       .maybeSingle();
     if (tErr) throw new Error(tErr.message);
     if (!trip) throw new Error("Trip not found for this driver");
+    if (trip.company_id && trip.company_id !== companyId) throw new Error("Trip belongs to another company");
+    if (!trip.company_id) {
+      const { error: tenantErr } = await supabase
+        .from("trips").update({ company_id: companyId }).eq("id", trip.id);
+      if (tenantErr) throw new Error(tenantErr.message);
+    }
 
     // Round trips are driven as two dispatch trips but reported on ONE state
     // form with two leg blocks. Resolve the group's anchor (leg 1) trip so both
@@ -771,10 +776,19 @@ export const finalizeMedicaidFromDispatchTrip = createServerFn({ method: "POST" 
       .from("passengers")
       .select("id, first_name, last_name, phone, medicaid_id, date_of_birth, address")
       .eq("id", trip.passenger_id)
-      .eq("company_id", companyId)
       .maybeSingle();
     if (pErr) throw new Error(pErr.message);
     if (!passenger) throw new Error("Passenger not found");
+    const { data: passengerTenant } = await supabase
+      .from("passengers").select("company_id").eq("id", passenger.id).maybeSingle();
+    if (passengerTenant?.company_id && passengerTenant.company_id !== companyId) {
+      throw new Error("Passenger belongs to another company");
+    }
+    if (!passengerTenant?.company_id) {
+      const { error: passengerTenantErr } = await supabase
+        .from("passengers").update({ company_id: companyId }).eq("id", passenger.id);
+      if (passengerTenantErr) throw new Error(passengerTenantErr.message);
+    }
 
     const fullName = `${passenger.first_name ?? ""} ${passenger.last_name ?? ""}`.trim() || "Passenger";
 
