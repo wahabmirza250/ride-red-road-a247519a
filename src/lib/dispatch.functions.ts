@@ -753,24 +753,44 @@ export const completeDriverDispatchTrip = createServerFn({ method: "POST" })
     if (driverErr) throw new Error(driverErr.message);
     if (!driver) throw new Error("Driver profile not found");
 
-    const completedAt = new Date().toISOString();
-    const { data: trip, error: tripErr } = await supabaseAdmin
+    // Legacy dispatch trips may predate company_id. Ownership is proven by
+    // the currently assigned driver, then the missing tenant link is repaired.
+    const { data: existingTrip, error: readTripErr } = await supabaseAdmin
       .from("trips")
-      .update({ status: "completed", actual_dropoff_time: completedAt })
+      .select("id, driver_id, company_id")
       .eq("id", data.trip_id)
       .eq("driver_id", driver.id)
-      .eq("company_id", companyId)
-      .select("id")
       .maybeSingle();
-    if (tripErr) throw new Error(tripErr.message);
-    if (!trip) throw new Error("Trip is not assigned to this driver");
+    if (readTripErr) throw new Error(readTripErr.message);
+    if (!existingTrip) throw new Error("Trip is not assigned to this driver");
+    if (existingTrip.company_id && existingTrip.company_id !== companyId) {
+      throw new Error("Trip belongs to another company");
+    }
 
-    const { error: requestErr } = await supabaseAdmin
+    const completedAt = new Date().toISOString();
+    const { error: tripErr } = await supabaseAdmin
+      .from("trips")
+      .update({ company_id: companyId, status: "completed", actual_dropoff_time: completedAt })
+      .eq("id", data.trip_id)
+      .eq("driver_id", driver.id);
+    if (tripErr) throw new Error(tripErr.message);
+
+    const { data: request, error: requestReadErr } = await supabaseAdmin
       .from("ride_requests")
-      .update({ status: "completed" })
+      .select("id, company_id")
       .eq("id", data.request_id)
       .eq("trip_id", data.trip_id)
-      .eq("company_id", companyId);
+      .maybeSingle();
+    if (requestReadErr) throw new Error(requestReadErr.message);
+    if (!request) throw new Error("The ride request is not linked to this trip");
+    if (request.company_id && request.company_id !== companyId) {
+      throw new Error("Ride request belongs to another company");
+    }
+    const { error: requestErr } = await supabaseAdmin
+      .from("ride_requests")
+      .update({ company_id: companyId, driver_id: driver.id, status: "completed" })
+      .eq("id", data.request_id)
+      .eq("trip_id", data.trip_id);
     if (requestErr) throw new Error(requestErr.message);
 
     const { error: statusErr } = await supabaseAdmin
