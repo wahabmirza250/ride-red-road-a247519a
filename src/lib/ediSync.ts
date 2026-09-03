@@ -74,6 +74,7 @@ export function buildProviderProfilePayload(s: Partial<EdiCompanySettings>): Edi
     legal_name: trimmed(s.billing_name),
     billing_name: trimmed(s.billing_name),
     npi: trimmed(s.npi),
+    is_atypical: (s.provider_identifier_type ?? "npi") === "health_first_colorado_id",
     taxonomy_code: trimmed(s.taxonomy_code),
     location_id: trimmed(s.medicaid_provider_id),
     medicaid_provider_id: trimmed(s.medicaid_provider_id),
