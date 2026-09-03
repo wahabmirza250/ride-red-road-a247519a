@@ -143,16 +143,10 @@ export const getDispatchBoard = createServerFn({ method: "GET" })
       const lastLoc = d.last_location_at ? new Date(d.last_location_at).getTime() : 0;
       const stale = !lastLoc || now - lastLoc > STALE_GPS_MS;
       const trip = tripByDriver.get(d.id) ?? null;
+      // Driver online/offline is authoritative. GPS freshness is shown
+      // separately; denied/stale GPS must not make an online driver disappear.
       const activity: DispatchDriver["activity"] =
-        d.status === "offline"
-          ? "offline"
-          : trip
-            ? stale
-              ? "stale"
-              : "driving"
-            : stale
-              ? "stale"
-              : "idle";
+        d.status === "offline" ? "offline" : trip ? "driving" : "idle";
       return {
         id: d.id,
         user_id: d.user_id,
