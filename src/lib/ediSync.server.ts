@@ -423,7 +423,7 @@ export async function ensureClaimForRecord(
     const { claimCreateFromTrip } = await import("@/lib/ediApi.server");
     const created = await claimCreateFromTrip(
       supabase,
-      buildClaimFromTripPayload(trip.id, detail.record_id, ctx.environment),
+      buildClaimFromTripPayload(trip.id, detail.record_id, ctx.environment, detail),
     );
     if (!created.ok) return { claim_id: null, via: null, error: created.error };
     const claimId = entityIdFrom(created.data, ["claim_id"]);
@@ -444,3 +444,4 @@ export async function ensureClaimForRecord(
     ? { claim_id: null, via: null, error: "The EDI backend did not return a claim id." }
     : { claim_id: claimId, via: "claims_endpoint", error: null };
 }
+
