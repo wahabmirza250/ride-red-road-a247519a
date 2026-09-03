@@ -218,6 +218,12 @@ export async function ediFetch<T = unknown>(
     return { ...(await callDirect<T>(req)), transport: "direct" };
   }
 
+  // A deployment-level direct connection is authoritative. Do not let an old
+  // in-project Edge Function with stale credentials mask a working backend.
+  if (ediDirectConfigured()) {
+    return { ...(await callDirect<T>(req)), transport: "direct" };
+  }
+
   try {
     const { data, error } = await supabase.functions.invoke(BRIDGE, {
       body: { path, method, ...(body === undefined ? {} : { body }) },
