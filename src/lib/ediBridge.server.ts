@@ -188,7 +188,10 @@ async function callDirect<T>(req: EdiRequest): Promise<EdiResult<T>> {
         status: res.status,
       };
     }
-    return { ok: true, data: payload as T };
+    // The Django API uses the same { success, message, data } envelope as the
+    // external bridge. Unwrap it here so readiness checks see data.ready and
+    // data.errors instead of mistaking the wrapper for an unknown response.
+    return normalizeEdiEnvelope<T>(payload);
   } catch (e) {
     return { ok: false, error: ediErrorMessage(e, "EDI backend is unreachable") };
   }
