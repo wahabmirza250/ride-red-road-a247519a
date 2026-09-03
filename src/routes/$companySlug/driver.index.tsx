@@ -30,7 +30,7 @@ import { StatsGrid } from "@/components/driver/StatsGrid";
 
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { driverCreatePassenger, driverSearchPassengers } from "@/lib/passenger.functions";
-import { acceptRideOffer, declineRideOffer } from "@/lib/dispatch.functions";
+import { acceptRideOffer, declineRideOffer, completeDriverDispatchTrip, setDriverAvailability } from "@/lib/dispatch.functions";
 import { clockIn, clockOut, getShiftStats, addShiftMiles } from "@/lib/shifts.functions";
 import { formatHours } from "@/lib/shiftTime";
 import { openNavigation as openMapsDirections } from "@/lib/mapsDeepLink";
@@ -106,6 +106,8 @@ const PURPOSE_LABEL: Record<string, string> = {
 function DriverHome() {
   const acceptFn = useServerFn(acceptRideOffer);
   const declineFn = useServerFn(declineRideOffer);
+  const setAvailabilityFn = useServerFn(setDriverAvailability);
+  const completeTripFn = useServerFn(completeDriverDispatchTrip);
   const clockInFn = useServerFn(clockIn);
   const clockOutFn = useServerFn(clockOut);
   const statsFn = useServerFn(getShiftStats);
@@ -390,45 +392,38 @@ function DriverHome() {
   async function toggleOnline() {
     if (!driver) return;
     const next = !online;
+    let pos: { lat: number; lng: number } | null = null;
     if (next) {
-      let pos: { lat: number; lng: number };
-      try { pos = await requestCurrentPosition(); }
-      catch (e) {
-        const msg = e instanceof Error ? e.message : "Could not get location";
-        setGeoError(msg); toast.error(msg); return;
+      try {
+        pos = await requestCurrentPosition();
+        setGeoError(null);
+      } catch (e) {
+        // GPS is useful for the map, but it must never prevent a driver from
+        // going online and receiving a dispatcher-assigned ride.
+        setGeoError(e instanceof Error ? e.message : "Location unavailable");
       }
-      const { error } = await supabase.from("drivers")
-        .update({
-          status: "available",
-          current_lat: pos.lat,
-          current_lng: pos.lng,
-          last_location_at: new Date().toISOString(),
-        })
-        .eq("id", driver.id);
-      if (error) return toast.error(error.message);
-      setDriver({ ...driver, status: "available", current_lat: pos.lat, current_lng: pos.lng });
-      setGeoError(null);
-      // Going online also starts the shift when one isn't running; starting is
-      // safe to repeat and never creates a second shift.
-      try { await clockInFn({ data: {} }); toast.success("You're online"); }
-      catch (e) { toast.error(e instanceof Error ? e.message : "Could not start your shift"); }
+    }
+    try {
+      const updated: any = await setAvailabilityFn({
+        data: { online: next, lat: pos?.lat ?? null, lng: pos?.lng ?? null },
+      });
+      setDriver({
+        ...driver,
+        status: next ? "available" : "offline",
+        current_lat: updated?.current_lat ?? driver.current_lat,
+        current_lng: updated?.current_lng ?? driver.current_lng,
+      });
+      if (next) {
+        try { await clockInFn({ data: {} }); }
+        catch (e) { toast.error(e instanceof Error ? e.message : "Could not start your shift"); }
+        toast.success(pos ? "You're online" : "You're online — location is unavailable");
+      } else {
+        try { await clockOutFn({ data: {} }); } catch { /* availability already saved */ }
+        toast.success("You're offline");
+      }
       void refreshStats();
-    } else {
-      const { error } = await supabase.from("drivers")
-        .update({
-          status: "offline",
-          current_lat: null,
-          current_lng: null,
-          last_location_at: null,
-        })
-        .eq("id", driver.id);
-      if (error) return toast.error(error.message);
-      setDriver({ ...driver, status: "offline", current_lat: null, current_lng: null });
-      setGeoError(null); setSpeedMph(null); lastFixRef.current = null;
-      // The shift keeps running until the driver ends it, so hours are never
-      // lost by toggling availability.
-      toast.success("You're offline");
-      void refreshStats();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update online status");
     }
   }
 
@@ -443,19 +438,20 @@ function DriverHome() {
   }
 
   async function setStatus(next: "driver_en_route_to_pickup" | "arrived_at_pickup" | "in_progress" | "completed") {
-    if (!active?.trip_id) return;
-    const patch: { status: typeof next; actual_pickup_time?: string; actual_dropoff_time?: string } = { status: next };
-    if (next === "in_progress") patch.actual_pickup_time = new Date().toISOString();
-    if (next === "completed") patch.actual_dropoff_time = new Date().toISOString();
-    const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
-    if (error) return toast.error(error.message);
+    if (!active?.trip_id) return false;
     if (next === "completed") {
-      await supabase.from("ride_requests").update({ status: "cancelled" })
-        .eq("id", active.id).neq("status", "cancelled");
-      if (driver) await supabase.from("drivers").update({ status: "available" }).eq("id", driver.id);
+      await completeTripFn({ data: { trip_id: active.trip_id, request_id: active.id } });
+      if (driver) setDriver({ ...driver, status: "available" });
       toast.success("Trip completed — proof report available in trip history");
+      void loadRequests();
+      return true;
     }
+    const patch: { status: typeof next; actual_pickup_time?: string } = { status: next };
+    if (next === "in_progress") patch.actual_pickup_time = new Date().toISOString();
+    const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
+    if (error) throw new Error(error.message);
     void loadRequests();
+    return true;
   }
 
   /**
