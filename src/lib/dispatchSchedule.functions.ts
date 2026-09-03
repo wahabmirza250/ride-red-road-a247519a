@@ -146,7 +146,7 @@ export const dispatchScheduleRide = createServerFn({ method: "POST" })
     const companyId = await activeCompanyId(context.userId);
 
     const { data: passenger } = await supabaseAdmin
-      .from("passengers").select("id").eq("id", data.passenger_id)
+      .from("passengers").select("id, first_name, last_name, phone, medicaid_id").eq("id", data.passenger_id)
       .eq("company_id", companyId).maybeSingle();
     if (!passenger) throw new Error("Selected passenger does not belong to this company");
 
@@ -159,24 +159,33 @@ export const dispatchScheduleRide = createServerFn({ method: "POST" })
     }
 
     const iso = new Date(data.scheduled_pickup_time).toISOString();
-    const { data: trip, error } = await supabaseAdmin
-      .from("trips")
+    const passengerName =
+      `${passenger.first_name ?? ""} ${passenger.last_name ?? ""}`.trim() || "Passenger";
+    // The dispatch board is powered by ride_requests. Keep the request pending
+    // until the assigned driver accepts it; acceptRideOffer creates the trip.
+    const { data: request, error } = await supabaseAdmin
+      .from("ride_requests")
       .insert({
         company_id: companyId,
-        passenger_id: data.passenger_id,
+        passenger_id: passenger.id,
         driver_id: driverId,
-        status: driverId ? "assigned" : "scheduled",
+        trip_id: null,
+        status: "pending",
+        source: "dispatcher",
+        contact_name: passengerName,
+        contact_phone: passenger.phone ?? null,
+        contact_medicaid: passenger.medicaid_id ?? null,
         pickup_address: data.pickup_address.trim(),
         dropoff_address: data.dropoff_address.trim(),
         pickup_lat: data.pickup_lat ?? null,
         pickup_lng: data.pickup_lng ?? null,
         dropoff_lat: data.dropoff_lat ?? null,
         dropoff_lng: data.dropoff_lng ?? null,
-        scheduled_pickup_time: iso,
-        assignment_type: "manual",
+        requested_pickup_time: iso,
+        offer_expires_at: null,
         notes: data.notes?.trim() || null,
       })
-      .select("id, scheduled_pickup_time, status")
+      .select("id, requested_pickup_time, status, driver_id")
       .single();
     if (error) throw new Error(error.message);
 
@@ -184,10 +193,10 @@ export const dispatchScheduleRide = createServerFn({ method: "POST" })
       kind: "ride_scheduled",
       actor_id: context.userId,
       actor_role: isAdmin ? "admin" : "dispatch",
-      trip_id: trip.id,
+      request_id: request.id,
       driver_id: driverId,
       summary: `Scheduled ride ${data.pickup_address} → ${data.dropoff_address} for ${new Date(iso).toLocaleString()}`,
       data: { scheduled_pickup_time: iso, company_id: companyId },
     });
-    return trip;
+    return request;
   });
