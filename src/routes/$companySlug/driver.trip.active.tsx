@@ -250,6 +250,22 @@ function ActiveTripScreen() {
     }
   }
 
+  function editCompletedLeg(legIndex: number) {
+    if (!draft) return;
+    patch((current) => {
+      const lifecycle = getLifecycle(current);
+      return {
+        ...current,
+        lifecycle: {
+          ...lifecycle,
+          phase: "at_dropoff",
+          active_leg: Math.max(0, Math.min(legIndex, current.legs.length - 1)),
+        },
+      };
+    });
+    toast.message("Trip details reopened — correct the missing information, then complete the leg again.");
+  }
+
   async function handleOdometerPhoto(field: "pickup_odometer" | "dropoff_odometer", file: File | null) {
     if (!file || !draft) return;
     if (!file.type.startsWith("image/")) return toast.error("Choose an odometer photo");
@@ -565,9 +581,28 @@ function ActiveTripScreen() {
         )}
 
         {primaryBlockers.length > 0 && (
-          <div className="flex gap-2 rounded-2xl bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span>Still needed: {primaryBlockers.join(", ")}</span>
+          <div className="space-y-3 rounded-2xl bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
+            <div className="flex gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>Still needed: {primaryBlockers.join(", ")}</span>
+            </div>
+            {(lc.phase === "leg_complete" || lc.phase === "ready_to_finish") && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {draft.legs.map((tripLeg, index) => (
+                  <Button
+                    key={tripLeg.leg_index}
+                    type="button"
+                    variant="outline"
+                    className="h-11 bg-background text-foreground"
+                    onClick={() => editCompletedLeg(index)}
+                  >
+                    {draft.legs.length > 1
+                      ? `Fix ${index === 0 ? "outbound" : "return"} details`
+                      : "Fix missing trip details"}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
