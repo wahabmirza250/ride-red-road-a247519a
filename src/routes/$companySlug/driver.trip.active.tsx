@@ -490,6 +490,36 @@ function ActiveTripScreen() {
         {lc.phase === "at_dropoff" && leg && (
           <div className="space-y-3 rounded-2xl border border-primary/30 bg-primary/5 p-4">
             <div className="text-sm font-semibold">Complete this leg</div>
+            <Field label="Service date *">
+              <Input
+                type="date"
+                className="h-12 text-base"
+                value={leg.leg_date}
+                onChange={(e) =>
+                  patch((d) => updateLegIn(d, lc.active_leg, { leg_date: e.target.value }) as ActiveTripDraft)
+                }
+              />
+            </Field>
+            <Field label="Pickup address *">
+              <Input
+                className="h-12 text-base"
+                value={leg.pickup_address}
+                onChange={(e) =>
+                  patch((d) => updateLegIn(d, lc.active_leg, { pickup_address: e.target.value }) as ActiveTripDraft)
+                }
+                placeholder="Enter pickup address"
+              />
+            </Field>
+            <Field label="Drop-off address *">
+              <Input
+                className="h-12 text-base"
+                value={leg.dropoff_address}
+                onChange={(e) =>
+                  patch((d) => updateLegIn(d, lc.active_leg, { dropoff_address: e.target.value }) as ActiveTripDraft)
+                }
+                placeholder="Enter destination"
+              />
+            </Field>
             <Field label="Drop-off odometer *">
               <OdometerInput
                 value={leg.dropoff_odometer}
