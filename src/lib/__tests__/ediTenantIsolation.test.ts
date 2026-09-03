@@ -394,26 +394,22 @@ describe("sync payloads", () => {
     expect(patient).toMatchObject({
       first_name: "Jane",
       last_name: "Doe",
-      medicaid_id: "A123456789",
+      medicaid_member_id: "A123456789",
       date_of_birth: "1980-04-05",
-      provider: 5,
+      is_active: true,
     });
 
     const trip = buildNemtTripPayload(detail, { patientId: 12, providerId: 5 });
     expect(trip["patient"]).toBe(12);
-    expect(trip["external_id"]).toBe("rec-1");
     expect(trip["service_date"]).toBe("2026-07-30");
-    expect(trip["total_charge"]).toBe("46.50");
-    const lines = trip["service_lines"] as Record<string, unknown>[];
-    expect(lines[0]!["charge_amount"]).toBe("31.00");
-    expect(lines[1]!["unit_rate"]).toBe("1.25");
+    expect(trip["pickup"]).toBe("9 Elm St");
+    expect(trip["charge"]).toBe("46.50");
   });
 
   it("link a claim to its trip through the documented from-trip body", () => {
     expect(buildClaimFromTripPayload(12, "rec-1", "test")).toEqual({
       trip_id: 12,
       external_id: "rec-1",
-      environment: "test",
     });
   });
 
@@ -460,3 +456,4 @@ describe("sync payloads", () => {
     ).toBe("NPI already in use");
   });
 });
+
