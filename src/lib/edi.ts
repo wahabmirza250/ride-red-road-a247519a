@@ -53,6 +53,13 @@ export function ediErrorMessage(payload: unknown, fallback = "EDI backend unavai
   if (payload instanceof Error) return payload.message || fallback;
   if (typeof payload === "object") {
     const p = payload as Record<string, unknown>;
+    // Backend validation envelopes use
+    // { message: "Validation failed.", errors: { field: [reason] } }.
+    // Surface the actionable field reason instead of the generic wrapper.
+    if (p["errors"] && typeof p["errors"] === "object" && !Array.isArray(p["errors"])) {
+      const nested = ediErrorMessage(p["errors"], "");
+      if (nested) return nested;
+    }
     for (const key of ["detail", "error", "message", "non_field_errors"]) {
       const v = p[key];
       if (typeof v === "string" && v.trim()) return v.trim();
@@ -118,3 +125,4 @@ export function ediIsValid(validation: unknown): boolean | null {
   if (!issues.length) return null;
   return !issues.some((i) => i.severity === "error");
 }
+
