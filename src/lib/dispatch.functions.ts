@@ -712,14 +712,18 @@ export const setDriverAvailability = createServerFn({ method: "POST" })
     });
     if (!hasDriverRole) throw new Error("Driver only");
 
-    const patch: Record<string, unknown> = {
-      status: data.online ? "available" : "offline",
+    const hasFix = data.lat != null && data.lng != null;
+    const patch = {
+      status: (data.online ? "available" : "offline") as "available" | "offline",
+      ...(hasFix
+        ? {
+            current_lat: Number(data.lat),
+            current_lng: Number(data.lng),
+            last_location_at: new Date().toISOString(),
+          }
+        : {}),
     };
-    if (data.lat != null && data.lng != null) {
-      patch.current_lat = data.lat;
-      patch.current_lng = data.lng;
-      patch.last_location_at = new Date().toISOString();
-    }
+
 
     const { data: driver, error } = await supabaseAdmin
       .from("drivers")

@@ -79,7 +79,8 @@ export const dispatchCreatePassenger = createServerFn({ method: "POST" })
 
     const parts = data.full_name.trim().split(/\s+/);
     const firstName = parts.shift()!;
-    const lastName = parts.join(" ") || null;
+    const lastName = parts.join(" ");
+
     const { data: passenger, error } = await supabaseAdmin
       .from("passengers")
       .insert({

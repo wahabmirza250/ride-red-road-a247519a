@@ -27,6 +27,8 @@ import {
 
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatusPill } from "@/components/nemt/StatusPill";
+import { ClaimStatePill } from "@/components/billing/ClaimStatePill";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1044,8 +1046,9 @@ function PendingReviewTab({
               {r.submitted_at ? formatDateTime(r.submitted_at) : "Not submitted"}
             </td>
             <td className="px-4 py-3">
-              <StatusPill status={r.status} />
+              <ClaimStatePill record={r} />
             </td>
+
             <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
               <PdfCell
                 pdfUrl={r.pdf_url}
@@ -1394,8 +1397,9 @@ function ReadyToSubmitTab({
                 ) : r.status === "needs_fix" ? (
                   <StatusPill status="needs_fix" />
                 ) : (
-                  <StatusPill status="approved" />
+                  <ClaimStatePill record={r} />
                 )}
+
                 {r.submission_error && !isRunning && (() => {
                   // Category + next action, never a raw robot/Playwright trace.
                   const s = needsFixSummary(r as any);
