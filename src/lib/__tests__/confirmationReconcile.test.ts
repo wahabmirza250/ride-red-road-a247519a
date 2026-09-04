@@ -175,7 +175,7 @@ describe("the attach decision", () => {
 
 type Row = Record<string, any>;
 
-function makeDb(bills: Row[], auditRows: Row[] = []) {
+function makeDb(bills: Row[], auditRows: Row[] = [], resubs: Row[] = []) {
   const writes: Row[] = [];
   const inserts: Row[] = [];
 
@@ -191,7 +191,8 @@ function makeDb(bills: Row[], auditRows: Row[] = []) {
     });
 
   function run(q: any): Row[] {
-    const table = q.table === "billing_records" ? bills : auditRows;
+    const table =
+      q.table === "billing_records" ? bills : q.table === "claim_resubmissions" ? resubs : auditRows;
     const hits = table.filter((r) => match(r, q.filters));
     if (q.op === "update") {
       for (const r of hits) Object.assign(r, q.payload);
@@ -235,7 +236,7 @@ function makeDb(bills: Row[], auditRows: Row[] = []) {
     return api;
   };
 
-  return { supabase: { from: builder } as any, writes, inserts, bills, auditRows };
+  return { supabase: { from: builder } as any, writes, inserts, bills, auditRows, resubs };
 }
 
 const billRow = (over: Row = {}): Row => ({
@@ -304,6 +305,19 @@ describe("reconcileConfirmedSubmission (writer)", () => {
     );
     const out = await reconcileConfirmedSubmission(db.supabase, { recordId: "b1", actorId: null });
 
+    expect(out.kind).toBe("blocked");
+    expect(db.bills[0]!.state_confirmation_number).toBeNull();
+    expect(db.inserts).toHaveLength(0);
+  });
+
+  it("DUPLICATE CLAIM: refuses a number a corrected resubmission already owns", async () => {
+    const { reconcileConfirmedSubmission } = await import("@/lib/confirmationReconcile.server");
+    const db = makeDb(
+      [billRow()],
+      audits([portalRead]).map((a) => ({ ...a, billing_record_id: "b1" })),
+      [{ id: "res-9", resubmission_claim_number: CLAIM }],
+    );
+    const out = await reconcileConfirmedSubmission(db.supabase, { recordId: "b1", actorId: null });
     expect(out.kind).toBe("blocked");
     expect(db.bills[0]!.state_confirmation_number).toBeNull();
     expect(db.inserts).toHaveLength(0);
