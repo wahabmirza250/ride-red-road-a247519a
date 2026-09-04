@@ -77,11 +77,19 @@
 
 ## Ready next
 
+- Audit dedupe is a read-then-insert; under two simultaneous recovery ticks a duplicate line is
+  still theoretically possible. A partial unique index on
+  `billing_audit_log (billing_record_id, action, md5(notes))` would make it impossible, but existing
+  duplicate rows must be collapsed first — needs its own reviewed migration.
+- Decide whether stale worker health should also stop DISPATCH (today it only changes what ops is
+  shown, deliberately, so a broken probe can never silently halt billing).
 - Persist 999/277/835 detail into a dedicated table once the backend documents those endpoints.
 - Auto-refresh EDI statuses on a schedule (cron) once the backend exposes a bulk status endpoint.
 - Pre-existing DB linter warnings (unrelated to EDI): 54 `SECURITY DEFINER` functions are
   EXECUTE-able by `anon`/`authenticated`, and one extension lives in `public`. Tighten grants
   function-by-function in a dedicated pass — each needs a behaviour check first.
+
+
 
 ## Ready next — DB EXECUTE-grant hardening (investigated, not yet applied)
 
