@@ -212,6 +212,7 @@ function makeDb(bills: Row[], auditRows: Row[] = []) {
       insert: (payload: Row) => {
         q.op = "insert";
         q.payload = payload;
+        run(q);
         return Promise.resolve({ data: null, error: null });
       },
       eq: (c: string, v: unknown) => (q.filters.push(["eq", c, v]), api),

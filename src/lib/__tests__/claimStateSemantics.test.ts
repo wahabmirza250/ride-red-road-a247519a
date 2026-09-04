@@ -44,7 +44,16 @@ describe("presented claim state", () => {
     });
     expect(s.label).toBe("Paid");
     expect(s.evidenceBacked).toBe(true);
-    expect(isEvidenceBackedPortalState(s as never)).toBe(true);
+    expect(
+      isEvidenceBackedPortalState({
+        status: "paid",
+        state_confirmation_number: CLAIM,
+        portal_status_raw: "Paid",
+      }),
+    ).toBe(true);
+    expect(isEvidenceBackedPortalState({ status: "paid", state_confirmation_number: null })).toBe(
+      false,
+    );
   });
 
   it("'submitted' needs a real 13-digit claim number, nothing less", () => {
