@@ -70,7 +70,13 @@ export function workerHealth(
   const streak = Number(w.failure_streak ?? 0);
 
   if (w.enabled === false)
-    return { state: "unhealthy", healthy: false, stale, ageMs, reason: "Turned off by an operator." };
+    return {
+      state: "unhealthy",
+      healthy: false,
+      stale,
+      ageMs,
+      reason: "Turned off by an operator.",
+    };
 
   const cooldownUntil = ms(w.unhealthy_until);
   if (cooldownUntil !== null && cooldownUntil > now)

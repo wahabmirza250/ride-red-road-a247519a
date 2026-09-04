@@ -3,24 +3,27 @@
  * an outage stays invisible while claims silently stop moving.
  */
 import { describe, expect, it } from "vitest";
-import {
-  WORKER_HEALTH_FRESH_MS,
-  workerHealth,
-} from "@/lib/robotWorkerHealth";
+import { WORKER_HEALTH_FRESH_MS, workerHealth } from "@/lib/robotWorkerHealth";
 
 const now = new Date("2026-09-01T12:00:00Z").getTime();
 const minutesAgo = (m: number) => new Date(now - m * 60_000).toISOString();
 
 describe("displayed robot worker health", () => {
   it("is healthy only with a recent successful answer", () => {
-    const h = workerHealth({ enabled: true, last_health_ok_at: minutesAgo(2), failure_streak: 0 }, now);
+    const h = workerHealth(
+      { enabled: true, last_health_ok_at: minutesAgo(2), failure_streak: 0 },
+      now,
+    );
     expect(h.state).toBe("healthy");
     expect(h.healthy).toBe(true);
     expect(h.stale).toBe(false);
   });
 
   it("STALE HEALTH: an old success is never shown as healthy", () => {
-    const h = workerHealth({ enabled: true, last_health_ok_at: minutesAgo(90), failure_streak: 0 }, now);
+    const h = workerHealth(
+      { enabled: true, last_health_ok_at: minutesAgo(90), failure_streak: 0 },
+      now,
+    );
     expect(h.state).toBe("degraded");
     expect(h.healthy).toBe(false);
     expect(h.stale).toBe(true);

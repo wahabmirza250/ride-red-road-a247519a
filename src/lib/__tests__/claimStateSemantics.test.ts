@@ -13,19 +13,31 @@ const CLAIM = "2326241001170";
 
 describe("presented claim state", () => {
   it("legacy 'approved' with no claim and no portal read is NOT approved", () => {
-    const s = presentClaimState({ status: "approved", state_confirmation_number: null, submitted_at: "2026-08-30T10:00:00Z" });
+    const s = presentClaimState({
+      status: "approved",
+      state_confirmation_number: null,
+      submitted_at: "2026-08-30T10:00:00Z",
+    });
     expect(s.label).toBe(AWAITING_PORTAL_VERIFICATION_LABEL);
     expect(s.evidenceBacked).toBe(false);
   });
 
   it("a never-sent 'approved' bill is plain Ready to submit", () => {
-    const s = presentClaimState({ status: "approved", state_confirmation_number: null, submitted_at: null });
+    const s = presentClaimState({
+      status: "approved",
+      state_confirmation_number: null,
+      submitted_at: null,
+    });
     expect(s.label).toBe("Ready to submit");
     expect(s.key).toBe("ready");
   });
 
   it("'paid' without a claim number is not paid", () => {
-    const s = presentClaimState({ status: "paid", state_confirmation_number: null, portal_paid_amount: 54.8 });
+    const s = presentClaimState({
+      status: "paid",
+      state_confirmation_number: null,
+      portal_paid_amount: 54.8,
+    });
     expect(s.label).toBe(AWAITING_PORTAL_VERIFICATION_LABEL);
   });
 
@@ -57,9 +69,9 @@ describe("presented claim state", () => {
   });
 
   it("'submitted' needs a real 13-digit claim number, nothing less", () => {
-    expect(presentClaimState({ status: "submitted", state_confirmation_number: "pending" }).label).toBe(
-      AWAITING_PORTAL_VERIFICATION_LABEL,
-    );
+    expect(
+      presentClaimState({ status: "submitted", state_confirmation_number: "pending" }).label,
+    ).toBe(AWAITING_PORTAL_VERIFICATION_LABEL);
     expect(presentClaimState({ status: "submitted", state_confirmation_number: CLAIM }).label).toBe(
       "Submitted",
     );
@@ -75,7 +87,13 @@ describe("presented claim state", () => {
   });
 
   it("workflow states are left completely alone", () => {
-    for (const status of ["pending_review", "queued", "submitting", "needs_fix", "pending_submit"]) {
+    for (const status of [
+      "pending_review",
+      "queued",
+      "submitting",
+      "needs_fix",
+      "pending_submit",
+    ]) {
       expect(presentClaimState({ status }).key).toBe("other");
     }
   });

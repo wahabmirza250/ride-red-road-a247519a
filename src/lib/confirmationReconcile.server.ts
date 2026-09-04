@@ -92,7 +92,8 @@ function outcome(
   return {
     record_id: recordId,
     kind,
-    claim_number: decision.kind === "attach" ? decision.claimNumber : (decision.claimNumber ?? null),
+    claim_number:
+      decision.kind === "attach" ? decision.claimNumber : (decision.claimNumber ?? null),
     reason: decision.reason,
   };
 }
@@ -192,7 +193,12 @@ export async function reconcileConfirmedSubmission(
     .select("id");
 
   if (error)
-    return { record_id: recordId, kind: "error", claim_number: decision.claimNumber, reason: error.message };
+    return {
+      record_id: recordId,
+      kind: "error",
+      claim_number: decision.claimNumber,
+      reason: error.message,
+    };
   if (!(updated ?? []).length)
     return {
       record_id: recordId,

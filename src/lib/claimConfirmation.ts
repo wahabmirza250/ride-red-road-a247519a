@@ -14,7 +14,9 @@ export const PORTAL_CLAIM_NUMBER_RE = /^\d{13}$/;
 
 /** Strip the punctuation a human or an OCR pass may have introduced. */
 export function normalizeClaimNumber(value: unknown): string {
-  return String(value ?? "").replace(/[\s\u00a0.\-_/]/g, "").trim();
+  return String(value ?? "")
+    .replace(/[\s\u00a0.\-_/]/g, "")
+    .trim();
 }
 
 /** True only for a real 13-digit HCPF claim number. */

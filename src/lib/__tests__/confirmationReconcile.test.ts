@@ -5,10 +5,7 @@
  * (a paid claim left unreconciled forever) or creates a duplicate claim.
  */
 import { describe, expect, it } from "vitest";
-import {
-  isPortalClaimNumber,
-  pickConfirmationNumber,
-} from "@/lib/claimConfirmation";
+import { isPortalClaimNumber, pickConfirmationNumber } from "@/lib/claimConfirmation";
 import {
   CONFIRMATION_RECONCILED_ACTION,
   decideConfirmationReconcile,
@@ -21,7 +18,11 @@ import type { PortalClaim } from "@/lib/hcpfSearch";
 const CLAIM = "2326241001170";
 
 const audits = (extra: any[] = []) => [
-  { action: "robot_submitted", notes: `Confirmation #${CLAIM}`, created_at: "2026-08-30T10:00:00Z" },
+  {
+    action: "robot_submitted",
+    notes: `Confirmation #${CLAIM}`,
+    created_at: "2026-08-30T10:00:00Z",
+  },
   ...extra,
 ];
 
@@ -38,7 +39,12 @@ const trip = {
   robot_last_status: "SUBMITTED",
 };
 
-const record = { id: "b1", status: "needs_fix", resubmission_id: null, state_confirmation_number: null };
+const record = {
+  id: "b1",
+  status: "needs_fix",
+  resubmission_id: null,
+  state_confirmation_number: null,
+};
 
 const decide = (over: Partial<Parameters<typeof decideConfirmationReconcile>[0]> = {}) =>
   decideConfirmationReconcile({
@@ -224,8 +230,7 @@ function makeDb(bills: Row[], auditRows: Row[] = []) {
       limit: () => api,
       maybeSingle: async () => ({ data: run(q)[0] ?? null, error: null }),
       single: async () => ({ data: run(q)[0] ?? null, error: null }),
-      then: (res: any, rej: any) =>
-        Promise.resolve({ data: run(q), error: null }).then(res, rej),
+      then: (res: any, rej: any) => Promise.resolve({ data: run(q), error: null }).then(res, rej),
     };
     return api;
   };
@@ -249,7 +254,10 @@ const billRow = (over: Row = {}): Row => ({
 describe("reconcileConfirmedSubmission (writer)", () => {
   it("UNIQUE SAFE CONFIRMATION: one atomic write, one audit line, no submission", async () => {
     const { reconcileConfirmedSubmission } = await import("@/lib/confirmationReconcile.server");
-    const db = makeDb([billRow()], audits([portalRead]).map((a) => ({ ...a, billing_record_id: "b1" })));
+    const db = makeDb(
+      [billRow()],
+      audits([portalRead]).map((a) => ({ ...a, billing_record_id: "b1" })),
+    );
     const out = await reconcileConfirmedSubmission(db.supabase, { recordId: "b1", actorId: null });
 
     expect(out.kind).toBe("attached");
@@ -270,12 +278,18 @@ describe("reconcileConfirmedSubmission (writer)", () => {
 
   it("REPEATED RECOVERY: running it again writes nothing and logs nothing", async () => {
     const { reconcileConfirmedSubmission } = await import("@/lib/confirmationReconcile.server");
-    const db = makeDb([billRow()], audits([portalRead]).map((a) => ({ ...a, billing_record_id: "b1" })));
+    const db = makeDb(
+      [billRow()],
+      audits([portalRead]).map((a) => ({ ...a, billing_record_id: "b1" })),
+    );
     await reconcileConfirmedSubmission(db.supabase, { recordId: "b1", actorId: null });
     const writesAfterFirst = db.writes.length;
     const insertsAfterFirst = db.inserts.length;
 
-    const again = await reconcileConfirmedSubmission(db.supabase, { recordId: "b1", actorId: null });
+    const again = await reconcileConfirmedSubmission(db.supabase, {
+      recordId: "b1",
+      actorId: null,
+    });
     expect(again.kind).toBe("noop");
     expect(db.writes).toHaveLength(writesAfterFirst);
     expect(db.inserts).toHaveLength(insertsAfterFirst);
@@ -284,7 +298,10 @@ describe("reconcileConfirmedSubmission (writer)", () => {
   it("DUPLICATE CLAIM: refuses when another bill already owns the number", async () => {
     const { reconcileConfirmedSubmission } = await import("@/lib/confirmationReconcile.server");
     const other = billRow({ id: "b2", status: "submitted", state_confirmation_number: CLAIM });
-    const db = makeDb([billRow(), other], audits([portalRead]).map((a) => ({ ...a, billing_record_id: "b1" })));
+    const db = makeDb(
+      [billRow(), other],
+      audits([portalRead]).map((a) => ({ ...a, billing_record_id: "b1" })),
+    );
     const out = await reconcileConfirmedSubmission(db.supabase, { recordId: "b1", actorId: null });
 
     expect(out.kind).toBe("blocked");
@@ -329,7 +346,12 @@ describe("reconcileConfirmedSubmission (writer)", () => {
     const db = makeDb([
       billRow({
         id: "b9",
-        medicaid_trips: { id: "t9", portal_confirmation: null, submitted_confirmation: null, robot_confirmation_number: null },
+        medicaid_trips: {
+          id: "t9",
+          portal_confirmation: null,
+          submitted_confirmation: null,
+          robot_confirmation_number: null,
+        },
       }),
     ]);
     const out = await reconcileConfirmedSubmissions(db.supabase, {});
@@ -369,7 +391,9 @@ describe("corrected resubmission portal results", () => {
   });
 
   it("ORIGINAL-ID COLLISION: the original denied claim is never a match", () => {
-    expect(pickCorrectedMatch({ claims: [claim(CLAIM)], originalClaimNumber: CLAIM }).kind).toBe("none");
+    expect(pickCorrectedMatch({ claims: [claim(CLAIM)], originalClaimNumber: CLAIM }).kind).toBe(
+      "none",
+    );
   });
 
   it("DUPLICATE CLAIM: a number used by ANY bill, in any company, is excluded", () => {

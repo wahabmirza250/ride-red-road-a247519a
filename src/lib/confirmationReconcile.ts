@@ -177,7 +177,6 @@ export function decideConfirmationReconcile(input: {
       reason: `The claim number stored on this bill ("${existing}") is not a 13-digit HCPF claim number, so it cannot be trusted.`,
     };
 
-
   // A corrected draft shares its trip with the original denied claim: the
   // trip's confirmation belongs to the ORIGINAL. Only the corrected read-only
   // verifier may settle those.
@@ -192,10 +191,7 @@ export function decideConfirmationReconcile(input: {
   if (!pick.ok) return { kind: "blocked", claimNumber: null, reason: pick.reason };
   const claimNumber = pick.claimNumber;
 
-  if (
-    input.originalClaimNumber &&
-    sameClaimNumber(input.originalClaimNumber, claimNumber)
-  )
+  if (input.originalClaimNumber && sameClaimNumber(input.originalClaimNumber, claimNumber))
     return {
       kind: "blocked",
       claimNumber,

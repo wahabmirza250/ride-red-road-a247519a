@@ -35,14 +35,7 @@ export type ClaimStateInput = {
 
 export type PresentedClaimState = {
   /** Stable key for styling/tests. */
-  key:
-    | "ready"
-    | "awaiting_verification"
-    | "submitted"
-    | "paid"
-    | "denied"
-    | "rejected"
-    | "other";
+  key: "ready" | "awaiting_verification" | "submitted" | "paid" | "denied" | "rejected" | "other";
   label: string;
   tone: "neutral" | "info" | "success" | "warning" | "danger";
   /** True when a real claim number + portal read back this state. */
@@ -67,7 +60,10 @@ export function hasPortalStatusEvidence(rec: ClaimStateInput | null | undefined)
   return false;
 }
 
-const PORTAL_LABEL: Record<string, { key: PresentedClaimState["key"]; label: string; tone: PresentedClaimState["tone"] }> = {
+const PORTAL_LABEL: Record<
+  string,
+  { key: PresentedClaimState["key"]; label: string; tone: PresentedClaimState["tone"] }
+> = {
   submitted: { key: "submitted", label: "Submitted", tone: "info" },
   paid: { key: "paid", label: "Paid", tone: "success" },
   denied: { key: "denied", label: "Denied", tone: "danger" },
@@ -83,7 +79,9 @@ export const AWAITING_PORTAL_VERIFICATION_LABEL = "Awaiting portal verification"
  * existing workflow wording (Review, Processing, Needs Attention…) is unchanged.
  */
 export function presentClaimState(rec: ClaimStateInput | null | undefined): PresentedClaimState {
-  const status = String(rec?.status ?? "").trim().toLowerCase();
+  const status = String(rec?.status ?? "")
+    .trim()
+    .toLowerCase();
   if (!(PORTAL_BACKED_STATUSES as readonly string[]).includes(status))
     return { key: "other", label: "", tone: "neutral", evidenceBacked: false, detail: null };
 
@@ -123,7 +121,11 @@ export function presentClaimState(rec: ClaimStateInput | null | undefined): Pres
       detail: `Claim #${claim} has not been read back from HCPF yet, so "${status}" is not confirmed.`,
     };
 
-  const mapped = PORTAL_LABEL[status] ?? { key: "other" as const, label: status, tone: "neutral" as const };
+  const mapped = PORTAL_LABEL[status] ?? {
+    key: "other" as const,
+    label: status,
+    tone: "neutral" as const,
+  };
   return { ...mapped, evidenceBacked: true, detail: null };
 }
 
