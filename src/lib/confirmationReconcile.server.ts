@@ -59,20 +59,33 @@ function resubmissionOf(row: any) {
   return Array.isArray(r) ? (r[0] ?? null) : (r ?? null);
 }
 
-/** Is this exact claim number already owned by a DIFFERENT billing record? */
+/**
+ * Is this exact claim number already owned anywhere in RedArt — by a DIFFERENT
+ * billing record, or by a corrected resubmission that was given that claim id?
+ * Global on purpose: a claim id is unique at HCPF, so company scoping here
+ * would be the very hole that lets one claim be attached twice.
+ */
 async function claimUsedElsewhere(
   supabase: Sb,
   claimNumber: string,
   recordId: string,
 ): Promise<boolean> {
-  const { data } = await supabase
-    .from("billing_records")
-    .select("id")
-    .eq("state_confirmation_number", claimNumber)
-    .neq("id", recordId)
-    .limit(1);
-  return (data ?? []).length > 0;
+  const [bills, corrected] = await Promise.all([
+    supabase
+      .from("billing_records")
+      .select("id")
+      .eq("state_confirmation_number", claimNumber)
+      .neq("id", recordId)
+      .limit(1),
+    supabase
+      .from("claim_resubmissions")
+      .select("id")
+      .eq("resubmission_claim_number", claimNumber)
+      .limit(1),
+  ]);
+  return (bills?.data ?? []).length > 0 || (corrected?.data ?? []).length > 0;
 }
+
 
 async function loadAudits(supabase: Sb, recordId: string): Promise<ReconcileAuditEvent[]> {
   const { data } = await supabase

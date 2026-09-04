@@ -18,8 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Loader2, FileDown, Check, X, AlertCircle, RefreshCw, Bot } from "lucide-react";
-import { StatusPill } from "@/components/nemt/StatusPill";
 import { ClaimStatePill } from "@/components/billing/ClaimStatePill";
+
 
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 import { PdfInlineViewer } from "@/components/PdfInlineViewer";
