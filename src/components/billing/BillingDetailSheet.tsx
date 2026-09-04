@@ -19,6 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Loader2, FileDown, Check, X, AlertCircle, RefreshCw, Bot } from "lucide-react";
 import { StatusPill } from "@/components/nemt/StatusPill";
+import { ClaimStatePill } from "@/components/billing/ClaimStatePill";
+
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 import { PdfInlineViewer } from "@/components/PdfInlineViewer";
 import { ViewScannedFormButton } from "@/components/billing/ViewScannedFormButton";
@@ -246,7 +248,7 @@ export function BillingDetailSheet({
         <SheetHeader>
           <SheetTitle className="flex items-center gap-3">
             Trip details
-            {rec?.status && <StatusPill status={rec.status} />}
+            {rec?.status && <ClaimStatePill record={rec as never} />}
           </SheetTitle>
         </SheetHeader>
 

@@ -51,27 +51,38 @@ const SELECT = `id, trip_id, company_id, resubmission_id, failure_code, status,
      id, status, original_claim_number, draft_snapshot
    )`;
 
-/** Claim ids already attached to ANY bill in the company (excluding this one). */
+/**
+ * Claim ids already assigned ANYWHERE in RedArt — to any billing record in any
+ * company, or to any other corrected resubmission. Company scoping would be a
+ * real hole here: the same portal claim number can only ever belong to one
+ * bill, so the exclusion must be global.
+ */
 async function usedClaimNumbers(
   supabase: Sb,
-  companyId: string | null,
+  _companyId: string | null,
   recordId: string,
   ids: string[],
 ): Promise<Set<string>> {
   const out = new Set<string>();
   if (!ids.length) return out;
-  let q = supabase
-    .from("billing_records")
-    .select("id, state_confirmation_number")
-    .in("state_confirmation_number", ids);
-  if (companyId) q = q.eq("company_id", companyId);
-  const { data } = await q;
-  for (const r of (data ?? []) as any[]) {
+  const [{ data: bills }, { data: resubs }] = await Promise.all([
+    supabase.from("billing_records").select("id, state_confirmation_number").in("state_confirmation_number", ids),
+    supabase
+      .from("claim_resubmissions")
+      .select("id, resubmission_claim_number, submission_billing_record_id")
+      .in("resubmission_claim_number", ids),
+  ]);
+  for (const r of (bills ?? []) as any[]) {
     if (r.id === recordId) continue;
     if (r.state_confirmation_number) out.add(String(r.state_confirmation_number));
   }
+  for (const r of (resubs ?? []) as any[]) {
+    if (r.submission_billing_record_id === recordId) continue;
+    if (r.resubmission_claim_number) out.add(String(r.resubmission_claim_number));
+  }
   return out;
 }
+
 
 async function keepHold(
   supabase: Sb,

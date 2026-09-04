@@ -233,13 +233,13 @@ export function SubmissionQueuePanel() {
               <>
                 <Detail
                   label="Robot workers"
-                  value={`${fleet.healthy}/${fleet.total} healthy${fleet.disabled ? " · kill switch on" : ""}`}
+                  value={`${fleet.healthy}/${fleet.total} answering${fleet.disabled ? " · kill switch on" : ""}`}
                 />
                 <Detail
                   label="Fleet capacity"
                   value={`${fleet.active_jobs} active · ${fleet.capacity} max (limit ${fleet.effective_global_limit})`}
                 />
-                <Detail label="Degraded workers" value={String(fleet.degraded)} />
+                <Detail label="Not answering" value={String(fleet.degraded)} />
               </>
             )}
           </div>
@@ -249,12 +249,14 @@ export function SubmissionQueuePanel() {
               {fleet.workers.map((w) => (
                 <span
                   key={w.id}
-                  title={w.last_health_error ?? (w.healthy ? "Healthy" : "Disabled")}
+                  title={w.health_reason}
                   className={cn(
                     "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                    w.healthy
+                    w.health_state === "healthy"
                       ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                      : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+                      : w.health_state === "degraded"
+                        ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                        : "border-destructive/30 bg-destructive/10 text-destructive",
                   )}
                 >
                   <Server className="h-3 w-3" />
@@ -262,11 +264,16 @@ export function SubmissionQueuePanel() {
                   <span className="tabular-nums opacity-80">
                     {w.active_jobs}/{w.max_active_jobs}
                   </span>
-                  {!w.enabled && <span className="opacity-80">off</span>}
+                  {w.health_state !== "healthy" && (
+                    <span className="opacity-80">
+                      {!w.enabled ? "off" : w.health_stale ? "no answer" : "errors"}
+                    </span>
+                  )}
                 </span>
               ))}
             </div>
           )}
+
 
           {health.issues.length > 0 && (
             <ul className="space-y-1 rounded-xl bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">

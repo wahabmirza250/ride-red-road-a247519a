@@ -92,6 +92,46 @@ export async function logAudit(
   });
 }
 
+/**
+ * DEDUPLICATED AUDIT LINE.
+ *
+ * Recovery sweeps run every minute. Without this, one stuck bill writes the
+ * same sentence into its history hundreds of times a day and the real story is
+ * buried. The identical (bill, action, notes) line is written at most once —
+ * optionally once per time window for lines that should repeat occasionally.
+ *
+ * Returns true when a new line was written.
+ */
+export async function logAuditOnce(
+  supabase: any,
+  billing_record_id: string,
+  actor_id: string | null,
+  action: string,
+  notes?: string | null,
+  actor_type: "admin" | "driver" | "system" = "system",
+  opts: { withinMs?: number | null } = {},
+): Promise<boolean> {
+  const text = notes ?? null;
+  try {
+    let q = supabase
+      .from("billing_audit_log")
+      .select("id")
+      .eq("billing_record_id", billing_record_id)
+      .eq("action", action)
+      .limit(1);
+    q = text === null ? q.is("notes", null) : q.eq("notes", text);
+    if (opts.withinMs && opts.withinMs > 0)
+      q = q.gte("created_at", new Date(Date.now() - opts.withinMs).toISOString());
+    const { data } = await q;
+    if ((data ?? []).length) return false;
+  } catch {
+    /* a dedupe read must never stop the audit trail */
+  }
+  await logAudit(supabase, billing_record_id, actor_id, action, text, actor_type);
+  return true;
+}
+
+
 export function getRequestOrigin(): string {
   const origin = getRequestHeader("origin");
   if (origin) return origin;

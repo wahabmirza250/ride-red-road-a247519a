@@ -21,7 +21,12 @@ export type SubmissionQueueMetricRow = {
 export type FleetWorkerSummary = {
   id: string;
   enabled: boolean;
+  /** Only true with a RECENT successful answer from the worker. */
   healthy: boolean;
+  health_state: "healthy" | "degraded" | "unhealthy";
+  /** The last good answer is missing or too old to prove anything. */
+  health_stale: boolean;
+  health_reason: string;
   max_active_jobs: number;
   active_jobs: number;
   failure_streak: number;
@@ -29,6 +34,7 @@ export type FleetWorkerSummary = {
   last_health_error: string | null;
   unhealthy_until: string | null;
 };
+
 
 export type SubmissionFleetSummary = {
   total: number;
@@ -96,41 +102,54 @@ export const getSubmissionQueueState = createServerFn({ method: "POST" })
 
     // Fleet ops summary. URLs stay server-side — only worker ids are exposed.
     const fleetMod = await import("@/lib/robotFleet.server");
+    const { workerHealth } = await import("@/lib/robotWorkerHealth");
     const workers = await fleetMod.loadFleet(supabase);
     const load = await fleetMod.loadWorkerActiveCounts(supabase);
     const now = Date.now();
-    const healthy = fleetMod.healthyWorkers(workers, now);
     const disabled = fleetMod.isFleetDisabled();
-    const fleet = {
-      total: workers.length,
-      healthy: healthy.length,
-      degraded: workers.length - healthy.length,
-      disabled,
-      capacity: fleetMod.fleetCapacity(workers, now),
-      active_jobs: [...load.values()].reduce((a, b) => a + b, 0),
-      effective_global_limit: fleetMod.effectiveGlobalLimit(workers, mod.maxSubmitGlobal(), now),
-      workers: workers.map((w) => ({
+    // DISPLAYED health needs a RECENT successful answer. A worker whose last
+    // good check is hours old is reported as not answering, even though the
+    // registry row still says enabled.
+    const workerRows = workers.map((w) => {
+      const h = workerHealth(w, now);
+      return {
         id: w.id,
         enabled: w.enabled,
-        healthy: !disabled && fleetMod.isWorkerHealthy(w, now),
+        healthy: !disabled && h.healthy,
+        health_state: (disabled ? "unhealthy" : h.state) as "healthy" | "degraded" | "unhealthy",
+        health_stale: h.stale,
+        health_reason: disabled ? "The robot fleet kill switch is on." : h.reason,
         max_active_jobs: w.max_active_jobs,
         active_jobs: load.get(w.id) ?? 0,
         failure_streak: w.failure_streak,
         last_health_ok_at: w.last_health_ok_at,
         last_health_error: w.last_health_error,
         unhealthy_until: w.unhealthy_until,
-      })),
+      };
+    });
+    const answering = workerRows.filter((w) => w.healthy);
+    const fleet = {
+      total: workers.length,
+      healthy: answering.length,
+      degraded: workerRows.length - answering.length,
+      disabled,
+      capacity: fleetMod.fleetCapacity(workers, now),
+      active_jobs: [...load.values()].reduce((a, b) => a + b, 0),
+      effective_global_limit: fleetMod.effectiveGlobalLimit(workers, mod.maxSubmitGlobal(), now),
+      workers: workerRows,
     };
     if (disabled) issues.push("Robot fleet kill switch is ON — no new submissions are dispatched");
     else if (fleet.total > 0 && fleet.healthy === 0)
-      issues.push("No healthy submission robot is available");
-    else if (fleet.degraded > 0) issues.push(`${fleet.degraded} robot worker(s) degraded`);
+      issues.push("No robot has answered a health check recently");
+    else if (fleet.degraded > 0)
+      issues.push(`${fleet.degraded} robot worker(s) are not answering health checks`);
 
     return {
       paused: Boolean(state?.paused),
       pause_reason: state?.pause_reason ?? null,
       last_run_at: state?.last_run_at ?? null,
       last_result: (state?.last_result ?? {}) as Record<string, string | number | boolean | null>,
+
       limits: {
         per_company: mod.maxSubmitPerCompany(),
         global: mod.maxSubmitGlobal(),

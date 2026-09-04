@@ -889,6 +889,24 @@ export async function runSubmissionQueueTick(
     /* a corrected-claim hiccup must never break a tick */
   }
 
+  // CONFIRMATION RECONCILIATION — RUNS EVEN WHILE THE QUEUE IS PAUSED.
+  // Bills whose robot really got a 13-digit HCPF claim number, but which were
+  // left without one because the worker died or the poll never came back, are
+  // attached to their proven claim here. It only ever reads evidence we already
+  // hold and writes one bill; it can never submit, resubmit, queue or retry, so
+  // a pause must not leave real money unreconciled.
+  try {
+    const { reconcileConfirmedSubmissions } = await import("@/lib/confirmationReconcile.server");
+    await reconcileConfirmedSubmissions(supabase, {
+      companyId: opts.companyId ?? null,
+      actorId: opts.actorId ?? null,
+      limit: 200,
+    });
+  } catch {
+    /* reconciliation is a safety net; a hiccup must never break a tick */
+  }
+
+
   const { paused, reason } = await isSubmissionQueuePaused(supabase);
   if (paused) {
     const out = { ...base, reason: reason ?? "Submission queue is paused", ms: Date.now() - t0 };
