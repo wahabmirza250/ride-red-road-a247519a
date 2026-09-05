@@ -87,6 +87,7 @@ function ActiveTripScreen() {
   const [deleting, setDeleting] = useState(false);
   const [submitStage, setSubmitStage] = useState("");
   const [pdfs, setPdfs] = useState<GeneratedPdf[] | null>(null);
+  const [createdTripIds, setCreatedTripIds] = useState<string[] | null>(null);
   const [preview, setPreview] = useState<{ url: string; filename: string } | null>(null);
   const [detecting, setDetecting] = useState<Record<string, boolean>>({});
 
