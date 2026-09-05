@@ -40,6 +40,20 @@ function ScheduleView() {
     void refresh(date);
   }, [refresh, date]);
 
+  async function assign(requestId: string, driverId: string) {
+    setBusy(requestId);
+    try {
+      await reassign({ data: { request_id: requestId, driver_id: driverId } });
+      toast.success("Driver assigned");
+      await refresh(date);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not assign driver");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
