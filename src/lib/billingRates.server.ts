@@ -85,3 +85,33 @@ export async function saveRatePair(
   }
   return out;
 }
+
+/**
+ * The rate rows that apply to a COMPANY.
+ *
+ * Rates are owned by the company (and stamped with the provider that owns
+ * them). Older installs kept a single unscoped row set (`company_id IS NULL`);
+ * those are still honoured as a legacy fallback so nothing that bills today
+ * stops billing, but a company row always wins.
+ */
+export async function loadRateRows(
+  supabase: { from: (t: string) => any },
+  args: { companyId: string | null; vehicleType?: string },
+): Promise<{ rows: any[]; scope: "company" | "legacy" }> {
+  const select =
+    "id, provider_id, company_id, vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code, updated_at";
+
+  if (args.companyId) {
+    let q = supabase.from("billing_rate_settings").select(select).eq("company_id", args.companyId);
+    if (args.vehicleType) q = q.eq("vehicle_type", args.vehicleType);
+    const { data, error } = await q;
+    if (error) throw new Error(`Could not read billing rates: ${error.message}`);
+    if ((data ?? []).length) return { rows: data ?? [], scope: "company" };
+  }
+
+  let legacy = supabase.from("billing_rate_settings").select(select).is("company_id", null);
+  if (args.vehicleType) legacy = legacy.eq("vehicle_type", args.vehicleType);
+  const { data, error } = await legacy;
+  if (error) throw new Error(`Could not read billing rates: ${error.message}`);
+  return { rows: data ?? [], scope: "legacy" };
+}
