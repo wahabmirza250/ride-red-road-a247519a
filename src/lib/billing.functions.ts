@@ -286,10 +286,14 @@ export const getBillingRecord = createServerFn({ method: "POST" })
       .eq("billing_record_id", data.id)
       .order("created_at", { ascending: false });
 
+    // Provider identity belongs to the trip's COMPANY, never to the admin
+    // who happens to have the bill open.
+    const { resolveProviderForTrip } = await import("@/lib/providerResolve.server");
+    const { providerId: diagProviderId } = await resolveProviderForTrip(supabase, { trip, userId });
     const robot_diagnostic = await getRobotSubmissionDiagnostic(supabase, {
       billingRecordId: data.id,
       trip,
-      providerUserId: userId,
+      providerUserId: diagProviderId,
       mode: "full",
     });
 
@@ -562,12 +566,22 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
       );
     }
 
+    const { resolveProviderForTrip, PROVIDER_NOT_ASSIGNED_MESSAGE } = await import(
+      "@/lib/providerResolve.server"
+    );
+    const { providerId, companyId: tripCompanyId } = await resolveProviderForTrip(supabase, {
+      trip,
+      userId,
+    });
+    // FAIL CLOSED: never bill under the signed-in admin's user id.
+    if (!providerId) throw new Error(PROVIDER_NOT_ASSIGNED_MESSAGE);
+
     try {
       if (data.mode !== "debug_confirm_page") {
         await assertRobotSubmissionPreflight(supabase, {
           billingRecordId: data.id,
           trip,
-          providerUserId: userId,
+          providerUserId: providerId,
           mode: data.mode,
         });
       }
@@ -576,9 +590,9 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
       const { enqueueOrStartRobot } = await import("@/lib/robotQueue.server");
       const queueResult = await enqueueOrStartRobot(supabase, {
         billingRecordId: data.id,
-        companyId: trip.company_id ?? null,
+        companyId: trip.company_id ?? tripCompanyId ?? null,
         trip,
-        providerUserId: userId,
+        providerUserId: providerId,
         mode: data.mode,
       });
       if (isResubmit) {
@@ -763,13 +777,22 @@ export const confirmAndSubmitClaim = createServerFn({ method: "POST" })
       );
     }
 
+    const { resolveProviderForTrip, PROVIDER_NOT_ASSIGNED_MESSAGE } = await import(
+      "@/lib/providerResolve.server"
+    );
+    const { providerId, companyId: tripCompanyId } = await resolveProviderForTrip(supabase, {
+      trip,
+      userId,
+    });
+    if (!providerId) throw new Error(PROVIDER_NOT_ASSIGNED_MESSAGE);
+
     try {
       const { enqueueOrStartRobot } = await import("@/lib/robotQueue.server");
       const queueResult = await enqueueOrStartRobot(supabase, {
         billingRecordId: data.id,
-        companyId: trip.company_id ?? null,
+        companyId: trip.company_id ?? tripCompanyId ?? null,
         trip,
-        providerUserId: userId,
+        providerUserId: providerId,
         mode: "submit",
       });
       if (!queueResult.queued) {
