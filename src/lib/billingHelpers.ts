@@ -322,12 +322,10 @@ export async function requireCompanyRates(
     throw new Error(`${RATES_NOT_CONFIGURED_MESSAGE} (no company linked to this trip)`);
   }
 
-  const { data: rows, error } = await supabase
-    .from("billing_rate_settings")
-    .select("vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code")
-    .is("company_id", null)
-    .eq("vehicle_type", vehicleType);
-  if (error) throw new Error(`Could not read billing rates: ${error.message}`);
+  // Company-owned rates win; a legacy unscoped row set is still honoured so
+  // installs configured before rates were tenant-scoped keep billing.
+  const { loadRateRows } = await import("@/lib/billingRates.server");
+  const { rows } = await loadRateRows(supabase, { companyId, vehicleType });
 
   const pick = (unit: "trip" | "mile") => {
     const r = (rows ?? []).find((x: any) => x.unit_type === unit);
