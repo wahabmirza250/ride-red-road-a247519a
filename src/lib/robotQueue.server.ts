@@ -80,12 +80,20 @@ export async function resolveProviderUserId(
   supabase: any,
   args: { actorId?: string | null; trip?: any; companyId?: string | null },
 ): Promise<string> {
+  const companyId = args.companyId ?? args.trip?.company_id ?? null;
+
+  // The company's CONFIGURED billing provider always wins: rates, portal
+  // config and the claim itself belong to that provider, not to the staff
+  // member who pressed Submit.
+  const { resolveBillingProviderId } = await import("@/lib/providerResolve.server");
+  const configured = await resolveBillingProviderId(supabase, companyId);
+  if (configured) return configured;
+
   if (args.actorId) return args.actorId;
 
   const creator = args.trip?.created_by ?? null;
   if (creator) return creator as string;
 
-  const companyId = args.companyId ?? args.trip?.company_id ?? null;
   if (companyId) {
     const { data } = await supabase
       .from("user_roles")
