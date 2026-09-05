@@ -79,6 +79,7 @@ export const getBillingSetupStatus = createServerFn({ method: "GET" })
     const companyId = await guard(supabase, userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const { loadRateRows } = await import("@/lib/billingRates.server");
     const [settingsRes, credsRes, ratesRes] = await Promise.all([
       supabaseAdmin
         .from("billing_settings")
@@ -86,10 +87,7 @@ export const getBillingSetupStatus = createServerFn({ method: "GET" })
         .eq("company_id", companyId)
         .maybeSingle(),
       supabaseAdmin.from("state_portal_credentials").select("portal_id").eq("company_id", companyId),
-      supabaseAdmin
-        .from("billing_rate_settings")
-        .select("vehicle_type, unit_type")
-        .is("company_id", null),
+      loadRateRows(supabaseAdmin as any, { companyId }),
     ]);
 
     const settings = (settingsRes.data ?? null) as any;
