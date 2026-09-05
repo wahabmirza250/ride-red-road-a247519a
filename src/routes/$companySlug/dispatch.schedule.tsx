@@ -98,7 +98,7 @@ function ScheduleView() {
               <div className="divide-y divide-border">
                 {data.trips.map((t) => (
                   <div key={t.id} className="py-2.5 text-sm">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">
                         {t.requested_pickup_time
                           ? new Date(t.requested_pickup_time).toLocaleTimeString([], {
@@ -116,8 +116,36 @@ function ScheduleView() {
                     <div className="text-xs text-muted-foreground">
                       {t.pickup_address} → {t.dropoff_address}
                     </div>
+                    <div className="mt-2">
+                      <select
+                        className="max-w-[220px] rounded-md border border-border bg-background px-2 py-1 text-xs"
+                        value=""
+                        disabled={busy === t.id}
+                        aria-label="Assign driver"
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          e.target.value = "";
+                          if (v) void assign(t.id, v);
+                        }}
+                      >
+                        <option value="">
+                          {t.driver_id
+                            ? `Change driver… (${t.driver_name ?? "assigned"})`
+                            : "Assign driver…"}
+                        </option>
+                        {data.drivers.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name} · {d.status}
+                          </option>
+                        ))}
+                      </select>
+                      {busy === t.id && (
+                        <Loader2 className="ml-2 inline h-3.5 w-3.5 animate-spin" />
+                      )}
+                    </div>
                   </div>
                 ))}
+
               </div>
             )}
           </div>
