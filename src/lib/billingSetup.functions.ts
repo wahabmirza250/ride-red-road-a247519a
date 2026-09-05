@@ -95,7 +95,7 @@ export const getBillingSetupStatus = createServerFn({ method: "GET" })
       providerId: settings?.default_provider_id ?? null,
       portalId: settings?.default_portal_id ?? null,
       credentialPortalIds: ((credsRes.data ?? []) as any[]).map((c) => c.portal_id),
-      rates: ((ratesRes.data ?? []) as any[]).map((r) => ({
+      rates: (ratesRes.rows as any[]).map((r) => ({
         vehicle_type: r.vehicle_type,
         unit_type: r.unit_type,
       })),
