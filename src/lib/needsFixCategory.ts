@@ -12,6 +12,8 @@ import { requiresManualVerification } from "@/lib/needsVerification";
 import { isCorrectedHoldCode, CORRECTED_ORIGINAL_REUSE_CODE } from "@/lib/correctedJob";
 
 export type NeedsFixCategory =
+  | "config"
+  | "member_data"
   | "submitted"
   | "unverified"
   | "capacity"
@@ -23,6 +25,8 @@ export type NeedsFixSummary = {
   category: NeedsFixCategory;
   label: string;
   nextAction: string;
+  /** Where a person should go to clear this. */
+  action?: "configure_rates" | "assign_provider" | "portal_credentials" | "edit_bill";
   /** True when a biller edit can actually unblock this bill. */
   editable: boolean;
 };
@@ -39,6 +43,84 @@ export type NeedsFixInput = {
   /** Set when this row is a CORRECTED claim's own billing record. */
   resubmission_id?: string | null;
 };
+
+const CONFIG_BLOCKS: Array<{
+  test: RegExp;
+  code?: string;
+  summary: NeedsFixSummary;
+}> = [
+  {
+    code: "BLOCKED_MISSING_BILLING_RATES",
+    test: /billing rates? (are )?not configured|missing (trip|mileage) rate/i,
+    summary: {
+      category: "config",
+      label: "Billing rates not configured",
+      nextAction: "Set the trip and mileage rates for this provider, then recheck the bill.",
+      action: "configure_rates",
+      editable: false,
+    },
+  },
+  {
+    code: "BLOCKED_MISSING_DIAGNOSIS_CODE",
+    test: /diagnosis code/i,
+    summary: {
+      category: "config",
+      label: "Diagnosis code not configured",
+      nextAction: "Add the default diagnosis code to the billing rates, then recheck the bill.",
+      action: "configure_rates",
+      editable: false,
+    },
+  },
+  {
+    code: "BLOCKED_MISSING_PROVIDER_ID",
+    test: /provider(_| )id|billing provider is not assigned|no provider account/i,
+    summary: {
+      category: "config",
+      label: "Billing provider not assigned",
+      nextAction: "Choose the company's billing provider in billing setup, then recheck the bill.",
+      action: "assign_provider",
+      editable: false,
+    },
+  },
+  {
+    code: "BLOCKED_MISSING_PORTAL_CREDENTIALS",
+    test: /portal (login|credential)/i,
+    summary: {
+      category: "config",
+      label: "Portal login missing",
+      nextAction: "Add the state portal login in billing settings, then recheck the bill.",
+      action: "portal_credentials",
+      editable: false,
+    },
+  },
+  {
+    code: "BLOCKED_PENDING_ELIGIBILITY_LOOKUP",
+    test: /medicaid (member )?id|member id is missing/i,
+    summary: {
+      category: "member_data",
+      label: "Medicaid member ID missing",
+      nextAction: "Add the member's Medicaid ID on the passenger or the bill, then save.",
+      action: "edit_bill",
+      editable: true,
+    },
+  },
+];
+
+function configurationBlock(
+  failureCode: string | null | undefined,
+  message: string | null,
+): NeedsFixSummary | null {
+  const code = (failureCode ?? "").trim().toUpperCase();
+  for (const b of CONFIG_BLOCKS) {
+    if (b.code && code === b.code) return b.summary;
+  }
+  const msg = message ?? "";
+  if (!msg) return null;
+  for (const b of CONFIG_BLOCKS) {
+    if (b.test.test(msg)) return b.summary;
+  }
+  return null;
+}
 
 export function needsFixSummary(rec: NeedsFixInput): NeedsFixSummary {
   // A corrected claim shares its trip with the original denied claim, so the
@@ -73,6 +155,11 @@ export function needsFixSummary(rec: NeedsFixInput): NeedsFixSummary {
 
 
   const msg = rec.submission_error ?? rec.submit_last_error ?? null;
+
+  // KNOWN CONFIGURATION BLOCKS. These are never a claim-data problem, so the
+  // biller is pointed at the one screen that actually fixes them.
+  const blocked = configurationBlock(rec.failure_code, msg);
+  if (blocked) return blocked;
 
   if (
     requiresManualVerification(rec) ||

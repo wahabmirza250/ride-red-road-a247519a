@@ -81,11 +81,11 @@ export function BillingRatesCard() {
 
   const rows = useQuery({
     queryKey: ["billing_rate_settings"],
-    queryFn: () => listFn(),
+    queryFn: () => listFn({ data: {} }),
   });
 
   const grouped = useMemo<GroupedRates>(
-    () => groupRates(rows.data ?? []),
+    () => groupRates(rows.data?.rows ?? []),
     [rows.data],
   );
 
@@ -148,7 +148,7 @@ export function BillingRatesCard() {
   });
 
   useEffect(() => {
-    if (isEditing && rows.data && rows.data.length === 0) {
+    if (isEditing && rows.data && rows.data.rows.length === 0) {
       resetForm();
     }
   }, [rows.data, isEditing]);
@@ -200,10 +200,25 @@ export function BillingRatesCard() {
   return (
     <div className="rounded-2xl border border-border bg-surface p-4 shadow-soft space-y-4">
       <div>
-        <h3 className="text-base font-semibold">Billing Settings</h3>
+        <h3 className="text-base font-semibold">Billing Rates</h3>
         <p className="text-xs text-muted-foreground">
-          Configure Trip and Mileage rates per vehicle type.
+          Trip and mileage rates for{" "}
+          <strong>
+            {rows.data?.provider_name ??
+              (rows.data?.provider_id ? "the assigned billing provider" : "no provider yet")}
+          </strong>
+          . These are the rates the state claim is built from.
         </p>
+        {rows.data && !rows.data.provider_id && (
+          <p className="mt-1 text-xs text-destructive">
+            No billing provider is assigned yet — choose one in billing setup before saving rates.
+          </p>
+        )}
+        {rows.data?.scope === "legacy" && rows.data.rows.length > 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Showing older shared rates. Saving stores them against this company and provider.
+          </p>
+        )}
       </div>
 
       {/* Summary */}
@@ -213,7 +228,7 @@ export function BillingRatesCard() {
         </div>
       ) : configuredVehicles.length === 0 ? (
         <div className="rounded-xl border border-dashed p-6 text-center text-xs text-muted-foreground">
-          No billing settings yet. Configure a vehicle type below.
+          Not configured — no trip or mileage rate is set for this provider yet.
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border divide-y divide-border">
@@ -328,7 +343,7 @@ export function BillingRatesCard() {
             </Label>
             <Input
               value={form.default_diagnosis_code}
-              placeholder="R688"
+              
               onChange={(e) =>
                 setForm({ ...form, default_diagnosis_code: e.target.value })
               }
@@ -359,7 +374,7 @@ export function BillingRatesCard() {
                   </Label>
                   <Input
                     value={state.procedure_code}
-                    placeholder={section === "trip" ? "A0130" : "S0215"}
+                    
                     onChange={(e) =>
                       setForm({
                         ...form,
@@ -386,7 +401,7 @@ export function BillingRatesCard() {
                     inputMode="decimal"
                     step="0.01"
                     min="0"
-                    placeholder={section === "trip" ? "25.00" : "1.50"}
+                    
                     value={state.charge_amount}
                     onChange={(e) =>
                       setForm({
@@ -411,7 +426,7 @@ export function BillingRatesCard() {
                   </Label>
                   <Input
                     value={state.place_of_service}
-                    placeholder={section === "trip" ? "99" : "41"}
+                    
                     onChange={(e) =>
                       setForm({
                         ...form,

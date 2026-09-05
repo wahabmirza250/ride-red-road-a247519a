@@ -90,15 +90,20 @@ export const Route = createFileRoute("/api/public/get-billing-rate")({
           );
         }
 
-        const cols =
-          "procedure_code, charge_amount, unit_type, place_of_service, default_diagnosis_code";
-        const { data, error } = await supabaseAdmin
-          .from("billing_rate_settings" as any)
-          .select(cols)
-          .eq("company_id", companyId)
-          .eq("vehicle_type", vehicle_type)
-          .eq("unit_type", unit_type)
-          .maybeSingle();
+        // Company rows win; a legacy unscoped row set is still honoured so
+        // installs configured before rates were tenant-scoped keep billing.
+        const { loadRateRows } = await import("@/lib/billingRates.server");
+        let data: any = null;
+        let error: any = null;
+        try {
+          const { rows } = await loadRateRows(supabaseAdmin as any, {
+            companyId,
+            vehicleType: vehicle_type,
+          });
+          data = rows.find((r: any) => r.unit_type === unit_type) ?? null;
+        } catch (e) {
+          error = { message: e instanceof Error ? e.message : "Lookup failed" };
+        }
 
         if (error) {
           console.error("get-billing-rate lookup error", { message: error.message, code: (error as any).code, details: (error as any).details, hint: (error as any).hint });

@@ -342,6 +342,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       }
     },
     enabled: canBill,
+    // Keep the previous page visible while a background refresh runs — a
+    // harmless refetch must never blank the table into a spinner.
+    placeholderData: (prev: unknown) => prev as any,
+    staleTime: 5000,
     // A robot job can settle at any moment; never show a frozen snapshot.
     // PERF: background polling of the full list was hammering the API every
     // 10s per open tab. Poll less often, and never while the tab is hidden.
@@ -360,6 +364,8 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       }
     },
     enabled: canBill,
+    placeholderData: (prev: unknown) => prev as any,
+    staleTime: 5000,
     // PERF: background polling of the full list was hammering the API every
     // 10s per open tab. Poll less often, and never while the tab is hidden.
     refetchInterval: 30000,
@@ -429,18 +435,27 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
   });
   const defaultPortal = getPortal(settings.data?.default_portal_id);
 
-  // Realtime — invalidate on any billing_records change
+  // Realtime — a robot wave updates dozens of rows in seconds. Coalesce those
+  // into ONE refetch burst so the table cannot thrash while jobs land.
   useEffect(() => {
+    let timer: number | null = null;
+    const refreshSoon = () => {
+      if (timer !== null) return;
+      timer = window.setTimeout(() => {
+        timer = null;
+        qc.invalidateQueries({ queryKey: ["billing_list"] });
+        qc.invalidateQueries({ queryKey: ["billing_detail"] });
+        qc.invalidateQueries({ queryKey: ["billing_counts"] });
+        qc.invalidateQueries({ queryKey: ["submission_queue"] });
+      }, 1500);
+    };
     const ch = supabase
       .channel("billing_records_live")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "billing_records" },
         (payload: any) => {
-          qc.invalidateQueries({ queryKey: ["billing_list"] });
-          qc.invalidateQueries({ queryKey: ["billing_detail"] });
-          qc.invalidateQueries({ queryKey: ["billing_counts"] });
-          qc.invalidateQueries({ queryKey: ["submission_queue"] });
+          refreshSoon();
 
           // Surface a terminal failure immediately: the row leaves the
           // "Awaiting portal" list the moment it fails, so without this the
@@ -458,6 +473,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       )
       .subscribe();
     return () => {
+      if (timer !== null) window.clearTimeout(timer);
       supabase.removeChannel(ch);
     };
   }, [qc]);
