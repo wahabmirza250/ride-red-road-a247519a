@@ -301,24 +301,33 @@ function ActiveTripScreen() {
     if (!online) return toast.error("You're offline — try again on signal");
     setSubmitting(true);
     try {
-      const generated = await submitDriverTripToBilling({
+      const result = await submitDriverTripToBilling({
         draft,
         userId: user.id,
         driverFallbackName: user.email ?? "",
         onStage: setSubmitStage,
+        // Reuse trips created by an earlier failed attempt so a retry can
+        // never duplicate the trip.
+        existingTripIds: createdTripIds,
+        onTripsCreated: setCreatedTripIds,
       });
       if (draft.server_draft_id) {
         await closeDraft({ data: { id: draft.server_draft_id, status: "submitted" } }).catch(() => {});
       }
       if (typeof window !== "undefined") clearDraft(window.localStorage, storageKey);
-      toast.success("Trip sent to billing");
-      setPdfs(generated);
+      if (result.warnings.length > 0) {
+        toast.warning(`Trip sent to billing. ${result.warnings.join(". ")}.`);
+      } else {
+        toast.success("Trip sent to billing");
+      }
+      setPdfs(result.pdfs);
     } catch (e: any) {
       toast.error(e?.message ?? "Submission failed — the trip is still saved");
     } finally {
       setSubmitting(false);
       setSubmitStage("");
     }
+
   }
 
   async function deleteIncompleteTrip() {
