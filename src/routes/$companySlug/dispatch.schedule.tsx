@@ -15,9 +15,11 @@ type Data = Awaited<ReturnType<typeof getTodaysSchedule>>;
 
 function ScheduleView() {
   const load = useServerFn(getTodaysSchedule);
+  const reassign = useServerFn(adminReassignDriver);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
 
   const refresh = useCallback(
     async (d: string) => {
