@@ -58,10 +58,10 @@ export function ClaimReviewPanel({
 
   const ratesQuery = useQuery({
     queryKey: ["billing_rate_settings"],
-    queryFn: () => listRates(),
+    queryFn: () => listRates({ data: {} }),
     staleTime: 5 * 60_000,
   });
-  const rates: BillingRateSetting[] = (ratesQuery.data as BillingRateSetting[]) ?? [];
+  const rates: BillingRateSetting[] = ratesQuery.data?.rows ?? [];
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["billing_list"] });
