@@ -19,6 +19,7 @@ async function companyOf(supabase: any, userId: string): Promise<string | null> 
 
 const SELECT = `id, company_id, original_trip_id, original_claim_number, original_status,
    original_denial_reason, idempotency_key, draft_version, submitted_at, status,
+   submission_billing_record_id,
    resubmission_claim_number, failure_reason, draft_snapshot, original_snapshot`;
 
 /** Load corrected cards for one or more lifecycle states. */
@@ -27,6 +28,11 @@ async function loadCorrected(
   companyId: string | null,
   statuses: string[],
   limit: number,
+  /**
+   * For `processing` rows only: keep the ones a robot is REALLY holding
+   * ("processing") or the ones whose lease has expired ("verification_hold").
+   */
+  live?: "processing" | "verification_hold",
 ) {
   let q = supabase
     .from("claim_resubmissions")
@@ -38,7 +44,12 @@ async function loadCorrected(
   const { data: rows, error } = await q;
   if (error) throw new Error(error.message);
 
-  const subs = (rows ?? []) as any[];
+  let subs = (rows ?? []) as any[];
+  if (live) {
+    const { correctedProcessingSplit } = await import("@/lib/correctedStage.server");
+    const split = await correctedProcessingSplit(supabase, subs);
+    subs = split[live];
+  }
   if (!subs.length) return { rows: [], total: 0 };
 
   const ids = subs.map((s) => s.id);
@@ -110,7 +121,7 @@ export const listResubmissionsByStage = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        stage: z.enum(["processing", "failed", "submitted", "settled"]),
+        stage: z.enum(["processing", "verification_hold", "failed", "submitted", "settled"]),
         limit: z.number().int().min(1).max(500).optional(),
       })
       .parse(d),
@@ -120,8 +131,16 @@ export const listResubmissionsByStage = createServerFn({ method: "POST" })
     await assertBiller(supabase, userId);
     const companyId = await companyOf(supabase, userId);
     const statuses =
-      data.stage === "settled" ? ["paid", "denied"] : data.stage === "submitted" ? ["submitted"] : [data.stage];
-    return await loadCorrected(supabase, companyId, statuses, data.limit ?? 200);
+      data.stage === "settled"
+        ? ["paid", "denied"]
+        : data.stage === "submitted"
+          ? ["submitted"]
+          : data.stage === "verification_hold"
+            ? ["processing"]
+            : [data.stage];
+    const live =
+      data.stage === "processing" || data.stage === "verification_hold" ? data.stage : undefined;
+    return await loadCorrected(supabase, companyId, statuses, data.limit ?? 200, live);
   });
 
 /** Badge counts for the corrected lifecycle — same scope as the lists. */
@@ -141,14 +160,13 @@ export const countReadyResubmissions = createServerFn({ method: "GET" })
       if (error) throw new Error(error.message);
       return Number(n ?? 0);
     };
-    const [ready, processing, failed] = await Promise.all([
-      count("queued"),
-      count("processing"),
-      count("failed"),
-    ]);
+    const [ready, failed] = await Promise.all([count("queued"), count("failed")]);
+    const { countCorrectedProcessing } = await import("@/lib/correctedStage.server");
+    const live = await countCorrectedProcessing(supabase, companyId);
     return {
       corrected_ready: ready,
-      corrected_processing: processing,
+      corrected_processing: live.processing,
+      corrected_verification_hold: live.verification_hold,
       corrected_failed: failed,
     };
   });

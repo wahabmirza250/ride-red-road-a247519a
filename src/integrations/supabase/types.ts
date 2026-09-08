@@ -839,6 +839,86 @@ export type Database = {
           },
         ]
       }
+      claim_search_jobs: {
+        Row: {
+          billing_record_id: string
+          claims: Json | null
+          company_id: string | null
+          created_at: string
+          finished_at: string | null
+          id: string
+          job_id: string | null
+          last_error: string | null
+          last_polled_at: string | null
+          match_count: number | null
+          member_id: string | null
+          next_attempt_at: string
+          poll_attempts: number
+          post_attempts: number
+          purpose: string
+          result_state: string | null
+          service_date: string | null
+          started_at: string
+          state: string
+          trip_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          billing_record_id: string
+          claims?: Json | null
+          company_id?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          job_id?: string | null
+          last_error?: string | null
+          last_polled_at?: string | null
+          match_count?: number | null
+          member_id?: string | null
+          next_attempt_at?: string
+          poll_attempts?: number
+          post_attempts?: number
+          purpose?: string
+          result_state?: string | null
+          service_date?: string | null
+          started_at?: string
+          state?: string
+          trip_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          billing_record_id?: string
+          claims?: Json | null
+          company_id?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          job_id?: string | null
+          last_error?: string | null
+          last_polled_at?: string | null
+          match_count?: number | null
+          member_id?: string | null
+          next_attempt_at?: string
+          poll_attempts?: number
+          post_attempts?: number
+          purpose?: string
+          result_state?: string | null
+          service_date?: string | null
+          started_at?: string
+          state?: string
+          trip_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_search_jobs_billing_record_id_fkey"
+            columns: ["billing_record_id"]
+            isOneToOne: false
+            referencedRelation: "billing_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claim_service_lines: {
         Row: {
           amount: number | null

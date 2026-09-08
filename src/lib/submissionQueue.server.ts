@@ -907,20 +907,11 @@ export async function runSubmissionQueueTick(
   }
 
 
-  const { paused, reason } = await isSubmissionQueuePaused(supabase);
-  if (paused) {
-    const out = { ...base, reason: reason ?? "Submission queue is paused", ms: Date.now() - t0 };
-    await recordRun(supabase, out);
-    return out;
-  }
 
-  const staleLocksReleased = await releaseStaleSubmissionLocks(supabase);
-  const recovered =
-    (await recoverOrphanedSubmissions(supabase, opts.companyId ?? null)) +
-    (await recoverStuckInFlightSubmissions(supabase, opts.companyId ?? null));
-
-  // Read-only fleet liveness. Only meaningful with a real multi-worker fleet,
-  // and it never touches HCPF — just the automation service's own /health.
+  // READ-ONLY FLEET LIVENESS, BEFORE THE PAUSE GATE. Health only ever asks the
+  // automation service's own /health — never HCPF — and a paused queue is
+  // exactly when an operator most needs to know whether the workers answer.
+  // Probing after the pause return is what left health frozen for days.
   try {
     const declared = await loadFleet(supabase);
     if (declared.length > 1) {
@@ -930,6 +921,28 @@ export async function runSubmissionQueueTick(
   } catch {
     /* health probing must never break a tick */
   }
+
+  // Expired leases are released even while paused, so nothing can keep showing
+  // "Processing" on the strength of a lock no worker still holds.
+  const stalePaused = await releaseStaleSubmissionLocks(supabase).catch(() => 0);
+
+  const { paused, reason } = await isSubmissionQueuePaused(supabase);
+  if (paused) {
+    const out = {
+      ...base,
+      released: stalePaused,
+      reason: reason ?? "Submission queue is paused",
+      ms: Date.now() - t0,
+    };
+    await recordRun(supabase, out);
+    return out;
+  }
+
+  const staleLocksReleased = stalePaused + (await releaseStaleSubmissionLocks(supabase));
+  const recovered =
+    (await recoverOrphanedSubmissions(supabase, opts.companyId ?? null)) +
+    (await recoverStuckInFlightSubmissions(supabase, opts.companyId ?? null));
+
 
   // Reconciliation stays on the proven path so claim ids/statuses populate
   // exactly as today and feed the read-only status-check queue.

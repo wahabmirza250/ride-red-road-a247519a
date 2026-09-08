@@ -22,7 +22,8 @@ import { portalDateMDY } from "@/lib/hcpfSearch.server";
 import { normalizePortalStatus } from "@/lib/portalStatus";
 import { portalMoneyNumber } from "@/lib/portalCurrency";
 import { writeResubmissionEvent } from "@/lib/resubmissionLifecycle.server";
-import { searchClaimByTrip } from "@/lib/tripClaimSearch.server";
+import { stepTripSearch } from "@/lib/searchLedger.server";
+
 import type { PortalClaim } from "@/lib/hcpfSearch";
 
 type Sb = any;
@@ -94,6 +95,16 @@ async function keepHold(
     actorId: string | null;
   },
 ) {
+  // ONE audit line per real change. A search that is still running writes the
+  // same sentence every tick, and that is exactly the noise that buried the
+  // real history — so we compare first and stay silent when nothing moved.
+  const { data: before } = await supabase
+    .from("billing_records")
+    .select("submission_error")
+    .eq("id", args.recordId)
+    .maybeSingle();
+  const changed = String(before?.submission_error ?? "") !== args.message;
+
   await supabase
     .from("billing_records")
     .update({
@@ -110,6 +121,7 @@ async function keepHold(
     .update({ failure_reason: args.message })
     .eq("id", args.resubmissionId)
     .eq("status", "processing");
+  if (!changed) return;
   await logAudit(
     supabase,
     args.recordId,
@@ -118,6 +130,7 @@ async function keepHold(
     args.message,
     "system",
   );
+
   await writeResubmissionEvent(supabase, {
     resubmission_id: args.resubmissionId,
     company_id: args.companyId,
@@ -213,25 +226,38 @@ export async function verifyHeldCorrectedRecords(
       continue;
     }
 
-    const search = await searchClaimByTrip({
+    // DURABLE, IDEMPOTENT SEARCH. One portal search per bill: a running job is
+    // polled, never re-POSTed, so a slow portal can no longer make this tick
+    // open a brand-new session every minute.
+    const step = await stepTripSearch(supabase, {
+      recordId: row.id,
+      tripId: row.trip_id ?? null,
       companyId: row.company_id ?? null,
       memberId,
       serviceDate: portalDateMDY(serviceIso),
-      tripId: row.trip_id ?? null,
+      purpose: "corrected_verify",
     });
 
-    if (!search.ok) {
+    if (step.state !== "answered") {
+      // Still running / backing off / exhausted. A failed lookup is NEVER
+      // evidence that no claim exists, and it must not spam the audit trail:
+      // the hold text is only rewritten when it actually changes.
       summary.errors++;
-      const msg = `Read-only HCPF verification could not run (${search.detail}). The corrected claim stays on Verification Hold — nothing was submitted or retried.`;
+      const msg =
+        step.state === "exhausted"
+          ? step.detail
+          : `Read-only HCPF verification is still in progress (${step.detail}). The corrected claim stays on Verification Hold — nothing was submitted or retried.`;
       await keepHold(supabase, { ...record, message: msg, actorId });
       summary.outcomes.push({
         record_id: row.id,
         resubmission_id: res.id,
         kind: "error",
-        detail: search.detail,
+        detail: step.detail,
       });
       continue;
     }
+    const search = step.outcome;
+
 
     const used = await usedClaimNumbers(
       supabase,

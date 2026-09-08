@@ -409,14 +409,16 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
   // Corrected copies that already LEFT Ready: claimed (processing), failed
   // (never sent) or submitted with a NEW claim number.
   const stageFn = useServerFn(listResubmissionsByStage);
-  const correctedStage: "processing" | "failed" | "submitted" | null =
+  const correctedStage: "processing" | "verification_hold" | "failed" | "submitted" | null =
     tab === "awaiting_portal"
       ? "processing"
-      : tab === "needs_attention"
-        ? "failed"
-        : tab === "submitted"
-          ? "submitted"
-          : null;
+      : tab === "verification_hold"
+        ? "verification_hold"
+        : tab === "needs_attention"
+          ? "failed"
+          : tab === "submitted"
+            ? "submitted"
+            : null;
   const correctedOther = useQuery({
     queryKey: ["corrected_stage", correctedStage],
     queryFn: () =>
@@ -720,14 +722,21 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         </div>
 
       ) : tab === "verification_hold" ? (
-        <ReadyToSubmitTab
+        <div className="space-y-4">
+          <CorrectedStateList
+            rows={correctedOther.data?.rows ?? []}
+            stage="verification_hold"
+            onOpen={setOpenResubmissionId}
+          />
+          <ReadyToSubmitTab
           variant="attention"
           rows={rows.data ?? []}
           onOpen={setSelectedId}
           onPreviewPdf={setPdfPreview}
-          showArchived={showArchived}
-          onToggleArchived={() => setShowArchived((v) => !v)}
-        />
+            showArchived={showArchived}
+            onToggleArchived={() => setShowArchived((v) => !v)}
+          />
+        </div>
       ) : tab === "awaiting_portal" ? (
         <div className="space-y-4">
           <CorrectedStateList rows={correctedOther.data?.rows ?? []} stage="processing" />
