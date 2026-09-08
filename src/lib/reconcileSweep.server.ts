@@ -47,7 +47,7 @@ export const AUDIT_STARVATION_MS = () => envInt("RECONCILE_AUDIT_YIELD_MS", 600_
 export const SWEEP_RUN_BUDGET_MS = () => envInt("RECONCILE_RUN_BUDGET_MS", 100_000, 10_000, 240_000);
 
 const CANDIDATE_SELECT = `id, status, requires_human_step, submission_error, submit_last_error,
-  failure_code, state_confirmation_number, trip_id, company_id, archived_at,
+  failure_code, state_confirmation_number, trip_id, company_id, attention_archived_at,
   medicaid_trips!inner(id, pickup_at, company_id, robot_last_status,
     robot_confirmation_number, submitted_confirmation, riders(full_name, medicaid_id))`;
 
@@ -73,6 +73,8 @@ export async function findSweepCandidates(
     .select(CANDIDATE_SELECT)
     .eq("company_id", companyId)
     .in("status", ["approved", "needs_fix"])
+    // A bill a biller archived out of Needs Attention is not swept again.
+    .is("attention_archived_at", null)
     .limit(ATTENTION_COUNT_LIMIT);
   if (error) throw new Error(error.message);
 
@@ -584,6 +586,59 @@ export type SweepTickResult = {
   reason?: string;
 };
 
+/** How many read-only portal searches a company may have open at once.
+ *  Starting more only earns HTTP 429 from the checker and leaves searches
+ *  nobody ever collects, so the tick polls what is open before opening more. */
+export const SWEEP_OPEN_SEARCH_CAP = () => envInt("RECONCILE_OPEN_SEARCH_CAP", 2, 1, 10);
+
+/**
+ * COLLECT WHAT IS ALREADY RUNNING FIRST.
+ *
+ * Every open sweep search whose next check is due is polled — no new portal
+ * request is made for these. Without this the scheduler kept opening fresh
+ * searches for other bills and never came back for the answers.
+ */
+async function pollOpenSweepSearches(
+  supabase: any,
+  budget: number,
+  outcomes: Record<string, number>,
+): Promise<number> {
+  const nowIso = new Date().toISOString();
+  const { data: open } = await supabase
+    .from("claim_search_jobs")
+    .select("billing_record_id, company_id")
+    .eq("purpose", "sweep")
+    .eq("state", "running")
+    .or(`next_attempt_at.is.null,next_attempt_at.lte.${nowIso}`)
+    .limit(50);
+  const ids = ((open ?? []) as any[]).map((r) => r.billing_record_id);
+  if (!ids.length) return 0;
+
+  const { data: rows } = await supabase
+    .from("claim_reconcile_results")
+    .select("id, sweep_id, company_id, billing_record_id, trip_id, member_id, service_date, attempts")
+    .in("billing_record_id", ids)
+    .is("confirmed_at", null)
+    .limit(50);
+
+  let polled = 0;
+  for (const row of ((rows ?? []) as any[])) {
+    if (Date.now() > budget) break;
+    try {
+      const r = await processSweepJob(supabase, row as LeasedSweepJob);
+      outcomes[r.outcome] = (outcomes[r.outcome] ?? 0) + 1;
+    } catch (e: any) {
+      outcomes["error"] = (outcomes["error"] ?? 0) + 1;
+      await supabase
+        .from("claim_reconcile_results")
+        .update({ error: sanitizeSweepError(e), locked_until: null })
+        .eq("id", row.id);
+    }
+    polled += 1;
+  }
+  return polled;
+}
+
 /** One scheduler tick. Bounded, single-flight, and safe to run concurrently. */
 export async function runSweepTick(supabase: any): Promise<SweepTickResult> {
   const started = Date.now();
@@ -613,24 +668,53 @@ export async function runSweepTick(supabase: any): Promise<SweepTickResult> {
     };
   }
 
+  const polled = await pollOpenSweepSearches(supabase, budget, outcomes);
+
+  // Never open more searches than the checker will honour.
+  const { count: stillOpen } = await supabase
+    .from("claim_search_jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("purpose", "sweep")
+    .eq("state", "running");
+  if ((stillOpen ?? 0) >= SWEEP_OPEN_SEARCH_CAP()) {
+    await finishIdleSweeps(supabase);
+    return {
+      ok: true,
+      leased: 0,
+      processed: polled,
+      released,
+      outcomes,
+      reason: `waiting on ${stillOpen} read-only portal search(es) already running`,
+    };
+  }
+
   let jobs: LeasedSweepJob[] = [];
   try {
     jobs = await leaseSweepJobs(supabase, {
       // Shares the read-only checker ceiling with the paid-amount audit.
-      globalLimit: maxGlobal(),
+      globalLimit: Math.max(1, Math.min(maxGlobal(), SWEEP_OPEN_SEARCH_CAP() - (stillOpen ?? 0))),
       perCompanyLimit: 1,
       leaseSeconds: SWEEP_LEASE_SECONDS(),
       worker: `sweep-${Math.random().toString(36).slice(2, 8)}`,
     });
   } catch (e: any) {
-    return { ok: false, leased: 0, processed: 0, released, outcomes, reason: sanitizeSweepError(e) };
+    return { ok: false, leased: 0, processed: polled, released, outcomes, reason: sanitizeSweepError(e) };
   }
 
   if (!jobs.length) {
-    return { ok: true, leased: 0, processed: 0, released, outcomes, reason: "no eligible work" };
+    await finishIdleSweeps(supabase);
+    return {
+      ok: true,
+      leased: 0,
+      processed: polled,
+      released,
+      outcomes,
+      reason: polled ? "polled running searches" : "no eligible work",
+    };
   }
 
-  let processed = 0;
+
+  let processed = polled;
   await Promise.all(
     jobs.map(async (job) => {
       if (Date.now() > budget) return;
