@@ -238,11 +238,11 @@ export function ReconcileSweepCard({ onOpenRecord }: { onOpenRecord?: (id: strin
         </>
       )}
 
-      {data?.ops && (
+      {q.data?.ops && (
         <div className="grid grid-cols-3 gap-2 text-center text-xs">
-          <Stat label="Processing now" value={data.ops.processing} />
-          <Stat label="Searches running" value={data.ops.searches_running} />
-          <Stat label="Searches given up" value={data.ops.searches_exhausted} />
+          <Stat label="Processing now" value={q.data.ops.processing} />
+          <Stat label="Searches running" value={q.data.ops.searches_running} />
+          <Stat label="Searches given up" value={q.data.ops.searches_exhausted} />
         </div>
       )}
 
