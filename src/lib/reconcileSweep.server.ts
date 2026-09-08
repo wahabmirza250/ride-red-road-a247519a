@@ -716,7 +716,10 @@ export async function loadSweepProgress(
   sweep: { id: string; status: string; created_at: string } | null;
   progress: SweepProgress;
   rows: SweepResultRow[];
+  ops: { processing: number; searches_running: number; searches_exhausted: number };
 }> {
+  const ops = await operationalCounters(supabase, companyId);
+
   const { data: sweeps } = await supabase
     .from("claim_reconcile_sweeps")
     .select("id, status, created_at")
