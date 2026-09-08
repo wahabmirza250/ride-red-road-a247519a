@@ -709,6 +709,47 @@ async function finishIdleSweeps(supabase: any) {
 }
 
 /** Everything the progress card needs, in one read. */
+/**
+ * OPERATIONAL COUNTERS. What is truly moving right now, so nobody has to guess
+ * from a stale badge: bills a worker really holds, read-only portal searches
+ * genuinely open, and searches that gave up and now wait for a person.
+ */
+export async function operationalCounters(
+  supabase: any,
+  companyId: string,
+): Promise<{ processing: number; searches_running: number; searches_exhausted: number }> {
+  const { hasLiveSubmissionLease } = await import("@/lib/processingLive");
+  const out = { processing: 0, searches_running: 0, searches_exhausted: 0 };
+  try {
+    const { data } = await supabase
+      .from("billing_records")
+      .select("id, status, submit_locked_until, submit_heartbeat_at")
+      .eq("company_id", companyId)
+      .in("status", ["queued", "pending_submit", "submitting"])
+      .limit(1000);
+    for (const r of ((data ?? []) as any[])) {
+      if (r.status === "submitting" ? hasLiveSubmissionLease(r) : true) out.processing += 1;
+    }
+  } catch {
+    /* counters must never break the card */
+  }
+  try {
+    const { data } = await supabase
+      .from("claim_search_jobs")
+      .select("id, state")
+      .eq("company_id", companyId)
+      .in("state", ["running", "exhausted"])
+      .limit(1000);
+    for (const r of ((data ?? []) as any[])) {
+      if (r.state === "running") out.searches_running += 1;
+      else out.searches_exhausted += 1;
+    }
+  } catch {
+    /* the ledger may not be populated yet */
+  }
+  return out;
+}
+
 export async function loadSweepProgress(
   supabase: any,
   companyId: string,
@@ -732,6 +773,7 @@ export async function loadSweepProgress(
       sweep: null,
       progress: summarize([]),
       rows: [],
+      ops,
     };
   }
   const { data } = await supabase
@@ -748,7 +790,7 @@ export async function loadSweepProgress(
   })) as SweepResultRow[];
   // Always render against LIVE linkage, never the search-time snapshot.
   const rows = applyLiveLinks(raw, await liveLinkMap(supabase, companyId, raw));
-  return { sweep, progress: summarize(rows), rows };
+  return { sweep, progress: summarize(rows), rows, ops };
 }
 
 /**

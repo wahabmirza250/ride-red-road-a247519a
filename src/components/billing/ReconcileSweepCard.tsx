@@ -238,6 +238,14 @@ export function ReconcileSweepCard({ onOpenRecord }: { onOpenRecord?: (id: strin
         </>
       )}
 
+      {data?.ops && (
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          <Stat label="Processing now" value={data.ops.processing} />
+          <Stat label="Searches running" value={data.ops.searches_running} />
+          <Stat label="Searches given up" value={data.ops.searches_exhausted} />
+        </div>
+      )}
+
       {p && p.total === 0 && (
         <p className="text-xs text-muted-foreground">
           No bills in this stage are missing a claim number.
