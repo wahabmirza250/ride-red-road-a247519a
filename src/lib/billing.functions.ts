@@ -213,18 +213,28 @@ export const getBillingCounts = createServerFn({ method: "GET" })
         .eq("status", status);
       return Number(count ?? 0);
     };
-    const [correctedCount, correctedProcessing, correctedFailed] = await Promise.all([
+    const [correctedCount, correctedProcessingRaw, correctedFailed] = await Promise.all([
       correctedCountFor("queued"),
       correctedCountFor("processing"),
       correctedCountFor("failed"),
     ]);
+    // PROCESSING MEANS A ROBOT IS HOLDING IT NOW. A corrected copy whose lease
+    // expired is a Verification Hold, never "working at the portal".
+    const { countCorrectedProcessing } = await import("@/lib/correctedStage.server");
+    const correctedLive = await countCorrectedProcessing(supabase, null).catch(() => ({
+      processing: correctedProcessingRaw,
+      verification_hold: 0,
+    }));
     const { readyTotal } = await import("@/lib/readyResubmissions");
     counts["corrected_ready"] = correctedCount;
-    counts["corrected_processing"] = correctedProcessing;
+    counts["corrected_processing"] = correctedLive.processing;
+    counts["corrected_verification_hold"] = correctedLive.verification_hold;
     counts["corrected_failed"] = correctedFailed;
     // A claimed corrected claim is really working at the portal, and a failed
     // one really needs a person — both belong in those stage badges.
-    counts["awaiting_portal_extra"] = correctedProcessing;
+    counts["awaiting_portal_extra"] = correctedLive.processing;
+    counts["verification_hold"] = split.verification_hold + correctedLive.verification_hold;
+
     counts["needs_attention"] = split.needs_attention + correctedFailed;
     counts["ready_to_submit"] = readyTotal(split.ready_to_submit, correctedCount);
     counts["ready_bills"] = split.ready_to_submit;

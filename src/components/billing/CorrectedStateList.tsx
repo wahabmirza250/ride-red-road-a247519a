@@ -29,7 +29,7 @@ export function CorrectedStateList({
   onOpen,
 }: {
   rows: CorrectedReadyCandidate[];
-  stage: "processing" | "failed" | "submitted";
+  stage: "processing" | "verification_hold" | "failed" | "submitted";
   onOpen?: (id: string) => void;
 }) {
   const qc = useQueryClient();
@@ -54,6 +54,8 @@ export function CorrectedStateList({
   const banner =
     stage === "processing"
       ? "working at the portal right now — they cannot be selected or resent."
+      : stage === "verification_hold"
+      ? "are NOT running. The portal answer was never confirmed, so they are held until a read-only check proves whether a claim exists. Nothing will be resent automatically."
       : stage === "failed"
         ? "were NOT sent to the portal. Review the reason, then move them back to Ready to Submit."
         : "were accepted by the portal as NEW claims.";

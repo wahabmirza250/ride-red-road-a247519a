@@ -18,6 +18,7 @@ import type { PortalClaim } from "@/lib/hcpfSearch";
 import { envInt, maxGlobal } from "@/lib/claimStatusSync.server";
 import { findLinkedBills, portalDateMDY } from "@/lib/hcpfSearch.server";
 import { searchClaimByTrip } from "@/lib/tripClaimSearch.server";
+import type { TripSearchOutcome } from "@/lib/tripClaimSearch";
 import { stageOfFlatRow, flattenAttentionRow, ATTENTION_COUNT_LIMIT } from "@/lib/attentionCounts";
 import {
   decideAutoFinalize,
@@ -201,9 +202,14 @@ export async function leaseSweepJobs(
 export async function processSweepJob(
   supabase: any,
   job: LeasedSweepJob,
-  /** Injectable read-only search (tests); always the real checker in production. */
-  search: typeof searchClaimByTrip = searchClaimByTrip,
+  /**
+   * Injectable read-only search (tests). In production this is null and the
+   * DURABLE ledger is used instead, so one bill can only ever have one running
+   * portal search — a slow job is polled, never restarted.
+   */
+  search: typeof searchClaimByTrip | null = null,
 ): Promise<{ outcome: string }> {
+
   if (!job.member_id || !job.service_date) {
     await supabase
       .from("claim_reconcile_results")
@@ -254,12 +260,35 @@ export async function processSweepJob(
     return { outcome: "error" };
   }
 
-  const out = await search({
-    companyId,
-    memberId: job.member_id,
-    serviceDate: job.service_date,
-    tripId: job.trip_id,
-  });
+  const out: TripSearchOutcome = search
+    ? await search({
+        companyId,
+        memberId: job.member_id,
+        serviceDate: job.service_date,
+        tripId: job.trip_id,
+      })
+    : await (async () => {
+        const { stepTripSearch } = await import("@/lib/searchLedger.server");
+        const step = await stepTripSearch(supabase, {
+          recordId: job.billing_record_id,
+          tripId: job.trip_id,
+          companyId,
+          memberId: job.member_id!,
+          serviceDate: job.service_date!,
+          purpose: "sweep",
+        });
+        return step.state === "answered"
+          ? step.outcome
+          : {
+              ok: false,
+              unavailable: true,
+              result_state: null,
+              match_count: null,
+              claims: [],
+              detail: step.detail,
+            };
+      })();
+
 
   if (!out.ok) {
     const detail = sanitizeSweepError(out.detail);
