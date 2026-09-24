@@ -1,47 +1,24 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-/**
- * Capacitor config for the RedArt Rides (Passenger) Android app.
- *
- * The native shell loads the live web app from the production URL, so
- * every UI change you publish to the web is instantly live in the app
- * with no Play Store re-submission. Set `server.url` to your preview
- * URL when developing.
- */
+// Start from bundled HTML so launching never depends on DNS or a web deployment.
+// Run node mobile/prepare.mjs with the same environment before cap sync.
+const origin = new URL(process.env.MOBILE_APP_ORIGIN || 'https://redart-web-production.up.railway.app');
+if (origin.protocol !== 'https:' || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) {
+  throw new Error('MOBILE_APP_ORIGIN must be a trusted HTTPS origin.');
+}
 const config: CapacitorConfig = {
   appId: 'com.redart.rides',
-  appName: 'RedArt Rides',
-  // The `webDir` is required by the CLI even for hosted apps. It is
-  // never actually shipped because `server.url` is set.
+  appName: 'NEMT Rides',
   webDir: 'www',
+  includePlugins: ['@capacitor/app', '@capacitor/geolocation', '@capacitor/splash-screen', '@capacitor/status-bar'],
   server: {
-    url: 'https://redartdigital.com/passenger',
     cleartext: false,
-    // Only these hostnames can be navigated to inside the app shell.
-    allowNavigation: [
-      'redartdigital.com',
-      '*.redartdigital.com',
-      '*.lovable.app',
-      '*.supabase.co',
-      '*.googleapis.com',
-      '*.gstatic.com',
-    ],
+    allowNavigation: [origin.hostname],
+    errorPath: 'error.html',
   },
-  android: {
-    allowMixedContent: false,
-    backgroundColor: '#0b0b0b',
-  },
+  android: { allowMixedContent: false, backgroundColor: '#f3f6fa' },
   plugins: {
-    SplashScreen: {
-      launchShowDuration: 1200,
-      backgroundColor: '#0b0b0b',
-      androidSplashResourceName: 'splash',
-      showSpinner: false,
-    },
-    PushNotifications: {
-      presentationOptions: ['badge', 'sound', 'alert'],
-    },
+    SplashScreen: { launchShowDuration: 500, backgroundColor: '#f3f6fa', showSpinner: false },
   },
 };
-
 export default config;

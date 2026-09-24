@@ -799,6 +799,89 @@
   background: var(--surface);
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.03), 0 8px 24px -18px oklch(0 0 0 / 0.25);
 }
+
+/* Driver and passenger workspaces: phone dock, tablet rail, desktop sidebar. */
+.mobile-app-shell {
+  --primary: #176a68; --primary-foreground: #fff; --ring: #258681;
+  --app-header-height: calc(4.5rem + env(safe-area-inset-top, 0px));
+  min-height: 100dvh; background: #f3f6f8; color: var(--foreground);
+  padding-bottom: calc(var(--driver-nav-offset) + 1rem);
+}
+.dark .mobile-app-shell { --primary: #63d6c6; --primary-foreground: #082b29; --ring: #63d6c6; background: #101a22; }
+.mobile-app-header { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: .5rem; height: var(--app-header-height); padding: env(safe-area-inset-top, 0px) max(1rem,env(safe-area-inset-right,0px)) 0 max(1rem,env(safe-area-inset-left,0px)); border-bottom: 1px solid var(--border); background: var(--surface); }
+.mobile-app-brand { display: flex; align-items: center; gap: .65rem; min-width: 0; }
+.mobile-app-mark { width: 2.5rem; height: 2.5rem; flex-shrink: 0; color: var(--primary); }
+.mobile-app-wordmark { display: flex; align-items: baseline; gap: .35rem; font-size: 1.15rem; font-weight: 800; letter-spacing: -.04em; line-height: 1.2; }
+.mobile-app-wordmark > span { font-size: .75rem; font-weight: 550; letter-spacing: -.01em; }
+.mobile-app-subtitle { display: block; max-width: 28ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: .2rem; color: var(--muted-foreground); font-size: .65rem; }
+.mobile-app-header-actions { display: flex; align-items: center; flex-shrink: 0; gap: .15rem; }
+.mobile-app-icon-button { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: .85rem; color: var(--muted-foreground); cursor: pointer; }
+.mobile-app-icon-button:hover { background: var(--surface-muted); color: var(--foreground); }
+.mobile-app-icon-button svg { width: 1.15rem; height: 1.15rem; }
+.mobile-app-signin { display: inline-flex; min-height: 2.75rem; align-items: center; padding: .5rem .85rem; border-radius: .85rem; background: var(--primary); color: var(--primary-foreground); font-size: .8rem; font-weight: 650; }
+.mobile-app-content { width: 100%; min-width: 0; max-width: 1440px; margin-inline: auto; padding: 1.25rem max(1rem,env(safe-area-inset-right,0px)) 1.5rem max(1rem,env(safe-area-inset-left,0px)); outline: none; }
+.mobile-app-content > *, .driver-workspace > * { min-width: 0; }
+.mobile-app-content input, .mobile-app-content select { min-width: 0; font-size: max(16px,1em); }
+.mobile-app-content button, .mobile-app-content [role="combobox"] { touch-action: manipulation; }
+.mobile-app-shell :focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; }
+.mobile-app-sidebar { display: none; }
+.mobile-app-bottom-nav { position: fixed; left: max(.75rem,env(safe-area-inset-left,0px)); right: max(.75rem,env(safe-area-inset-right,0px)); z-index: 30; display: flex; align-items: stretch; min-height: 4.5rem; padding: .4rem; border: 1px solid var(--border); border-radius: 1.3rem; background: var(--surface); box-shadow: 0 6px 28px #112b3a1a; }
+.mobile-app-nav-item { display: flex; min-width: 0; min-height: 3.5rem; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: .3rem; border-radius: .9rem; color: var(--muted-foreground); font-size: .65rem; font-weight: 600; cursor: pointer; text-align: center; }
+.mobile-app-nav-item svg { width: 1.3rem; height: 1.3rem; flex-shrink: 0; }
+.mobile-app-nav-item:hover { background: var(--surface-muted); }
+.mobile-app-nav-item.is-active { color: var(--primary); background: color-mix(in srgb,var(--primary) 12%,transparent); }
+.mobile-app-more-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; margin-top: 1.5rem; }
+.mobile-app-more-grid .mobile-app-nav-item { min-height: 5rem; border: 1px solid var(--border); font-size: .9rem; }
+.mobile-app-skip { position: fixed; left: 1rem; top: -5rem; z-index: 100; background: var(--surface); padding: 1rem; border-radius: .75rem; }
+.mobile-app-skip:focus { top: 1rem; }
+.mobile-app-booking { padding-bottom: env(safe-area-inset-bottom,0px); }
+.mobile-app-shell .driver-step-header { top: var(--app-header-height); }
+.driver-workspace { display: grid; gap: 1.5rem; }
+.driver-workspace-main { order: 2; }
+.driver-workspace-tools { order: 1; }
+.driver-workspace-tools video { max-height: 20rem; }
+.driver-home-summary { display: grid; gap: 1.25rem; }
+.driver-home-heading, .passenger-home-heading { margin-bottom: 1.5rem; }
+.driver-home-heading h1, .passenger-home-heading h1 { font-size: clamp(1.6rem,3vw,2.25rem); font-weight: 750; letter-spacing: -.04em; line-height: 1.2; }
+.driver-home-heading p, .passenger-home-heading p { color: var(--muted-foreground); margin-top: .45rem; }
+.passenger-home-grid { display: grid; gap: 1.5rem; }
+.passenger-booking-card { background: var(--surface); border: 1px solid var(--border); padding: 1.25rem; border-radius: 1.5rem; }
+.passenger-quick-actions { display: grid; grid-template-columns: 1fr; gap: .75rem; }
+@media (min-width: 400px) { .passenger-quick-actions { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 359px) { .mobile-app-wordmark > span { display: none; } .mobile-app-subtitle { max-width: 18ch; } .mobile-app-mark { width: 2rem; height: 2rem; } }
+@media (min-width: 768px) {
+  .mobile-app-shell { --app-rail-width: 6rem; --driver-nav-offset: env(safe-area-inset-bottom,0px); padding-bottom: 1rem; padding-left: var(--app-rail-width); }
+  .mobile-app-header { margin-left: calc(-1 * var(--app-rail-width)); padding-inline: 1.5rem; }
+  .mobile-app-wordmark { font-size: 1.35rem; } .mobile-app-wordmark > span { font-size: .9rem; } .mobile-app-subtitle { font-size: .75rem; }
+  .mobile-app-sidebar { position: fixed; display: flex; flex-direction: column; top: var(--app-header-height); bottom: 0; left: 0; width: var(--app-rail-width); padding: 1.25rem .6rem; border-right: 1px solid var(--border); background: var(--surface); z-index: 25; overflow-y: auto; }
+  .mobile-app-sidebar nav { display: flex; flex-direction: column; gap: .5rem; }
+  .mobile-app-sidebar .mobile-app-nav-item { min-height: 4.25rem; font-size: .7rem; }
+  .mobile-app-nav-caption, .mobile-app-sidebar-footer { display: none; }
+  .mobile-app-bottom-nav { display: none; }
+  .mobile-app-content { padding: 2rem; }
+  .driver-home-summary { grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: stretch; }
+  .mobile-app-shell .driver-cta-bar { bottom: env(safe-area-inset-bottom,0px); }
+  .mobile-app-shell .driver-cta-content-pad { max-width: 54rem; }
+  .passenger-booking-card { padding: 2rem; }
+}
+@media (min-width: 1100px) {
+  .mobile-app-shell { --app-rail-width: 14rem; }
+  .mobile-app-sidebar { padding: 1.5rem 1rem; }
+  .mobile-app-sidebar .mobile-app-nav-item { flex-direction: row; justify-content: flex-start; padding: .85rem 1rem; gap: .85rem; min-height: 3.5rem; font-size: .9rem; }
+  .mobile-app-nav-caption { display: block; padding: 0 1rem 1rem; text-transform: uppercase; font-size: .65rem; letter-spacing: .13em; color: var(--muted-foreground); }
+  .mobile-app-sidebar-footer { display: block; margin-top: auto; padding: 2rem 1rem 0; font-size: .75rem; color: var(--muted-foreground); }
+  .passenger-home-grid { grid-template-columns: minmax(0,1.35fr) minmax(0,1fr); align-items: start; gap: 2rem; }
+}
+@media (min-width: 1440px) {
+  .driver-workspace { grid-template-columns: minmax(0,1fr) 20rem; align-items: start; }
+  .driver-workspace-main { order: 1; } .driver-workspace-tools { order: 2; position: sticky; top: calc(var(--app-header-height) + 2rem); }
+}
   body:has(.app-theme-controls) .global-theme-toggle {
     display: none;
   }
+
+.mobile-auth-screen { --primary: #176a68; --primary-foreground: #fff; background: #f3f6f8; }
+.dark .mobile-auth-screen { background: #101a22; --primary: #63d6c6; --primary-foreground: #082b29; }
+.mobile-app-booking .app-install-prompt { display: none; }
+.mobile-app-shell .app-install-prompt { bottom: calc(var(--driver-nav-offset) + 1rem); flex-wrap: wrap; }
+@media (min-width: 768px) { .mobile-app-shell .driver-cta-bar { left: var(--app-rail-width); } }

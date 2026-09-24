@@ -68,17 +68,22 @@ export async function registerNativePush(): Promise<string | null> {
       const req = await PushNotifications.requestPermissions();
       if (req.receive !== 'granted') return null;
     }
-    await PushNotifications.register();
-    return await new Promise<string | null>((resolve) => {
-      const done = (token: string | null) => {
-        PushNotifications.removeAllListeners();
-        resolve(token);
-      };
-      PushNotifications.addListener('registration', (t) => done(t.value));
-      PushNotifications.addListener('registrationError', () => done(null));
-      // Safety timeout — some devices delay FCM registration.
-      setTimeout(() => done(null), 10000);
-    });
+    const listeners: Array<{ remove: () => Promise<void> }> = [];
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      let finish!: (token: string | null) => void;
+      const result = new Promise<string | null>((resolve) => { finish = resolve; });
+      // Registration can emit before register() resolves. Subscribe first.
+      listeners.push(await PushNotifications.addListener('registration', (t) => finish(t.value)));
+      listeners.push(await PushNotifications.addListener('registrationError', () => finish(null)));
+      timer = setTimeout(() => finish(null), 10000);
+      void PushNotifications.register().catch(() => finish(null));
+      return await result;
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+      // Keep the application's notification-received/action listeners intact.
+      await Promise.allSettled(listeners.map((listener) => listener.remove()));
+    }
   } catch (e) {
     console.warn('[native] push register failed', e);
     return null;

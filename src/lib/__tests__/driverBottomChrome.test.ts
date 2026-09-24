@@ -26,7 +26,7 @@ describe("driver bottom chrome offsets", () => {
   });
 
   it("driver layout uses the safe-area nav position, not a raw bottom-3", () => {
-    const layout = read("src/routes/$companySlug/driver.tsx");
+    const layout = read("src/components/mobile/AppShell.tsx");
     expect(layout).toContain("driver-nav-pad");
     expect(layout).toContain("var(--driver-safe-bottom) + var(--driver-nav-gap)");
     expect(layout).not.toMatch(/fleet-bottom-nav fixed bottom-3/);

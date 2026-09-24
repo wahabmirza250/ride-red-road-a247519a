@@ -1,14 +1,15 @@
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
-import { AppLink } from "@/lib/appLink";
+import { AppShell } from "@/components/mobile/AppShell";
 import { useEffect } from "react";
 import { Car, DollarSign, LogOut, Sun, Moon, Loader2, MessageSquare, User, History } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { useTheme } from "@/lib/theme";
-import { cn } from "@/lib/utils";
+
+
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { AccessDenied } from "@/components/AccessDenied";
-import { CompanyLogo } from "@/components/CompanyLogo";
-import { BrandMark } from "@/components/Brand";
+
+
+import { DriverCamera } from "@/components/driver/DriverCamera";
 
 export const Route = createFileRoute("/$companySlug/driver")({
   ssr: false,
@@ -27,7 +28,7 @@ function DriverLayout() {
   const { companySlug } = Route.useParams();
   const { loading, user, isDriver, signOut } = useAuth();
   const loc = useLocation();
-  const { theme, toggle } = useTheme();
+
   const pathname = typeof window !== "undefined" ? window.location.pathname : loc.pathname;
   const signInHref = `/${companySlug}/driver/signin`;
   const isPublicAuthRoute = pathname.replace(/\/$/, "").endsWith("/driver/signin");
@@ -56,55 +57,14 @@ function DriverLayout() {
 
 
   return (
-    <div className="app-theme-controls fleet-shell surface-yellow driver-nav-pad min-h-screen">
-      <header className="fleet-topbar sticky top-0 z-30 flex h-14 items-center justify-between px-4">
-        <div className="flex items-center gap-2">
-          <BrandMark className="h-9 w-9" />
-          <span className="text-sm font-semibold">NEMT Driver</span>
-          <CompanyLogo />
-        </div>
-        <div className="flex items-center gap-1">
-          <button onClick={toggle} className="rounded-lg p-2 text-muted-foreground hover:bg-accent">
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-          <button
-            onClick={async () => {
-              await signOut();
-               window.location.replace(signInHref);
-            }}
-            className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
-      </header>
-      <main className="mx-auto max-w-2xl p-4">
-        <Outlet />
-      </main>
-      <nav
-        className="fleet-bottom-nav fixed left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center justify-around p-1.5"
-        style={{ bottom: "calc(var(--driver-safe-bottom) + var(--driver-nav-gap))" }}
-      >
-
-        {NAV.map((item) => {
-          const active = item.exact ? loc.pathname === item.to : loc.pathname.startsWith(item.to);
-          const Icon = item.icon;
-          return (
-            <AppLink
-              key={item.to}
-              to={item.to}
-              className={cn(
-                "fleet-nav-item flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium",
-                active && "fleet-nav-item-active",
-              )}
-            >
-              <Icon className="h-5 w-5" />
-              {item.label}
-            </AppLink>
-          );
-        })}
-      </nav>
+    <AppShell kind="Driver" companySlug={companySlug} navigation={NAV} actions={
+      <button type="button" aria-label="Sign out" className="mobile-app-icon-button" onClick={async () => { await signOut(); window.location.replace(signInHref); }}><LogOut aria-hidden="true" /></button>
+    }>
+      <div className="driver-workspace">
+        <section className="driver-workspace-main"><Outlet /></section>
+        <aside className="driver-workspace-tools"><DriverCamera /></aside>
+      </div>
       <InstallPrompt />
-    </div>
+    </AppShell>
   );
 }

@@ -37,7 +37,7 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
@@ -51,7 +51,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           Something went wrong
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {error.message || "An unexpected error occurred."}
+          {error instanceof Error ? error.message : "An unexpected error occurred."}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button

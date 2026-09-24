@@ -66,6 +66,8 @@
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "leaflet": "^1.9.4",
+    "livekit-client": "2.22.3",
+    "livekit-server-sdk": "2.19.1",
     "lucide-react": "^0.575.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "4.10.38",
@@ -111,4 +113,3 @@
     "vitest": "^4.1.10"
   }
 }
-

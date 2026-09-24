@@ -1,0 +1,69 @@
+name: NEMT Android apps
+on:
+  pull_request:
+    branches: [redart]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx tsc --noEmit
+      - run: npx vitest run src/lib/__tests__/appNavigation.test.ts src/lib/__tests__/cameraAccess.test.ts src/lib/__tests__/nativePush.test.ts src/lib/__tests__/driverTripLifecycle.test.ts src/lib/__tests__/driverTripSaveResume.test.ts src/lib/__tests__/driverTripVerify.test.ts src/lib/__tests__/driverBottomChrome.test.ts src/lib/__tests__/rideRequestPassengerIsolation.test.ts
+      - run: npm run build
+  android:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [driver, passenger]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - run: npm ci --ignore-scripts
+      - run: node mobile/prepare.mjs
+      - run: npx cap sync android
+        working-directory: mobile/${{ matrix.app }}
+      - run: bash ./gradlew assembleDebug --no-daemon
+        working-directory: mobile/${{ matrix.app }}/android
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test startup and connection recovery on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: cd mobile/${{ matrix.app }}/android && bash ./gradlew :app:connectedDebugAndroidTest --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: NEMT-${{ matrix.app }}-device-test-results
+          path: mobile/${{ matrix.app }}/android/app/build/reports/androidTests
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NEMT-${{ matrix.app }}-test-apk
+          path: mobile/${{ matrix.app }}/android/app/build/outputs/apk/debug/app-debug.apk

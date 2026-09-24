@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NEMT Driver</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#17243b;font:17px/1.5 system-ui,sans-serif;min-height:100vh;display:grid;place-items:center;padding:32px 24px;padding-top:max(32px,env(safe-area-inset-top));padding-bottom:max(32px,env(safe-area-inset-bottom))}main{width:100%;max-width:440px;background:white;border-radius:24px;padding:32px;box-shadow:0 12px 50px #17243b12}.mark{display:grid;place-items:center;width:64px;height:64px;border-radius:18px;background:#176a68;color:white;font-size:40px;font-weight:800}h1{font-size:30px;line-height:1.2;margin:24px 0 12px}p{color:#526179}label{display:block;font-weight:600;margin:24px 0 8px}input,button{font:inherit;width:100%;min-height:52px;border-radius:12px}input{padding:12px;border:1px solid #a6b0bf}button{border:0;background:#176a68;color:white;font-weight:650;margin-top:20px;cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid #e2a823;outline-offset:3px}[hidden]{display:none!important}.error{color:#a32727}.small{font-size:14px}footer{font-size:12px;color:#718096;margin-top:24px}
+  </style>
+</head>
+<body>
+<main>
+  <div class="mark" aria-hidden="true">N</div>
+  <h1>NEMT Driver</h1>
+  <p id="intro">Open your transportation workspace.</p>
+  <p id="connection-error" class="error" role="alert" hidden>We couldn’t connect. Check Wi-Fi or mobile data, then try again. If the problem continues, contact your transportation company.</p>
+  <form id="launch-form">
+    <div id="provider-fields" hidden>
+      <label for="provider-code">Provider code</label>
+      <input id="provider-code" name="provider" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Your provider code">
+      <p class="small">Use the code your transportation company gave you.</p>
+    </div>
+    <p id="validation" class="error" role="alert" hidden>Enter a valid provider code using letters, numbers, and single hyphens.</p>
+    <button id="continue" type="submit">Sign in</button>
+  </form>
+  <p id="progress" role="status" hidden>Connecting… If this takes too long, check your internet connection and try again.</p>
+  <footer>Android test version 1.1</footer>
+</main>
+<script>
+  const appKind = 'driver';
+  const appOrigin = 'https://redart-web-production.up.railway.app';
+  const isPassenger = appKind === 'passenger';
+  const failed = location.pathname.endsWith('/error.html');
+  const provider = document.getElementById('provider-code');
+  document.getElementById('provider-fields').hidden = !isPassenger;
+  document.getElementById('connection-error').hidden = !failed;
+  document.getElementById('intro').textContent = isPassenger ? 'Enter your provider code to open your passenger app.' : 'Sign in with the credentials your dispatcher gave you.';
+  document.getElementById('continue').textContent = failed ? 'Try again' : isPassenger ? 'Continue' : 'Driver sign in';
+  try { provider.value = localStorage.getItem('nemt-provider-code') || ''; } catch {}
+  document.getElementById('launch-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const code = provider.value.trim().toLowerCase();
+    if (isPassenger && (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(code) || code.length > 40)) {
+      document.getElementById('validation').hidden = false;
+      return;
+    }
+    document.getElementById('validation').hidden = true;
+    if (isPassenger) { try { localStorage.setItem('nemt-provider-code', code); } catch {} }
+    document.getElementById('progress').hidden = false;
+    location.assign(appOrigin + (isPassenger ? '/' + encodeURIComponent(code) + '/passenger' : '/driver/signin'));
+  });
+</script>
+</body>
+</html>

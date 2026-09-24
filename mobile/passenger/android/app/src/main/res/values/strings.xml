@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NEMT Rides</string>
+    <string name="title_activity_main">NEMT Rides</string>
+    <string name="package_name">com.redart.rides</string>
+    <string name="custom_url_scheme">com.redart.rides</string>
+</resources>
