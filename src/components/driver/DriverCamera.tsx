@@ -78,6 +78,9 @@ export function DriverCamera() {
         } finally { syncing = false; }
       }
       activeRoom.on(RoomEvent.ParticipantConnected, syncCamera);
+      // LiveKit announces a participant before updating their permissions.
+      // Recheck once subscription rights arrive, including later revocations.
+      activeRoom.on(RoomEvent.ParticipantPermissionsChanged, syncCamera);
       activeRoom.on(RoomEvent.ParticipantDisconnected, syncCamera);
       activeRoom.on(RoomEvent.Reconnected, syncCamera);
       activeRoom.on(RoomEvent.Reconnecting, () => setStatus('Reconnecting camera…'));
