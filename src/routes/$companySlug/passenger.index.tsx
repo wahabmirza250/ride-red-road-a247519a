@@ -20,7 +20,7 @@ type RecentTrip = { id: string; dropoff_address: string; created_at: string };
 function PassengerHome() {
   const { user } = useAuth();
   const navigate = useAppNavigate();
-  const { pos } = useCurrentPosition();
+  const { pos, err } = useCurrentPosition();
   const [firstName, setFirstName] = useState<string>("");
   const [recent, setRecent] = useState<RecentTrip[]>([]);
 
@@ -119,8 +119,9 @@ function PassengerHome() {
 
 
   return (
-    <div className="space-y-6 pb-6">
-      <div className="space-y-1 pt-1">
+    <div className="passenger-home-grid pb-6">
+      <div className="passenger-booking-card space-y-6">
+      <div className="passenger-home-heading">
         <h1 className="text-2xl font-semibold tracking-tight">{greeting}</h1>
         <p className="text-sm text-muted-foreground">Where would you like to go today?</p>
       </div>
@@ -134,7 +135,7 @@ function PassengerHome() {
 
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="passenger-quick-actions">
         <AppLink
           to="/passenger/apply"
           search={{ dropoff: undefined, pickup: undefined, eventTitle: undefined }}
@@ -162,6 +163,8 @@ function PassengerHome() {
         </AppLink>
       </div>
 
+      </div>
+      <div className="space-y-6">
       {/* Saved / recent locations */}
       <section className="space-y-2.5">
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -224,18 +227,19 @@ function PassengerHome() {
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-surface-muted text-xs text-muted-foreground">
-                Fetching your location…
+                {err ? "Location unavailable. Enter your pickup address when booking." : "Finding your location…"}
               </div>
             )}
           </div>
-          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          {pos && <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <span className="relative flex h-3 w-3">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-500/60" />
               <span className="relative inline-flex h-3 w-3 rounded-full bg-sky-500 ring-2 ring-white" />
             </span>
-          </div>
+          </div>}
         </div>
       </section>
+      </div>
     </div>
   );
 }

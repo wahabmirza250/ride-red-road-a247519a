@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { isNativeApp } from "@/lib/native";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +13,7 @@ export function InstallPrompt() {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
+    if (isNativeApp()) return;
     const onBip = (e: Event) => {
       e.preventDefault();
       setEvt(e as BeforeInstallPromptEvent);
@@ -22,7 +24,7 @@ export function InstallPrompt() {
 
   if (!evt || hidden) return null;
   return (
-    <div className="fixed inset-x-3 bottom-20 z-40 flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface/95 px-4 py-3 shadow-lift backdrop-blur md:left-auto md:right-4 md:w-96">
+    <div className="app-install-prompt fixed inset-x-3 bottom-20 z-40 flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface/95 px-4 py-3 shadow-lift backdrop-blur md:left-auto md:right-4 md:w-96">
       <div className="text-sm">
         <div className="font-semibold">Install app</div>
         <div className="text-xs text-muted-foreground">Add to home screen for a native feel.</div>

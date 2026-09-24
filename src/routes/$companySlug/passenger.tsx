@@ -5,13 +5,14 @@ import { getCompanySlug } from "@/lib/companyContext";
 import { CompanyLinkRequired } from "@/components/CompanyLinkRequired";
 
 import { useServerFn } from "@tanstack/react-start";
-import { Home, PlusCircle, Newspaper, Sparkles, UserCircle2, LogOut, Trophy, Gamepad2 } from "lucide-react";
-import { BrandMark, BrandWordmark } from "@/components/Brand";
+import { Home, PlusCircle, Newspaper, Sparkles, UserCircle2, LogOut, Trophy, Gamepad2, MapPin } from "lucide-react";
+import { AppShell } from "@/components/mobile/AppShell";
+import { tenantRelativePath } from "@/lib/appNavigation";
 
 
-import { cn } from "@/lib/utils";
+
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
-import { AuroraBackdrop } from "@/components/AuroraBackdrop";
+
 import { trackVisitor } from "@/lib/passengerPublic.functions";
 import { useAuth } from "@/lib/auth";
 import { ensurePushSubscribed } from "@/lib/push";
@@ -23,13 +24,14 @@ export const Route = createFileRoute("/$companySlug/passenger")({
 });
 
 const TABS = [
-  { to: "/passenger", label: "Rides", icon: Home },
+  { to: "/passenger", label: "Home", icon: Home, exact: true },
   { to: "/passenger/apply", label: "Book", icon: PlusCircle },
+  { to: "/passenger/track", label: "Track", icon: MapPin },
+  { to: "/passenger/profile", label: "Profile", icon: UserCircle2 },
   { to: "/passenger/rewards", label: "Rewards", icon: Trophy },
   { to: "/passenger/games", label: "Games", icon: Gamepad2 },
   { to: "/passenger/events", label: "Events", icon: Sparkles },
   { to: "/passenger/news", label: "News", icon: Newspaper },
-  { to: "/passenger/profile", label: "Profile", icon: UserCircle2 },
 ] as const;
 
 function getOrCreateDeviceId(): string {
@@ -43,6 +45,7 @@ function getOrCreateDeviceId(): string {
 
 function PassengerLayout() {
   const loc = useLocation();
+  const { companySlug: routeSlug } = Route.useParams();
   const track = useServerFn(trackVisitor);
   const { user, isPassenger, isDriver, loading } = useAuth();
   // Guests must arrive through a company-specific link. Resolved after mount
@@ -98,7 +101,7 @@ function PassengerLayout() {
   // The booking flow (pickup → vehicle) uses its own full-height sticky CTAs.
   // The floating tab bar is fixed at z-30 and would sit on top of those CTAs,
   // swallowing the tap that submits the ride, so it is hidden while booking.
-  const isBooking = loc.pathname.startsWith("/passenger/book");
+  const isBooking = tenantRelativePath(loc.pathname, routeSlug).startsWith("/passenger/book/");
 
   // Strict role isolation — a signed-in admin or driver must NEVER see the
   // passenger app just because their session persists in this browser.
@@ -121,65 +124,13 @@ function PassengerLayout() {
 
 
   return (
-    <div
-      className={cn(
-        "fleet-shell surface-green relative min-h-screen text-foreground",
-        isBooking ? "pb-0" : "pb-24",
-      )}
-    >
-      <AuroraBackdrop />
-      <header className="fleet-topbar sticky top-0 z-30 flex h-14 items-center justify-between px-4">
-        <AppLink to="/passenger" className="flex items-center">
-          <BrandWordmark className="hidden h-7 sm:block" />
-          <BrandMark className="h-8 w-8 sm:hidden" />
-        </AppLink>
-
-        {user ? (
-          hasSession && (
-            <button
-              onClick={forget}
-              className="rounded-lg p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground"
-              title="Forget me on this device"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          )
-        ) : (
-          <AppLink
-            to="/passenger/signup"
-            className="rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
-          >
-            Sign in / Sign up
-          </AppLink>
-        )}
-      </header>
-      <main className="mx-auto max-w-2xl p-4 animate-rise-in">
-        <Outlet />
-      </main>
-      {!isBooking && (
-      <nav className="fleet-bottom-nav fixed bottom-3 left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center gap-1 overflow-x-auto p-1.5">
-        {TABS.map((t) => {
-          const active = loc.pathname === t.to;
-          const Icon = t.icon;
-          return (
-            <AppLink
-              key={t.to}
-              to={t.to}
-              className={cn(
-                "flex min-w-[3.25rem] flex-1 flex-col items-center gap-0.5 rounded-full py-2 text-[10px] font-medium transition-all",
-                active
-                  ? "bg-primary text-primary-foreground shadow-soft scale-[1.02]"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {t.label}
-            </AppLink>
-          );
-        })}
-      </nav>
-      )}
+    <AppShell kind="Passenger" companySlug={routeSlug} navigation={TABS} hideMobileNavigation={isBooking} actions={
+      user ? (hasSession && <button type="button" onClick={forget} className="mobile-app-icon-button" aria-label="Forget me on this device"><LogOut aria-hidden="true" /></button>) : (
+        <AppLink to="/passenger/signup" className="mobile-app-signin">Sign in</AppLink>
+      )
+    }>
+      <Outlet />
       <InstallPrompt />
-    </div>
+    </AppShell>
   );
 }

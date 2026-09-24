@@ -16,7 +16,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npx tsc --noEmit
-      - run: npx vitest run src/lib/__tests__/cameraAccess.test.ts src/lib/__tests__/nativePush.test.ts src/lib/__tests__/driverTripLifecycle.test.ts src/lib/__tests__/driverTripSaveResume.test.ts src/lib/__tests__/driverTripVerify.test.ts src/lib/__tests__/driverBottomChrome.test.ts src/lib/__tests__/rideRequestPassengerIsolation.test.ts
+      - run: npx vitest run src/lib/__tests__/appNavigation.test.ts src/lib/__tests__/cameraAccess.test.ts src/lib/__tests__/nativePush.test.ts src/lib/__tests__/driverTripLifecycle.test.ts src/lib/__tests__/driverTripSaveResume.test.ts src/lib/__tests__/driverTripVerify.test.ts src/lib/__tests__/driverBottomChrome.test.ts src/lib/__tests__/rideRequestPassengerIsolation.test.ts
       - run: npm run build
   android:
     runs-on: ubuntu-latest

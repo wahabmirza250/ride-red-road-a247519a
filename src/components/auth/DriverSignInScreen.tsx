@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import { signInAsRole } from "@/lib/roleGuardedSignIn";
 import { resolveOwnCompanySlug, NO_COMPANY_MESSAGE } from "@/lib/ownCompanyRedirect";
-import { BrandWordmark } from "@/components/Brand";
+import { AppBrand } from "@/components/mobile/AppShell";
 
 /**
  * Driver sign in. Rendered both at the company-scoped URL
@@ -51,15 +51,15 @@ export function DriverSignInScreen({ companySlug }: { companySlug?: string }) {
   }
 
   return (
-    <div className="surface-yellow relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
-      <AuroraBackdrop />
+    <div className="mobile-auth-screen relative flex min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
+
       <div className="w-full max-w-md animate-rise-in">
         <div className="mb-8 text-center">
-          <BrandWordmark className="h-12" />
+          <div className="flex justify-center"><AppBrand subtitle="Driver app" /></div>
           <p className="mt-2 text-sm text-muted-foreground">Go online. Get trips. Get paid.</p>
         </div>
 
-        <div className="rounded-3xl border border-border/60 bg-surface/70 p-8 shadow-lift backdrop-blur-xl">
+        <div className="rounded-3xl border border-border/60 bg-surface p-5 sm:p-8 shadow-lift backdrop-blur-xl">
           <h1 className="text-xl font-semibold tracking-tight">Driver sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Use the credentials your dispatcher gave you.
@@ -75,7 +75,7 @@ export function DriverSignInScreen({ companySlug }: { companySlug?: string }) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-11 rounded-xl"
+                className="h-12 rounded-xl text-base"
               />
             </div>
             <div className="space-y-1.5">
@@ -87,7 +87,7 @@ export function DriverSignInScreen({ companySlug }: { companySlug?: string }) {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-11 rounded-xl"
+                className="h-12 rounded-xl text-base"
               />
             </div>
             {errorMsg && (

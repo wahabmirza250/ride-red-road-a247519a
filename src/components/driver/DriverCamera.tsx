@@ -95,10 +95,10 @@ export function DriverCamera() {
   }
 
   return <section className="mb-4 rounded-2xl border bg-surface p-4" aria-label="Vehicle camera">
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div><p className="flex items-center gap-2 font-semibold"><Camera className="h-4 w-4" /> Vehicle camera</p>
         <p role="status" aria-live="polite" className={viewers && enabled ? 'text-sm text-red-600' : 'text-sm text-muted-foreground'}>{status}</p></div>
-      <Button variant={enabled ? 'destructive' : 'outline'} disabled={busy} onClick={enabled ? stop : start}>
+      <Button className="min-h-11" variant={enabled ? 'destructive' : 'outline'} disabled={busy} onClick={enabled ? stop : start}>
         {enabled ? <><CameraOff className="mr-2 h-4 w-4" /> Turn off</> : busy ? 'Connecting…' : 'Enable camera'}
       </Button>
     </div>

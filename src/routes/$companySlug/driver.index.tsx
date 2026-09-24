@@ -664,6 +664,8 @@ function DriverHome() {
 
   return (
     <div className="space-y-5">
+      <div className="driver-home-heading"><h1>Your shift</h1><p>Manage your trips and stay connected.</p></div>
+      <div className="driver-home-summary">
       {/* Today: shift control first, everything else supports it */}
       <section className="overflow-hidden rounded-3xl border border-border bg-surface shadow-soft">
         <div className="flex items-start justify-between gap-3 p-5">
@@ -682,13 +684,13 @@ function DriverHome() {
             type="button"
             onClick={toggleOnline}
             aria-label={online ? "Go offline" : "Go online"}
-            className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border transition ${
+            className={`flex min-h-14 shrink-0 items-center justify-center gap-2 rounded-2xl border px-4 transition ${
               online
                 ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-600"
                 : "border-border bg-surface-muted text-muted-foreground"
             }`}
           >
-            <Power className="h-6 w-6" />
+            <Power className="h-5 w-5" /><span className="text-sm font-semibold">{online ? "Online" : "Offline"}</span>
           </button>
         </div>
 
@@ -717,6 +719,7 @@ function DriverHome() {
       />
 
 
+      </div>
       <InProgressTrips />
 
       {/* Manual trip entry — driver records and completes a trip themselves */}
@@ -728,7 +731,7 @@ function DriverHome() {
         <div>
           <div className="text-sm font-semibold">New Trip</div>
           <div className="text-xs text-muted-foreground">
-            Record a trip you did yourself — passenger, odometer, signature, PDF
+            Add a completed ride or start a new trip
           </div>
         </div>
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -738,15 +741,15 @@ function DriverHome() {
 
       <div className="grid grid-cols-3 gap-2">
         <AppLink to="/driver/expenses"
-          className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface py-2 text-xs">
+          className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface min-h-12 py-3 text-sm">
           <Fuel className="h-3.5 w-3.5" /> Gas
         </AppLink>
         <AppLink to="/driver/earnings"
-          className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface py-2 text-xs">
+          className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface min-h-12 py-3 text-sm">
           Earnings
         </AppLink>
         <AppLink to="/driver/history"
-          className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface py-2 text-xs">
+          className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface min-h-12 py-3 text-sm">
           History
         </AppLink>
       </div>
