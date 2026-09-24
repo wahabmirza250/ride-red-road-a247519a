@@ -31,7 +31,10 @@ import {
 type Sb = import("@supabase/supabase-js").SupabaseClient;
 
 const norm = (s: string | null | undefined) =>
-  (s ?? "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
+  (s ?? "")
+    .toLowerCase()
+    .replace(/[^a-z]+/g, " ")
+    .trim();
 
 export type CompanyPaySettings = {
   company_id: string;
@@ -52,7 +55,8 @@ export async function loadCompanyPaySettings(
     .from("company_pay_settings")
     .select("*")
     .eq("company_id", companyId)
-    .maybeSingle();
+    .maybeSingle()
+    .throwOnError();
   return (data as CompanyPaySettings | null) ?? null;
 }
 
@@ -69,8 +73,12 @@ export async function loadPayPlans(
 
   const [company, { data: plans }, { data: legacy }] = await Promise.all([
     loadCompanyPaySettings(s, companyId),
-    s.from("driver_pay_plans").select("*").in("driver_id", driverIds),
-    s.from("driver_pay").select("driver_id, hourly_rate, payout_percentage, pay_type").in("driver_id", driverIds),
+    s.from("driver_pay_plans").select("*").in("driver_id", driverIds).throwOnError(),
+    s
+      .from("driver_pay")
+      .select("driver_id, hourly_rate, payout_percentage, pay_type")
+      .in("driver_id", driverIds)
+      .throwOnError(),
   ]);
 
   const planOf = new Map((plans ?? []).map((p: any) => [p.driver_id as string, p]));
@@ -142,13 +150,22 @@ export async function collectWork(
   },
 ): Promise<Map<string, DriverWork>> {
   const { drivers, plans, from, to } = opts;
-  const out = new Map<string, DriverWork>(drivers.map((d) => [d.id, { ...EMPTY, shift_ids: [], fuel_receipt_ids: [], claims: [], trip_ids: [] }]));
+  const out = new Map<string, DriverWork>(
+    drivers.map((d) => [
+      d.id,
+      { ...EMPTY, shift_ids: [], fuel_receipt_ids: [], claims: [], trip_ids: [] },
+    ]),
+  );
   if (!drivers.length) return out;
 
   const ids = drivers.map((d) => d.id);
-  const needHours = drivers.filter((d) => planUsesHours(plans.get(d.id)?.plan ?? "hourly")).map((d) => d.id);
+  const needHours = drivers
+    .filter((d) => planUsesHours(plans.get(d.id)?.plan ?? "hourly"))
+    .map((d) => d.id);
   const needClaims = drivers.filter((d) => planUsesCommission(plans.get(d.id)?.plan ?? "hourly"));
-  const needTrips = drivers.filter((d) => planUsesTrips(plans.get(d.id)?.plan ?? "hourly")).map((d) => d.id);
+  const needTrips = drivers
+    .filter((d) => planUsesTrips(plans.get(d.id)?.plan ?? "hourly"))
+    .map((d) => d.id);
 
   const [{ data: shifts }, { data: receipts }] = await Promise.all([
     needHours.length
@@ -159,6 +176,7 @@ export async function collectWork(
           .is("payout_id", null)
           .gte("clock_in_at", from)
           .lte("clock_in_at", to)
+          .throwOnError()
       : Promise.resolve({ data: [] as any[] }),
     s
       .from("gas_receipts")
@@ -167,7 +185,8 @@ export async function collectWork(
       .is("reimbursed_at", null)
       .is("payout_id", null)
       .gte("submitted_at", from)
-      .lte("submitted_at", to),
+      .lte("submitted_at", to)
+      .throwOnError(),
   ]);
 
   const byDriver = <T extends { driver_id: string }>(rows: T[]) => {
@@ -203,7 +222,8 @@ export async function collectWork(
       .is("payout_id", null)
       .gte("scheduled_pickup_time", from)
       .lte("scheduled_pickup_time", to)
-      .limit(5000);
+      .limit(5000)
+      .throwOnError();
     const tripIds = (trips ?? []).map((t: any) => t.id as string);
     const lockedTrips = await lockedRefs(s, "trip", tripIds);
     for (const t of (trips ?? []) as any[]) {
@@ -225,11 +245,11 @@ export async function collectWork(
         .select(
           "id, company_id, vehicle_type, odometer_start, odometer_end, pickup_at, driver_id, paper_driver_name, robot_captured_claim, riders(full_name), medicaid_trip_legs(leg_index, pickup_odometer, dropoff_odometer)",
         )
+        .eq("company_id", opts.companyId)
         .gte("pickup_at", from)
         .lte("pickup_at", to)
         .order("id", { ascending: true }),
     )) as any[];
-
 
     const ownerOf = new Map<string, string>(); // medicaid trip id -> driver_id
     for (const t of rows) {
@@ -253,7 +273,8 @@ export async function collectWork(
       const paid = new Set(records.filter((r) => r.status === "paid").map((r) => r.trip_id));
       const legacyLocked = new Set(legacyItems.map((i) => i.trip_id));
       const payableRows = rows.filter(
-        (t) => paid.has(t.id) && !lockedNew.has(t.id) && !legacyLocked.has(t.id) && ownerOf.has(t.id),
+        (t) =>
+          paid.has(t.id) && !lockedNew.has(t.id) && !legacyLocked.has(t.id) && ownerOf.has(t.id),
       );
       if (payableRows.length) {
         const { computeClaimTotals } = await import("@/lib/claimAmount.server");
@@ -287,7 +308,8 @@ export async function lockedRefs(s: Sb, kind: string, refIds: string[]): Promise
       .from("driver_payout_items")
       .select("ref_id")
       .eq("kind", kind)
-      .in("ref_id", refIds.slice(i, i + 500));
+      .in("ref_id", refIds.slice(i, i + 500))
+      .throwOnError();
     for (const r of (data ?? []) as any[]) found.add(r.ref_id);
   }
   return found;

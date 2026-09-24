@@ -160,8 +160,10 @@ function TeamPage() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Tip: on the Drivers page, click <span className="font-medium text-foreground">Add driver</span> to
-          issue an email + password. The driver then signs in at <code className="rounded bg-muted px-1">/driver/signin</code>.
+          Tip: on the Drivers page, click{" "}
+          <span className="font-medium text-foreground">Add driver</span> to issue an email +
+          password. The driver then signs in at{" "}
+          <code className="rounded bg-muted px-1">/driver/signin</code>.
         </p>
       </div>
 
@@ -172,7 +174,6 @@ function TeamPage() {
       <RobotApiKeyCard />
 
       <PortalCredentialsCard />
-
     </div>
   );
 }
@@ -217,6 +218,7 @@ function AppCard({
           size="sm"
           variant="ghost"
           className="rounded-full"
+          aria-label="Copy app link"
           onClick={() => {
             navigator.clipboard.writeText(href);
             toast.success("Link copied");
@@ -232,7 +234,13 @@ function AppCard({
 function NewAdminDialog({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const create = useServerFn(createAdmin);
-  const [form, setForm] = useState({ email: "", password: "", first_name: "", last_name: "", phone: "" });
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+    first_name: "",
+    last_name: "",
+    phone: "",
+  });
   const [submitting, setSubmitting] = useState(false);
 
   async function submit() {
@@ -259,15 +267,25 @@ function NewAdminDialog({ onClose }: { onClose: () => void }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>First name</Label>
-          <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+          <Input
+            value={form.first_name}
+            onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+          />
         </div>
         <div className="space-y-1.5">
           <Label>Last name</Label>
-          <Input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+          <Input
+            value={form.last_name}
+            onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+          />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
           <Label>Email</Label>
-          <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Input
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
           <Label>Password</Label>
@@ -326,8 +344,8 @@ function DispatchersCard() {
         <div>
           <h2 className="text-base font-semibold">Dispatchers</h2>
           <p className="text-xs text-muted-foreground">
-            Dispatch-only logins for <code className="rounded bg-muted px-1">/dispatch/signin</code>. No
-            access to billing, payroll or this dashboard.
+            Dispatch-only logins for <code className="rounded bg-muted px-1">/dispatch/signin</code>
+            . No access to billing, payroll or this dashboard.
           </p>
         </div>
         <Dialog open={openNew} onOpenChange={setOpenNew}>
@@ -372,7 +390,10 @@ function DispatchersCard() {
                   className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
                   disabled={removingId === d.id}
                   onClick={() =>
-                    remove(d.id, [d.first_name, d.last_name].filter(Boolean).join(" ") || d.email || "")
+                    remove(
+                      d.id,
+                      [d.first_name, d.last_name].filter(Boolean).join(" ") || d.email || "",
+                    )
                   }
                 >
                   {removingId === d.id ? (
@@ -479,7 +500,6 @@ function NewDispatcherDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-
 function BillingStaffCard() {
   const qc = useQueryClient();
   const fetchBillers = useServerFn(listBillingUsers);
@@ -511,8 +531,8 @@ function BillingStaffCard() {
         <div>
           <h2 className="text-base font-semibold">Billing staff</h2>
           <p className="text-xs text-muted-foreground">
-            Billing-only logins for <code className="rounded bg-muted px-1">/billing/signin</code>. No
-            access to the driver, dispatch or passenger apps, payroll, or portal passwords.
+            Billing-only logins for <code className="rounded bg-muted px-1">/billing/signin</code>.
+            No access to the driver, dispatch or passenger apps, payroll, or portal passwords.
           </p>
         </div>
         <Dialog open={openNew} onOpenChange={setOpenNew}>
@@ -563,7 +583,10 @@ function BillingStaffCard() {
                   className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
                   disabled={removingId === d.id}
                   onClick={() =>
-                    remove(d.id, [d.first_name, d.last_name].filter(Boolean).join(" ") || d.email || "")
+                    remove(
+                      d.id,
+                      [d.first_name, d.last_name].filter(Boolean).join(" ") || d.email || "",
+                    )
                   }
                 >
                   {removingId === d.id ? (

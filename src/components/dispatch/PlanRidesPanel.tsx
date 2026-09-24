@@ -1,3 +1,4 @@
+import { useWorkspaceSearch } from "@/lib/useWorkspaceSearch";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -39,9 +40,9 @@ export function PlanRidesPanel() {
   const [rides, setRides] = useState<Ride[] | null>(null);
   const [drivers, setDrivers] = useState<Array<{ id: string; name: string; status: string }>>([]);
   const [busy, setBusy] = useState<string | null>(null);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [query, setQuery] = useState("");
+  const [from, setFrom] = useWorkspaceSearch("from", "");
+  const [to, setTo] = useWorkspaceSearch("to", "");
+  const [query, setQuery] = useWorkspaceSearch("q", "");
 
   const refresh = useCallback(async () => {
     try {
@@ -86,10 +87,7 @@ export function PlanRidesPanel() {
     );
   }, [rides, query]);
 
-  const unassignedCount = useMemo(
-    () => filtered.filter((r) => !r.driver_id).length,
-    [filtered],
-  );
+  const unassignedCount = useMemo(() => filtered.filter((r) => !r.driver_id).length, [filtered]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Ride[]>();

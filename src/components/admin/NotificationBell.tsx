@@ -4,15 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { Bell, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseBrowser";
-import {
-  listAdminNotifications,
-  markNotificationRead,
-} from "@/lib/adminNotifications.functions";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { listAdminNotifications, markNotificationRead } from "@/lib/adminNotifications.functions";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -103,16 +96,11 @@ export function NotificationBell() {
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-0">
+      <PopoverContent align="end" className="w-96 max-w-[calc(100vw-1rem)] p-0">
         <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
           <div className="text-sm font-semibold">Notifications</div>
           {unread > 0 && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 gap-1 text-xs"
-              onClick={markAll}
-            >
+            <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={markAll}>
               <CheckCheck className="h-3.5 w-3.5" /> Mark all read
             </Button>
           )}

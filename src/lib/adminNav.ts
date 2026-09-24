@@ -31,7 +31,7 @@ import { withSlug } from "@/lib/appLink";
  */
 export const ADMIN_NAV_GROUPS = [
   [
-    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/dashboard", label: "Today", icon: LayoutDashboard },
     { to: "/live-ops", label: "Dispatch", icon: Radio },
   ],
   [

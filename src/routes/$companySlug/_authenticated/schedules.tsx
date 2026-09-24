@@ -1,3 +1,4 @@
+import { QueryNotice } from "@/components/admin/QueryNotice";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -87,30 +88,50 @@ function SchedulesPage() {
     },
   });
 
-  const shiftForDay = (d: Date) => shifts.data?.find((s) => s.shift_date === d.toISOString().slice(0, 10));
+  const shiftForDay = (d: Date) =>
+    shifts.data?.find((s) => s.shift_date === d.toISOString().slice(0, 10));
 
   return (
     <div className="space-y-6">
       <PageHeader title="Schedules" description="Weekly shift planning." />
+      <QueryNotice query={shifts} label="Schedules" />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-[240px]">
-          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Driver</label>
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Driver
+          </label>
           <Select value={driverId} onValueChange={setDriverId}>
-            <SelectTrigger className="rounded-full"><SelectValue placeholder="Pick driver" /></SelectTrigger>
+            <SelectTrigger className="rounded-full">
+              <SelectValue placeholder="Pick driver" />
+            </SelectTrigger>
             <SelectContent>
-              {drivers.data?.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+              {drivers.data?.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Button size="icon" variant="ghost" onClick={() => setWeekStart((w) => addDays(w, -7))}>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Previous week"
+            onClick={() => setWeekStart((w) => addDays(w, -7))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="text-sm font-medium">
             Week of {weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
           </div>
-          <Button size="icon" variant="ghost" onClick={() => setWeekStart((w) => addDays(w, 7))}>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Next week"
+            onClick={() => setWeekStart((w) => addDays(w, 7))}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -122,7 +143,7 @@ function SchedulesPage() {
         </div>
       )}
 
-      {driverId && (
+      {driverId && !shifts.isError && (
         <div className="grid gap-3 md:grid-cols-7">
           {week.map((d) => {
             const shift = shiftForDay(d);
@@ -135,14 +156,16 @@ function SchedulesPage() {
                 <div className="text-xs uppercase tracking-wide text-muted-foreground">
                   {d.toLocaleDateString(undefined, { weekday: "short" })}
                 </div>
-                <div className="mt-0.5 text-lg font-semibold">
-                  {d.getDate()}
-                </div>
+                <div className="mt-0.5 text-lg font-semibold">{d.getDate()}</div>
                 {shift ? (
                   <div className="mt-2 text-xs">
-                    <div className="font-medium">{formatTime(shift.start_time)} – {formatTime(shift.end_time)}</div>
+                    <div className="font-medium">
+                      {formatTime(shift.start_time)} – {formatTime(shift.end_time)}
+                    </div>
                     <div className="text-muted-foreground">
-                      {(new Date(shift.end_time).getTime() - new Date(shift.start_time).getTime()) / 3_600_000} hrs
+                      {(new Date(shift.end_time).getTime() - new Date(shift.start_time).getTime()) /
+                        3_600_000}{" "}
+                      hrs
                     </div>
                   </div>
                 ) : (
@@ -156,7 +179,12 @@ function SchedulesPage() {
 
       <Dialog open={!!openDay} onOpenChange={(o) => !o && setOpenDay(null)}>
         {openDay && driverId && (
-          <ShiftDialog day={openDay} driverId={driverId} shift={shiftForDay(openDay) ?? null} onClose={() => setOpenDay(null)} />
+          <ShiftDialog
+            day={openDay}
+            driverId={driverId}
+            shift={shiftForDay(openDay) ?? null}
+            onClose={() => setOpenDay(null)}
+          />
         )}
       </Dialog>
     </div>
@@ -176,12 +204,8 @@ function ShiftDialog({
 }) {
   const qc = useQueryClient();
   const dayIso = day.toISOString().slice(0, 10);
-  const defaultStart = shift
-    ? shift.start_time.slice(0, 16)
-    : `${dayIso}T09:00`;
-  const defaultEnd = shift
-    ? shift.end_time.slice(0, 16)
-    : `${dayIso}T17:00`;
+  const defaultStart = shift ? shift.start_time.slice(0, 16) : `${dayIso}T09:00`;
+  const defaultEnd = shift ? shift.end_time.slice(0, 16) : `${dayIso}T17:00`;
   const [start, setStart] = useState(defaultStart);
   const [end, setEnd] = useState(defaultEnd);
   const [notes, setNotes] = useState(shift?.notes ?? "");
@@ -233,22 +257,47 @@ function ShiftDialog({
       </DialogHeader>
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5"><Label>Start</Label><Input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>End</Label><Input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} /></div>
+          <div className="space-y-1.5">
+            <Label>Start</Label>
+            <Input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>End</Label>
+            <Input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
+          </div>
         </div>
-        <div className="space-y-1.5"><Label>Notes</Label><Input value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+        <div className="space-y-1.5">
+          <Label>Notes</Label>
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
       </div>
       <DialogFooter className="flex items-center justify-between">
         {shift ? (
-          <Button variant="ghost" className="text-destructive" onClick={() => remove.mutate()} disabled={remove.isPending}>
+          <Button
+            variant="ghost"
+            className="text-destructive"
+            onClick={() => remove.mutate()}
+            disabled={remove.isPending}
+          >
             <Trash2 className="mr-2 h-4 w-4" /> Delete
           </Button>
-        ) : <span />}
+        ) : (
+          <span />
+        )}
         <div className="flex gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
           <Button onClick={() => save.mutate()} disabled={save.isPending}>
             {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {shift ? "Save" : <><Plus className="mr-2 h-4 w-4" />Add</>}
+            {shift ? (
+              "Save"
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Add
+              </>
+            )}
           </Button>
         </div>
       </DialogFooter>

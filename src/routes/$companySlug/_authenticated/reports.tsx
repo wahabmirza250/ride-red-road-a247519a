@@ -1,3 +1,4 @@
+import { QueryNotice } from "@/components/admin/QueryNotice";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCompanySlug } from "@/lib/appLink";
 import { useQuery } from "@tanstack/react-query";
@@ -40,8 +41,9 @@ function useDriverOptions() {
       return (drivers ?? []).map((d) => ({
         id: d.id,
         name:
-          [map.get(d.user_id)?.first_name, map.get(d.user_id)?.last_name].filter(Boolean).join(" ") ||
-          `Driver ${d.id.slice(0, 6)}`,
+          [map.get(d.user_id)?.first_name, map.get(d.user_id)?.last_name]
+            .filter(Boolean)
+            .join(" ") || `Driver ${d.id.slice(0, 6)}`,
       })) as DriverOpt[];
     },
   });
@@ -65,7 +67,9 @@ function ReportsPage() {
     queryKey: ["payroll", driverId, period.from.toISOString(), period.to.toISOString()],
     enabled: !!driverId,
     queryFn: () =>
-      payrollFn({ data: { driver_id: driverId, from: period.from.toISOString(), to: period.to.toISOString() } }),
+      payrollFn({
+        data: { driver_id: driverId, from: period.from.toISOString(), to: period.to.toISOString() },
+      }),
   });
 
   const routeQuery = useQuery({
@@ -93,7 +97,11 @@ function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Reports" description="Payroll, mileage, GPS routes." />
+      <PageHeader
+        title="Reports"
+        description="Payable work uses the same pay plans as Salary. Paid work is in Salary payment history."
+      />
+      <QueryNotice query={payroll} label="Payroll" />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-[240px]">
@@ -101,10 +109,14 @@ function ReportsPage() {
             Driver
           </label>
           <Select value={driverId} onValueChange={setDriverId}>
-            <SelectTrigger className="rounded-full"><SelectValue placeholder="Pick a driver" /></SelectTrigger>
+            <SelectTrigger className="rounded-full">
+              <SelectValue placeholder="Pick a driver" />
+            </SelectTrigger>
             <SelectContent>
               {drivers.data?.map((d) => (
-                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -114,7 +126,9 @@ function ReportsPage() {
             Period
           </label>
           <Select value={range} onValueChange={(v: "today" | "7d" | "all") => setRange(v)}>
-            <SelectTrigger className="rounded-full"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="rounded-full">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="today">Today</SelectItem>
               <SelectItem value="7d">Last 7 days</SelectItem>
@@ -143,16 +157,37 @@ function ReportsPage() {
       )}
 
       {driverId && payroll.isLoading && (
-        <div className="flex justify-center py-10"><Loader2 className="h-4 w-4 animate-spin" /></div>
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-4 w-4 animate-spin" />
+        </div>
       )}
 
       {payroll.data && (
         <>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <StatCard label="Trips" value={payroll.data.trips_completed} icon={<RouteIcon className="h-5 w-5" />} />
-            <StatCard label="Hours" value={payroll.data.hours} icon={<Clock className="h-5 w-5" />} accent="info" />
-            <StatCard label="Fuel" value={formatCurrency(payroll.data.fuel_cost)} icon={<Fuel className="h-5 w-5" />} accent="warning" />
-            <StatCard label="Total pay" value={formatCurrency(payroll.data.total)} icon={<DollarSign className="h-5 w-5" />} accent="success" />
+            <StatCard
+              label="Payable trips"
+              value={payroll.data.trips_completed}
+              icon={<RouteIcon className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Hours"
+              value={payroll.data.hours}
+              icon={<Clock className="h-5 w-5" />}
+              accent="info"
+            />
+            <StatCard
+              label="Fuel"
+              value={formatCurrency(payroll.data.fuel_cost)}
+              icon={<Fuel className="h-5 w-5" />}
+              accent="warning"
+            />
+            <StatCard
+              label="Unpaid work + fuel"
+              value={formatCurrency(payroll.data.total)}
+              icon={<DollarSign className="h-5 w-5" />}
+              accent="success"
+            />
           </div>
 
           <div className="rounded-2xl border border-border bg-surface p-4 shadow-soft">

@@ -97,7 +97,8 @@ export const dispatchCreatePassenger = createServerFn({ method: "POST" })
       .select("id, first_name, last_name, medicaid_id, phone")
       .single();
     if (error) {
-      if (error.code === "23505") throw new Error("This Medicaid ID already exists for your company");
+      if (error.code === "23505")
+        throw new Error("This Medicaid ID already exists for your company");
       throw new Error("Could not add passenger");
     }
 
@@ -147,15 +148,21 @@ export const dispatchScheduleRide = createServerFn({ method: "POST" })
     const companyId = await activeCompanyId(context.userId);
 
     const { data: passenger } = await supabaseAdmin
-      .from("passengers").select("id, first_name, last_name, phone, medicaid_id").eq("id", data.passenger_id)
-      .eq("company_id", companyId).maybeSingle();
+      .from("passengers")
+      .select("id, first_name, last_name, phone, medicaid_id")
+      .eq("id", data.passenger_id)
+      .eq("company_id", companyId)
+      .maybeSingle();
     if (!passenger) throw new Error("Selected passenger does not belong to this company");
 
     const driverId = data.driver_id || null;
     if (driverId) {
       const { data: driver } = await supabaseAdmin
-        .from("drivers").select("id").eq("id", driverId)
-        .eq("company_id", companyId).maybeSingle();
+        .from("drivers")
+        .select("id")
+        .eq("id", driverId)
+        .eq("company_id", companyId)
+        .maybeSingle();
       if (!driver) throw new Error("Selected driver does not belong to this company");
     }
 
@@ -169,7 +176,7 @@ export const dispatchScheduleRide = createServerFn({ method: "POST" })
       .insert({
         company_id: companyId,
         passenger_id: passenger.id,
-        driver_id: driverId,
+        driver_id: null,
         trip_id: null,
         status: "pending",
         source: "dispatcher",
@@ -199,5 +206,14 @@ export const dispatchScheduleRide = createServerFn({ method: "POST" })
       summary: `Scheduled ride ${data.pickup_address} → ${data.dropoff_address} for ${new Date(iso).toLocaleString()}`,
       data: { scheduled_pickup_time: iso, company_id: companyId },
     });
-    return request;
+    let assignmentWarning: string | null = null;
+    if (driverId) {
+      const { error: assignmentError } = await context.supabase.rpc(
+        "admin_assign_trip" as never,
+        { p_trip: request.id, p_driver: driverId, p_preview: false, p_source: "request" } as never,
+      );
+      if (assignmentError) assignmentWarning = "Ride saved unassigned: " + assignmentError.message;
+      else request.driver_id = driverId;
+    }
+    return { ...request, assignmentWarning };
   });

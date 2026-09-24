@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Banknote, Percent } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { PayrollPage } from "./payroll.index";
-import { DriverPayPage } from "./driver-pay";
 
 export const Route = createFileRoute("/$companySlug/_authenticated/salary")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    method: ["hourly", "percentage"].includes(String(s.method)) ? String(s.method) : "hourly",
+    from: typeof s.from === "string" ? s.from : undefined,
+    to: typeof s.to === "string" ? s.to : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Driver Salary — RedArt NEMT" },
@@ -18,7 +20,7 @@ export const Route = createFileRoute("/$companySlug/_authenticated/salary")({
       { property: "og:title", content: "Driver Salary — RedArt NEMT" },
       {
         property: "og:description",
-        content: "Hourly payroll and percentage-of-paid-claims payouts in a single workspace.",
+        content: "All pay plans and percentage-of-paid-claims payouts in a single workspace.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -27,32 +29,15 @@ export const Route = createFileRoute("/$companySlug/_authenticated/salary")({
   component: SalaryPage,
 });
 
-type Method = "hourly" | "percentage";
-
 function SalaryPage() {
-  const [method, setMethod] = useState<Method>("hourly");
-
   return (
     <div className="space-y-5">
       <PageHeader
         title="Salary"
-        description="Pay drivers by clocked hours or by a percentage of paid Medicaid claims — pick the method for this payout."
+        description="Review unpaid work using each driver’s hourly, commission or per-trip plan. Payment history is shown separately."
       />
 
-      <Tabs value={method} onValueChange={(v) => setMethod(v as Method)}>
-        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap sm:flex-wrap">
-          <TabsTrigger value="hourly" className="shrink-0 whitespace-nowrap">
-            <Banknote className="mr-1.5 h-4 w-4" />
-            Hourly payroll
-          </TabsTrigger>
-          <TabsTrigger value="percentage" className="shrink-0 whitespace-nowrap">
-            <Percent className="mr-1.5 h-4 w-4" />
-            % of paid claims
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {method === "hourly" ? <PayrollPage embedded /> : <DriverPayPage embedded />}
+      <PayrollPage embedded />
     </div>
   );
 }

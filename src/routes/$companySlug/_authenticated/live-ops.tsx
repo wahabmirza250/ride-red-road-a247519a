@@ -1,3 +1,5 @@
+import { locationState } from "@/lib/operationStatus";
+import { useWorkspaceSearch } from "@/lib/useWorkspaceSearch";
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { PlanRidesPanel } from "@/components/dispatch/PlanRidesPanel";
 import { useCallback, useEffect, useState } from "react";
@@ -11,8 +13,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAutoAssign, setAutoAssign } from "@/lib/settings.functions";
 
 export const Route = createFileRoute("/$companySlug/_authenticated/live-ops")({
-  validateSearch: (search: Record<string, unknown>): { tab?: "today" | "plan" } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: "today" | "plan"; from?: string; to?: string; q?: string } => ({
     tab: search.tab === "plan" ? "plan" : undefined,
+    from: typeof search.from === "string" ? search.from : undefined,
+    to: typeof search.to === "string" ? search.to : undefined,
+    q: typeof search.q === "string" ? search.q : undefined,
   }),
   component: DispatchWorkspace,
 });
@@ -23,7 +30,7 @@ export const Route = createFileRoute("/$companySlug/_authenticated/live-ops")({
  */
 function DispatchWorkspace() {
   const search = useSearch({ strict: false }) as { tab?: string };
-  const [tab, setTab] = useState<"today" | "plan">(search.tab === "plan" ? "plan" : "today");
+  const [tab, setTab] = useWorkspaceSearch("tab", "today");
 
   return (
     <div className="space-y-4">
@@ -34,10 +41,12 @@ function DispatchWorkspace() {
         </p>
       </div>
       <div className="inline-flex rounded-xl border border-border bg-surface p-1 text-sm">
-        {([
-          { id: "today", label: "Today" },
-          { id: "plan", label: "Plan rides" },
-        ] as const).map((t) => (
+        {(
+          [
+            { id: "today", label: "Today" },
+            { id: "plan", label: "Plan rides" },
+          ] as const
+        ).map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
@@ -64,6 +73,7 @@ type DriverRow = {
   status: "available" | "busy" | "offline";
   current_lat: number | null;
   current_lng: number | null;
+  last_location_at: string | null;
   name?: string;
 };
 type Req = {
@@ -77,11 +87,15 @@ type Req = {
   created_at: string;
 };
 
-
 function LiveOps() {
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [reqs, setReqs] = useState<Req[]>([]);
-  const [focus, setFocus] = useState<{ lat: number; lng: number; zoom?: number; id?: string } | null>(null);
+  const [focus, setFocus] = useState<{
+    lat: number;
+    lng: number;
+    zoom?: number;
+    id?: string;
+  } | null>(null);
   const [reassigning, setReassigning] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const reassign = useServerFn(adminReassignDriver);
@@ -119,58 +133,71 @@ function LiveOps() {
     [cancelTrip],
   );
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [updated, setUpdated] = useState<string | null>(null);
   const load = useCallback(async () => {
-    const [{ data: d }, { data: r }] = await Promise.all([
-      supabase.from("drivers").select("id,user_id,status,current_lat,current_lng"),
-      supabase
-        .from("ride_requests")
-        .select("id,status,driver_id,pickup_address,dropoff_address,contact_phone,estimated_fare,created_at")
-        .in("status", ["pending", "accepted"])
-        .order("created_at", { ascending: false })
-        .limit(50),
-
-    ]);
-    const rows = (d ?? []) as DriverRow[];
-    const ids = rows.map((x) => x.user_id);
-    const { data: profs } = ids.length
-      ? await supabase.from("profiles").select("id, first_name, last_name").in("id", ids)
-      : { data: [] as { id: string; first_name: string | null; last_name: string | null }[] };
-    const map = new Map<string, string>();
-    (profs ?? []).forEach((p) =>
-      map.set(p.id, (p.first_name ?? "").trim() || `${p.last_name ?? "Driver"}`),
-    );
-    setDrivers(rows.map((x) => ({ ...x, name: map.get(x.user_id) ?? "Driver" })));
-    setReqs((r ?? []) as Req[]);
+    try {
+      const [{ data: d, error: driverError }, { data: r, error: requestError }] = await Promise.all(
+        [
+          supabase
+            .from("drivers")
+            .select("id,user_id,status,current_lat,current_lng,last_location_at"),
+          supabase
+            .from("ride_requests")
+            .select(
+              "id,status,driver_id,pickup_address,dropoff_address,contact_phone,estimated_fare,created_at",
+            )
+            .in("status", ["pending", "accepted"])
+            .order("created_at", { ascending: false })
+            .limit(50),
+        ],
+      );
+      if (driverError || requestError)
+        throw new Error("Driver or ride data could not be refreshed");
+      const rows = (d ?? []) as DriverRow[];
+      const ids = rows.map((x) => x.user_id);
+      const { data: profs } = ids.length
+        ? await supabase.from("profiles").select("id, first_name, last_name").in("id", ids)
+        : { data: [] as { id: string; first_name: string | null; last_name: string | null }[] };
+      const map = new Map<string, string>();
+      (profs ?? []).forEach((p) =>
+        map.set(p.id, (p.first_name ?? "").trim() || `${p.last_name ?? "Driver"}`),
+      );
+      setDrivers(rows.map((x) => ({ ...x, name: map.get(x.user_id) ?? "Driver" })));
+      setReqs((r ?? []) as Req[]);
+      setLoadError(null);
+      setUpdated(new Date().toLocaleTimeString());
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Connection unavailable");
+    }
   }, []);
 
   useEffect(() => {
     void load();
+    const refreshTimer = window.setInterval(() => void load(), 15000);
     const ch = supabase
       .channel("live-ops")
       .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "ride_requests" }, load)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "trips" },
-        (payload) => {
-          const oldStatus = (payload.old as { status?: string } | null)?.status;
-          const newStatus = (payload.new as { status?: string } | null)?.status;
-          if (newStatus && oldStatus !== newStatus) {
-            const label: Record<string, string> = {
-              driver_en_route_to_pickup: "Driver started pickup",
-              arrived_at_pickup: "Driver arrived at pickup",
-              in_progress: "Trip in progress",
-              completed: "Trip completed",
-              cancelled: "Trip cancelled",
-            };
-            const msg = label[newStatus];
-            if (msg) toast(msg);
-          }
-          load();
-        },
-      )
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "trips" }, (payload) => {
+        const oldStatus = (payload.old as { status?: string } | null)?.status;
+        const newStatus = (payload.new as { status?: string } | null)?.status;
+        if (newStatus && oldStatus !== newStatus) {
+          const label: Record<string, string> = {
+            driver_en_route_to_pickup: "Driver started pickup",
+            arrived_at_pickup: "Driver arrived at pickup",
+            in_progress: "Trip in progress",
+            completed: "Trip completed",
+            cancelled: "Trip cancelled",
+          };
+          const msg = label[newStatus];
+          if (msg) toast(msg);
+        }
+        load();
+      })
       .subscribe();
     return () => {
+      window.clearInterval(refreshTimer);
       supabase.removeChannel(ch);
     };
   }, [load]);
@@ -181,16 +208,27 @@ function LiveOps() {
       id: d.id,
       lat: Number(d.current_lat),
       lng: Number(d.current_lng),
-      status: d.status,
+      status: locationState(d) === "Live" ? d.status : "offline",
       label: d.name ?? "Driver",
     }));
 
-  const onlineCount = drivers.filter((d) => d.status !== "offline").length;
+  const onlineCount = drivers.filter((d) => locationState(d) === "Live").length;
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Real-time drivers and active ride requests. Updates automatically.
+      </p>
+      {loadError && (
+        <div role="alert" className="rounded-xl border border-destructive p-3 text-sm">
+          {loadError}. {updated ? "Last successful update: " + updated : "Data unavailable."}{" "}
+          <button onClick={() => void load()} className="underline">
+            Retry
+          </button>
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">
+        {updated ? "Updated " + updated : "Loading operations…"}
       </p>
       <AutoAssignCard />
       <div className="grid grid-cols-3 gap-3">
@@ -199,9 +237,12 @@ function LiveOps() {
           { label: "Pending requests", value: reqs.filter((r) => r.status === "pending").length },
           { label: "Active trips", value: reqs.filter((r) => r.status === "accepted").length },
         ].map((c) => (
-          <div key={c.label} className="rounded-2xl border border-border bg-surface p-4 shadow-soft">
+          <div
+            key={c.label}
+            className="rounded-2xl border border-border bg-surface p-4 shadow-soft"
+          >
             <div className="text-xs uppercase tracking-widest text-muted-foreground">{c.label}</div>
-            <div className="mt-1 text-2xl font-bold">{c.value}</div>
+            <div className="mt-1 text-2xl font-bold">{loadError || !updated ? "—" : c.value}</div>
           </div>
         ))}
       </div>
@@ -231,17 +272,19 @@ function LiveOps() {
           )}
         </div>
         <div className="divide-y divide-border">
-          {drivers.length === 0 && (
+          {!loadError && updated && drivers.length === 0 && (
             <div className="py-6 text-center text-sm text-muted-foreground">No drivers yet.</div>
           )}
           {drivers.map((d) => {
             const hasGps = d.current_lat != null && d.current_lng != null;
             const dot =
-              d.status === "busy"
-                ? "bg-amber-500"
-                : d.status === "available"
-                  ? "bg-emerald-500"
-                  : "bg-gray-400";
+              locationState(d) !== "Live"
+                ? "bg-gray-400"
+                : d.status === "busy"
+                  ? "bg-amber-500"
+                  : d.status === "available"
+                    ? "bg-emerald-500"
+                    : "bg-gray-400";
             const selected = focus?.id === d.id;
             return (
               <button
@@ -265,7 +308,10 @@ function LiveOps() {
                   <div>
                     <div className="font-medium">{d.name ?? "Driver"}</div>
                     <div className="text-xs text-muted-foreground">
-                      {d.status.replace(/_/g, " ")}
+                      {d.status.replace(/_/g, " ")} · GPS {locationState(d)}
+                      {d.last_location_at
+                        ? " · " + new Date(d.last_location_at).toLocaleTimeString()
+                        : ""}
                       {!hasGps && " · no GPS"}
                     </div>
                   </div>
@@ -285,9 +331,7 @@ function LiveOps() {
         <div className="mb-3 flex items-center justify-between text-sm font-semibold">
           <span>Active requests</span>
           {(() => {
-            const unassigned = reqs.filter(
-              (r) => r.status === "pending" && !r.driver_id,
-            ).length;
+            const unassigned = reqs.filter((r) => r.status === "pending" && !r.driver_id).length;
             return unassigned > 0 ? (
               <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600">
                 {unassigned} awaiting manual dispatch
@@ -319,9 +363,7 @@ function LiveOps() {
                     {unassigned && (
                       <span
                         className={`rounded-full px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal ${
-                          stale
-                            ? "bg-amber-500 text-white"
-                            : "bg-amber-500/15 text-amber-600"
+                          stale ? "bg-amber-500 text-white" : "bg-amber-500/15 text-amber-600"
                         }`}
                       >
                         {stale ? "Needs manual dispatch" : "Unassigned"}
@@ -432,8 +474,8 @@ function DispatchPhoneCard() {
     <div className="rounded-2xl border border-border bg-surface p-4">
       <div className="mb-2 text-sm font-semibold">Dispatch phone number</div>
       <p className="mb-3 text-xs text-muted-foreground">
-        Shown to passengers when no driver is auto-matched. Use a number that reaches your
-        dispatch team 24/7.
+        Shown to passengers when no driver is auto-matched. Use a number that reaches your dispatch
+        team 24/7.
       </p>
       <div className="flex gap-2">
         <input
@@ -460,8 +502,6 @@ function DispatchPhoneCard() {
     </div>
   );
 }
-
-
 
 /**
  * Company-level auto-assign toggle. Admin-only write (the server function

@@ -10,11 +10,19 @@ declare global {
   interface Window {
     __lovableGmapsCb?: () => void;
     google?: typeof google;
+    gm_authFailure?: () => void;
+    mapsAuthorizationFailed?: boolean;
   }
 }
 
 export function loadGoogleMaps(): Promise<typeof google> {
   if (typeof window === "undefined") return Promise.reject(new Error("SSR"));
+  if (window.mapsAuthorizationFailed)
+    return Promise.reject(new Error("Map authorization unavailable"));
+  window.gm_authFailure = () => {
+    window.mapsAuthorizationFailed = true;
+    window.dispatchEvent(new Event("maps-auth-failure"));
+  };
   if (window.google?.maps) return Promise.resolve(window.google);
   if (loaderPromise) return loaderPromise;
 
@@ -25,18 +33,24 @@ export function loadGoogleMaps(): Promise<typeof google> {
           reject(new Error("Google Maps browser key missing"));
           return;
         }
+        const timeout = window.setTimeout(
+          () => reject(new Error("Map connection timed out")),
+          12000,
+        );
         window.__lovableGmapsCb = () => {
+          window.clearTimeout(timeout);
           if (window.google?.maps) resolve(window.google);
           else reject(new Error("Google Maps failed to load"));
         };
         const s = document.createElement("script");
         const params = new URLSearchParams({
           key,
-          libraries: "places",
+          libraries: "places,geometry",
           loading: "async",
           callback: "__lovableGmapsCb",
         });
-        const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
+        const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as
+          string | undefined;
         if (channel) params.set("channel", channel);
         s.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
         s.async = true;
@@ -51,4 +65,3 @@ export function loadGoogleMaps(): Promise<typeof google> {
 
   return loaderPromise!;
 }
-

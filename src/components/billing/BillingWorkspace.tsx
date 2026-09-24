@@ -1,3 +1,5 @@
+import { useWorkspaceSearch } from "@/lib/useWorkspaceSearch";
+import { QueryNotice } from "@/components/admin/QueryNotice";
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
 import { DuplicateSubmitDialog } from "@/components/billing/DuplicateSubmitDialog";
 import { parseDuplicateClaimError, type DuplicateClaimInfo } from "@/lib/duplicateSubmit";
@@ -52,7 +54,6 @@ import {
   startRobotForRecord,
   startRobotForRecords,
   sweepRobotJobsForCompany,
-
 } from "@/lib/billing.functions";
 import { getPortal } from "@/lib/portals";
 import { BillingDetailSheet } from "@/components/billing/BillingDetailSheet";
@@ -86,7 +87,6 @@ import {
   type ReadySort,
 } from "@/lib/readyResubmissions";
 
-
 import {
   BILLING_PAGE_DESCRIPTION,
   WAITING_FOR_SLOT_MESSAGE,
@@ -108,8 +108,6 @@ import { BillingInsights } from "@/components/billing/BillingInsights";
 
 import { MedicalReviewTab } from "@/components/billing/MedicalReviewTab";
 
-
-
 import {
   cancelSubmissionClient,
   deleteBillingRecordsClient,
@@ -117,7 +115,6 @@ import {
   listBillingRecordsClient,
 } from "@/lib/billingClient";
 import { friendlyErrorMessage } from "@/lib/errorMessage";
-
 
 /** A server-function call that died at the edge rejects with the HTML error shell. */
 function looksLikeEdgeFailure(e: unknown): boolean {
@@ -133,7 +130,6 @@ function looksLikeEdgeFailure(e: unknown): boolean {
   );
 }
 
-
 type TabKey =
   | "pending_review"
   | "ready_to_submit"
@@ -145,7 +141,6 @@ type TabKey =
   | "claims_history"
   | "payroll"
   | "denied";
-
 
 const TABS: {
   key: TabKey;
@@ -211,7 +206,6 @@ const TABS: {
     countKeys: ["submitting", "queued", "pending_submit", "awaiting_portal_extra"],
   },
 
-
   {
     key: "submitted",
     label: "Submitted",
@@ -258,11 +252,6 @@ const STAGE_HINTS: Partial<Record<TabKey, string>> = {
   submitted: "Claim number saved",
 };
 
-
-
-
-
-
 /** The full billing workflow. Lives in the dedicated Billing app; admins can
  *  reach it too. */
 /**
@@ -275,7 +264,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
   const { isAdmin, isBilling } = useAuth();
   const canBill = isAdmin || isBilling;
   const qc = useQueryClient();
-  const [tab, setTab] = useState<TabKey>("pending_review");
+  const [requestedTab, setTab] = useWorkspaceSearch("stage", "pending_review");
+  const tab: TabKey = TABS.some((t) => t.key === requestedTab)
+    ? (requestedTab as TabKey)
+    : "pending_review";
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
 
@@ -289,8 +281,6 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     window.addEventListener("hashchange", apply);
     return () => window.removeEventListener("hashchange", apply);
   }, []);
-
-
 
   const listFn = useServerFn(listBillingRecords);
   const countsFn = useServerFn(getBillingCounts);
@@ -405,7 +395,6 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     setCorrectedSelected((prev) => new Set([...prev].filter((id) => live.has(id))));
   }, [corrected.data]);
 
-
   // Corrected copies that already LEFT Ready: claimed (processing), failed
   // (never sent) or submitted with a NEW claim number.
   const stageFn = useServerFn(listResubmissionsByStage);
@@ -480,7 +469,6 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     };
   }, [qc]);
 
-
   // Background status sweep. Robot results used to land only while a detail
   // sheet was open, which is why a 4-minute job looked like an 18-minute one.
   // While the billing app is open we reconcile every in-flight job for the
@@ -539,17 +527,11 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     ? submissionBlockedReason(setupStatus.data as any)
     : null;
 
-
-
-
-
-
   function countFor(key: TabKey) {
     const t = TABS.find((x) => x.key === key)!;
     if (!counts.data || t.countKeys.length === 0) return null;
     return t.countKeys.reduce((sum, k) => sum + (counts.data![k] ?? 0), 0);
   }
-
 
   if (!canBill) {
     return <div className="p-6 text-sm text-muted-foreground">Billing staff only.</div>;
@@ -575,20 +557,23 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
           <div>
             <div className="font-medium">No default billing portal selected</div>
             <div className="text-xs">
-              Go to <strong>Team &amp; apps → Billing portal</strong> to choose
-              which state portal these trips submit to.
+              Go to <strong>Team &amp; apps → Billing portal</strong> to choose which state portal
+              these trips submit to.
             </div>
           </div>
         </div>
       )}
 
       {/* First row: the six numbers that matter, then the overview charts. */}
-      <BillingKpiRow
-        counts={counts.data as any}
-        loading={counts.isLoading}
-        onSelect={(k) => setTab(k as TabKey)}
-      />
-      <BillingInsights counts={counts.data as any} />
+      <QueryNotice query={counts} label="Billing counts" />
+      {!counts.isError && (
+        <BillingKpiRow
+          counts={counts.data as any}
+          loading={counts.isLoading}
+          onSelect={(k) => setTab(k as TabKey)}
+        />
+      )}
+      {!counts.isError && <BillingInsights counts={counts.data as any} embedded={embedded} />}
 
       {isAdmin && !embedded && <BillingRatesCard />}
 
@@ -616,12 +601,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
             blockedReason={setupBlockedReason}
           />
         }
-
       />
-
-
-
-
 
       {(tab === "needs_attention" || tab === "verification_hold") && (
         <ReconcileSweepCard onOpenRecord={setSelectedId} />
@@ -635,13 +615,13 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         <DeniedClaimsTab onOpenReady={() => setTab("ready_to_submit")} />
       ) : tab === "medical_review" ? (
         <MedicalReviewTab />
-
+      ) : rows.isError ? (
+        <QueryNotice query={rows} label="Claims" />
       ) : rows.isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : tab === "pending_review" ? (
-
         <PendingReviewTab
           rows={rows.data ?? []}
           onOpen={setSelectedId}
@@ -703,7 +683,6 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
             onToggleArchived={() => setShowArchived((v) => !v)}
           />
         </div>
-
       ) : tab === "needs_attention" ? (
         <div className="space-y-4">
           <CorrectedStateList
@@ -720,7 +699,6 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
             onToggleArchived={() => setShowArchived((v) => !v)}
           />
         </div>
-
       ) : tab === "verification_hold" ? (
         <div className="space-y-4">
           <CorrectedStateList
@@ -729,10 +707,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
             onOpen={setOpenResubmissionId}
           />
           <ReadyToSubmitTab
-          variant="attention"
-          rows={rows.data ?? []}
-          onOpen={setSelectedId}
-          onPreviewPdf={setPdfPreview}
+            variant="attention"
+            rows={rows.data ?? []}
+            onOpen={setSelectedId}
+            onPreviewPdf={setPdfPreview}
             showArchived={showArchived}
             onToggleArchived={() => setShowArchived((v) => !v)}
           />
@@ -757,7 +735,6 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         </div>
       )}
 
-
       {(rows.data?.length ?? 0) >= pageSize && (
         <div className="flex justify-center py-4">
           <Button
@@ -765,9 +742,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
             onClick={() => setPageSize((n) => n + BILLING_PAGE_SIZE)}
             disabled={rows.isFetching}
           >
-            {rows.isFetching ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : null}
+            {rows.isFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Load more ({rows.data?.length ?? 0} shown)
           </Button>
         </div>
@@ -874,8 +849,8 @@ function DeleteControls({
           <DialogHeader>
             <DialogTitle>Delete {confirmIds?.length ?? 0} bill(s)?</DialogTitle>
             <DialogDescription>
-              These bills will be removed from the billing workflow and their trips marked
-              rejected. Claims already submitted to Medicaid can't be deleted.
+              These bills will be removed from the billing workflow and their trips marked rejected.
+              Claims already submitted to Medicaid can't be deleted.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -892,8 +867,6 @@ function DeleteControls({
     </>
   );
 }
-
-
 
 /**
  * PERF: the list no longer ships signed PDF URLs (that was two storage calls
@@ -1012,11 +985,9 @@ function PendingReviewTab({
     });
   }
 
-  if (!rows.length)
-    return <EmptyState message="No trips awaiting review." />;
+  if (!rows.length) return <EmptyState message="No trips awaiting review." />;
   return (
     <div className="space-y-3">
-
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-3">
         <div className="flex items-center gap-3 text-sm">
           <Checkbox
@@ -1048,11 +1019,7 @@ function PendingReviewTab({
           { label: "PDF" },
         ]}
         renderRow={(r: any) => (
-          <tr
-            key={r.id}
-            className="cursor-pointer hover:bg-accent/60"
-            onClick={() => onOpen(r.id)}
-          >
+          <tr key={r.id} className="cursor-pointer hover:bg-accent/60" onClick={() => onOpen(r.id)}>
             <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
               <Checkbox
                 checked={selected.has(r.id)}
@@ -1064,9 +1031,7 @@ function PendingReviewTab({
               <div className="font-medium">{r.passenger_name ?? "—"}</div>
               <div className="text-xs text-muted-foreground">{r.medicaid_id}</div>
             </td>
-            <td className="px-4 py-3 text-muted-foreground">
-              {formatDateTime(r.pickup_at)}
-            </td>
+            <td className="px-4 py-3 text-muted-foreground">{formatDateTime(r.pickup_at)}</td>
             <td className="px-4 py-3 text-muted-foreground">
               {r.submitted_at ? formatDateTime(r.submitted_at) : "Not submitted"}
             </td>
@@ -1086,7 +1051,6 @@ function PendingReviewTab({
           </tr>
         )}
       />
-
     </div>
   );
 }
@@ -1112,15 +1076,12 @@ function ReadyToSubmitTab({
   onToggleArchived?: () => void;
   variant?: "ready" | "attention";
 }) {
-
   const qc = useQueryClient();
   const startFn = useServerFn(startRobotForRecord);
   const startBatchFn = useServerFn(startRobotForRecords);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submittingIds, setSubmittingIds] = useState<Set<string>>(new Set());
-  const [duplicate, setDuplicate] = useState<{ id: string; info: DuplicateClaimInfo } | null>(
-    null,
-  );
+  const [duplicate, setDuplicate] = useState<{ id: string; info: DuplicateClaimInfo } | null>(null);
   const [fixId, setFixId] = useState<string | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
 
@@ -1155,7 +1116,6 @@ function ReadyToSubmitTab({
     [rows],
   );
 
-
   // Prune stale selections when rows change
   useEffect(() => {
     setSelected((prev) => {
@@ -1165,8 +1125,7 @@ function ReadyToSubmitTab({
     });
   }, [selectableIds]);
 
-  const allSelected =
-    selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
 
   function toggleAll() {
     if (allSelected) setSelected(new Set());
@@ -1188,12 +1147,9 @@ function ReadyToSubmitTab({
         data: { id, mode: "full", acknowledge_duplicate: acknowledge },
       });
       if (res?.queued) {
-        toast.info(
-          `Trip ${id.slice(0, 8)}… — ${queuedToastMessage(res.ahead ?? 0)}`,
-        );
+        toast.info(`Trip ${id.slice(0, 8)}… — ${queuedToastMessage(res.ahead ?? 0)}`);
       }
       return "ok" as const;
-
     } catch (e: any) {
       const dup = parseDuplicateClaimError(e);
       if (dup) {
@@ -1255,7 +1211,6 @@ function ReadyToSubmitTab({
       qc.invalidateQueries({ queryKey: ["billing_counts"] });
       qc.invalidateQueries({ queryKey: ["submission_queue"] });
       qc.invalidateQueries({ queryKey: ["submission_queue_state"] });
-
     }
   }
 
@@ -1269,7 +1224,6 @@ function ReadyToSubmitTab({
     queryFn: () => setupFn() as any,
   });
   const setupBlocked = setup.data ? submissionBlockedReason(setup.data as any) : null;
-
 
   if (!rows.length)
     return (
@@ -1286,9 +1240,9 @@ function ReadyToSubmitTab({
     <div className="space-y-3">
       {isAttention && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-          These bills can&apos;t be sent yet. Fix the data on each one — when the correction
-          passes the billing check it moves back to <strong>Ready to Submit</strong> on its own.
-          Nothing here is submitted automatically.
+          These bills can&apos;t be sent yet. Fix the data on each one — when the correction passes
+          the billing check it moves back to <strong>Ready to Submit</strong> on its own. Nothing
+          here is submitted automatically.
         </div>
       )}
 
@@ -1306,7 +1260,6 @@ function ReadyToSubmitTab({
       />
 
       {batchId && <BatchProgressCard batchId={batchId} onDismiss={() => setBatchId(null)} />}
-
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-3">
         <div className="flex items-center gap-3 text-sm">
@@ -1348,7 +1301,6 @@ function ReadyToSubmitTab({
         </div>
       </div>
 
-
       <DriverGroupedTable
         rows={rows}
         columns={[
@@ -1360,7 +1312,8 @@ function ReadyToSubmitTab({
           { label: "PDF" },
         ]}
         renderRow={(r: any) => {
-          const canSelect = (r.status === "approved" || r.status === "needs_fix") && !r.requires_human_step;
+          const canSelect =
+            (r.status === "approved" || r.status === "needs_fix") && !r.requires_human_step;
           const isRunning = submittingIds.has(r.id) || r.status === "submitting";
           return (
             <tr
@@ -1385,9 +1338,7 @@ function ReadyToSubmitTab({
                   </div>
                 )}
               </td>
-              <td className="px-4 py-3 text-muted-foreground">
-                {formatDateTime(r.pickup_at)}
-              </td>
+              <td className="px-4 py-3 text-muted-foreground">{formatDateTime(r.pickup_at)}</td>
               <td className="px-4 py-3 text-muted-foreground">
                 {r.submitted_at ? formatDateTime(r.submitted_at) : "Not submitted"}
               </td>
@@ -1411,7 +1362,8 @@ function ReadyToSubmitTab({
                 ) : isRunning ? (
                   <>
                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
-                      <Loader2 className="h-3 w-3 animate-spin" /> {processingStateLabel("submitting")}
+                      <Loader2 className="h-3 w-3 animate-spin" />{" "}
+                      {processingStateLabel("submitting")}
                     </span>
                     <ClaimProgressCell
                       recordStatus={r.status}
@@ -1425,19 +1377,21 @@ function ReadyToSubmitTab({
                   <ClaimStatePill record={r} />
                 )}
 
-                {r.submission_error && !isRunning && (() => {
-                  // Category + next action, never a raw robot/Playwright trace.
-                  const s = needsFixSummary(r as any);
-                  return (
-                    <div className="mt-1 flex items-start gap-1 text-xs text-destructive">
-                      <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-                      <span>
-                        <span className="font-medium">{s.label}</span>
-                        <span className="block text-muted-foreground">{s.nextAction}</span>
-                      </span>
-                    </div>
-                  );
-                })()}
+                {r.submission_error &&
+                  !isRunning &&
+                  (() => {
+                    // Category + next action, never a raw robot/Playwright trace.
+                    const s = needsFixSummary(r as any);
+                    return (
+                      <div className="mt-1 flex items-start gap-1 text-xs text-destructive">
+                        <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                        <span>
+                          <span className="font-medium">{s.label}</span>
+                          <span className="block text-muted-foreground">{s.nextAction}</span>
+                        </span>
+                      </div>
+                    );
+                  })()}
                 {isAttention && !r.submission_error && !isRunning && (
                   <div className="mt-1 text-xs text-muted-foreground">
                     {attentionReasonLabel(r as any)}
@@ -1480,12 +1434,10 @@ function ReadyToSubmitTab({
         }}
       />
 
-
       <FixBillDialog id={fixId} onClose={() => setFixId(null)} />
     </div>
   );
 }
-
 
 /* ------------------------------- TAB 3: Awaiting Portal ------------------------------- */
 
@@ -1539,11 +1491,8 @@ function AwaitingPortalTab({
     },
   });
 
-
   if (!rows.length)
-    return (
-      <EmptyState message="No trips currently waiting for portal submission." />
-    );
+    return <EmptyState message="No trips currently waiting for portal submission." />;
 
   return (
     <>
@@ -1559,10 +1508,7 @@ function AwaitingPortalTab({
       <DriverGroupedList
         rows={rows}
         renderItem={(r: any) => (
-          <div
-            key={r.id}
-            className="rounded-2xl border border-border bg-surface p-4 shadow-soft"
-          >
+          <div key={r.id} className="rounded-2xl border border-border bg-surface p-4 shadow-soft">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <button
                 type="button"
@@ -1574,8 +1520,7 @@ function AwaitingPortalTab({
                   {r.medicaid_id} · Trip {formatDateTime(r.pickup_at)}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Submitted:{" "}
-                  {r.submitted_at ? formatDateTime(r.submitted_at) : "not submitted yet"}
+                  Submitted: {r.submitted_at ? formatDateTime(r.submitted_at) : "not submitted yet"}
                 </div>
 
                 {r.status === "pending_submit" && (
@@ -1633,10 +1578,7 @@ function AwaitingPortalTab({
         )}
       />
 
-      <MarkSubmittedDialog
-        row={confirmFor}
-        onClose={() => setConfirmFor(null)}
-      />
+      <MarkSubmittedDialog row={confirmFor} onClose={() => setConfirmFor(null)} />
       <CancelSubmissionDialog row={cancelFor} onClose={() => setCancelFor(null)} />
     </>
   );
@@ -1669,7 +1611,9 @@ function QueueBadge({ info }: { info?: any }) {
   const overdue = elapsedMin != null && elapsedMin >= 8 && info.queue_state === "running";
 
   return (
-    <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${tone}`}>
+    <div
+      className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${tone}`}
+    >
       <Clock className="h-3.5 w-3.5" />
       {info.queue_label}
       {elapsedMin != null && info.queue_state !== "awaiting_review" && (
@@ -1679,7 +1623,6 @@ function QueueBadge({ info }: { info?: any }) {
     </div>
   );
 }
-
 
 /**
  * Cancelling is only ever allowed before the real Medicaid submit. The server
@@ -1715,7 +1658,6 @@ function CancelSubmissionDialog({ row, onClose }: { row: any | null; onClose: ()
     onError: (e: unknown) => setError(friendlyErrorMessage(e, "Could not cancel this submission")),
   });
 
-
   return (
     <Dialog open={!!row} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
@@ -1727,7 +1669,10 @@ function CancelSubmissionDialog({ row, onClose }: { row: any | null; onClose: ()
           </DialogDescription>
         </DialogHeader>
         {error && (
-          <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+          <p
+            className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            role="alert"
+          >
             {error}
           </p>
         )}
@@ -1735,11 +1680,7 @@ function CancelSubmissionDialog({ row, onClose }: { row: any | null; onClose: ()
           <Button variant="ghost" onClick={onClose}>
             No, keep it
           </Button>
-          <Button
-            variant="destructive"
-            onClick={() => cancel.mutate()}
-            disabled={cancel.isPending}
-          >
+          <Button variant="destructive" onClick={() => cancel.mutate()} disabled={cancel.isPending}>
             {cancel.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             Yes, cancel
           </Button>
@@ -1749,13 +1690,7 @@ function CancelSubmissionDialog({ row, onClose }: { row: any | null; onClose: ()
   );
 }
 
-function MarkSubmittedDialog({
-  row,
-  onClose,
-}: {
-  row: any | null;
-  onClose: () => void;
-}) {
+function MarkSubmittedDialog({ row, onClose }: { row: any | null; onClose: () => void }) {
   const qc = useQueryClient();
   const markFn = useServerFn(markPortalSubmitted);
   const [value, setValue] = useState("");
@@ -1785,9 +1720,9 @@ function MarkSubmittedDialog({
         <DialogHeader>
           <DialogTitle>Fallback: manual claim number</DialogTitle>
           <DialogDescription>
-            Only use this if the claim had to be submitted by hand in the HCPF portal
-            (for example after an automation error). The normal path is Review &amp;
-            Confirm, which submits and records the claim number automatically.
+            Only use this if the claim had to be submitted by hand in the HCPF portal (for example
+            after an automation error). The normal path is Review &amp; Confirm, which submits and
+            records the claim number automatically.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -1810,10 +1745,7 @@ function MarkSubmittedDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            onClick={() => mark.mutate()}
-            disabled={!value.trim() || mark.isPending}
-          >
+          <Button onClick={() => mark.mutate()} disabled={!value.trim() || mark.isPending}>
             {mark.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             Save
           </Button>
@@ -1853,7 +1785,6 @@ function SubmittedTab({
         submitted.includes(needle) ||
         pickup.includes(needle)
       );
-
     });
   }, [rows, q]);
 
@@ -1870,9 +1801,7 @@ function SubmittedTab({
       </div>
       {!filtered.length ? (
         <EmptyState
-          message={
-            q ? "No submissions match that search." : "No submitted claims yet."
-          }
+          message={q ? "No submissions match that search." : "No submitted claims yet."}
         />
       ) : (
         <DriverGroupedTable
@@ -1894,9 +1823,7 @@ function SubmittedTab({
                 <div className="font-medium">{r.passenger_name ?? "—"}</div>
                 <div className="text-xs text-muted-foreground">{r.medicaid_id}</div>
               </td>
-              <td className="px-4 py-3 text-muted-foreground">
-                {formatDateTime(r.pickup_at)}
-              </td>
+              <td className="px-4 py-3 text-muted-foreground">{formatDateTime(r.pickup_at)}</td>
               <td className="px-4 py-3 text-muted-foreground">
                 {r.submitted_at ? formatDateTime(r.submitted_at) : "—"}
               </td>
@@ -1922,7 +1849,6 @@ function SubmittedTab({
             </tr>
           )}
         />
-
       )}
       <CancelSubmissionDialog row={cancelFor} onClose={() => setCancelFor(null)} />
     </div>

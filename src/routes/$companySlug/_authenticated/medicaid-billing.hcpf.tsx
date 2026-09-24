@@ -1,3 +1,7 @@
+import { BillingSetupPanel } from "@/components/billing/BillingSetupPanel";
+import { QueryNotice } from "@/components/admin/QueryNotice";
+import { PortalCredentialsCard } from "@/components/billing/PortalCredentialsCard";
+import { useWorkspaceSearch } from "@/lib/useWorkspaceSearch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -18,6 +22,12 @@ import { BatchPaperBills } from "@/components/billing/BatchPaperBills";
 import { StaffMessages } from "@/components/billing/StaffMessages";
 
 export const Route = createFileRoute("/$companySlug/_authenticated/medicaid-billing/hcpf")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    tab: ["overview", "workflow", "paper", "batch", "team", "settings"].includes(String(s.tab))
+      ? String(s.tab)
+      : "overview",
+    stage: typeof s.stage === "string" ? s.stage : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "HCPF Billing — RedArt NEMT" },
@@ -49,6 +59,7 @@ const CARDS = [
 
 const TABS = [
   { key: "overview", label: "Overview" },
+  { key: "settings", label: "Settings" },
   { key: "workflow", label: "Workflow & claims" },
   { key: "paper", label: "Paper bills" },
   { key: "batch", label: "Batch upload" },
@@ -64,7 +75,7 @@ type TabKey = (typeof TABS)[number]["key"];
  */
 function AdminBillingPage() {
   const { isAdmin } = useAuth();
-  const [tab, setTab] = useState<TabKey>("overview");
+  const [tab, setTab] = useWorkspaceSearch("tab", "overview");
 
   if (!isAdmin) {
     return <div className="p-6 text-sm text-muted-foreground">Admins only.</div>;
@@ -95,6 +106,13 @@ function AdminBillingPage() {
       </Tabs>
 
       {tab === "overview" && <BillingOverview />}
+      {tab === "settings" && (
+        <div className="space-y-5">
+          <BillingSetupPanel />
+          <PortalCredentialsCard />
+          <BillingRatesCard />
+        </div>
+      )}
       {tab === "workflow" && <BillingWorkspace embedded />}
       {tab === "paper" && <PaperBillChat />}
       {tab === "batch" && <BatchPaperBills />}
@@ -140,6 +158,7 @@ function BillingOverview() {
         )}
       </div>
 
+      <QueryNotice query={counts} label="Billing counts" />
       {counts.isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -147,10 +166,13 @@ function BillingOverview() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {CARDS.map((c) => (
-            <div key={c.key} className="rounded-2xl border border-border bg-surface p-4 shadow-soft">
+            <div
+              key={c.key}
+              className="rounded-2xl border border-border bg-surface p-4 shadow-soft"
+            >
               <div className="text-xs uppercase tracking-wide text-muted-foreground">{c.label}</div>
               <div className="mt-1 text-2xl font-semibold tabular-nums">
-                {counts.data?.[c.key] ?? 0}
+                {counts.isError ? "Unavailable" : (counts.data?.[c.key] ?? 0)}
               </div>
             </div>
           ))}

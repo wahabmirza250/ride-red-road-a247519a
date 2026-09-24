@@ -8,14 +8,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  */
 const OFFER_TTL_MS = 10 * 60_000;
 
-/**
- * Staff (admin OR dispatch) assigns / re-assigns a ride to a specific driver.
- * Works whether the ride is still pending (offer stage) or already accepted.
- *
- *  - pending  → sets ride_requests.driver_id, resets offer TTL, notifies the driver.
- *  - accepted → transfers trips.driver_id, flips old driver to "available"
- *               and new driver to "busy".
- */
+/** Staff assignment uses the same availability and conflict checks as Trips. Active journeys cannot be reassigned here. */
 export const adminReassignDriver = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { request_id: string; driver_id: string }) => {
@@ -33,9 +26,7 @@ export const adminReassignDriver = createServerFn({ method: "POST" })
 
     const { data: req, error: reqErr } = await supabaseAdmin
       .from("ride_requests")
-      .select(
-        "id, status, driver_id, trip_id, pickup_address, dropoff_address, company_id",
-      )
+      .select("id, status, driver_id, trip_id, pickup_address, dropoff_address, company_id")
       .eq("id", data.request_id)
       .eq("company_id", callerCompany)
       .maybeSingle();
@@ -51,89 +42,38 @@ export const adminReassignDriver = createServerFn({ method: "POST" })
     if (dErr) throw new Error(dErr.message);
     if (!newDriver) throw new Error("Selected driver not found");
 
-
-    const oldDriverId = req.driver_id;
-    const expires = new Date(Date.now() + OFFER_TTL_MS).toISOString();
-
-    if (oldDriverId === newDriver.id) {
-      // Same driver re-selected. If the ride is still at offer stage, this is a
-      // dispatcher re-poke: refresh the (possibly expired) offer window so the
-      // driver can still accept, instead of silently doing nothing.
-      if (req.status === "pending" || !req.trip_id) {
-        const { error: refreshErr } = await supabaseAdmin
-          .from("ride_requests")
-          .update({ offer_expires_at: expires, declined_driver_ids: [] })
-          .eq("id", req.id);
-        if (refreshErr) throw new Error(refreshErr.message);
-        return { ok: true, refreshed: true };
-      }
-      return { ok: true, unchanged: true };
-    }
-
-
-    if (req.status === "pending" || !req.trip_id) {
-      // Still at offer stage: retarget the offer.
-      const { error: upErr } = await supabaseAdmin
-        .from("ride_requests")
-        .update({
-          driver_id: newDriver.id,
-          offer_expires_at: expires,
-          declined_driver_ids: [],
-        })
-        .eq("id", req.id);
-      if (upErr) throw new Error(upErr.message);
-    } else {
-      // Accepted / active trip: hand the trip off in-flight.
-      const { error: tripErr } = await supabaseAdmin
-        .from("trips")
-        .update({ driver_id: newDriver.id, assignment_type: "manual" })
-        .eq("id", req.trip_id);
-      if (tripErr) throw new Error(tripErr.message);
-
-      const { error: reqUpErr } = await supabaseAdmin
-        .from("ride_requests")
-        .update({ driver_id: newDriver.id })
-        .eq("id", req.id);
-      if (reqUpErr) throw new Error(reqUpErr.message);
-
-      if (oldDriverId) {
-        await supabaseAdmin
-          .from("drivers")
-          .update({ status: "available" })
-          .eq("id", oldDriverId);
-      }
-      await supabaseAdmin
-        .from("drivers")
-        .update({ status: "busy" })
-        .eq("id", newDriver.id);
-    }
-
-    await logDispatchEvent({
-      kind: oldDriverId ? "reassign" : "assign",
-      actor_id: context.userId,
-      actor_role: isAdmin ? "admin" : "dispatch",
-      request_id: req.id,
-      trip_id: req.trip_id,
-      driver_id: newDriver.id,
-      summary: `${oldDriverId ? "Reassigned" : "Assigned"} ride ${req.pickup_address} → ${req.dropoff_address}`,
-      data: { previous_driver_id: oldDriverId, status: req.status },
-    });
-
-    // Notify the newly-assigned driver.
-    try {
-      const { sendPushToUsers } = await import("@/lib/pushSend.server");
-      await sendPushToUsers([newDriver.user_id], {
-        title:
-          req.status === "pending"
-            ? "New ride request"
-            : "Ride reassigned to you",
-        body: `${req.pickup_address} → ${req.dropoff_address}`,
-        url: "/driver",
-        tag: `ride-${req.id}`,
-        requireInteraction: true,
+    const { data: assigned, error: assignError } = await context.supabase.rpc(
+      "admin_assign_trip" as never,
+      {
+        p_trip: req.trip_id ?? req.id,
+        p_driver: newDriver.id,
+        p_preview: false,
+        p_source: req.trip_id ? "dispatch" : "request",
+      } as never,
+    );
+    if (assignError) throw new Error(assignError.message);
+    const result = assigned as unknown as { changed?: boolean };
+    if (result.changed) {
+      await logDispatchEvent({
+        kind: "assign",
+        actor_id: context.userId,
+        actor_role: isAdmin ? "admin" : "dispatch",
+        request_id: req.id,
+        trip_id: req.trip_id,
+        driver_id: newDriver.id,
+        summary: "Driver assignment confirmed",
       });
-    } catch (e) {
-      console.warn("[adminReassignDriver] push failed", e);
+      try {
+        const { sendPushToUsers } = await import("@/lib/pushSend.server");
+        await sendPushToUsers([newDriver.user_id], {
+          title: "Ride assigned to you",
+          body: req.pickup_address + " → " + req.dropoff_address,
+          url: "/driver",
+          tag: "trip-" + (req.trip_id ?? req.id),
+        });
+      } catch {
+        /* Realtime delivery remains available. */
+      }
     }
 
     return { ok: true, driver_id: newDriver.id };
@@ -141,7 +81,7 @@ export const adminReassignDriver = createServerFn({ method: "POST" })
 
 /**
  * Staff-facing list of drivers eligible for manual assignment.
- * Includes offline drivers so staff can override — the UI marks status.
+ * Lists driver status; confirmation rechecks eligibility on the server.
  */
 export const adminListAssignableDrivers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -171,9 +111,7 @@ export const adminListAssignableDrivers = createServerFn({ method: "GET" })
       names = new Map(
         (profs ?? []).map((p) => [
           p.id,
-          `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() ||
-            p.email ||
-            "Driver",
+          `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || p.email || "Driver",
         ]),
       );
     }
@@ -211,16 +149,10 @@ export const adminCancelTrip = createServerFn({ method: "POST" })
     if (reqErr) throw new Error(reqErr.message);
     if (!req) throw new Error("Ride request not found");
 
-    await supabaseAdmin
-      .from("ride_requests")
-      .update({ status: "cancelled" })
-      .eq("id", req.id);
+    await supabaseAdmin.from("ride_requests").update({ status: "cancelled" }).eq("id", req.id);
 
     if (req.trip_id) {
-      await supabaseAdmin
-        .from("trips")
-        .update({ status: "cancelled" })
-        .eq("id", req.trip_id);
+      await supabaseAdmin.from("trips").update({ status: "cancelled" }).eq("id", req.trip_id);
     }
 
     if (req.driver_id) {
@@ -230,10 +162,7 @@ export const adminCancelTrip = createServerFn({ method: "POST" })
         .eq("id", req.driver_id)
         .maybeSingle();
       if (drv && drv.status === "busy") {
-        await supabaseAdmin
-          .from("drivers")
-          .update({ status: "available" })
-          .eq("id", req.driver_id);
+        await supabaseAdmin.from("drivers").update({ status: "available" }).eq("id", req.driver_id);
       }
       if (drv?.user_id) {
         try {
@@ -276,7 +205,6 @@ export const adminCancelTrip = createServerFn({ method: "POST" })
     }
 
     return { ok: true };
-
   });
 
 /**

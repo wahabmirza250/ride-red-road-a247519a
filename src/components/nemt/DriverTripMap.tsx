@@ -1,9 +1,9 @@
+import { TrackMap } from "./useClientMap";
 /// <reference types="google.maps" />
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMapsDark, DARK_MAP_STYLE, LIGHT_MAP_STYLE } from "@/lib/googleMapsDark";
 import { useTheme } from "@/lib/theme";
 import { computeDriveRoute } from "@/lib/mapsRoute.functions";
-
 
 export type LatLng = { lat: number; lng: number };
 
@@ -53,6 +53,12 @@ export function DriverTripMap({ driver, pickup, dropoff, focus, className }: Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const failed = () => setErr("Google map unavailable");
+    window.addEventListener("maps-auth-failure", failed);
+    return () => window.removeEventListener("maps-auth-failure", failed);
+  }, []);
+
   // Restyle when theme changes.
   useEffect(() => {
     if (!mapRef.current) return;
@@ -61,7 +67,6 @@ export function DriverTripMap({ driver, pickup, dropoff, focus, className }: Pro
       backgroundColor: theme === "dark" ? "#0f172a" : "#f8fafc",
     });
   }, [theme]);
-
 
   // Redraw markers + route when props change.
   useEffect(() => {
@@ -76,7 +81,6 @@ export function DriverTripMap({ driver, pickup, dropoff, focus, className }: Pro
       polyRef.current.setMap(null);
       polyRef.current = null;
     }
-    
 
     const bounds = new g.maps.LatLngBounds();
     const push = (p: LatLng | null | undefined, opts: google.maps.MarkerOptions) => {
@@ -158,6 +162,17 @@ export function DriverTripMap({ driver, pickup, dropoff, focus, className }: Pro
     }
   }, [ready, driver, pickup, dropoff, focus]);
 
+  if (err)
+    return (
+      <div className={className ?? "h-full w-full"}>
+        <TrackMap
+          center={[driver?.lat ?? pickup?.lat ?? 39.7392, driver?.lng ?? pickup?.lng ?? -104.9903]}
+          driver={driver ? [driver.lat, driver.lng] : null}
+          pickup={pickup ? [pickup.lat, pickup.lng] : null}
+          dropoff={dropoff ? [dropoff.lat, dropoff.lng] : null}
+        />
+      </div>
+    );
   return (
     <div className={className ?? "relative h-full w-full overflow-hidden rounded-2xl"}>
       <div ref={hostRef} className="h-full w-full" />

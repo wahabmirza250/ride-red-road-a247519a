@@ -1,3 +1,5 @@
+import { useLocation, useNavigate } from "@tanstack/react-router";
+import { localDateTimeInput } from "@/lib/operationStatus";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,9 +46,16 @@ export const Route = createFileRoute("/$companySlug/_authenticated/payroll/")({
   head: () => ({
     meta: [
       { title: "Driver Payroll — RedArt NEMT" },
-      { name: "description", content: "Admin-only payroll: review clocked hours, earnings and fuel, then clear driver payments per pay period." },
+      {
+        name: "description",
+        content:
+          "Admin-only payroll: review clocked hours, earnings and fuel, then clear driver payments per pay period.",
+      },
       { property: "og:title", content: "Driver Payroll — RedArt NEMT" },
-      { property: "og:description", content: "Review hours, earnings and fuel, then clear driver payments per pay period." },
+      {
+        property: "og:description",
+        content: "Review hours, earnings and fuel, then clear driver payments per pay period.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -60,7 +69,10 @@ function planBasis(r: PayrollRow) {
   if (r.hourly_rate != null && r.plan !== "commission" && r.plan !== "per_trip") {
     bits.push(`${formatCurrency(r.hourly_rate)}/hr`);
   }
-  if (r.commission_percentage != null && (r.plan === "commission" || r.plan === "hybrid_hourly_commission")) {
+  if (
+    r.commission_percentage != null &&
+    (r.plan === "commission" || r.plan === "hybrid_hourly_commission")
+  ) {
     bits.push(`${r.commission_percentage}% of paid claims`);
   }
   if (r.per_trip_amount != null && (r.plan === "per_trip" || r.plan === "hybrid_hourly_per_trip")) {
@@ -88,7 +100,7 @@ function defaultPeriod() {
   const from = new Date();
   from.setDate(from.getDate() - 13);
   from.setHours(0, 0, 0, 0);
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  return { from: localDateTimeInput(from).slice(0, 10), to: localDateTimeInput(to).slice(0, 10) };
 }
 
 const startOfDay = (d: string) => new Date(`${d}T00:00:00`).toISOString();
@@ -96,7 +108,18 @@ const endOfDay = (d: string) => new Date(`${d}T23:59:59.999`).toISOString();
 
 export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
-  const [range, setRange] = useState(defaultPeriod);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const url = location.search as { from?: string; to?: string };
+  const defaults = defaultPeriod();
+  const range = {
+    from: /^\d{4}-\d{2}-\d{2}$/.test(url.from ?? "") ? url.from! : defaults.from,
+    to: /^\d{4}-\d{2}-\d{2}$/.test(url.to ?? "") ? url.to! : defaults.to,
+  };
+  const setRange = (next: typeof range | ((r: typeof range) => typeof range)) => {
+    const value = typeof next === "function" ? next(range) : next;
+    void navigate({ to: location.pathname, search: { ...location.search, ...value } } as never);
+  };
   const [paying, setPaying] = useState<PayrollRow | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualDriver, setManualDriver] = useState<string>("");
@@ -150,7 +173,11 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
     let list = allRows;
     if (!showAll && !q) list = list.filter(hasActivity);
     // Name, email or phone — one box, no filters.
-    if (q) list = filterDrivers(list.map((r) => ({ ...r, id: r.driver_id })), q);
+    if (q)
+      list = filterDrivers(
+        list.map((r) => ({ ...r, id: r.driver_id })),
+        q,
+      );
     return list;
   }, [allRows, search, showAll]);
   const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -450,7 +477,15 @@ export function PayrollPage({ embedded }: { embedded?: boolean } = {}) {
   );
 }
 
-function Metric({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function Metric({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
   return (
     <div
       className={`rounded-xl border p-3 ${
@@ -549,12 +584,20 @@ function ClearPayDialog({
               <>
                 <div className="rounded-xl border border-border bg-surface-muted p-3 text-sm">
                   <Line label="Period" value={`${formatDate(from)} – ${formatDate(to)}`} />
-                  <Line label="Unpaid hours" value={`${p.hours.toFixed(2)}h (${p.shift_count} shifts)`} />
+                  <Line
+                    label="Unpaid hours"
+                    value={`${p.hours.toFixed(2)}h (${p.shift_count} shifts)`}
+                  />
                   <Line
                     label="Rate"
-                    value={p.hourly_rate == null ? "not set" : `${formatCurrency(p.hourly_rate)}/hr`}
+                    value={
+                      p.hourly_rate == null ? "not set" : `${formatCurrency(p.hourly_rate)}/hr`
+                    }
                   />
-                  <Line label="Gross" value={p.gross_earnings == null ? "—" : formatCurrency(p.gross_earnings)} />
+                  <Line
+                    label="Gross"
+                    value={p.gross_earnings == null ? "—" : formatCurrency(p.gross_earnings)}
+                  />
                   <Line
                     label="Fuel receipts pending"
                     value={`${formatCurrency(p.fuel)} (${p.receipt_count})`}
@@ -563,13 +606,14 @@ function ClearPayDialog({
 
                 {p.open_shifts > 0 && (
                   <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs">
-                    {p.open_shifts} shift{p.open_shifts > 1 ? "s are" : " is"} still running and will be paid
-                    in a later period.
+                    {p.open_shifts} shift{p.open_shifts > 1 ? "s are" : " is"} still running and
+                    will be paid in a later period.
                   </p>
                 )}
                 {blocked && (
                   <p className="rounded-lg border border-destructive/40 bg-destructive/5 p-2.5 text-xs text-destructive">
-                    This driver already has a payment covering this period. Void it first to pay again.
+                    This driver already has a payment covering this period. Void it first to pay
+                    again.
                   </p>
                 )}
 
@@ -584,7 +628,8 @@ function ClearPayDialog({
 
                 <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
                   <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-                    <Gift className="h-4 w-4 text-primary" /> Adjustment (bonus, or negative to deduct)
+                    <Gift className="h-4 w-4 text-primary" /> Adjustment (bonus, or negative to
+                    deduct)
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
@@ -666,7 +711,6 @@ function ClearPayDialog({
   );
 }
 
-
 function Line({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between py-0.5">
@@ -703,8 +747,7 @@ function ManualHoursDialog({
   const [hours, setHours] = useState("");
 
   const add = useMutation({
-    mutationFn: () =>
-      addFn({ data: { driver_id: driverId, date, hours: Number(hours) } }),
+    mutationFn: () => addFn({ data: { driver_id: driverId, date, hours: Number(hours) } }),
     onSuccess: () => {
       toast.success("Hours added to this driver's payroll");
       setHours("");
@@ -751,18 +794,15 @@ function ManualHoursDialog({
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Added at the driver&apos;s current hourly rate and included in any pay period
-            containing this date.
+            Added at the driver&apos;s current hourly rate and included in any pay period containing
+            this date.
           </p>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            disabled={!driverId || !hours || add.isPending}
-            onClick={() => add.mutate()}
-          >
+          <Button disabled={!driverId || !hours || add.isPending} onClick={() => add.mutate()}>
             {add.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add hours
           </Button>
         </DialogFooter>
@@ -801,8 +841,7 @@ function DriverDetailDialog({
   }, [row]);
 
   const saveRate = useMutation({
-    mutationFn: () =>
-      planFn({ data: { driver_id: row!.driver_id, hourly_rate: Number(rate) } }),
+    mutationFn: () => planFn({ data: { driver_id: row!.driver_id, hourly_rate: Number(rate) } }),
     onSuccess: () => {
       toast.success("Hourly rate updated");
       onChanged();
@@ -811,8 +850,7 @@ function DriverDetailDialog({
   });
 
   const switchType = useMutation({
-    mutationFn: () =>
-      planFn({ data: { driver_id: row!.driver_id, plan: "commission" } }),
+    mutationFn: () => planFn({ data: { driver_id: row!.driver_id, plan: "commission" } }),
     onSuccess: () => {
       toast.success("Moved to % of paid claims");
       onChanged();

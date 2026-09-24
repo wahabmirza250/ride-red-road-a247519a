@@ -1,3 +1,6 @@
+import { useWorkspaceSearch } from "@/lib/useWorkspaceSearch";
+import { ensureAdminConversation } from "@/components/chat/ChatThread";
+import { QueryNotice } from "@/components/admin/QueryNotice";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +12,9 @@ import { cn } from "@/lib/utils";
 import { initials } from "@/lib/format";
 
 export const Route = createFileRoute("/$companySlug/_authenticated/messages")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    driver: typeof s.driver === "string" ? s.driver : undefined,
+  }),
   component: DispatchInboxPage,
 });
 
@@ -25,6 +31,18 @@ type InboxRow = {
 
 function DispatchInboxPage() {
   const qc = useQueryClient();
+  const [driverUserId] = useWorkspaceSearch("driver", "");
+  const target = useQuery({
+    queryKey: ["admin-chat-target", driverUserId],
+    enabled: !!driverUserId,
+    queryFn: () => ensureAdminConversation(driverUserId, "driver"),
+  });
+  useEffect(() => {
+    if (target.data) {
+      setSelectedId(target.data);
+      void qc.invalidateQueries({ queryKey: ["chat-threads", "admin"] });
+    }
+  }, [target.data, qc]);
   const [filter, setFilter] = useState<"all" | "drivers" | "passengers" | "trips">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -42,7 +60,10 @@ function DispatchInboxPage() {
         if (c.driver_user_id) userIds.add(c.driver_user_id);
         if (c.passenger_user_id) userIds.add(c.passenger_user_id);
       });
-      const profMap = new Map<string, { first_name: string | null; last_name: string | null; email: string | null }>();
+      const profMap = new Map<
+        string,
+        { first_name: string | null; last_name: string | null; email: string | null }
+      >();
       if (userIds.size) {
         const { data: profs } = await supabase
           .from("profiles")
@@ -93,15 +114,11 @@ function DispatchInboxPage() {
   useEffect(() => {
     const ch = supabase
       .channel("admin-inbox")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "chat_conversations" },
-        () => qc.invalidateQueries({ queryKey: ["chat-threads", "admin"] }),
+      .on("postgres_changes", { event: "*", schema: "public", table: "chat_conversations" }, () =>
+        qc.invalidateQueries({ queryKey: ["chat-threads", "admin"] }),
       )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_messages" },
-        () => qc.invalidateQueries({ queryKey: ["chat-threads", "admin"] }),
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, () =>
+        qc.invalidateQueries({ queryKey: ["chat-threads", "admin"] }),
       )
       .subscribe();
     return () => {
@@ -118,14 +135,19 @@ function DispatchInboxPage() {
   });
 
   useEffect(() => {
-    if (!selectedId && filtered.length) setSelectedId(filtered[0].id);
-  }, [filtered, selectedId]);
+    if (!driverUserId && !selectedId && filtered.length) setSelectedId(filtered[0].id);
+  }, [filtered, selectedId, driverUserId]);
 
   const selected = filtered.find((t) => t.id === selectedId);
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Messages" description="Every driver and passenger conversation in one inbox." />
+      <PageHeader
+        title="Messages"
+        description="Every driver and passenger conversation in one inbox."
+      />
+      <QueryNotice query={threads} label="Conversations" />
+      <QueryNotice query={target} label="Selected driver conversation" />
 
       <div className="flex gap-2">
         {(["all", "drivers", "passengers", "trips"] as const).map((k) => (
@@ -151,11 +173,17 @@ function DispatchInboxPage() {
               <Loader2 className="h-4 w-4 animate-spin" />
             </div>
           )}
-          {filtered.length ? (
+          {threads.isError ? (
+            <p>Conversations unavailable.</p>
+          ) : filtered.length ? (
             <ul className="space-y-1">
               {filtered.map((t) => {
                 const Icon =
-                  t.kind === "driver_admin" ? Car : t.kind === "passenger_admin" ? User : MessageSquare;
+                  t.kind === "driver_admin"
+                    ? Car
+                    : t.kind === "passenger_admin"
+                      ? User
+                      : MessageSquare;
                 return (
                   <li key={t.id}>
                     <button

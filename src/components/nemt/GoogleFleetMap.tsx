@@ -1,8 +1,8 @@
+import { DriverFleetMap } from "./useClientMap";
 /// <reference types="google.maps" />
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMapsDark, DARK_MAP_STYLE, LIGHT_MAP_STYLE } from "@/lib/googleMapsDark";
 import { useTheme } from "@/lib/theme";
-
 
 export type FleetMarker = {
   id: string;
@@ -60,7 +60,13 @@ export function GoogleFleetMap({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [center]);
+  }, [center[0], center[1]]);
+
+  useEffect(() => {
+    const failed = () => setErr("Google map unavailable. Showing the alternate map.");
+    window.addEventListener("maps-auth-failure", failed);
+    return () => window.removeEventListener("maps-auth-failure", failed);
+  }, []);
 
   // Restyle when theme changes.
   useEffect(() => {
@@ -70,7 +76,6 @@ export function GoogleFleetMap({
       backgroundColor: theme === "dark" ? "#0f172a" : "#f8fafc",
     });
   }, [theme]);
-
 
   useEffect(() => {
     const g = window.google;
@@ -107,6 +112,16 @@ export function GoogleFleetMap({
       map.fitBounds(bounds, 60);
     }
   }, [ready, markers, focus, onMarkerClick]);
+
+  if (err)
+    return (
+      <div className="relative h-full w-full">
+        <DriverFleetMap center={center} markers={markers} focus={focus} />
+        <p className="absolute left-2 top-2 z-[500] max-w-[80%] rounded bg-background p-2 text-xs">
+          Alternate map · driver list remains available below
+        </p>
+      </div>
+    );
 
   return (
     <div className={className ?? "relative h-full w-full overflow-hidden"}>

@@ -28,11 +28,17 @@ async function assertPayrollAdmin(
   userId: string,
 ): Promise<{ companyId: string | null }> {
   const [{ data: role }, { data: profile }] = await Promise.all([
-    supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle(),
     supabase.from("profiles").select("company_id").eq("id", userId).maybeSingle(),
   ]);
   if (!role) throw new Error("Admin only");
-  return { companyId: (profile?.company_id as string | null) ?? null };
+  if (!profile?.company_id) throw new Error("Company required");
+  return { companyId: profile.company_id as string };
 }
 
 const scoped = <T extends { eq: (c: string, v: string) => T }>(q: T, companyId: string | null) =>
@@ -57,13 +63,22 @@ async function loadDrivers(s: Sb, companyId: string | null, driverId?: string) {
   let q: any = s.from("drivers").select("id, user_id, status, merged_into");
   if (companyId) q = q.eq("company_id", companyId);
   if (driverId) q = q.eq("id", driverId);
-  const { data: drivers } = await q;
+  const { data: drivers } = await q.throwOnError();
   const rows = activeDrivers(
-    (drivers ?? []) as { id: string; user_id: string | null; status: string; merged_into?: string | null }[],
+    (drivers ?? []) as {
+      id: string;
+      user_id: string | null;
+      status: string;
+      merged_into?: string | null;
+    }[],
   );
   const userIds = rows.map((d) => d.user_id).filter(Boolean) as string[];
   const { data: profiles } = userIds.length
-    ? await s.from("profiles").select("id, first_name, last_name, email, phone").in("id", userIds)
+    ? await s
+        .from("profiles")
+        .select("id, first_name, last_name, email, phone")
+        .in("id", userIds)
+        .throwOnError()
     : { data: [] as any[] };
   const pOf = new Map((profiles ?? []).map((p: any) => [p.id, p]));
   return rows.map((d) => {
@@ -134,14 +149,16 @@ export const getPayrollPeriod = createServerFn({ method: "POST" })
         .in("driver_id", driverIds)
         .is("voided_at", null)
         .lte("period_start", to)
-        .gte("period_end", from),
+        .gte("period_end", from)
+        .throwOnError(),
       s
         .from("driver_payouts")
         .select("driver_id, paid_at")
         .in("driver_id", driverIds)
         .is("voided_at", null)
         .order("paid_at", { ascending: false })
-        .limit(500),
+        .limit(500)
+        .throwOnError(),
     ]);
 
     const paidOf = new Map<string, number>();
@@ -149,7 +166,8 @@ export const getPayrollPeriod = createServerFn({ method: "POST" })
       paidOf.set(p.driver_id, round2((paidOf.get(p.driver_id) ?? 0) + Number(p.total_paid ?? 0)));
     }
     const lastPaidOf = new Map<string, string>();
-    for (const p of lastPaid ?? []) if (!lastPaidOf.has(p.driver_id)) lastPaidOf.set(p.driver_id, p.paid_at);
+    for (const p of lastPaid ?? [])
+      if (!lastPaidOf.has(p.driver_id)) lastPaidOf.set(p.driver_id, p.paid_at);
 
     const rows: PayrollRow[] = drivers.map((d) => {
       const plan = plans.get(d.id)!;
@@ -182,7 +200,7 @@ export const getPayrollPeriod = createServerFn({ method: "POST" })
         gross_earnings: issues.length ? null : calc.earnings,
         fuel_pending: w.fuel,
         paid_in_period: paid,
-        outstanding: payable == null ? null : round2(Math.max(0, payable - paid)),
+        outstanding: payable == null ? null : round2(Math.max(0, payable)),
         last_paid_at: lastPaidOf.get(d.id) ?? null,
         open_shift: w.open_shifts > 0,
         already_paid: paid > 0,
@@ -207,7 +225,7 @@ export const getPayrollPeriod = createServerFn({ method: "POST" })
   });
 
 /** Shared preview: resolves the plan, gathers the work, prices it. */
-async function buildPreview(
+export async function buildPreview(
   s: Sb,
   companyId: string | null,
   driverId: string,
@@ -221,7 +239,9 @@ async function buildPreview(
 
   const plans = await loadPayPlans(s, companyId, [driverId]);
   const plan = plans.get(driverId)!;
-  const work = (await collectWork(s, { companyId, drivers, plans, from, to })).get(driverId) as DriverWork;
+  const work = (await collectWork(s, { companyId, drivers, plans, from, to })).get(
+    driverId,
+  ) as DriverWork;
 
   const calc = computePlanPay(plan, {
     hours: work.hours,
@@ -240,18 +260,30 @@ async function buildPreview(
 export const previewDriverPay = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (input: { driver_id: string; from: string; to: string; bonus_amount?: number; include_fuel?: boolean }) =>
-      input,
+    (input: {
+      driver_id: string;
+      from: string;
+      to: string;
+      bonus_amount?: number;
+      include_fuel?: boolean;
+    }) => input,
   )
   .handler(async ({ data, context }) => {
     const { companyId } = await assertPayrollAdmin(context.supabase, context.userId);
     const { from, to } = validPeriod(data.from, data.to);
     const s = context.supabase;
 
-    const { driver, plan, work, calc, issues } = await buildPreview(s, companyId, data.driver_id, from, to, {
-      bonus: data.bonus_amount ?? 0,
-      include_fuel: data.include_fuel,
-    });
+    const { driver, plan, work, calc, issues } = await buildPreview(
+      s,
+      companyId,
+      data.driver_id,
+      from,
+      to,
+      {
+        bonus: data.bonus_amount ?? 0,
+        include_fuel: data.include_fuel,
+      },
+    );
 
     const { data: existing } = await s
       .from("driver_payouts")
@@ -323,10 +355,17 @@ export const clearDriverPay = createServerFn({ method: "POST" })
     const s = context.supabase;
     const includeFuel = data.include_fuel !== false;
 
-    const { driver, plan, work, calc, issues } = await buildPreview(s, companyId, data.driver_id, from, to, {
-      bonus: data.bonus_amount ?? 0,
-      include_fuel: includeFuel,
-    });
+    const { driver, plan, work, calc, issues } = await buildPreview(
+      s,
+      companyId,
+      data.driver_id,
+      from,
+      to,
+      {
+        bonus: data.bonus_amount ?? 0,
+        include_fuel: includeFuel,
+      },
+    );
     if (issues.length) throw new Error(issues.join(" "));
 
     // Duplicate / double-pay guard: any live payout overlapping this window.
@@ -385,7 +424,8 @@ export const clearDriverPay = createServerFn({ method: "POST" })
       .select("id, paid_at, total_paid, hours, gross_earnings, fuel_reimbursed, bonus_amount")
       .single();
     if (error) {
-      if (error.code === "23505") throw new Error("This driver was already paid for that exact period.");
+      if (error.code === "23505")
+        throw new Error("This driver was already paid for that exact period.");
       throw new Error(error.message);
     }
 
@@ -394,7 +434,12 @@ export const clearDriverPay = createServerFn({ method: "POST" })
     const nowIso = new Date().toISOString();
     const company = driverRow?.company_id ?? companyId;
     const lines = [
-      ...work.shift_ids.map((id) => ({ kind: "shift", ref_id: id, amount: 0, quantity: null as number | null })),
+      ...work.shift_ids.map((id) => ({
+        kind: "shift",
+        ref_id: id,
+        amount: 0,
+        quantity: null as number | null,
+      })),
       ...(planUsesTrips(plan.plan)
         ? work.trip_ids.map((id) => ({
             kind: "trip",
@@ -419,7 +464,13 @@ export const clearDriverPay = createServerFn({ method: "POST" })
             quantity: null as number | null,
           }))
         : []),
-    ].map((l) => ({ ...l, payout_id: row.id, driver_id: data.driver_id, company_id: company, occurred_at: nowIso }));
+    ].map((l) => ({
+      ...l,
+      payout_id: row.id,
+      driver_id: data.driver_id,
+      company_id: company,
+      occurred_at: nowIso,
+    }));
 
     try {
       if (lines.length) {
@@ -440,7 +491,10 @@ export const clearDriverPay = createServerFn({ method: "POST" })
         if (e) throw new Error(e.message);
       }
       if (planUsesTrips(plan.plan) && work.trip_ids.length) {
-        const { error: e } = await s.from("trips").update({ payout_id: row.id }).in("id", work.trip_ids);
+        const { error: e } = await s
+          .from("trips")
+          .update({ payout_id: row.id })
+          .in("id", work.trip_ids);
         if (e) throw new Error(e.message);
       }
       if (includeFuel && work.fuel_receipt_ids.length) {
@@ -489,7 +543,9 @@ async function releasePayout(s: Sb, payoutId: string) {
 /** Payment history, newest first. Optionally for one driver. */
 export const listPayouts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { driver_id?: string; limit?: number; include_voided?: boolean }) => input)
+  .inputValidator(
+    (input: { driver_id?: string; limit?: number; include_voided?: boolean }) => input,
+  )
   .handler(async ({ data, context }) => {
     const { companyId } = await assertPayrollAdmin(context.supabase, context.userId);
     const s = context.supabase;
@@ -509,12 +565,22 @@ export const listPayouts = createServerFn({ method: "POST" })
     const userIds = (drivers ?? []).map((d) => d.user_id);
     const { data: profiles } = userIds.length
       ? await s.from("profiles").select("id, first_name, last_name, email").in("id", userIds)
-      : { data: [] as { id: string; first_name: string | null; last_name: string | null; email: string | null }[] };
+      : {
+          data: [] as {
+            id: string;
+            first_name: string | null;
+            last_name: string | null;
+            email: string | null;
+          }[],
+        };
     const pOf = new Map((profiles ?? []).map((p) => [p.id, p]));
     const nameOf = new Map(
       (drivers ?? []).map((d) => {
         const p = pOf.get(d.user_id);
-        return [d.id, `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim() || (p?.email ?? "Driver")];
+        return [
+          d.id,
+          `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim() || (p?.email ?? "Driver"),
+        ];
       }),
     );
 

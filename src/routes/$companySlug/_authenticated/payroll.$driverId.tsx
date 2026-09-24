@@ -29,12 +29,21 @@ function PayrollPrintPage() {
   useEffect(() => {
     if (q.data) {
       // small delay so layout settles
-      const t = setTimeout(() => document.title = `Payroll — ${q.data.driver?.first_name ?? ""} ${q.data.driver?.last_name ?? ""}`, 100);
+      const t = setTimeout(
+        () =>
+          (document.title = `Payroll — ${q.data.driver?.first_name ?? ""} ${q.data.driver?.last_name ?? ""}`),
+        100,
+      );
       return () => clearTimeout(t);
     }
   }, [q.data]);
 
-  if (q.isLoading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div>;
+  if (q.isLoading)
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
   if (!q.data) return <div className="p-8">Failed to load.</div>;
 
   const p = q.data;
@@ -44,7 +53,7 @@ function PayrollPrintPage() {
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 flex items-start justify-between border-b border-black/10 pb-6 print:hidden">
           <div>
-            <h1 className="text-2xl font-semibold">Payroll Summary</h1>
+            <h1 className="text-2xl font-semibold">Unpaid Work Summary</h1>
             <p className="text-sm text-black/60">RedArt LLC — NEMT</p>
           </div>
           <button
@@ -57,7 +66,9 @@ function PayrollPrintPage() {
 
         <div className="mb-8 hidden print:block">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black text-white font-bold">R</div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black text-white font-bold">
+              R
+            </div>
             <div>
               <div className="text-lg font-semibold">RedArt LLC</div>
               <div className="text-xs text-black/60">NEMT Payroll Summary</div>
@@ -68,7 +79,9 @@ function PayrollPrintPage() {
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <div className="text-xs uppercase text-black/50">Driver</div>
-            <div className="font-medium">{p.driver?.first_name} {p.driver?.last_name}</div>
+            <div className="font-medium">
+              {p.driver?.first_name} {p.driver?.last_name}
+            </div>
             <div className="text-black/60">{p.driver?.email}</div>
           </div>
           <div>
@@ -79,22 +92,38 @@ function PayrollPrintPage() {
           </div>
         </div>
 
+        <p className="mt-4 text-sm">
+          Current unpaid work, using the same pay plan as Salary. Planned shifts are excluded. This
+          is not a payment receipt.
+        </p>
         <h2 className="mt-8 text-sm font-semibold uppercase text-black/60">Earnings</h2>
         <table className="mt-2 w-full border-collapse text-sm">
           <tbody>
+            {p.lines
+              .filter((line) => line.key !== "hourly" && line.key !== "fuel")
+              .map((line) => (
+                <tr key={line.key}>
+                  <td>
+                    {line.label} — {line.detail}
+                  </td>
+                  <td className="text-right">{formatCurrency(line.amount)}</td>
+                </tr>
+              ))}
             <tr className="border-b border-black/10">
-              <td className="py-2">Trips completed</td>
+              <td className="py-2">Payable trips</td>
               <td className="py-2 text-right tabular-nums">{p.trips_completed}</td>
             </tr>
             <tr className="border-b border-black/10">
               <td className="py-2">Miles driven</td>
-              <td className="py-2 text-right tabular-nums">{p.miles}</td>
+              <td className="py-2 text-right tabular-nums">{p.miles ?? "Not included"}</td>
             </tr>
             <tr className="border-b border-black/10">
               <td className="py-2">
                 Hours worked {p.hourly_rate == null ? "(no rate set)" : `× $${p.hourly_rate}/hr`}
               </td>
-              <td className="py-2 text-right tabular-nums">{p.hours} → {formatCurrency(p.hourly_pay)}</td>
+              <td className="py-2 text-right tabular-nums">
+                {p.hours} → {formatCurrency(p.hourly_pay)}
+              </td>
             </tr>
             <tr className="border-b border-black/10">
               <td className="py-2">Fuel reimbursement</td>

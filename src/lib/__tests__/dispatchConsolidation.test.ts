@@ -9,7 +9,9 @@ describe("dispatch consolidation (games preserved)", () => {
     const navConfig = read("src/lib/adminNav.ts");
     expect(navConfig).not.toMatch(/"\/planner"/);
     expect(navConfig).toMatch(/\{ to: "\/games", label: "Games", icon: Gamepad2 \}/);
-    expect(nav).toMatch(/<AppLink[\s\S]*?to="\/games"[\s\S]*?aria-label="Games"/);
+    // Games is available in the complete More menu on phones.
+    expect(nav).toMatch(/NAV\.map\(/);
+    expect(nav).toContain("All admin tools");
     expect(navConfig).toMatch(/\{ to: "\/live-ops", label: "Dispatch"/);
   });
 
@@ -31,7 +33,9 @@ describe("dispatch consolidation (games preserved)", () => {
     expect(passenger).not.toMatch(/redirect\(/);
     expect(passenger).toMatch(/listPublicGames/);
     const passengerShell = read("src/routes/$companySlug/passenger.tsx");
-    expect(passengerShell).toMatch(/\{ to: "\/passenger\/games", label: "Games", icon: Gamepad2 \}/);
+    expect(passengerShell).toMatch(
+      /\{ to: "\/passenger\/games", label: "Games", icon: Gamepad2 \}/,
+    );
   });
 
   it("dispatch app exposes Plan as an internal tab", () => {

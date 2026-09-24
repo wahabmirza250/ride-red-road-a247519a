@@ -1,3 +1,9 @@
+import { useServerFn } from "@tanstack/react-start";
+import { AppLink, useAppNavigate } from "@/lib/appLink";
+import { QueryNotice } from "@/components/admin/QueryNotice";
+import { assignAdminTrip, nextAdminAssignment } from "@/lib/adminAssignment.functions";
+import { localDateTimeInput, localInputToISOString } from "@/lib/operationStatus";
+import { PassengerFormDialog } from "./passengers";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -43,11 +49,7 @@ import { toast } from "sonner";
 import { friendlyErrorMessage } from "@/lib/errorMessage";
 import { haversineMiles } from "@/lib/geo";
 
-export const Route = createFileRoute("/$companySlug/_authenticated/trips")({
-  component: TripsPage,
-});
-
-type Passenger = { id: string; first_name: string; last_name: string; medicaid_id: string };
+type Passenger = { id: string; first_name: string; last_name: string; medicaid_id: string | null };
 type Driver = {
   id: string;
   user_id: string;
@@ -58,6 +60,9 @@ type Driver = {
 };
 
 type Trip = {
+  source: "dispatch" | "report" | "draft" | "request";
+  passenger_name: string;
+  driver_name: string;
   id: string;
   status: string;
   billing_status: string;
@@ -77,267 +82,398 @@ type Trip = {
   round_trip_leg: number | null;
 };
 
+export const Route = createFileRoute("/$companySlug/_authenticated/trips")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    status: typeof s.status === "string" ? s.status : "all",
+    billing: typeof s.billing === "string" ? s.billing : "all",
+    driver: typeof s.driver === "string" ? s.driver : "",
+    q: typeof s.q === "string" ? s.q : "",
+    from: typeof s.from === "string" ? s.from : "",
+    to: typeof s.to === "string" ? s.to : "",
+    page: Math.max(0, Math.floor(Number(s.page) || 0)),
+  }),
+  component: TripsPage,
+});
 function TripsPage() {
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [billingFilter, setBillingFilter] = useState<string>("all");
+  const search = Route.useSearch();
+  const navigate = useAppNavigate();
+  const qc = useQueryClient();
+  const update = (patch: Record<string, unknown>) =>
+    navigate({ to: "/trips", search: { ...search, page: 0, ...patch } });
   const [openNew, setOpenNew] = useState(false);
   const [detail, setDetail] = useState<Trip | null>(null);
-
+  const assignment = useServerFn(assignAdminTrip);
+  const nextAssignment = useServerFn(nextAdminAssignment);
+  const [proposal, setProposal] = useState<
+    (Awaited<ReturnType<typeof assignAdminTrip>> & { source: "dispatch" | "request" }) | null
+  >(null);
+  const [assigning, setAssigning] = useState(false);
   const trips = useQuery({
-    queryKey: ["trips", statusFilter, billingFilter],
+    queryKey: ["trips", search],
     queryFn: async () => {
-      let q = supabase
-        .from("trips")
-        .select("*")
-        .order("scheduled_pickup_time", { ascending: false })
-        .limit(200);
-      if (statusFilter !== "all")
-        q = q.eq(
-          "status",
-          statusFilter as
-            | "scheduled"
-            | "assigned"
-            | "driver_en_route_to_pickup"
-            | "arrived_at_pickup"
-            | "in_progress"
-            | "completed"
-            | "cancelled"
-            | "no_show",
-        );
-      if (billingFilter !== "all")
-        q = q.eq(
-          "billing_status",
-          billingFilter as "pending" | "submitted" | "paid" | "rejected",
-        );
-      const { data, error } = await q;
+      const { data, error } = await supabase.rpc(
+        "admin_trip_page" as never,
+        {
+          p_page: search.page,
+          p_search: search.q,
+          p_status: search.status,
+          p_billing: search.billing,
+          p_driver: search.driver || null,
+          p_from: search.from ? localInputToISOString(search.from + "T00:00") : null,
+          p_to: search.to ? localInputToISOString(search.to + "T00:00") : null,
+        } as never,
+      );
       if (error) throw error;
-      return (data ?? []) as Trip[];
+      return data as unknown as { rows: Trip[]; count: number };
     },
-    refetchInterval: 20_000,
+    refetchInterval: 20000,
   });
-
   const passengers = useQuery({
     queryKey: ["passengers-all"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("passengers")
-        .select("id, first_name, last_name, medicaid_id");
-      return (data ?? []) as Passenger[];
+        .select("id,first_name,last_name,medicaid_id")
+        .eq("is_active", true)
+        .order("first_name");
+      if (error) throw error;
+      return data ?? [];
     },
   });
-
   const drivers = useQuery({
     queryKey: ["drivers-simple"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("drivers")
-        .select("id, user_id, status, current_lat, current_lng");
-      const rows = (data ?? []) as Driver[];
-      const ids = rows.map((d) => d.user_id);
-      const { data: profs } = ids.length
-        ? await supabase.from("profiles").select("id, first_name, last_name").in("id", ids)
-        : { data: [] as { id: string; first_name: string | null; last_name: string | null }[] };
-      const nameById = new Map<string, string>();
-      (profs ?? []).forEach((p) =>
-        nameById.set(p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Driver"),
-      );
-      return rows.map((d) => ({ ...d, name: nameById.get(d.user_id) ?? "Driver" }));
-    },
-  });
-
-  const passengerName = (id: string) => {
-    const p = passengers.data?.find((x) => x.id === id);
-    return p ? `${p.first_name} ${p.last_name}` : "—";
-  };
-
-  const driverName = (id: string | null) => {
-    if (!id) return "Unassigned";
-    const d = drivers.data?.find((x) => x.id === id);
-    return d?.name ?? "—";
-  };
-
-  const qc = useQueryClient();
-  const autoAssign = useMutation({
-    mutationFn: async (tripId: string) => {
-      const trip = trips.data?.find((t) => t.id === tripId);
-      if (!trip) throw new Error("Trip not found");
-      const available = (drivers.data ?? []).filter((d) => d.status === "available");
-      if (!available.length) throw new Error("No available drivers");
-      // Nearest by pickup coords if we have them, else first available
-      let chosen = available[0];
-      const { data: pickup } = trip.pickup_address
-        ? { data: null }
-        : { data: null };
-      void pickup;
-      // We don't geocode; fall back to first available if no coords
-      // But if trip has pickup_lat/lng in the future, we'd compute here
-      const anyWithGps = available.find((d) => d.current_lat != null && d.current_lng != null);
-      if (anyWithGps) {
-        // just picks any driver with gps as "closest" until geocoding is added
-        chosen = anyWithGps;
-        // if trip had coords:
-        // chosen = available.reduce((best, d) => {...haversineMiles...});
-      }
-      void haversineMiles; // referenced for future geo assignment
-
-      const { error } = await supabase
-        .from("trips")
-        .update({ driver_id: chosen.id, status: "assigned", assignment_type: "auto" })
-        .eq("id", tripId);
+        .select("id,user_id,status,current_lat,current_lng");
       if (error) throw error;
-      return chosen.id;
+      const ids = (data ?? []).map((d) => d.user_id);
+      const profiles = ids.length
+        ? await supabase.from("profiles").select("id,first_name,last_name").in("id", ids)
+        : { data: [], error: null };
+      if (profiles.error) throw profiles.error;
+      return (data ?? []).map((d) => ({
+        ...d,
+        name:
+          profiles.data
+            ?.filter((p) => p.id === d.user_id)
+            .map((p) => [p.first_name, p.last_name].filter(Boolean).join(" "))[0] ?? "Driver",
+      }));
     },
-    onSuccess: () => {
-      toast.success("Trip assigned");
-      qc.invalidateQueries({ queryKey: ["trips"] });
-    },
-    onError: (e: Error) => toast.error(friendlyErrorMessage(e, "Could not assign trip")),
   });
-
-  const nextUnassigned = trips.data?.find((t) => !t.driver_id && t.status === "scheduled");
-
+  async function preview() {
+    setAssigning(true);
+    try {
+      const next = await nextAssignment();
+      const p = await assignment({
+        data: { trip_id: next.id, source: next.source, preview: true, driver_id: null },
+      });
+      setProposal({ ...p, source: next.source });
+    } catch (e) {
+      toast.error(friendlyErrorMessage(e, "Could not preview assignment"));
+    } finally {
+      setAssigning(false);
+    }
+  }
+  async function confirm() {
+    if (!proposal) return;
+    setAssigning(true);
+    try {
+      await assignment({
+        data: {
+          trip_id: proposal.trip_id,
+          driver_id: proposal.driver_id,
+          source: proposal.source,
+          preview: false,
+        },
+      });
+      toast.success("Assignment saved");
+      setProposal(null);
+      void qc.invalidateQueries({ queryKey: ["trips"] });
+    } catch (e) {
+      toast.error(friendlyErrorMessage(e, "Availability changed. Review the assignment again."));
+      setProposal(null);
+    } finally {
+      setAssigning(false);
+    }
+  }
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         title="Trips"
-        description="All scheduled and completed rides."
+        description="Scheduled rides, driver work and completed reports. Linked billing reports are labeled separately."
         actions={
           <>
-            <Button
-              variant="secondary"
-              className="rounded-full"
-              disabled={!nextUnassigned || autoAssign.isPending}
-              onClick={() => nextUnassigned && autoAssign.mutate(nextUnassigned.id)}
-            >
-              {autoAssign.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Wand2 className="mr-2 h-4 w-4" />
-              )}
-              Auto-assign next
+            <Button variant="secondary" disabled={assigning} onClick={preview}>
+              Review next assignment
             </Button>
-            <Dialog open={openNew} onOpenChange={setOpenNew}>
-              <DialogTrigger asChild>
-                <Button className="rounded-full">
-                  <Plus className="mr-2 h-4 w-4" /> New trip
-                </Button>
-              </DialogTrigger>
-              <NewTripDialog
-                onClose={() => setOpenNew(false)}
-                passengers={passengers.data ?? []}
-                drivers={drivers.data ?? []}
-              />
-            </Dialog>
+            <Button onClick={() => setOpenNew(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              New trip
+            </Button>
           </>
         }
       />
-
-      <div className="flex flex-wrap gap-3">
-        <div className="min-w-[160px]">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="rounded-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="scheduled">Scheduled</SelectItem>
-              <SelectItem value="assigned">Assigned</SelectItem>
-              <SelectItem value="driver_en_route_to_pickup">En route</SelectItem>
-              <SelectItem value="arrived_at_pickup">Arrived</SelectItem>
-              <SelectItem value="in_progress">In progress</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-              <SelectItem value="no_show">No show</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="min-w-[160px]">
-          <Select value={billingFilter} onValueChange={setBillingFilter}>
-            <SelectTrigger className="rounded-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All billing</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="submitted">Submitted</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <label className="text-xs">
+          Search trips
+          <Input
+            value={search.q}
+            onChange={(e) => update({ q: e.target.value })}
+            placeholder="Passenger, driver, address or ID"
+          />
+        </label>
+        <label className="text-xs">
+          Status
+          <select
+            className="h-10 w-full rounded-lg border bg-background px-2"
+            value={search.status}
+            onChange={(e) => update({ status: e.target.value })}
+          >
+            {[
+              "all",
+              "next",
+              "unassigned",
+              "overdue",
+              "active",
+              "scheduled",
+              "assigned",
+              "in_progress",
+              "completed",
+              "draft",
+              "cancelled",
+              "no_show",
+            ].map((s) => (
+              <option key={s} value={s}>
+                {s.replaceAll("_", " ")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs">
+          Driver
+          <select
+            className="h-10 w-full rounded-lg border bg-background px-2"
+            value={search.driver}
+            onChange={(e) => update({ driver: e.target.value })}
+          >
+            <option value="">All drivers</option>
+            {drivers.data?.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs">
+          Billing
+          <select
+            className="h-10 w-full rounded-lg border bg-background px-2"
+            value={search.billing}
+            onChange={(e) => update({ billing: e.target.value })}
+          >
+            {[
+              "all",
+              "not_submitted",
+              "pending",
+              "pending_review",
+              "approved",
+              "submitted",
+              "paid",
+              "needs_fix",
+              "rejected",
+            ].map((s) => (
+              <option key={s} value={s}>
+                {s.replaceAll("_", " ")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs">
+          From
+          <Input
+            type="date"
+            value={search.from}
+            onChange={(e) => update({ from: e.target.value })}
+          />
+        </label>
+        <label className="text-xs">
+          Before
+          <Input type="date" value={search.to} onChange={(e) => update({ to: e.target.value })} />
+        </label>
       </div>
-
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+      <QueryNotice query={trips} label="Trips" />
+      <QueryNotice query={drivers} label="Drivers" />
+      <QueryNotice query={passengers} label="Passengers" />
+      <div className="overflow-x-auto rounded-xl border bg-surface">
+        <table className="w-full text-sm">
+          <thead>
+            <tr>
+              {[
+                "Pickup / record time",
+                "Source",
+                "Passenger",
+                "Driver",
+                "Route",
+                "Status",
+                "Billing",
+              ].map((s) => (
+                <th className="p-3 text-left" key={s}>
+                  {s}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {trips.isPending ? (
               <tr>
-                <th className="px-4 py-3 text-left">When</th>
-                <th className="px-4 py-3 text-left">Passenger</th>
-                <th className="px-4 py-3 text-left">Driver</th>
-                <th className="px-4 py-3 text-left">Pickup</th>
-                <th className="px-4 py-3 text-left">Dropoff</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-left">Billing</th>
+                <td colSpan={7} className="p-6">
+                  Loading trips…
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {trips.isLoading ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center">
-                    <Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
-                  </td>
-                </tr>
-              ) : trips.data?.length ? (
-                trips.data.map((t) => (
-                  <tr
-                    key={t.id}
-                    onClick={() => setDetail(t)}
-                    className="cursor-pointer hover:bg-accent/60"
-                  >
-                    <td className="whitespace-nowrap px-4 py-3">
+            ) : (
+              trips.data?.rows.map((t) => (
+                <tr key={t.source + ":" + t.id} className="border-t hover:bg-accent/50">
+                  <td className="p-3">
+                    <button
+                      onClick={() => setDetail(t)}
+                      className="whitespace-nowrap text-primary underline"
+                    >
                       {formatDateTime(t.scheduled_pickup_time)}
-                    </td>
-                    <td className="px-4 py-3">{passengerName(t.passenger_id)}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {driverName(t.driver_id)}
-                    </td>
-                    <td className="max-w-[220px] truncate px-4 py-3">{t.pickup_address}</td>
-                    <td className="max-w-[220px] truncate px-4 py-3">{t.dropoff_address}</td>
-                    <td className="px-4 py-3"><StatusPill status={t.status} /></td>
-                    <td className="px-4 py-3"><StatusPill status={t.billing_status} /></td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                    No trips yet.
+                    </button>
+                  </td>
+                  <td className="p-3 capitalize">{t.source}</td>
+                  <td className="p-3">{t.passenger_name || "Passenger"}</td>
+                  <td className="p-3">{t.driver_name}</td>
+                  <td className="min-w-48 p-3">
+                    {t.pickup_address}
+                    <br />
+                    <span className="text-muted-foreground">→ {t.dropoff_address}</span>
+                  </td>
+                  <td className="p-3">
+                    <StatusPill status={t.status} />
+                  </td>
+                  <td className="p-3">
+                    <StatusPill status={t.billing_status} />
                   </td>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              ))
+            )}
+            {!trips.isPending && !trips.isError && !trips.data?.rows.length && (
+              <tr>
+                <td colSpan={7} className="p-6">
+                  No trips match these filters.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <p>
+          {trips.isError
+            ? "Count unavailable"
+            : trips.data
+              ? trips.data.count +
+                " records · Page " +
+                (search.page + 1) +
+                " of " +
+                Math.max(1, Math.ceil(trips.data.count / 50))
+              : "Loading count…"}
+        </p>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={!search.page}
+            onClick={() => update({ page: search.page - 1 })}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!trips.data || 50 * (search.page + 1) >= trips.data.count}
+            onClick={() => update({ page: search.page + 1 })}
+          >
+            Next
+          </Button>
         </div>
       </div>
-
+      <Dialog open={openNew} onOpenChange={setOpenNew}>
+        <NewTripDialog
+          onClose={() => setOpenNew(false)}
+          passengers={passengers.data ?? []}
+          drivers={drivers.data ?? []}
+        />
+      </Dialog>
+      <Dialog open={!!proposal} onOpenChange={(o) => !o && setProposal(null)}>
+        <DialogContent>
+          <DialogTitle>Confirm assignment</DialogTitle>
+          <p>
+            {proposal?.pickup} → {proposal?.dropoff}
+          </p>
+          <p>
+            Driver:{" "}
+            {drivers.data?.find((d) => d.id === proposal?.driver_id)?.name ?? proposal?.driver_id}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {proposal?.rule}. Availability will be checked again when you confirm. Group rides
+            require vehicle planning in Dispatch.
+          </p>
+          <Button disabled={assigning} onClick={confirm}>
+            Confirm assignment
+          </Button>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-        {detail && (
+        {detail?.source === "dispatch" ? (
           <TripDetailDialog
             trip={detail}
-            passengerName={passengerName(detail.passenger_id)}
-            driverName={driverName(detail.driver_id)}
+            passengerName={detail.passenger_name}
+            driverName={detail.driver_name}
             onClose={() => setDetail(null)}
             onDeleted={() => {
               setDetail(null);
-              qc.invalidateQueries({ queryKey: ["trips"] });
+              void qc.invalidateQueries({ queryKey: ["trips"] });
             }}
           />
+        ) : (
+          detail && (
+            <DialogContent>
+              <DialogTitle>
+                {detail.source === "draft"
+                  ? "Driver work in progress"
+                  : detail.source === "request"
+                    ? "Ride request"
+                    : "Completed trip report"}
+              </DialogTitle>
+              <p>
+                {detail.passenger_name} · {detail.driver_name}
+              </p>
+              <p>
+                {detail.pickup_address} → {detail.dropoff_address}
+              </p>
+              <p>{formatDateTime(detail.scheduled_pickup_time)}</p>
+              <p>{detail.notes}</p>
+              <p>
+                Trip: {detail.status.replaceAll("_", " ")} · Billing:{" "}
+                {detail.billing_status.replaceAll("_", " ")}
+              </p>
+              {detail.source === "report" ? (
+                <AppLink to={"/medicaid-trips/" + detail.id} className="text-primary underline">
+                  Open report and billing details
+                </AppLink>
+              ) : (
+                <AppLink to="/live-ops" className="text-primary underline">
+                  Open Dispatch
+                </AppLink>
+              )}
+            </DialogContent>
+          )
         )}
       </Dialog>
     </div>
   );
 }
-
 function NewTripDialog({
   onClose,
   passengers,
@@ -349,6 +485,7 @@ function NewTripDialog({
 }) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [addingPassenger, setAddingPassenger] = useState(false);
   const [passengerId, setPassengerId] = useState("");
   const [driverId, setDriverId] = useState<string>("__unassigned");
   const [pickup, setPickup] = useState("");
@@ -359,7 +496,7 @@ function NewTripDialog({
   const [scheduled, setScheduled] = useState(() => {
     const d = new Date();
     d.setMinutes(d.getMinutes() + 30);
-    return d.toISOString().slice(0, 16);
+    return localDateTimeInput(d);
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -369,13 +506,19 @@ function NewTripDialog({
     return (
       p.first_name.toLowerCase().includes(q) ||
       p.last_name.toLowerCase().includes(q) ||
-      p.medicaid_id.toLowerCase().includes(q)
+      (p.medicaid_id ?? "").toLowerCase().includes(q)
     );
   });
 
   async function submit() {
     if (!passengerId) return toast.error("Pick a passenger");
     if (!pickup || !dropoff) return toast.error("Pickup and dropoff required");
+    let scheduledISO: string;
+    try {
+      scheduledISO = localInputToISOString(scheduled);
+    } catch (e) {
+      return toast.error(friendlyErrorMessage(e, "Invalid pickup time"));
+    }
     setSubmitting(true);
     const wp = waypointsText
       .split("\n")
@@ -384,8 +527,8 @@ function NewTripDialog({
       .map((address) => ({ address }));
     const { error } = await supabase.from("trips").insert({
       passenger_id: passengerId,
-      driver_id: driverId === "__unassigned" ? null : driverId,
-      status: driverId === "__unassigned" ? "scheduled" : "assigned",
+      driver_id: null,
+      status: "scheduled",
       pickup_address: pickup,
       dropoff_address: dropoff,
       pickup_lat: pickupCoords?.lat ?? null,
@@ -393,12 +536,12 @@ function NewTripDialog({
       dropoff_lat: dropoffCoords?.lat ?? null,
       dropoff_lng: dropoffCoords?.lng ?? null,
       waypoints: wp,
-      scheduled_pickup_time: new Date(scheduled).toISOString(),
+      scheduled_pickup_time: scheduledISO,
       assignment_type: "manual",
     });
     setSubmitting(false);
     if (error) return toast.error(error.message);
-    toast.success("Trip created");
+    toast.success("Trip created. Use Review next assignment to confirm an eligible driver.");
     qc.invalidateQueries({ queryKey: ["trips"] });
     onClose();
   }
@@ -410,7 +553,21 @@ function NewTripDialog({
       </DialogHeader>
       <div className="space-y-4">
         <div className="space-y-1.5">
-          <Label>Passenger</Label>
+          <div className="flex items-center justify-between">
+            <Label>Passenger</Label>
+            <Button size="sm" variant="outline" onClick={() => setAddingPassenger(true)}>
+              Add passenger
+            </Button>
+          </div>
+          <Dialog open={addingPassenger} onOpenChange={setAddingPassenger}>
+            <PassengerFormDialog
+              onClose={() => setAddingPassenger(false)}
+              onCreated={(id) => {
+                setPassengerId(id);
+                setSearch("");
+              }}
+            />
+          </Dialog>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -437,28 +594,16 @@ function NewTripDialog({
             ))}
             {!filtered.length && (
               <div className="p-3 text-center text-xs text-muted-foreground">
-                No matches. Add the passenger first.
+                No matching passengers.
               </div>
             )}
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label>Driver</Label>
-          <Select value={driverId} onValueChange={setDriverId}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__unassigned">Unassigned</SelectItem>
-              {drivers.map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.name ?? "Driver"} — {d.status}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <p className="rounded-lg bg-muted p-3 text-sm">
+          Save the pickup first, then review an eligible driver with fresh GPS and no scheduling
+          conflict.
+        </p>
 
         <div className="space-y-1.5">
           <Label>Pickup address</Label>
@@ -499,7 +644,7 @@ function NewTripDialog({
           />
         </div>
         <div className="space-y-1.5">
-          <Label>Scheduled pickup</Label>
+          <Label>Scheduled pickup · {Intl.DateTimeFormat().resolvedOptions().timeZone}</Label>
           <Input
             type="datetime-local"
             value={scheduled}
@@ -578,7 +723,6 @@ function TripDetailDialog({
     }
   }
 
-
   async function handleOpenPdf() {
     setPdfLoading(true);
     try {
@@ -601,7 +745,9 @@ function TripDetailDialog({
       if (reportError) throw reportError;
       const pdfPath = reports?.[0]?.state_pdf_path;
       if (!pdfPath) {
-        throw new Error("No saved PDF is available. Open Edit HCPF and choose Save & regenerate PDF.");
+        throw new Error(
+          "No saved PDF is available. Open Edit HCPF and choose Save & regenerate PDF.",
+        );
       }
       const { data: signed, error: signError } = await supabase.storage
         .from("state-pdfs")
@@ -643,145 +789,148 @@ function TripDetailDialog({
 
   return (
     <>
-    <DialogContent className="max-w-2xl">
-      <DialogHeader>
-        <DialogTitle className="flex flex-wrap items-center gap-2 pr-10">
-          Trip details
-          <StatusPill status={trip.status} />
-          <StatusPill status={trip.billing_status} />
-        </DialogTitle>
-      </DialogHeader>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex flex-wrap items-center gap-2 pr-10">
+            Trip details
+            <StatusPill status={trip.status} />
+            <StatusPill status={trip.billing_status} />
+          </DialogTitle>
+        </DialogHeader>
 
-      <div className="grid gap-4 text-sm sm:grid-cols-2">
-        <Info label="Passenger" value={passengerName} />
-        <Info label="Driver" value={driverName} />
-        <Info label="Pickup" value={trip.pickup_address} />
-        <Info label="Dropoff" value={trip.dropoff_address} />
-        <Info label="Scheduled" value={formatDateTime(trip.scheduled_pickup_time)} />
-        <Info label="Actual pickup" value={formatDateTime(trip.actual_pickup_time)} />
-        <Info label="Actual dropoff" value={formatDateTime(trip.actual_dropoff_time)} />
-        <Info
-          label="Odometer"
-          value={
-            trip.odometer_start != null && trip.odometer_end != null
-              ? `${trip.odometer_start} → ${trip.odometer_end} (${
-                  trip.odometer_end - trip.odometer_start
-                } mi)`
-              : trip.odometer_start != null
-                ? `Start ${trip.odometer_start}`
-                : "—"
-          }
-        />
-      </div>
-      {(photoUrls.start || photoUrls.end) && (
-        <div className="mt-2 grid gap-3 sm:grid-cols-2">
-          {photoUrls.start && (
-            <div>
-              <div className="mb-1 text-xs font-medium text-muted-foreground">
-                Odometer start
-              </div>
-              <img
-                src={photoUrls.start}
-                alt="Start odometer"
-                className="w-full rounded-xl border border-border"
-              />
-            </div>
-          )}
-          {photoUrls.end && (
-            <div>
-              <div className="mb-1 text-xs font-medium text-muted-foreground">
-                Odometer end
-              </div>
-              <img
-                src={photoUrls.end}
-                alt="End odometer"
-                className="w-full rounded-xl border border-border"
-              />
-            </div>
-          )}
+        <div className="grid gap-4 text-sm sm:grid-cols-2">
+          <Info label="Passenger" value={passengerName} />
+          <Info label="Driver" value={driverName} />
+          <Info label="Pickup" value={trip.pickup_address} />
+          <Info label="Dropoff" value={trip.dropoff_address} />
+          <Info label="Scheduled" value={formatDateTime(trip.scheduled_pickup_time)} />
+          <Info label="Actual pickup" value={formatDateTime(trip.actual_pickup_time)} />
+          <Info label="Actual dropoff" value={formatDateTime(trip.actual_dropoff_time)} />
+          <Info
+            label="Odometer"
+            value={
+              trip.odometer_start != null && trip.odometer_end != null
+                ? `${trip.odometer_start} → ${trip.odometer_end} (${
+                    trip.odometer_end - trip.odometer_start
+                  } mi)`
+                : trip.odometer_start != null
+                  ? `Start ${trip.odometer_start}`
+                  : "—"
+            }
+          />
         </div>
-      )}
-      {trip.notes && (
-        <div>
-          <div className="mb-1 text-xs font-medium text-muted-foreground">Notes</div>
-          <div className="rounded-xl bg-surface-muted p-3 text-sm">{trip.notes}</div>
-        </div>
-      )}
-      <DialogFooter className="mt-2 gap-2 border-t border-border/60 pt-4 sm:justify-between">
-        <Button
-          variant="destructive"
-          onClick={() => setConfirmOpen(true)}
-          disabled={deleting}
-          className="whitespace-nowrap rounded-full"
-        >
-          {deleting ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Trash2 className="mr-2 h-4 w-4" />
-          )}
-          Cancel &amp; delete trip
-        </Button>
-        <div className="flex flex-wrap items-center gap-2">
-          <TripReportEditor tripId={trip.id} />
+        {(photoUrls.start || photoUrls.end) && (
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            {photoUrls.start && (
+              <div>
+                <div className="mb-1 text-xs font-medium text-muted-foreground">Odometer start</div>
+                <img
+                  src={photoUrls.start}
+                  alt="Start odometer"
+                  className="w-full rounded-xl border border-border"
+                />
+              </div>
+            )}
+            {photoUrls.end && (
+              <div>
+                <div className="mb-1 text-xs font-medium text-muted-foreground">Odometer end</div>
+                <img
+                  src={photoUrls.end}
+                  alt="End odometer"
+                  className="w-full rounded-xl border border-border"
+                />
+              </div>
+            )}
+          </div>
+        )}
+        {trip.notes && (
+          <div>
+            <div className="mb-1 text-xs font-medium text-muted-foreground">Notes</div>
+            <div className="rounded-xl bg-surface-muted p-3 text-sm">{trip.notes}</div>
+          </div>
+        )}
+        <DialogFooter className="mt-2 gap-2 border-t border-border/60 pt-4 sm:justify-between">
           <Button
-            variant="outline"
-            onClick={handleOpenPdf}
-            disabled={pdfLoading || trip.status !== "completed"}
+            variant="destructive"
+            onClick={() => setConfirmOpen(true)}
+            disabled={deleting}
             className="whitespace-nowrap rounded-full"
           >
-            {pdfLoading ? (
+            {deleting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <FileText className="mr-2 h-4 w-4" />
+              <Trash2 className="mr-2 h-4 w-4" />
             )}
-            View HCPF PDF
+            Cancel &amp; delete trip
           </Button>
-          <a
-            href={`/track/${trip.id}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex h-9 items-center whitespace-nowrap rounded-full border border-border px-4 text-sm font-medium transition-colors hover:bg-accent"
-          >
-            Open passenger tracking
-          </a>
-          <Button variant="secondary" onClick={onClose} className="whitespace-nowrap rounded-full">
-            Close
-          </Button>
-        </div>
-      </DialogFooter>
-
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this trip?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently deletes the trip{trip.driver_id ? " and removes it from the assigned driver's app in real time" : ""}.
-              Any linked billing record will be cascaded and the cancellation logged to the audit trail.
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Keep trip</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                handleDelete();
-              }}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          <div className="flex flex-wrap items-center gap-2">
+            <TripReportEditor tripId={trip.id} />
+            <Button
+              variant="outline"
+              onClick={handleOpenPdf}
+              disabled={pdfLoading || trip.status !== "completed"}
+              className="whitespace-nowrap rounded-full"
             >
-              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Yes, cancel trip
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </DialogContent>
-    <PdfPreviewDialog
-      url={pdfUrl}
-      filename={`hcpf-trip-${trip.id.slice(0, 8)}.pdf`}
-      onClose={() => setPdfUrl(null)}
-    />
+              {pdfLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="mr-2 h-4 w-4" />
+              )}
+              View HCPF PDF
+            </Button>
+            <a
+              href={`/track/${trip.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center whitespace-nowrap rounded-full border border-border px-4 text-sm font-medium transition-colors hover:bg-accent"
+            >
+              Open passenger tracking
+            </a>
+            <Button
+              variant="secondary"
+              onClick={onClose}
+              className="whitespace-nowrap rounded-full"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogFooter>
+
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel this trip?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently deletes the trip
+                {trip.driver_id
+                  ? " and removes it from the assigned driver's app in real time"
+                  : ""}
+                . Any linked billing record will be cascaded and the cancellation logged to the
+                audit trail. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Keep trip</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDelete();
+                }}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Yes, cancel trip
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </DialogContent>
+      <PdfPreviewDialog
+        url={pdfUrl}
+        filename={`hcpf-trip-${trip.id.slice(0, 8)}.pdf`}
+        onClose={() => setPdfUrl(null)}
+      />
     </>
   );
 }

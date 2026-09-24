@@ -27,7 +27,10 @@ type CreatePassengerInput = {
   notes?: string | null;
 };
 
-async function ensureAdmin(supabase: import("@supabase/supabase-js").SupabaseClient, userId: string) {
+async function ensureAdmin(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  userId: string,
+) {
   const { data, error } = await supabase
     .from("user_roles")
     .select("role")
@@ -70,11 +73,7 @@ export const createDriver = createServerFn({ method: "POST" })
         { user_id: userId, role: "driver", company_id: companyId },
         { onConflict: "user_id,role" },
       );
-    await supabaseAdmin
-      .from("user_roles")
-      .delete()
-      .eq("user_id", userId)
-      .neq("role", "driver");
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).neq("role", "driver");
 
     // Update profile with any info the trigger may have missed
     await supabaseAdmin
@@ -331,104 +330,50 @@ export const getPayroll = createServerFn({ method: "POST" })
   .inputValidator((input: PayrollInput) => input)
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.supabase, context.userId);
-    const s = context.supabase;
-    const [{ data: payRow }, { data: clocked }] = await Promise.all([
-      s.from("driver_pay").select("hourly_rate").eq("driver_id", data.driver_id).maybeSingle(),
-      s
-        .from("driver_shifts")
-        .select("id, clock_in_at, clock_out_at")
-        .eq("driver_id", data.driver_id)
-        .gte("clock_in_at", data.from)
-        .lte("clock_in_at", data.to),
-    ]);
-    const HOURLY = payRow?.hourly_rate == null ? null : Number(payRow.hourly_rate);
-
-    const [{ data: trips }, { data: shifts }, { data: fuel }, { data: driver }] = await Promise.all([
-      s
-        .from("trips")
-        .select("id, status, actual_pickup_time, actual_dropoff_time, computed_miles, gps_miles")
-        .eq("driver_id", data.driver_id)
-        .eq("status", "completed")
-        .gte("actual_dropoff_time", data.from)
-        .lte("actual_dropoff_time", data.to),
-      s
-        .from("shifts")
-        .select("id, start_time, end_time, status")
-        .eq("driver_id", data.driver_id)
-        .gte("start_time", data.from)
-        .lte("start_time", data.to),
-      s
-        .from("fuel_logs")
-        .select("id, total_cost, log_date")
-        .eq("driver_id", data.driver_id)
-        .gte("log_date", data.from.slice(0, 10))
-        .lte("log_date", data.to.slice(0, 10)),
-      s
-        .from("drivers")
-        .select("id, user_id")
-        .eq("id", data.driver_id)
-        .single(),
-    ]);
-
-    let profile: { first_name: string | null; last_name: string | null; email: string | null } | null = null;
-    if (driver?.user_id) {
-      const { data: p } = await s
-        .from("profiles")
-        .select("first_name, last_name, email")
-        .eq("id", driver.user_id)
-        .maybeSingle();
-      profile = p;
-    }
-
-    let hours = 0;
-    if (clocked && clocked.length) {
-      hours = clocked.reduce((sum, sh) => {
-        const start = new Date(sh.clock_in_at).getTime();
-        const end = sh.clock_out_at ? new Date(sh.clock_out_at).getTime() : Date.now();
-        return sum + Math.max(0, (end - start) / 3_600_000);
-      }, 0);
-    } else if (shifts && shifts.length) {
-      hours = shifts.reduce((sum, sh) => {
-        const start = new Date(sh.start_time).getTime();
-        const end = new Date(sh.end_time).getTime();
-        return sum + Math.max(0, (end - start) / 3_600_000);
-      }, 0);
-    } else if (trips) {
-      hours = trips.reduce((sum, t) => {
-        if (!t.actual_pickup_time || !t.actual_dropoff_time) return sum;
-        const start = new Date(t.actual_pickup_time).getTime();
-        const end = new Date(t.actual_dropoff_time).getTime();
-        return sum + Math.max(0, (end - start) / 3_600_000);
-      }, 0);
-    }
-
-    const fuelCost = (fuel ?? []).reduce((s, f) => s + Number(f.total_cost ?? 0), 0);
-    const miles = (trips ?? []).reduce(
-      (s, t) => s + Number(t.computed_miles ?? t.gps_miles ?? 0),
-      0,
+    const { requireCompanyId } = await import("@/lib/company.server");
+    const companyId = await requireCompanyId(context.userId);
+    const { buildPreview } = await import("@/lib/payroll.functions");
+    if (
+      !Number.isFinite(Date.parse(data.from)) ||
+      !Number.isFinite(Date.parse(data.to)) ||
+      Date.parse(data.to) <= Date.parse(data.from)
+    )
+      throw new Error("Invalid pay period");
+    const { driver, plan, calc, issues, work } = await buildPreview(
+      context.supabase,
+      companyId,
+      data.driver_id,
+      data.from,
+      data.to,
     );
-    const hourlyPay = HOURLY == null ? 0 : hours * HOURLY;
-    const total = hourlyPay + fuelCost;
-
+    if (issues.length) throw new Error("Pay plan needs attention: " + issues.join("; "));
+    const { data: shifts, error } = work.shift_ids.length
+      ? await context.supabase
+          .from("driver_shifts")
+          .select("id,clock_in_at,clock_out_at")
+          .in("id", work.shift_ids)
+      : { data: [], error: null };
+    if (error) throw new Error(error.message);
     return {
-      driver: profile,
+      driver: { first_name: driver.name, last_name: "", email: driver.email },
       period: { from: data.from, to: data.to },
-      hourly_rate: HOURLY,
-      hours: Number(hours.toFixed(2)),
-      hourly_pay: Number(hourlyPay.toFixed(2)),
-      trips_completed: trips?.length ?? 0,
-      miles: Number(miles.toFixed(2)),
-      fuel_cost: Number(fuelCost.toFixed(2)),
+      plan: plan.plan,
+      lines: calc.lines,
+      hourly_rate: calc.hourly_rate,
+      hours: calc.hours,
+      hourly_pay: calc.hourly_pay,
+      trips_completed: calc.trip_count,
+      miles: null as number | null,
+      fuel_cost: calc.fuel,
+      total: calc.total,
       shifts: (shifts ?? []).map((sh) => ({
         id: sh.id,
-        start: sh.start_time,
-        end: sh.end_time,
-        status: sh.status,
+        start: sh.clock_in_at,
+        end: sh.clock_out_at,
+        status: "Clocked",
       })),
-      total: Number(total.toFixed(2)),
     };
   });
-
 
 type CreateBillingUserInput = CreateDispatcherInput & {
   /** "billing" = sees only their own bills. "admin_biller" = sees every bill in the company. */
@@ -466,10 +411,7 @@ export const createBillingUser = createServerFn({ method: "POST" })
     const userId = created.user.id;
     await supabaseAdmin
       .from("user_roles")
-      .upsert(
-        { user_id: userId, role, company_id: companyId },
-        { onConflict: "user_id,role" },
-      );
+      .upsert({ user_id: userId, role, company_id: companyId }, { onConflict: "user_id,role" });
     await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).neq("role", role);
     await supabaseAdmin
       .from("profiles")
@@ -524,7 +466,6 @@ export const deleteBillingUser = createServerFn({ method: "POST" })
     await supabaseAdmin.auth.admin.deleteUser(data.user_id);
     return { ok: true };
   });
-
 
 /** Admin resets a driver's password directly from the driver profile.
  *  Scoped to the admin's own company so one tenant can never touch another's

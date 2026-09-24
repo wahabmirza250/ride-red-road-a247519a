@@ -146,11 +146,13 @@ function PassengersPage() {
   );
 }
 
-function PassengerFormDialog({
+export function PassengerFormDialog({
   existing,
   onClose,
+  onCreated,
 }: {
   existing?: Passenger;
+  onCreated?: (id: string) => void;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
@@ -188,11 +190,7 @@ function PassengerFormDialog({
         filters.push(`last_name.ilike.%${q}%`);
       }
       if (phoneDigits.length >= 4) filters.push(`phone.ilike.%${phoneDigits}%`);
-      const { data } = await supabase
-        .from("passengers")
-        .select("*")
-        .or(filters.join(","))
-        .limit(5);
+      const { data } = await supabase.from("passengers").select("*").or(filters.join(",")).limit(5);
       setSuggestions((data as Passenger[]) ?? []);
     }, 220);
     return () => clearTimeout(t);
@@ -222,7 +220,7 @@ function PassengerFormDialog({
         if (error) throw error;
         toast.success("Updated");
       } else {
-        await create({
+        const created = await create({
           data: {
             first_name: form.first_name,
             last_name: form.last_name,
@@ -235,6 +233,7 @@ function PassengerFormDialog({
             notes: form.notes || null,
           },
         });
+        if (created.id) onCreated?.(created.id);
         toast.success("Passenger added");
       }
       qc.invalidateQueries({ queryKey: ["passengers"] });
@@ -275,9 +274,12 @@ function PassengerFormDialog({
                 className="flex w-full items-center justify-between rounded-lg bg-background px-3 py-2 text-left text-sm shadow-soft transition hover:bg-accent"
               >
                 <div>
-                  <div className="font-medium">{p.first_name} {p.last_name}</div>
+                  <div className="font-medium">
+                    {p.first_name} {p.last_name}
+                  </div>
                   <div className="text-xs text-muted-foreground">
-                    {p.medicaid_id || "no HFC ID"}{p.phone ? ` · ${p.phone}` : ""}
+                    {p.medicaid_id || "no HFC ID"}
+                    {p.phone ? ` · ${p.phone}` : ""}
                   </div>
                 </div>
                 <span className="text-xs font-medium text-primary">Use</span>
@@ -293,36 +295,66 @@ function PassengerFormDialog({
       )}
       <div className="grid gap-3 sm:grid-cols-2">
         <F label="First name">
-          <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+          <Input
+            value={form.first_name}
+            onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+          />
         </F>
         <F label="Last name">
-          <Input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+          <Input
+            value={form.last_name}
+            onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+          />
         </F>
         <F label="Medicaid ID" className="sm:col-span-2">
-          <Input value={form.medicaid_id} onChange={(e) => setForm({ ...form, medicaid_id: e.target.value })} />
+          <Input
+            value={form.medicaid_id}
+            onChange={(e) => setForm({ ...form, medicaid_id: e.target.value })}
+          />
         </F>
 
         <F label="Date of birth">
-          <Input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
+          <Input
+            type="date"
+            value={form.date_of_birth}
+            onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
+          />
         </F>
         <F label="County">
-          <Input value={form.county} onChange={(e) => setForm({ ...form, county: e.target.value })} />
+          <Input
+            value={form.county}
+            onChange={(e) => setForm({ ...form, county: e.target.value })}
+          />
         </F>
         <F label="Phone">
           <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         </F>
         <F label="Email">
-          <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Input
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
         </F>
         <F label="Address" className="sm:col-span-2">
-          <AddressAutocomplete value={form.address} onChange={(v) => setForm({ ...form, address: v })} onResolve={(p) => setForm({ ...form, address: p.address })} />
+          <AddressAutocomplete
+            value={form.address}
+            onChange={(v) => setForm({ ...form, address: v })}
+            onResolve={(p) => setForm({ ...form, address: p.address })}
+          />
         </F>
         <F label="Notes" className="sm:col-span-2">
-          <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <Textarea
+            rows={2}
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          />
         </F>
       </div>
       <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
         <Button onClick={submit} disabled={saving}>
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {existing ? "Save" : "Add"}
@@ -332,7 +364,15 @@ function PassengerFormDialog({
   );
 }
 
-function F({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+function F({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <div className={`space-y-1.5 ${className ?? ""}`}>
       <Label>{label}</Label>

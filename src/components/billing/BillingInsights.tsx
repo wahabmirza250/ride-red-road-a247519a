@@ -37,9 +37,7 @@ function Card({
     <section className={`bill-card min-w-0 p-5 ${className ?? ""}`}>
       <header className="mb-4 min-w-0">
         <h2 className="truncate text-sm font-semibold text-foreground">{title}</h2>
-        {subtitle ? (
-          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
-        ) : null}
+        {subtitle ? <p className="truncate text-xs text-muted-foreground">{subtitle}</p> : null}
       </header>
       {children}
     </section>
@@ -47,7 +45,13 @@ function Card({
 }
 
 /** Claims Overview donut + Processing Activity line + Auto Pilot status. */
-export function BillingInsights({ counts }: { counts: BillingCounts }) {
+export function BillingInsights({
+  counts,
+  embedded = false,
+}: {
+  counts: BillingCounts;
+  embedded?: boolean;
+}) {
   const n = (k: string) => Number(counts?.[k] ?? 0);
   const donut = [
     { name: "Paid", value: n("paid") },
@@ -105,7 +109,10 @@ export function BillingInsights({ counts }: { counts: BillingCounts }) {
                 stroke="none"
               >
                 {(donut.length ? donut : [{ name: "none", value: 1 }]).map((_, i) => (
-                  <Cell key={i} fill={donut.length ? DONUT_COLORS[i % DONUT_COLORS.length] : "#e5e7eb"} />
+                  <Cell
+                    key={i}
+                    fill={donut.length ? DONUT_COLORS[i % DONUT_COLORS.length] : "#e5e7eb"}
+                  />
                 ))}
               </Pie>
               <Tooltip />
@@ -113,7 +120,9 @@ export function BillingInsights({ counts }: { counts: BillingCounts }) {
           </ResponsiveContainer>
           <div className="pointer-events-none absolute inset-0 grid place-items-center">
             <div className="text-center">
-              <div className="text-xl font-semibold tabular-nums">{donutTotal.toLocaleString()}</div>
+              <div className="text-xl font-semibold tabular-nums">
+                {donutTotal.toLocaleString()}
+              </div>
               <div className="text-[11px] text-muted-foreground">claims</div>
             </div>
           </div>
@@ -135,8 +144,15 @@ export function BillingInsights({ counts }: { counts: BillingCounts }) {
       <Card title="Claims Processing Activity" subtitle="Last 14 days">
         <div className="h-[262px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={activity.data ?? []} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(120,120,140,0.18)" />
+            <LineChart
+              data={activity.data ?? []}
+              margin={{ top: 8, right: 8, left: -18, bottom: 0 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke="rgba(120,120,140,0.18)"
+              />
               <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={11} />
               <YAxis tickLine={false} axisLine={false} fontSize={11} allowDecimals={false} />
               <Tooltip />
@@ -157,14 +173,14 @@ export function BillingInsights({ counts }: { counts: BillingCounts }) {
         <Card title="Auto Pilot" subtitle="Sends ready bills in safe waves">
           <AutoPilotButton />
         </Card>
-        <QuickActions />
+        <QuickActions embedded={embedded} />
         <TopDenialReasons />
       </div>
     </div>
   );
 }
 
-function QuickActions() {
+function QuickActions({ embedded }: { embedded: boolean }) {
   const items = [
     { to: "/billing/chat", label: "Add a paper bill", icon: MessageSquare },
     { to: "/billing/batch", label: "Batch upload", icon: Layers },
@@ -176,7 +192,18 @@ function QuickActions() {
         {items.map((i) => (
           <AppLink
             key={i.to}
-            to={i.to}
+            to={embedded ? "/medicaid-billing/hcpf" : i.to}
+            search={
+              embedded
+                ? {
+                    tab: i.to.endsWith("chat")
+                      ? "paper"
+                      : i.to.endsWith("batch")
+                        ? "batch"
+                        : "settings",
+                  }
+                : {}
+            }
             className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-[13px] text-foreground/80 transition hover:bg-accent"
           >
             <i.icon className="h-4 w-4 shrink-0 text-muted-foreground" />

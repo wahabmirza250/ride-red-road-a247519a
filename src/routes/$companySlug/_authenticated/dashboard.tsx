@@ -1,3 +1,7 @@
+import { CompanyReadiness } from "@/components/admin/CompanyReadiness";
+import { QueryNotice } from "@/components/admin/QueryNotice";
+import { GoogleFleetMap } from "@/components/nemt/GoogleFleetMap";
+import { locationState } from "@/lib/operationStatus";
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLink } from "@/lib/appLink";
 import { useQuery } from "@tanstack/react-query";
@@ -31,6 +35,10 @@ import { formatDateTime } from "@/lib/format";
 import type { ReactNode } from "react";
 
 export const Route = createFileRoute("/$companySlug/_authenticated/dashboard")({
+  validateSearch: (s: Record<string, unknown>): { driver?: string; view?: string } => ({
+    driver: typeof s.driver === "string" ? s.driver : undefined,
+    view: s.view === "setup" ? "setup" : undefined,
+  }),
   component: DashboardPage,
 });
 
@@ -40,6 +48,8 @@ type DriverListRow = {
   status: string;
   current_lat: number | null;
   current_lng: number | null;
+  last_location_at: string | null;
+  license_number: string | null;
   photo_url: string | null;
   vehicle_photo_path: string | null;
   vehicle_make: string | null;
@@ -123,7 +133,7 @@ function useDrivers() {
       const { data, error } = await supabase
         .from("drivers")
         .select(
-          "id, user_id, status, current_lat, current_lng, photo_url, vehicle_photo_path, vehicle_make, vehicle_model, vehicle_year, vehicle_plate, default_vin, rating, total_trips, total_ratings",
+          "id, user_id, status, current_lat, current_lng, last_location_at, license_number, photo_url, vehicle_photo_path, vehicle_make, vehicle_model, vehicle_year, vehicle_plate, default_vin, rating, total_trips, total_ratings",
         );
       if (error) throw error;
       const rows = data ?? [];
@@ -157,44 +167,13 @@ function useCurrentTrip(driverId: string | null) {
     queryKey: ["dashboard-current-trip", driverId],
     queryFn: async (): Promise<CurrentTrip | null> => {
       if (!driverId) return null;
-      const { data: trip } = await supabase
-        .from("trips")
-        .select(
-          "id, status, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, scheduled_pickup_time, actual_pickup_time, actual_dropoff_time, computed_miles, gps_miles",
-        )
-        .eq("driver_id", driverId)
-        .order("scheduled_pickup_time", { ascending: false, nullsFirst: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (trip) return { ...trip, source: "trips" as const };
-
-      const { data: mtrip } = await supabase
-        .from("medicaid_trips")
-        .select(
-          "id, status, pickup_address, dropoff_address, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, pickup_at, ride_started_at, arrived_dropoff_at, miles",
-        )
-        .eq("driver_id", driverId)
-        .order("pickup_at", { ascending: false, nullsFirst: false })
-        .limit(1)
-        .maybeSingle();
-      if (!mtrip) return null;
-      return {
-        id: mtrip.id,
-        status: mtrip.status,
-        pickup_address: mtrip.pickup_address,
-        dropoff_address: mtrip.dropoff_address,
-        pickup_lat: mtrip.pickup_lat,
-        pickup_lng: mtrip.pickup_lng,
-        dropoff_lat: mtrip.dropoff_lat,
-        dropoff_lng: mtrip.dropoff_lng,
-        scheduled_pickup_time: mtrip.pickup_at,
-        actual_pickup_time: mtrip.ride_started_at,
-        actual_dropoff_time: mtrip.arrived_dropoff_at,
-        computed_miles: Number(mtrip.miles ?? 0),
-        gps_miles: null,
-        source: "medicaid_trips" as const,
-      };
+      const { data, error } = await supabase.rpc(
+        "admin_trip_page" as never,
+        { p_driver: driverId, p_status: "active" } as never,
+      );
+      if (error) throw error;
+      const rows = (data as unknown as { rows: CurrentTrip[] }).rows;
+      return rows[0] ?? null;
     },
     refetchInterval: 30_000,
   });
@@ -213,9 +192,10 @@ function useSignedImage(bucket: string, path: string | null | undefined) {
   });
 }
 
-function DashboardPage() {
+function DriverDetailPage() {
+  const { driver: requestedDriver } = Route.useSearch();
   const drivers = useDrivers();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(requestedDriver ?? null);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -265,13 +245,18 @@ function DashboardPage() {
       trip.data.actual_dropoff_time ??
       (trip.data.status === "in_progress" ? new Date().toISOString() : null);
     if (!start || !end) return "—";
-    const mins = Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000));
+    const mins = Math.max(
+      0,
+      Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000),
+    );
     if (mins < 60) return `${mins}m`;
     return `${Math.floor(mins / 60)}h ${mins % 60}m`;
   }, [trip.data]);
 
   const tripMiles = trip.data?.gps_miles ?? trip.data?.computed_miles ?? null;
-  const tripTone = trip.data ? statusTone(trip.data.status) : statusTone("scheduled");
+  const tripTone = trip.data
+    ? statusTone(trip.data.status)
+    : { label: "No active trip", tint: "#8A93A5" };
   const driverTone = selected ? statusTone(selected.status) : statusTone("offline");
 
   const avgSpeed = useMemo(() => {
@@ -292,8 +277,12 @@ function DashboardPage() {
 
   return (
     <div className="min-h-[calc(100vh-8rem)]">
+      <AppLink to="/dashboard" search={{}} className="text-sm text-primary underline">
+        Back to Today
+      </AppLink>
+      <QueryNotice query={drivers} label="Drivers" />
+      <QueryNotice query={trip} label="Current trip" />
       <div className="animate-rise-in space-y-6">
-
         {/* Header */}
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
@@ -398,7 +387,7 @@ function DashboardPage() {
                     className="flex items-center gap-2 text-sm font-semibold"
                     style={{ color: driverPos ? ACCENT.green : ACCENT.red }}
                   >
-                    {driverPos ? "Live" : "Offline"}
+                    {locationState(selected)}
                     <span
                       className={`h-2 w-2 rounded-full ${driverPos ? "animate-pulse" : ""}`}
                       style={{ background: driverPos ? ACCENT.green : ACCENT.red }}
@@ -464,8 +453,8 @@ function DashboardPage() {
               <InfoRow
                 icon={<BadgeCheck className="h-3.5 w-3.5" />}
                 label="License"
-                value="Active"
-                tint={ACCENT.green}
+                value={selected?.license_number ? "Unverified" : "Not provided"}
+                tint={ACCENT.yellow}
               />
               <InfoRow
                 icon={<CalendarDays className="h-3.5 w-3.5" />}
@@ -485,6 +474,7 @@ function DashboardPage() {
 
             <AppLink
               to="/messages"
+              search={{ driver: selected?.user_id }}
               className="btn-gradient-rb mt-auto flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-semibold"
               style={{ marginTop: "1.25rem" }}
             >
@@ -554,6 +544,7 @@ function DashboardPage() {
             </div>
             <AppLink
               to="/trips"
+              search={{ driver: selected?.id }}
               className="fleet-row mt-5 flex items-center justify-center gap-2 rounded-2xl py-3 text-xs font-semibold text-[color:var(--fleet-text)]"
             >
               <History className="h-3.5 w-3.5" /> View history
@@ -563,13 +554,18 @@ function DashboardPage() {
         </div>
 
         {/* Earnings */}
-        <EarningsPanel />
-
-
+        <AppLink to="/salary" className="block rounded-xl border p-4 text-primary">
+          Review pay plans, unpaid work and payment history in Salary →
+        </AppLink>
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-5">
-          <StatCardX tint={ACCENT.blue} icon={<Clock className="h-[18px] w-[18px]" />} label="Trip time" value={tripTime} />
+          <StatCardX
+            tint={ACCENT.blue}
+            icon={<Clock className="h-[18px] w-[18px]" />}
+            label="Trip time"
+            value={tripTime}
+          />
           <StatCardX
             tint={ACCENT.green}
             icon={<Gauge className="h-[18px] w-[18px]" />}
@@ -582,8 +578,18 @@ function DashboardPage() {
             label="Passengers"
             value={trip.data ? "1" : "0"}
           />
-          <StatCardX tint={ACCENT.red} icon={<Gauge className="h-[18px] w-[18px]" />} label="Avg speed" value={avgSpeed} />
-          <StatCardX tint={ACCENT.violet} icon={<Fuel className="h-[18px] w-[18px]" />} label="Fuel (est.)" value={fuelEstimate} />
+          <StatCardX
+            tint={ACCENT.red}
+            icon={<Gauge className="h-[18px] w-[18px]" />}
+            label="Avg speed"
+            value={avgSpeed}
+          />
+          <StatCardX
+            tint={ACCENT.violet}
+            icon={<Fuel className="h-[18px] w-[18px]" />}
+            label="Fuel (est.)"
+            value={fuelEstimate}
+          />
         </div>
 
         {/* Map + timeline */}
@@ -609,7 +615,7 @@ function DashboardPage() {
                 className={`h-2 w-2 rounded-full ${driverPos ? "animate-pulse" : ""}`}
                 style={{ background: driverPos ? ACCENT.green : ACCENT.red }}
               />
-              {driverPos ? "Live tracking" : "No GPS signal"}
+              {locationState(selected) === "Live" ? "Live tracking" : "Last known location"}
             </div>
           </div>
 
@@ -634,7 +640,11 @@ function DashboardPage() {
                   label="Dropoff"
                   time={trip.data.actual_dropoff_time}
                   address={trip.data.dropoff_address}
-                  meta={tripMiles != null ? `${Number(tripMiles).toFixed(1)} mi away` : "Awaiting arrival"}
+                  meta={
+                    tripMiles != null
+                      ? `${Number(tripMiles).toFixed(1)} mi away`
+                      : "Awaiting arrival"
+                  }
                   last
                 />
               </ol>
@@ -694,10 +704,7 @@ function InfoRow({
         {icon}
         {label}
       </span>
-      <span
-        className="truncate font-semibold"
-        style={{ color: tint ?? "var(--fleet-text)" }}
-      >
+      <span className="truncate font-semibold" style={{ color: tint ?? "var(--fleet-text)" }}>
         {value}
       </span>
     </div>
@@ -756,10 +763,7 @@ function StopRow({
           style={{ background: color, boxShadow: `0 0 0 4px ${color}26` }}
         />
         {!last && (
-          <div
-            className="mt-1 w-px flex-1"
-            style={{ background: "var(--fleet-border-strong)" }}
-          />
+          <div className="mt-1 w-px flex-1" style={{ background: "var(--fleet-border-strong)" }} />
         )}
       </div>
       <div className="fleet-row min-w-0 flex-1 rounded-2xl p-3.5">
@@ -780,5 +784,228 @@ function StopRow({
         </div>
       </div>
     </li>
+  );
+}
+
+function DashboardPage() {
+  const search = Route.useSearch();
+  if (search.driver) return <DriverDetailPage key={search.driver} />;
+  return <TodayPage setupOnly={search.view === "setup"} />;
+}
+function TodayPage({ setupOnly }: { setupOnly: boolean }) {
+  const drivers = useDrivers();
+  const queue = useQuery({
+    queryKey: ["today-queues"],
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const read = async (status: string) => {
+        const { data, error } = await supabase.rpc(
+          "admin_trip_page" as never,
+          { p_status: status } as never,
+        );
+        if (error) throw error;
+        return data as unknown as {
+          count: number;
+          rows: Array<{
+            id: string;
+            source: string;
+            scheduled_pickup_time: string;
+            passenger_name: string;
+            driver_name: string;
+            pickup_address: string;
+            driver_id: string | null;
+          }>;
+        };
+      };
+      const [unassigned, overdue, active, scheduled] = await Promise.all(
+        ["unassigned", "overdue", "active", "next"].map(read),
+      );
+      return { unassigned, overdue, active, scheduled };
+    },
+  });
+  if (setupOnly)
+    return (
+      <div className="space-y-4">
+        <AppLink to="/dashboard" search={{}} className="text-primary underline">
+          Back to Today
+        </AppLink>
+        <CompanyReadiness />
+      </div>
+    );
+  const markers = (drivers.data ?? [])
+    .filter((d) => d.current_lat != null && d.current_lng != null)
+    .map((d) => ({
+      id: d.id,
+      lat: d.current_lat!,
+      lng: d.current_lng!,
+      status:
+        locationState(d) === "Live"
+          ? (d.status as "available" | "busy" | "offline")
+          : ("offline" as const),
+      label: [d.profile?.first_name, d.profile?.last_name].filter(Boolean).join(" "),
+    }));
+  return (
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Today</h1>
+          <p className="text-sm text-muted-foreground">
+            Pickups, driver availability and work that needs attention.
+          </p>
+        </div>
+        <AppLink
+          to="/dashboard"
+          search={{ view: "setup" }}
+          className="rounded-xl border px-4 py-2 text-sm"
+        >
+          Company setup
+        </AppLink>
+      </header>
+      <QueryNotice query={queue} label="Operations" />
+      <QueryNotice query={drivers} label="Driver locations" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {(
+          [
+            { key: "unassigned", label: "Unassigned rides" },
+            { key: "overdue", label: "Overdue pickups" },
+            { key: "active", label: "Active trips" },
+            { key: "scheduled", label: "Upcoming pickups" },
+          ] as const
+        ).map((c) => (
+          <AppLink
+            key={c.key}
+            to="/trips"
+            search={{ status: c.key === "scheduled" ? "next" : c.key }}
+            className="rounded-2xl border bg-surface p-4"
+          >
+            <p className="text-sm text-muted-foreground">{c.label}</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {queue.isError ? "Unavailable" : (queue.data?.[c.key].count ?? "…")}
+            </p>
+          </AppLink>
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+        <section className="overflow-hidden rounded-2xl border bg-surface">
+          <div className="flex flex-wrap justify-between gap-2 p-4">
+            <h2 className="font-semibold">Fleet location</h2>
+            <span className="text-xs text-muted-foreground">
+              {drivers.isError
+                ? "Location unavailable"
+                : `${(drivers.data ?? []).filter((d) => locationState(d) === "Live").length} current · ${(drivers.data ?? []).filter((d) => locationState(d) !== "Live").length} need a location update`}
+            </span>
+          </div>
+          <div className="relative z-0 h-[340px]">
+            <GoogleFleetMap center={[39.7392, -104.9903]} markers={markers} />
+          </div>
+          <p className="p-3 text-xs text-muted-foreground">
+            GPS becomes stale after 90 seconds. Gray pins are last known positions.
+          </p>
+        </section>
+        <section className="rounded-2xl border bg-surface p-4">
+          <h2 className="mb-3 font-semibold">Needs attention</h2>
+          {queue.isPending ? (
+            <p>Loading…</p>
+          ) : queue.isError ? (
+            <p>Queue unavailable. Retry above.</p>
+          ) : (
+            <>
+              <AppLink
+                to="/trips"
+                search={{ status: "overdue" }}
+                className="block rounded-xl border p-3"
+              >
+                Review {queue.data?.overdue.count} overdue pickups
+              </AppLink>
+              <AppLink
+                to="/trips"
+                search={{ status: "unassigned" }}
+                className="mt-2 block rounded-xl border p-3"
+              >
+                Assign {queue.data?.unassigned.count} waiting rides
+              </AppLink>
+            </>
+          )}
+          <AppLink
+            to="/medicaid-billing/hcpf"
+            search={{ tab: "workflow" }}
+            className="mt-2 block rounded-xl border p-3"
+          >
+            Review billing queue and blocked claims
+          </AppLink>
+          <AppLink to="/compliance" className="mt-2 block rounded-xl border p-3">
+            Review driver documents and expiry alerts
+          </AppLink>
+          <AppLink
+            to="/live-ops"
+            search={{ tab: "plan" }}
+            className="mt-2 block rounded-xl border p-3"
+          >
+            Plan upcoming pickups
+          </AppLink>
+        </section>
+      </div>
+      <section className="rounded-2xl border bg-surface p-4">
+        <h2 className="mb-3 font-semibold">Next pickups</h2>
+        {queue.data?.scheduled.rows.slice(0, 5).map((t) => (
+          <AppLink
+            key={t.source + t.id}
+            to="/trips"
+            search={{ q: t.id }}
+            className="flex flex-wrap justify-between gap-2 border-b py-3 text-sm"
+          >
+            <span>
+              {t.passenger_name || "Passenger"} · {t.pickup_address}
+            </span>
+            <span>
+              {formatDateTime(t.scheduled_pickup_time)} · {t.driver_name}
+            </span>
+          </AppLink>
+        ))}
+        {queue.data && !queue.data.scheduled.count && (
+          <p className="text-sm text-muted-foreground">No upcoming pickups.</p>
+        )}
+      </section>
+      <section className="rounded-2xl border bg-surface p-4">
+        <div className="mb-3 flex justify-between gap-2">
+          <h2 className="font-semibold">Drivers and device health</h2>
+          <AppLink to="/drivers" className="text-sm text-primary underline">
+            Manage drivers
+          </AppLink>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {drivers.data?.map((d) => (
+            <AppLink
+              key={d.id}
+              to="/dashboard"
+              search={{ driver: d.id }}
+              className="rounded-xl border p-3"
+            >
+              <h3 className="font-medium">
+                {[d.profile?.first_name, d.profile?.last_name].filter(Boolean).join(" ") ||
+                  "Driver"}
+              </h3>
+              <p className="text-sm">
+                {d.status} · GPS {locationState(d)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {d.last_location_at
+                  ? "Last update " + formatDateTime(d.last_location_at)
+                  : "No location received"}
+              </p>
+              <p className="mt-2 text-xs text-primary">Open driver operations →</p>
+            </AppLink>
+          ))}
+        </div>
+        {!drivers.isPending && !drivers.isError && !drivers.data?.length && (
+          <p>No drivers yet. Add a driver to connect a company tablet.</p>
+        )}
+      </section>
+      <p className="text-xs text-muted-foreground">
+        {queue.dataUpdatedAt
+          ? "Operations last refreshed " + new Date(queue.dataUpdatedAt).toLocaleTimeString()
+          : "Waiting for the first successful update."}
+      </p>
+    </div>
   );
 }

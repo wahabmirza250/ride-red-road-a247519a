@@ -11,7 +11,11 @@ export type GpsPoint = { lat: number; lng: number; t?: string | null };
 export type StopDot = { lat: number; lng: number; label?: string };
 
 type MapModule = {
-  DriverFleetMap: React.ComponentType<{ center: [number, number]; markers: DriverMarker[]; focus?: { lat: number; lng: number; zoom?: number } | null }>;
+  DriverFleetMap: React.ComponentType<{
+    center: [number, number];
+    markers: DriverMarker[];
+    focus?: { lat: number; lng: number; zoom?: number } | null;
+  }>;
   RouteMap: React.ComponentType<{ center: [number, number]; path: GpsPoint[]; stops: StopDot[] }>;
   TrackMap: React.ComponentType<{
     center: [number, number];
@@ -25,8 +29,7 @@ function useMapModule(): MapModule | null {
   const [mod, setMod] = useState<MapModule | null>(null);
   useEffect(() => {
     let cancelled = false;
-    const path = "./MapView.client";
-    import(/* @vite-ignore */ path).then((m) => {
+    import("./MapViewBrowser").then((m) => {
       if (!cancelled) setMod(m as unknown as MapModule);
     });
     return () => {
@@ -44,18 +47,18 @@ function MapFallback() {
   );
 }
 
-export function DriverFleetMap(props: { center: [number, number]; markers: DriverMarker[]; focus?: { lat: number; lng: number; zoom?: number } | null }) {
+export function DriverFleetMap(props: {
+  center: [number, number];
+  markers: DriverMarker[];
+  focus?: { lat: number; lng: number; zoom?: number } | null;
+}) {
   const mod = useMapModule();
   if (!mod) return <MapFallback />;
   const C = mod.DriverFleetMap;
   return <C {...props} />;
 }
 
-export function RouteMap(props: {
-  center: [number, number];
-  path: GpsPoint[];
-  stops: StopDot[];
-}) {
+export function RouteMap(props: { center: [number, number]; path: GpsPoint[]; stops: StopDot[] }) {
   const mod = useMapModule();
   if (!mod) return <MapFallback />;
   const C = mod.RouteMap;

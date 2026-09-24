@@ -1,6 +1,14 @@
 // Google-Maps-style leaflet map with Uber-style pill markers.
 import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Marker, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  CircleMarker,
+  Popup,
+  Polyline,
+  Marker,
+  useMap,
+} from "react-leaflet";
 import L from "leaflet";
 import { useEffect, type ReactNode } from "react";
 
@@ -23,8 +31,7 @@ export type DriverMarker = {
 };
 
 function pillIcon(m: DriverMarker) {
-  const dot =
-    m.status === "available" ? "#22c55e" : m.status === "busy" ? "#f59e0b" : "#9ca3af";
+  const dot = m.status === "available" ? "#22c55e" : m.status === "busy" ? "#f59e0b" : "#9ca3af";
   const name = (m.label || "Driver").replace(/</g, "&lt;");
   const html = `
     <div style="transform:translate(-50%,-100%);display:inline-flex;align-items:center;gap:6px;
@@ -75,7 +82,12 @@ export function DriverFleetMap({
   focus?: { lat: number; lng: number; zoom?: number } | null;
 }) {
   return (
-    <MapContainer center={center} zoom={11} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
+    <MapContainer
+      center={center}
+      zoom={11}
+      scrollWheelZoom
+      style={{ height: "100%", width: "100%" }}
+    >
       <TileLayer attribution={OSM_ATTR} url={OSM_URL} />
       <FocusController focus={focus} markers={markers} />
       {markers.map((m) => (
@@ -105,7 +117,11 @@ export function RouteMap({
   stops: StopDot[];
 }) {
   return (
-    <MapContainer center={center} zoom={path.length ? 12 : 7} style={{ height: "100%", width: "100%" }}>
+    <MapContainer
+      center={center}
+      zoom={path.length ? 12 : 7}
+      style={{ height: "100%", width: "100%" }}
+    >
       <TileLayer attribution={OSM_ATTR} url={OSM_URL} />
       {path.length > 1 && (
         <Polyline
@@ -164,7 +180,15 @@ export function TrackMap({
   );
 }
 
-export function BaseMap({ center, zoom, children }: { center: [number, number]; zoom: number; children?: ReactNode }) {
+export function BaseMap({
+  center,
+  zoom,
+  children,
+}: {
+  center: [number, number];
+  zoom: number;
+  children?: ReactNode;
+}) {
   return (
     <MapContainer center={center} zoom={zoom} style={{ height: "100%", width: "100%" }}>
       <TileLayer attribution={OSM_ATTR} url={OSM_URL} />
