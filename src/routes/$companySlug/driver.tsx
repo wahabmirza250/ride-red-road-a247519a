@@ -56,15 +56,16 @@ function DriverLayout() {
   }
 
 
+  const exitDriver = async () => { await signOut(); window.location.replace(signInHref); };
+  const cameraKey = `${companySlug}:${user.id}`;
   return (
+    <DriverCamera key={cameraKey} consentKey={cameraKey} onExit={exitDriver}>
     <AppShell kind="Driver" companySlug={companySlug} navigation={NAV} actions={
-      <button type="button" aria-label="Sign out" className="mobile-app-icon-button" onClick={async () => { await signOut(); window.location.replace(signInHref); }}><LogOut aria-hidden="true" /></button>
+      <button type="button" aria-label="Sign out" className="mobile-app-icon-button" onClick={exitDriver}><LogOut aria-hidden="true" /></button>
     }>
-      <div className="driver-workspace">
-        <section className="driver-workspace-main"><Outlet /></section>
-        <aside className="driver-workspace-tools"><DriverCamera /></aside>
-      </div>
+      <Outlet />
       <InstallPrompt />
     </AppShell>
+    </DriverCamera>
   );
 }
