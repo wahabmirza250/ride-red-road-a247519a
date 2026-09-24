@@ -9,6 +9,7 @@ import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { AccessDenied } from "@/components/AccessDenied";
 import { CompanyLogo } from "@/components/CompanyLogo";
 import { BrandMark } from "@/components/Brand";
+import { DriverCamera } from "@/components/driver/DriverCamera";
 
 export const Route = createFileRoute("/$companySlug/driver")({
   ssr: false,
@@ -79,6 +80,7 @@ function DriverLayout() {
         </div>
       </header>
       <main className="mx-auto max-w-2xl p-4">
+        <DriverCamera />
         <Outlet />
       </main>
       <nav

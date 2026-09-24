@@ -9,18 +9,14 @@ import type { CapacitorConfig } from '@capacitor/cli';
  */
 const config: CapacitorConfig = {
   appId: 'com.redart.driver',
-  appName: 'RedArt Driver',
+  appName: 'NEMT Driver',
   webDir: 'www',
+  includePlugins: ['@capacitor/app', '@capacitor/camera', '@capacitor/geolocation', '@capacitor/splash-screen', '@capacitor/status-bar'],
   server: {
-    url: 'https://redartdigital.com/driver',
+    url: `${process.env.MOBILE_APP_ORIGIN || 'https://nemtsolutions.co'}/driver/signin`,
     cleartext: false,
     allowNavigation: [
-      'redartdigital.com',
-      '*.redartdigital.com',
-      '*.lovable.app',
-      '*.supabase.co',
-      '*.googleapis.com',
-      '*.gstatic.com',
+      new URL(process.env.MOBILE_APP_ORIGIN || 'https://nemtsolutions.co').hostname,
     ],
   },
   android: {
@@ -38,8 +34,7 @@ const config: CapacitorConfig = {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
     Geolocation: {
-      // Enables the OS foreground-service notification while a trip
-      // is active so location tracking survives when the screen is off.
+      // Foreground location only. Background tracking needs a native service.
       permissions: ['location', 'coarseLocation'],
     },
   },

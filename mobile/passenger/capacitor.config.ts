@@ -10,21 +10,17 @@ import type { CapacitorConfig } from '@capacitor/cli';
  */
 const config: CapacitorConfig = {
   appId: 'com.redart.rides',
-  appName: 'RedArt Rides',
+  appName: 'NEMT Rides',
   // The `webDir` is required by the CLI even for hosted apps. It is
   // never actually shipped because `server.url` is set.
   webDir: 'www',
+  includePlugins: ['@capacitor/app', '@capacitor/geolocation', '@capacitor/splash-screen', '@capacitor/status-bar'],
   server: {
-    url: 'https://redartdigital.com/passenger',
+    url: `${process.env.MOBILE_APP_ORIGIN || 'https://nemtsolutions.co'}/mobile/passenger`,
     cleartext: false,
     // Only these hostnames can be navigated to inside the app shell.
     allowNavigation: [
-      'redartdigital.com',
-      '*.redartdigital.com',
-      '*.lovable.app',
-      '*.supabase.co',
-      '*.googleapis.com',
-      '*.gstatic.com',
+      new URL(process.env.MOBILE_APP_ORIGIN || 'https://nemtsolutions.co').hostname,
     ],
   },
   android: {

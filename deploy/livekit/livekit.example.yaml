@@ -1,0 +1,12 @@
+port: 7880
+bind_addresses: ["0.0.0.0"]
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  use_external_ip: true
+# Replace these placeholders in a local livekit.yaml; never commit real keys.
+keys:
+  REPLACE_API_KEY: REPLACE_WITH_RANDOM_SECRET_AT_LEAST_32_CHARACTERS
+logging:
+  level: info

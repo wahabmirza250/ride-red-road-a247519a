@@ -1,0 +1,9 @@
+# Run on a Linux host with a public IP. Not a Railway HTTP-only service.
+services:
+  livekit:
+    image: livekit/livekit-server:v1.13.7
+    restart: unless-stopped
+    network_mode: host
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro

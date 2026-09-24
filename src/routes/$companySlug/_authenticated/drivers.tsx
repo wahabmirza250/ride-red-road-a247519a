@@ -33,6 +33,8 @@ import { DriverActivityPanel } from "@/components/admin/DriverActivityPanel";
 import { GasReceiptsPanel } from "@/components/expenses/GasReceiptsPanel";
 import { DuplicateDriversPanel } from "@/components/admin/DuplicateDriversPanel";
 import { filterDrivers } from "@/lib/canonicalDriver";
+import { DriverCameraViewer } from '@/components/admin/DriverCameraViewer';
+import { useAuth } from '@/lib/auth';
 
 export const Route = createFileRoute("/$companySlug/_authenticated/drivers")({
   component: DriversPage,
@@ -94,6 +96,8 @@ function useDrivers() {
 }
 
 function DriversPage() {
+  const { isAdmin } = useAuth();
+  const [cameraDriver, setCameraDriver] = useState<{ id: string; name: string } | null>(null);
   const drivers = useDrivers();
   const [openNew, setOpenNew] = useState(false);
   const [edit, setEdit] = useState<DriverWithProfile | null>(null);
@@ -143,6 +147,15 @@ function DriversPage() {
       )}
 
       <DuplicateDriversPanel />
+
+      {isAdmin && <section className="rounded-2xl border bg-surface p-4">
+        <h2 className="font-semibold">Vehicle cameras</h2>
+        <p className="mb-3 text-sm text-muted-foreground">Select a driver to view their enabled tablet camera.</p>
+        <div className="flex flex-wrap gap-2">{visible.map(d => <Button key={d.id} variant="outline" onClick={() => setCameraDriver({ id: d.id, name: `${d.profile?.first_name ?? ''} ${d.profile?.last_name ?? ''}`.trim() || 'Driver' })}>
+          <Camera className="mr-2 h-4 w-4" /> {d.profile?.first_name} {d.profile?.last_name} · View camera
+        </Button>)}</div>
+      </section>}
+      {cameraDriver && <DriverCameraViewer driver={cameraDriver} onClose={() => setCameraDriver(null)} />}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {drivers.isLoading && (
