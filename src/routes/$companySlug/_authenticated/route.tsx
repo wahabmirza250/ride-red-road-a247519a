@@ -108,7 +108,7 @@ function AuthenticatedLayout() {
             </div>
 
             <TooltipProvider delayDuration={0}>
-              <nav className="rail-scroll flex w-full flex-1 flex-col items-center gap-4 overflow-y-auto pb-2">
+              <nav className="flex w-full flex-1 flex-col items-center gap-4 overflow-y-auto pb-2">
                 {ADMIN_NAV_GROUPS.map((group, gi) => (
                   <div key={gi} className="flex w-full flex-col items-center gap-1">
                     {group.map((item) => {
@@ -122,7 +122,7 @@ function AuthenticatedLayout() {
                               aria-label={item.label}
                               aria-current={active ? "page" : undefined}
                               className={cn(
-                                "rail-item flex h-11 w-full shrink-0 cursor-pointer items-center gap-3 px-3 rounded-[20px] outline-none",
+                                "rail-item flex h-11 w-full shrink-0 cursor-pointer items-center gap-3 px-3 rounded-[20px] focus-visible:ring-2 focus-visible:ring-primary",
                                 active && "rail-item-active",
                               )}
                             >
@@ -281,7 +281,7 @@ function AuthenticatedLayout() {
           <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
             <DialogContent className="max-h-[85dvh] overflow-y-auto">
               <DialogTitle>All admin tools</DialogTitle>
-              <nav className="grid grid-cols-2 gap-2">
+              <nav className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2">
                 {NAV.map((item) => (
                   <AppLink
                     key={item.to}

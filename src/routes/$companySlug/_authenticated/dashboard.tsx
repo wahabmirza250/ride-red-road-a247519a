@@ -84,7 +84,7 @@ type CurrentTrip = {
   actual_dropoff_time: string | null;
   computed_miles: number | null;
   gps_miles: number | null;
-  source: "trips" | "medicaid_trips";
+  source: "dispatch" | "report" | "draft" | "request";
 };
 
 const ACCENT = {
@@ -143,7 +143,8 @@ function useDrivers() {
         const { data: profs } = await supabase
           .from("profiles")
           .select("id, first_name, last_name, email, phone, avatar_url, created_at")
-          .in("id", userIds);
+          .in("id", userIds)
+          .throwOnError();
         (profs ?? []).forEach((p) =>
           profileMap.set(p.id, {
             first_name: p.first_name,

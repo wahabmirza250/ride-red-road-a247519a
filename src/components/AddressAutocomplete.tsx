@@ -47,10 +47,10 @@ export function AddressAutocomplete({
   biasLng?: number;
   regionCode?: string;
 }) {
-
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
   const sessionRef = useRef<string | null>(null);
   const debounceRef = useRef<number | null>(null);
   const skipNextFetchRef = useRef(false);
@@ -65,6 +65,9 @@ export function AddressAutocomplete({
       return;
     }
     if (!value || value.trim().length < 3) {
+      ++reqIdRef.current;
+      setLoading(false);
+      setLookupError(null);
       setSuggestions([]);
       setOpen(false);
       return;
@@ -97,11 +100,14 @@ export function AddressAutocomplete({
         }
 
         if (myReq !== reqIdRef.current) return; // stale
+        setLookupError(null);
         setSuggestions(result);
         setOpen(result.length > 0);
       } catch (e) {
         if (myReq === reqIdRef.current) {
-          console.error("Autocomplete failed", e);
+          setLookupError(
+            "Address suggestions are unavailable. You can enter the full address; its map location is not verified.",
+          );
           setSuggestions([]);
           setOpen(false);
         }
@@ -141,7 +147,7 @@ export function AddressAutocomplete({
       setSuggestions([]);
       sessionRef.current = null;
     } catch (e) {
-      console.error("Place details failed", e);
+      setLookupError("This address could not be verified. Try again before assigning the ride.");
       // Fall back to raw text submit so the user is never stuck.
       if (onSubmit) onSubmit(`${s.primary}${s.secondary ? `, ${s.secondary}` : ""}`);
     }
@@ -181,12 +187,15 @@ export function AddressAutocomplete({
               onClick={() => selectSuggestion(s)}
             >
               <div className="font-medium">{s.primary}</div>
-              {s.secondary && (
-                <div className="text-xs text-muted-foreground">{s.secondary}</div>
-              )}
+              {s.secondary && <div className="text-xs text-muted-foreground">{s.secondary}</div>}
             </button>
           ))}
         </div>
+      )}
+      {lookupError && (
+        <p role="status" className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+          {lookupError}
+        </p>
       )}
       {loading && (
         <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">

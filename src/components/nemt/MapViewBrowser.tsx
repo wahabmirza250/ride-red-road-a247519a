@@ -62,7 +62,7 @@ function FocusController({
   }, [focus, map]);
   useEffect(() => {
     if (focus) return;
-    if (markers.length > 1) {
+    if (markers.length > 0) {
       const bounds = L.latLngBounds(markers.map((m) => [m.lat, m.lng] as [number, number]));
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
     }

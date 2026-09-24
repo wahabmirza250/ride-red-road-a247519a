@@ -117,7 +117,7 @@ export function GoogleFleetMap({
     return (
       <div className="relative h-full w-full">
         <DriverFleetMap center={center} markers={markers} focus={focus} />
-        <p className="absolute left-2 top-2 z-[500] max-w-[80%] rounded bg-background p-2 text-xs">
+        <p className="absolute left-12 top-2 z-[500] max-w-[calc(100%-4rem)] rounded bg-background p-2 text-xs">
           Alternate map · driver list remains available below
         </p>
       </div>

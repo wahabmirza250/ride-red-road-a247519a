@@ -31,10 +31,14 @@ function useDriverOptions() {
   return useQuery({
     queryKey: ["driver-options"],
     queryFn: async () => {
-      const { data: drivers } = await supabase.from("drivers").select("id, user_id");
+      const { data: drivers } = await supabase.from("drivers").select("id, user_id").throwOnError();
       const ids = (drivers ?? []).map((d) => d.user_id);
       const { data: profs } = ids.length
-        ? await supabase.from("profiles").select("id, first_name, last_name").in("id", ids)
+        ? await supabase
+            .from("profiles")
+            .select("id, first_name, last_name")
+            .in("id", ids)
+            .throwOnError()
         : { data: [] };
       const map = new Map<string, { first_name: string | null; last_name: string | null }>();
       (profs ?? []).forEach((p) => map.set(p.id, p));
@@ -82,7 +86,8 @@ function ReportsPage() {
         .eq("driver_id", driverId)
         .gte("actual_pickup_time", period.from.toISOString())
         .lte("actual_dropoff_time", period.to.toISOString())
-        .eq("status", "completed");
+        .eq("status", "completed")
+        .throwOnError();
       return data ?? [];
     },
   });
@@ -102,6 +107,8 @@ function ReportsPage() {
         description="Payable work uses the same pay plans as Salary. Paid work is in Salary payment history."
       />
       <QueryNotice query={payroll} label="Payroll" />
+      <QueryNotice query={drivers} label="Drivers" />
+      <QueryNotice query={routeQuery} label="Trip routes" />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-[240px]">
