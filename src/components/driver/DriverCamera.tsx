@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useServerFn } from '@tanstack/react-start';
-import { Camera, CameraOff } from 'lucide-react';
+import { Camera, CameraOff, ChevronDown } from 'lucide-react';
 import type { Room } from 'livekit-client';
 import { getCameraConnection } from '@/lib/camera.functions';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,8 @@ export function DriverCamera() {
   const [status, setStatus] = useState('Camera is off');
   const [error, setError] = useState('');
   const [viewers, setViewers] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const controlsId = useId();
   const video = useRef<HTMLVideoElement>(null);
   const cleanupRef = useRef<() => void>(() => {});
 
@@ -97,16 +99,26 @@ export function DriverCamera() {
     } finally { if (current === generation.current) setBusy(false); }
   }
 
-  return <section className="mb-4 rounded-2xl border bg-surface p-4" aria-label="Vehicle camera">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><p className="flex items-center gap-2 font-semibold"><Camera className="h-4 w-4" /> Vehicle camera</p>
-        <p role="status" aria-live="polite" className={viewers && enabled ? 'text-sm text-red-600' : 'text-sm text-muted-foreground'}>{status}</p></div>
+  const live = enabled && status.startsWith('Live camera');
+  const compactStatus = busy ? 'Camera connecting…' : error ? 'Camera needs attention' : live
+    ? `Camera live · ${viewers} viewing` : status.startsWith('Reconnecting') ? 'Camera reconnecting…'
+    : status.startsWith('Camera paused') ? 'Camera paused' : enabled ? 'Camera ready' : 'Camera off';
+
+  return <section className="overflow-hidden rounded-xl border bg-surface" aria-label="Vehicle camera">
+    <button type="button" onClick={() => setExpanded(value => !value)} aria-expanded={expanded} aria-controls={controlsId}
+      aria-label={`${compactStatus}. ${expanded ? 'Hide' : 'Show'} camera controls`}
+      className="flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left text-xs">
+      <Camera aria-hidden="true" className={`h-4 w-4 shrink-0 ${live ? 'text-red-500' : 'text-muted-foreground'}`} />
+      <span role="status" aria-live="polite" title={error || status} className={`min-w-0 flex-1 truncate font-medium ${live ? 'text-red-500' : 'text-muted-foreground'}`}>{compactStatus}</span>
+      <ChevronDown aria-hidden="true" className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
+    </button>
+    <div id={controlsId} hidden={!expanded} className="border-t p-3">
+      <p className="mb-3 text-xs text-muted-foreground">When enabled, your company administrator can view this camera while this app is open. Video only. No recordings are saved.</p>
       <Button className="min-h-11" variant={enabled ? 'destructive' : 'outline'} disabled={busy} onClick={enabled ? stop : start}>
         {enabled ? <><CameraOff className="mr-2 h-4 w-4" /> Turn off</> : busy ? 'Connecting…' : 'Enable camera'}
       </Button>
-    </div>
-    <p className="mt-2 text-xs text-muted-foreground">When enabled, your company administrator can view this camera while this app is open. Video only. No recordings are saved.</p>
-    <video ref={video} autoPlay muted playsInline className={enabled && viewers > 0 ? 'mt-3 aspect-video w-full rounded-lg bg-black object-contain' : 'hidden'} />
+      <video ref={video} autoPlay muted playsInline className={enabled && viewers > 0 ? 'mt-3 aspect-video w-full max-w-md rounded-lg bg-black object-contain' : 'hidden'} />
     {error && <p role="alert" className="mt-2 text-sm text-destructive">{error}</p>}
+    </div>
   </section>;
 }
