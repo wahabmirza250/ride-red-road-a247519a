@@ -884,4 +884,4 @@
 .dark .mobile-auth-screen { background: #101a22; --primary: #63d6c6; --primary-foreground: #082b29; }
 .mobile-app-booking .app-install-prompt { display: none; }
 .mobile-app-shell .app-install-prompt { bottom: calc(var(--driver-nav-offset) + 1rem); flex-wrap: wrap; }
-@media (min-width: 768px) { .mobile-app-shell .driver-cta-bar { left: var(--app-rail-width); } }
+@media (min-width: 768px) { .mobile-app-shell .driver-cta-bar > div { max-width: 54rem; } }

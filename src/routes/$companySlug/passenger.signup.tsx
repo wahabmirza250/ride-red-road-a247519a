@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BrandMark, BrandWordmark } from "@/components/Brand";
+import { AppBrand } from "@/components/mobile/AppShell";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { signInAsRole } from "@/lib/roleGuardedSignIn";
@@ -95,7 +95,7 @@ function PassengerAuthPage() {
   }
 
   return (
-    <div className="surface-green flex min-h-screen items-center justify-center bg-gradient-to-b from-surface-muted to-background px-4 py-10">
+    <div className="mobile-auth-screen flex items-center justify-center rounded-3xl px-3 py-6 sm:px-6 sm:py-10">
       <div className="w-full max-w-md">
         <AppLink
           to="/passenger"
@@ -106,8 +106,7 @@ function PassengerAuthPage() {
 
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="flex items-center gap-2">
-            <BrandMark className="h-10 w-10" />
-            <BrandWordmark className="h-6" />
+            <AppBrand subtitle="Passenger app" />
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
             Book a ride, track your driver, and earn rewards.
@@ -123,7 +122,7 @@ function PassengerAuthPage() {
 
             <TabsContent value="signup" className="mt-5">
               <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>First name</Label>
                     <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
@@ -173,7 +172,7 @@ function PassengerAuthPage() {
                   />
                   <p className="text-[11px] text-muted-foreground">Use any password you like.</p>
                 </div>
-                <Button type="submit" disabled={submitting} className="w-full rounded-full">
+                <Button type="submit" disabled={submitting} className="min-h-12 w-full rounded-xl">
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create passenger account"}
                 </Button>
               </form>
@@ -206,7 +205,7 @@ function PassengerAuthPage() {
                     {errorMsg}
                   </p>
                 )}
-                <Button type="submit" disabled={submitting} className="w-full rounded-full">
+                <Button type="submit" disabled={submitting} className="min-h-12 w-full rounded-xl">
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
                 </Button>
               </form>
