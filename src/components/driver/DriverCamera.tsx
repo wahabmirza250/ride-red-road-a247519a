@@ -5,7 +5,7 @@ import type { Room } from 'livekit-client';
 import { getCameraConnection } from '@/lib/camera.functions';
 import { Button } from '@/components/ui/button';
 
-/** Stays mounted across driver routes. Camera availability is explicitly opt-in per session. */
+/** Stays mounted across driver routes; connects on entry after device permission. */
 export function DriverCamera() {
   const connect = useServerFn(getCameraConnection);
   const roomRef = useRef<Room | null>(null);
@@ -29,10 +29,19 @@ export function DriverCamera() {
     void room?.disconnect();
     setEnabled(false); setBusy(false); setViewers(0); setStatus('Camera is off');
   }
-  useEffect(() => () => {
-    generation.current++;
-    cleanupRef.current();
-    void roomRef.current?.disconnect();
+  useEffect(() => {
+    // Defer until after mount so StrictMode's probe cannot request the camera twice.
+    const timer = window.setTimeout(() => { void start(); }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      generation.current++;
+      cleanupRef.current();
+      cleanupRef.current = () => {};
+      void roomRef.current?.disconnect();
+      roomRef.current = null;
+    };
+    // One connection per driver workspace visit, not on every status update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function start() {
@@ -113,7 +122,7 @@ export function DriverCamera() {
       <ChevronDown aria-hidden="true" className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
     </button>
     <div id={controlsId} hidden={!expanded} className="border-t p-3">
-      <p className="mb-3 text-xs text-muted-foreground">When enabled, your company administrator can view this camera while this app is open. Video only. No recordings are saved.</p>
+      <p className="mb-3 text-xs text-muted-foreground">Camera connects automatically when you open the driver app. Your company administrator can view live video while the app is open. No audio or recordings are saved.</p>
       <Button className="min-h-11" variant={enabled ? 'destructive' : 'outline'} disabled={busy} onClick={enabled ? stop : start}>
         {enabled ? <><CameraOff className="mr-2 h-4 w-4" /> Turn off</> : busy ? 'Connecting…' : 'Enable camera'}
       </Button>
