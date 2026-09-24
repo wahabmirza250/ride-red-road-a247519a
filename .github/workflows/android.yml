@@ -21,6 +21,7 @@ jobs:
   android:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         app: [driver, passenger]
     steps:
@@ -39,10 +40,29 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - run: npm ci --ignore-scripts
+      - run: node mobile/prepare.mjs
       - run: npx cap sync android
         working-directory: mobile/${{ matrix.app }}
       - run: bash ./gradlew assembleDebug --no-daemon
         working-directory: mobile/${{ matrix.app }}/android
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test startup and connection recovery on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: cd mobile/${{ matrix.app }}/android && bash ./gradlew connectedDebugAndroidTest --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: NEMT-${{ matrix.app }}-device-test-results
+          path: mobile/${{ matrix.app }}/android/app/build/reports/androidTests
       - uses: actions/upload-artifact@v4
         with:
           name: NEMT-${{ matrix.app }}-test-apk

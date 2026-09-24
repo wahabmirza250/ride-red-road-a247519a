@@ -7,6 +7,7 @@ Run `npm ci` at the repository root (the committed lockfile pins dependencies). 
 For each app:
 
 ```powershell
+node mobile/prepare.mjs # from the repository root, generates both bundled launchers
 cd mobile/driver # or mobile/passenger
 npx cap sync android
 cd android
@@ -15,11 +16,13 @@ cd android
 
 The APK is in `android/app/build/outputs/apk/debug/app-debug.apk`. Debug APKs are for device testing, not Play Store publication. Use a controlled release signing key before distributing to the fleet.
 
-Default host: `https://nemtsolutions.co`. Set `MOBILE_APP_ORIGIN` to another trusted HTTPS origin before running `cap sync android` to make a staging build. The host is fixed at build time. Do not point production builds at untrusted websites: that site is given the app's native bridge.
+Default host: `https://redart-web-production.up.railway.app`. The new `nemtsolutions.co` domain is not connected yet. Set `MOBILE_APP_ORIGIN` to another trusted HTTPS origin before running both `node mobile/prepare.mjs` and `cap sync android`. Keep the same environment for both commands. The host is fixed at build time. Do not point builds at untrusted websites: that site is given the app's native bridge.
 
-The driver app opens `/driver/signin`. The passenger app opens `/mobile/passenger`, where passengers enter the provider code supplied by their transportation company. Existing company-scoped routes and authentication remain in use. These are individual-session apps; shared-passenger kiosk behavior is not implemented.
+Both apps open a bundled screen, including without internet. The driver's sign-in button opens `/driver/signin`. The passenger's bundled provider form opens `/<provider-code>/passenger`, without requiring the new `/mobile/passenger` route to be deployed. Failed main-frame loads show a bundled connection error and retry form. Existing company-scoped routes and authentication remain in use. These are individual-session apps; shared-passenger kiosk behavior is not implemented.
 
-Deploy the web changes and configure the chosen HTTPS domain before installing these builds. Camera streaming additionally requires the self-hosted server described in `../deploy/livekit/README.md`.
+Version 1.1 test builds use the existing live web application. New camera features still require deploying the web changes and the self-hosted server described in `../deploy/livekit/README.md`. Switch to the new domain only after DNS, HTTPS, and the app pages are verified.
+
+GitHub Actions launches each app on an Android 35 emulator, checks the bundled screen, tests driver login navigation or passenger code validation, and forces a DNS failure to verify the retry screen. APKs are published only after these device checks pass. Debug signing keys on fresh CI runners can differ: if Android rejects an update, uninstall the previous test app first (this clears that app's local session).
 
 Included native permissions: foreground location in both apps; camera in the driver app. No microphone, background camera, or background location permission. The unused FCM push plugin is excluded until Firebase configuration is supplied. Existing web notifications remain separate.
 
