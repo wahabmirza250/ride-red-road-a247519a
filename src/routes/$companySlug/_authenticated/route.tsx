@@ -108,7 +108,7 @@ function AuthenticatedLayout() {
             </div>
 
             <TooltipProvider delayDuration={0}>
-              <nav className="flex w-full flex-1 flex-col items-center gap-4 overflow-y-auto pb-2">
+              <nav className="flex w-full flex-1 flex-col items-center gap-4 overflow-x-hidden overflow-y-auto pb-2">
                 {ADMIN_NAV_GROUPS.map((group, gi) => (
                   <div key={gi} className="flex w-full flex-col items-center gap-1">
                     {group.map((item) => {
