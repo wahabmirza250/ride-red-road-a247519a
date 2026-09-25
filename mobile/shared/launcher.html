@@ -16,15 +16,15 @@
   <p id="connection-error" class="error" role="alert" hidden>We couldn’t connect. Check Wi-Fi or mobile data, then try again. If the problem continues, contact your transportation company.</p>
   <form id="launch-form">
     <div id="provider-fields" hidden>
-      <label for="provider-code">Provider code</label>
-      <input id="provider-code" name="provider" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Your provider code">
+      <label for="provider-code">Company code</label>
+      <input id="provider-code" name="provider" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Your company code">
       <p class="small">Use the code your transportation company gave you.</p>
     </div>
-    <p id="validation" class="error" role="alert" hidden>Enter a valid provider code using letters, numbers, and single hyphens.</p>
+    <p id="validation" class="error" role="alert" hidden>Enter a valid company code using letters, numbers, and single hyphens.</p>
     <button id="continue" type="submit">Sign in</button>
   </form>
   <p id="progress" role="status" hidden>Connecting… If this takes too long, check your internet connection and try again.</p>
-  <footer>Android test version 1.1</footer>
+  <footer>Android test version 1.2</footer>
 </main>
 <script>
   const appKind = '__APP_KIND__';
@@ -32,22 +32,22 @@
   const isPassenger = appKind === 'passenger';
   const failed = location.pathname.endsWith('/error.html');
   const provider = document.getElementById('provider-code');
-  document.getElementById('provider-fields').hidden = !isPassenger;
+  document.getElementById('provider-fields').hidden = false;
   document.getElementById('connection-error').hidden = !failed;
-  document.getElementById('intro').textContent = isPassenger ? 'Enter your provider code to open your passenger app.' : 'Sign in with the credentials your dispatcher gave you.';
+  document.getElementById('intro').textContent = 'Enter your company code, then sign in with the account your administrator gave you.';
   document.getElementById('continue').textContent = failed ? 'Try again' : isPassenger ? 'Continue' : 'Driver sign in';
   try { provider.value = localStorage.getItem('nemt-provider-code') || ''; } catch {}
   document.getElementById('launch-form').addEventListener('submit', event => {
     event.preventDefault();
     const code = provider.value.trim().toLowerCase();
-    if (isPassenger && (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(code) || code.length > 40)) {
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(code) || code.length < 2 || code.length > 40) {
       document.getElementById('validation').hidden = false;
       return;
     }
     document.getElementById('validation').hidden = true;
-    if (isPassenger) { try { localStorage.setItem('nemt-provider-code', code); } catch {} }
+    try { localStorage.setItem('nemt-provider-code', code); } catch {}
     document.getElementById('progress').hidden = false;
-    location.assign(appOrigin + (isPassenger ? '/' + encodeURIComponent(code) + '/passenger' : '/driver/signin'));
+    location.assign(appOrigin + '/' + encodeURIComponent(code) + (isPassenger ? '/passenger/signin' : '/driver/signin'));
   });
 </script>
 </body>

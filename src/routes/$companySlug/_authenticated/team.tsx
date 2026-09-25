@@ -60,6 +60,11 @@ function TeamPage() {
         description="Manage admin accounts and open the driver / passenger apps."
       />
 
+      <div className="rounded-2xl border bg-surface p-5">
+        <h2 className="font-semibold">Company code: {slug}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Share this code for every app. Accounts and permissions are assigned by your administrator.</p>
+        <a href={`${origin}/${slug}`} className="mt-2 inline-block break-all text-sm text-primary hover:underline">{origin}/{slug}</a>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <AppCard
           href={`${origin}/${slug}/driver/signin`}
@@ -83,9 +88,9 @@ function TeamPage() {
           tone="amber"
         />
         <AppCard
-          href={`${origin}/${slug}/passenger`}
+          href={`${origin}/${slug}/passenger/signin`}
           title="Passenger app"
-          desc={`/${slug}/passenger — no sign-up required`}
+          desc={`/${slug}/passenger`}
           icon={<User className="h-5 w-5" />}
           tone="emerald"
         />

@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { getCompanySlug } from "@/lib/companyContext";
 import { getMyCompany } from "@/lib/companyPublic.functions";
-import { CompanyLinkRequired } from "@/components/CompanyLinkRequired";
+import { CompanyEntry } from "@/components/auth/CompanyEntry";
 
 /**
  * Legacy bare URLs (`/dashboard`, `/driver/history`, ...) no longer host the
@@ -25,6 +25,7 @@ export function BareRouteRedirect({ prefix, rest }: { prefix: string; rest: stri
     if (!user) {
       if (prefix === "driver") return void window.location.replace("/driver/signin");
       if (prefix === "dispatch") return void window.location.replace("/dispatch/signin");
+      if (prefix === "billing") return void window.location.replace("/billing/signin");
       if (prefix === "passenger") {
         const stored = getCompanySlug();
         if (stored) return void window.location.replace(`/${stored}/passenger${rest}`);
@@ -47,7 +48,7 @@ export function BareRouteRedirect({ prefix, rest }: { prefix: string; rest: stri
     };
   }, [loading, user, prefix, rest, myCompany]);
 
-  if (stuck) return <CompanyLinkRequired />;
+  if (stuck) return <CompanyEntry app={prefix === "passenger" ? "passenger" : undefined} />;
 
   return (
     <div className="flex min-h-screen items-center justify-center">

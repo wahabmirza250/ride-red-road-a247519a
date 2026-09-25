@@ -94,6 +94,7 @@ export async function signInAsRole(
   email: string,
   password: string,
   requiredRole: AppRole | AppRole[],
+  expectedCompanySlug?: string,
 ): Promise<{ companySlug: string | null; isOwner: boolean }> {
   const allowed: AppRole[] = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -150,6 +151,10 @@ export async function signInAsRole(
     throw new Error("Your account isn't linked to a provider. Contact your administrator.");
   }
 
+  if (expectedCompanySlug && company.slug !== expectedCompanySlug.trim().toLowerCase()) {
+    await supabase.auth.signOut();
+    throw new Error("This account belongs to a different company. Choose your own company code and try again.");
+  }
   return { companySlug: company.slug, isOwner: false };
 }
 

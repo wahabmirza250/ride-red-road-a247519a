@@ -690,7 +690,7 @@ function NewCompanyDialog({ onDone }: { onDone: () => Promise<void> }) {
             <Input id="co-name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="co-slug">URL slug</Label>
+            <Label htmlFor="co-slug">Company code</Label>
             <Input
               id="co-slug"
               value={slug}

@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const origin = new URL(process.env.MOBILE_APP_ORIGIN || 'https://redart-web-production.up.railway.app');
+const origin = new URL(process.env.MOBILE_APP_ORIGIN || 'https://nemtsolutions.co');
 if (origin.protocol !== 'https:' || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) {
   throw new Error('MOBILE_APP_ORIGIN must be a trusted HTTPS origin without credentials, path, query, or fragment.');
 }

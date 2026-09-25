@@ -1,3 +1,3 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CompanyEntry } from "@/components/auth/CompanyEntry";
-export const Route = createFileRoute("/mobile/passenger")({ component: () => <CompanyEntry app="passenger" /> });
+export const Route = createFileRoute("/access")({ component: () => <CompanyEntry /> });

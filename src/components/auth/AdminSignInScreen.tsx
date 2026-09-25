@@ -1,3 +1,4 @@
+import { CompanyEntry, CompanySignInHeader } from "./CompanyEntry";
 import { useEffect, useState } from "react";
 import { Link, useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
@@ -17,6 +18,10 @@ const BLOCK_KEY = "signin_blocked_message";
  * `/auth`. The platform owner always wins over any company role.
  */
 export function AdminSignInScreen({ companySlug }: { companySlug?: string }) {
+  return companySlug ? <AdminCompanySignIn companySlug={companySlug} /> : <CompanyEntry app="dashboard" />;
+}
+
+function AdminCompanySignIn({ companySlug }: { companySlug: string }) {
   const router = useRouter();
   const { user, loading, isAdmin, isOwner } = useAuth();
   const [email, setEmail] = useState("");
@@ -53,7 +58,7 @@ export function AdminSignInScreen({ companySlug }: { companySlug?: string }) {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const result = await signInAsRole(email, password, "admin");
+      const result = await signInAsRole(email, password, "admin", companySlug);
       if (result.isOwner) {
         await router.navigate({ to: "/owner" });
         return;
@@ -86,6 +91,7 @@ export function AdminSignInScreen({ companySlug }: { companySlug?: string }) {
         </div>
 
         <div className="rounded-3xl border border-border bg-surface p-6 shadow-lift">
+          <CompanySignInHeader code={companySlug} />
           <form onSubmit={handleSignIn} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="signin-email">Email</Label>
@@ -127,10 +133,10 @@ export function AdminSignInScreen({ companySlug }: { companySlug?: string }) {
         <p className="mt-6 text-center text-[11px] text-muted-foreground">
           Passenger?{" "}
           <a
-            href={companySlug ? `/${companySlug}/passenger/signup` : "/passenger/signup"}
+            href={companySlug ? `/${companySlug}/passenger/signin` : "/passenger/signin"}
             className="font-medium text-foreground hover:underline"
           >
-            Create a passenger account
+            Passenger sign in
           </a>
           {" · "}
           Driver?{" "}

@@ -1,3 +1,4 @@
+import { RESERVED_COMPANY_CODES, normalizeCompanyCode } from "@/lib/companyAccess";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { parseAmount } from "@/lib/earnings";
@@ -15,13 +16,7 @@ import { passwordError } from "@/lib/passwordError";
 const ROBOT_BASE_URL = "https://redart-hcpf-automation-production.up.railway.app";
 
 /** Slugs that collide with app routes and can never become a company slug. */
-const RESERVED_SLUGS = new Set([
-  "driver", "dispatch", "passenger", "dashboard", "live-ops", "planner", "trips",
-  "medicaid-billing", "medicaid-trips", "schedules", "drivers", "payroll",
-  "passengers", "reports", "incidents", "team", "events", "messages",
-  "news-feed", "news", "games", "rewards-settings",
-  "owner", "auth", "api", "track", "ride", "admin", "assets", "public",
-]);
+const RESERVED_SLUGS = RESERVED_COMPANY_CODES;
 
 async function gate(userId: string) {
   const { requirePlatformOwner } = await import("@/lib/company.server");
@@ -202,7 +197,7 @@ export const createCompany = createServerFn({ method: "POST" })
       max_admins?: number | null;
     }) => {
       const name = String(input?.name ?? "").trim();
-      const slug = String(input?.url_slug ?? "").trim().toLowerCase();
+      const slug = normalizeCompanyCode(String(input?.url_slug ?? ""));
       if (name.length < 2 || name.length > 80) throw new Error("Company name is required");
       if (!/^[a-z0-9-]{2,40}$/.test(slug)) {
         throw new Error("URL slug must be 2-40 characters: lowercase letters, numbers and dashes");

@@ -168,6 +168,7 @@ export function PassengerFormDialog({
     address: existing?.address ?? "",
     notes: existing?.notes ?? "",
   });
+  const [loginPassword, setLoginPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Live typeahead against existing passengers by name or phone. Skips when
@@ -222,6 +223,7 @@ export function PassengerFormDialog({
       } else {
         const created = await create({
           data: {
+            password: loginPassword || undefined,
             first_name: form.first_name,
             last_name: form.last_name,
             medicaid_id: form.medicaid_id,
@@ -293,6 +295,11 @@ export function PassengerFormDialog({
           <VerifyMedicaidButton passengerId={existing.id} />
         </div>
       )}
+      {!existing && <div className="space-y-2 rounded-xl border p-3">
+        <Label htmlFor="passenger-login-password">App password (optional)</Label>
+        <Input id="passenger-login-password" type="password" autoComplete="new-password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
+        <p className="text-xs text-muted-foreground">Enter a password and email to give this passenger app access. Leave blank for a passenger record only.</p>
+      </div>}
       <div className="grid gap-3 sm:grid-cols-2">
         <F label="First name">
           <Input

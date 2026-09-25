@@ -1,3 +1,4 @@
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader, getRequestIP } from "@tanstack/react-start/server";
 
@@ -110,13 +111,14 @@ export const listPublicGames = createServerFn({ method: "GET" }).handler(async (
  * from Cloudflare edge headers when available.
  */
 export const trackVisitor = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { device_id: string }) => {
     if (!input.device_id || input.device_id.length < 8 || input.device_id.length > 64) {
       throw new Error("device_id required");
     }
     return input;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const ip = getRequestIP({ xForwardedFor: true }) ?? null;
     const city = getRequestHeader("cf-ipcity") ?? null;
     const region = getRequestHeader("cf-region") ?? null;
@@ -125,7 +127,7 @@ export const trackVisitor = createServerFn({ method: "POST" })
     const { data: existing } = await supabaseAdmin
       .from("passengers")
       .select("id, first_name, last_name, medicaid_id, ssn_last4, date_of_birth, phone, email, approx_city, approx_region")
-      .eq("device_id", data.device_id)
+      .eq("user_id", context.userId)
       .maybeSingle();
 
     if (existing) {
@@ -146,31 +148,14 @@ export const trackVisitor = createServerFn({ method: "POST" })
       };
     }
 
-    const { data: inserted, error } = await supabaseAdmin
-      .from("passengers")
-      .upsert(
-        {
-          first_name: "Guest",
-          last_name: "",
-          device_id: data.device_id,
-          last_ip: ip,
-          approx_city: city,
-          approx_region: region,
-          last_seen_at: new Date().toISOString(),
-          is_active: true,
-        },
-        { onConflict: "device_id" },
-      )
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
-    return { id: inserted.id, city, region, has_profile: false };
+    throw new Error("Ask your administrator to create your passenger profile.");
   });
 
 /** PUBLIC — passenger creates or updates their profile from the app.
  * Requires either a Medicaid ID OR (last 4 of SSN + date of birth).
  */
 export const upsertPassengerProfile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (input: {
       device_id: string;
@@ -198,7 +183,7 @@ export const upsertPassengerProfile = createServerFn({ method: "POST" })
       return input;
     },
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const payload = {
       first_name: data.first_name.trim(),
@@ -215,7 +200,7 @@ export const upsertPassengerProfile = createServerFn({ method: "POST" })
     const { data: existing } = await supabaseAdmin
       .from("passengers")
       .select("id")
-      .eq("device_id", data.device_id)
+      .eq("user_id", context.userId)
       .maybeSingle();
 
     let passengerId: string;
@@ -227,13 +212,7 @@ export const upsertPassengerProfile = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       passengerId = existing.id;
     } else {
-      const { data: inserted, error } = await supabaseAdmin
-        .from("passengers")
-        .insert({ ...payload, device_id: data.device_id, is_active: true })
-        .select("id")
-        .single();
-      if (error) throw new Error(error.message);
-      passengerId = inserted.id;
+      throw new Error("Ask your administrator to create your passenger profile.");
     }
 
     // Notify admin: new / updated passenger profile is available in the panel.
@@ -254,16 +233,17 @@ export const upsertPassengerProfile = createServerFn({ method: "POST" })
 
 /** PUBLIC — read the passenger's own profile by device_id. */
 export const getMyPassengerProfile = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { device_id: string }) => {
     if (!input.device_id) throw new Error("device_id required");
     return input;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
       .from("passengers")
       .select("id, first_name, last_name, phone, email, address, medicaid_id, ssn_last4, date_of_birth, approx_city, approx_region, created_at")
-      .eq("device_id", data.device_id)
+      .eq("user_id", context.userId)
       .maybeSingle();
     return row;
   });

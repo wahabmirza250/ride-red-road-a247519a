@@ -1,5 +1,8 @@
 name: NEMT Android apps
 on:
+  push:
+    branches: [redart]
+    paths: ['mobile/**', '.github/workflows/android.yml']
   pull_request:
     branches: [redart]
   workflow_dispatch:

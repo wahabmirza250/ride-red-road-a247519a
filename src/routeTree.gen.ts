@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CompanySlugRouteRouteImport } from './routes/$companySlug/route'
+import { Route as AccessRouteImport } from './routes/access'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ShowcaseRouteImport } from './routes/showcase'
 import { Route as CompanySlugIndexRouteImport } from './routes/$companySlug/index'
@@ -22,11 +23,13 @@ import { Route as CompanySlugDriverRouteImport } from './routes/$companySlug/dri
 import { Route as CompanySlugLoginRouteImport } from './routes/$companySlug/login'
 import { Route as CompanySlugPassengerRouteImport } from './routes/$companySlug/passenger'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as BillingSigninRouteImport } from './routes/billing.signin'
 import { Route as DispatchSigninRouteImport } from './routes/dispatch.signin'
 import { Route as DriverSigninRouteImport } from './routes/driver.signin'
 import { Route as MobilePassengerRouteImport } from './routes/mobile.passenger'
 import { Route as OwnerIndexRouteImport } from './routes/owner/index'
 import { Route as OwnerSigninRouteImport } from './routes/owner/signin'
+import { Route as PassengerSigninRouteImport } from './routes/passenger.signin'
 import { Route as RideRequestIdRouteImport } from './routes/ride.$requestId'
 import { Route as TrackTripIdRouteImport } from './routes/track.$tripId'
 import { Route as CompanySlugAuthenticatedCommunicationsRouteImport } from './routes/$companySlug/_authenticated/communications'
@@ -78,6 +81,7 @@ import { Route as CompanySlugPassengerNewsRouteImport } from './routes/$companyS
 import { Route as CompanySlugPassengerProfileRouteImport } from './routes/$companySlug/passenger.profile'
 import { Route as CompanySlugPassengerRewardsRouteImport } from './routes/$companySlug/passenger.rewards'
 import { Route as CompanySlugPassengerSafetyRouteImport } from './routes/$companySlug/passenger.safety'
+import { Route as CompanySlugPassengerSigninRouteImport } from './routes/$companySlug/passenger.signin'
 import { Route as CompanySlugPassengerSignupRouteImport } from './routes/$companySlug/passenger.signup'
 import { Route as CompanySlugPassengerTrackRouteImport } from './routes/$companySlug/passenger.track'
 import { Route as ApiPublicGetBillingRateRouteImport } from './routes/api/public/get-billing-rate'
@@ -113,6 +117,11 @@ const IndexRoute = IndexRouteImport.update({
 const CompanySlugRouteRoute = CompanySlugRouteRouteImport.update({
   id: '/$companySlug',
   path: '/$companySlug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccessRoute = AccessRouteImport.update({
+  id: '/access',
+  path: '/access',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -170,6 +179,11 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BillingSigninRoute = BillingSigninRouteImport.update({
+  id: '/billing/signin',
+  path: '/billing/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DispatchSigninRoute = DispatchSigninRouteImport.update({
   id: '/dispatch/signin',
   path: '/dispatch/signin',
@@ -193,6 +207,11 @@ const OwnerIndexRoute = OwnerIndexRouteImport.update({
 const OwnerSigninRoute = OwnerSigninRouteImport.update({
   id: '/owner/signin',
   path: '/owner/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PassengerSigninRoute = PassengerSigninRouteImport.update({
+  id: '/passenger/signin',
+  path: '/passenger/signin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RideRequestIdRoute = RideRequestIdRouteImport.update({
@@ -493,6 +512,12 @@ const CompanySlugPassengerSafetyRoute =
     path: '/safety',
     getParentRoute: () => CompanySlugPassengerRoute,
   } as any)
+const CompanySlugPassengerSigninRoute =
+  CompanySlugPassengerSigninRouteImport.update({
+    id: '/signin',
+    path: '/signin',
+    getParentRoute: () => CompanySlugPassengerRoute,
+  } as any)
 const CompanySlugPassengerSignupRoute =
   CompanySlugPassengerSignupRouteImport.update({
     id: '/signup',
@@ -649,6 +674,7 @@ const CompanySlugAuthenticatedTripsTripIdProofRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$companySlug': typeof CompanySlugRouteRouteWithChildren
+  '/access': typeof AccessRoute
   '/auth': typeof AuthRoute
   '/showcase': typeof ShowcaseRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
@@ -658,10 +684,12 @@ export interface FileRoutesByFullPath {
   '/$companySlug/login': typeof CompanySlugLoginRoute
   '/$companySlug/passenger': typeof CompanySlugPassengerRouteWithChildren
   '/api/health': typeof ApiHealthRoute
+  '/billing/signin': typeof BillingSigninRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
   '/mobile/passenger': typeof MobilePassengerRoute
   '/owner/signin': typeof OwnerSigninRoute
+  '/passenger/signin': typeof PassengerSigninRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/$companySlug/': typeof CompanySlugIndexRoute
@@ -711,6 +739,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/passenger/profile': typeof CompanySlugPassengerProfileRoute
   '/$companySlug/passenger/rewards': typeof CompanySlugPassengerRewardsRoute
   '/$companySlug/passenger/safety': typeof CompanySlugPassengerSafetyRoute
+  '/$companySlug/passenger/signin': typeof CompanySlugPassengerSigninRoute
   '/$companySlug/passenger/signup': typeof CompanySlugPassengerSignupRoute
   '/$companySlug/passenger/track': typeof CompanySlugPassengerTrackRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
@@ -744,16 +773,19 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/access': typeof AccessRoute
   '/auth': typeof AuthRoute
   '/showcase': typeof ShowcaseRoute
   '/$companySlug': typeof CompanySlugIndexRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/$companySlug/login': typeof CompanySlugLoginRoute
   '/api/health': typeof ApiHealthRoute
+  '/billing/signin': typeof BillingSigninRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
   '/mobile/passenger': typeof MobilePassengerRoute
   '/owner/signin': typeof OwnerSigninRoute
+  '/passenger/signin': typeof PassengerSigninRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/owner': typeof OwnerIndexRoute
@@ -800,6 +832,7 @@ export interface FileRoutesByTo {
   '/$companySlug/passenger/profile': typeof CompanySlugPassengerProfileRoute
   '/$companySlug/passenger/rewards': typeof CompanySlugPassengerRewardsRoute
   '/$companySlug/passenger/safety': typeof CompanySlugPassengerSafetyRoute
+  '/$companySlug/passenger/signin': typeof CompanySlugPassengerSigninRoute
   '/$companySlug/passenger/signup': typeof CompanySlugPassengerSignupRoute
   '/$companySlug/passenger/track': typeof CompanySlugPassengerTrackRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
@@ -835,6 +868,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$companySlug': typeof CompanySlugRouteRouteWithChildren
+  '/access': typeof AccessRoute
   '/auth': typeof AuthRoute
   '/showcase': typeof ShowcaseRoute
   '/$companySlug/_authenticated': typeof CompanySlugAuthenticatedRouteRouteWithChildren
@@ -845,10 +879,12 @@ export interface FileRoutesById {
   '/$companySlug/login': typeof CompanySlugLoginRoute
   '/$companySlug/passenger': typeof CompanySlugPassengerRouteWithChildren
   '/api/health': typeof ApiHealthRoute
+  '/billing/signin': typeof BillingSigninRoute
   '/dispatch/signin': typeof DispatchSigninRoute
   '/driver/signin': typeof DriverSigninRoute
   '/mobile/passenger': typeof MobilePassengerRoute
   '/owner/signin': typeof OwnerSigninRoute
+  '/passenger/signin': typeof PassengerSigninRoute
   '/ride/$requestId': typeof RideRequestIdRoute
   '/track/$tripId': typeof TrackTripIdRoute
   '/$companySlug/': typeof CompanySlugIndexRoute
@@ -898,6 +934,7 @@ export interface FileRoutesById {
   '/$companySlug/passenger/profile': typeof CompanySlugPassengerProfileRoute
   '/$companySlug/passenger/rewards': typeof CompanySlugPassengerRewardsRoute
   '/$companySlug/passenger/safety': typeof CompanySlugPassengerSafetyRoute
+  '/$companySlug/passenger/signin': typeof CompanySlugPassengerSigninRoute
   '/$companySlug/passenger/signup': typeof CompanySlugPassengerSignupRoute
   '/$companySlug/passenger/track': typeof CompanySlugPassengerTrackRoute
   '/api/public/get-billing-rate': typeof ApiPublicGetBillingRateRoute
@@ -934,6 +971,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$companySlug'
+    | '/access'
     | '/auth'
     | '/showcase'
     | '/$companySlug/$'
@@ -943,10 +981,12 @@ export interface FileRouteTypes {
     | '/$companySlug/login'
     | '/$companySlug/passenger'
     | '/api/health'
+    | '/billing/signin'
     | '/dispatch/signin'
     | '/driver/signin'
     | '/mobile/passenger'
     | '/owner/signin'
+    | '/passenger/signin'
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/$companySlug/'
@@ -996,6 +1036,7 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/profile'
     | '/$companySlug/passenger/rewards'
     | '/$companySlug/passenger/safety'
+    | '/$companySlug/passenger/signin'
     | '/$companySlug/passenger/signup'
     | '/$companySlug/passenger/track'
     | '/api/public/get-billing-rate'
@@ -1029,16 +1070,19 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/access'
     | '/auth'
     | '/showcase'
     | '/$companySlug'
     | '/$companySlug/$'
     | '/$companySlug/login'
     | '/api/health'
+    | '/billing/signin'
     | '/dispatch/signin'
     | '/driver/signin'
     | '/mobile/passenger'
     | '/owner/signin'
+    | '/passenger/signin'
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/owner'
@@ -1085,6 +1129,7 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/profile'
     | '/$companySlug/passenger/rewards'
     | '/$companySlug/passenger/safety'
+    | '/$companySlug/passenger/signin'
     | '/$companySlug/passenger/signup'
     | '/$companySlug/passenger/track'
     | '/api/public/get-billing-rate'
@@ -1119,6 +1164,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/$companySlug'
+    | '/access'
     | '/auth'
     | '/showcase'
     | '/$companySlug/_authenticated'
@@ -1129,10 +1175,12 @@ export interface FileRouteTypes {
     | '/$companySlug/login'
     | '/$companySlug/passenger'
     | '/api/health'
+    | '/billing/signin'
     | '/dispatch/signin'
     | '/driver/signin'
     | '/mobile/passenger'
     | '/owner/signin'
+    | '/passenger/signin'
     | '/ride/$requestId'
     | '/track/$tripId'
     | '/$companySlug/'
@@ -1182,6 +1230,7 @@ export interface FileRouteTypes {
     | '/$companySlug/passenger/profile'
     | '/$companySlug/passenger/rewards'
     | '/$companySlug/passenger/safety'
+    | '/$companySlug/passenger/signin'
     | '/$companySlug/passenger/signup'
     | '/$companySlug/passenger/track'
     | '/api/public/get-billing-rate'
@@ -1217,13 +1266,16 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CompanySlugRouteRoute: typeof CompanySlugRouteRouteWithChildren
+  AccessRoute: typeof AccessRoute
   AuthRoute: typeof AuthRoute
   ShowcaseRoute: typeof ShowcaseRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  BillingSigninRoute: typeof BillingSigninRoute
   DispatchSigninRoute: typeof DispatchSigninRoute
   DriverSigninRoute: typeof DriverSigninRoute
   MobilePassengerRoute: typeof MobilePassengerRoute
   OwnerSigninRoute: typeof OwnerSigninRoute
+  PassengerSigninRoute: typeof PassengerSigninRoute
   RideRequestIdRoute: typeof RideRequestIdRoute
   TrackTripIdRoute: typeof TrackTripIdRoute
   OwnerIndexRoute: typeof OwnerIndexRoute
@@ -1253,6 +1305,13 @@ declare module '@tanstack/react-router' {
       path: '/$companySlug'
       fullPath: '/$companySlug'
       preLoaderRoute: typeof CompanySlugRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/access': {
+      id: '/access'
+      path: '/access'
+      fullPath: '/access'
+      preLoaderRoute: typeof AccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -1332,6 +1391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/billing/signin': {
+      id: '/billing/signin'
+      path: '/billing/signin'
+      fullPath: '/billing/signin'
+      preLoaderRoute: typeof BillingSigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dispatch/signin': {
       id: '/dispatch/signin'
       path: '/dispatch/signin'
@@ -1365,6 +1431,13 @@ declare module '@tanstack/react-router' {
       path: '/owner/signin'
       fullPath: '/owner/signin'
       preLoaderRoute: typeof OwnerSigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/passenger/signin': {
+      id: '/passenger/signin'
+      path: '/passenger/signin'
+      fullPath: '/passenger/signin'
+      preLoaderRoute: typeof PassengerSigninRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ride/$requestId': {
@@ -1722,6 +1795,13 @@ declare module '@tanstack/react-router' {
       path: '/safety'
       fullPath: '/$companySlug/passenger/safety'
       preLoaderRoute: typeof CompanySlugPassengerSafetyRouteImport
+      parentRoute: typeof CompanySlugPassengerRoute
+    }
+    '/$companySlug/passenger/signin': {
+      id: '/$companySlug/passenger/signin'
+      path: '/signin'
+      fullPath: '/$companySlug/passenger/signin'
+      preLoaderRoute: typeof CompanySlugPassengerSigninRouteImport
       parentRoute: typeof CompanySlugPassengerRoute
     }
     '/$companySlug/passenger/signup': {
@@ -2119,6 +2199,7 @@ interface CompanySlugPassengerRouteChildren {
   CompanySlugPassengerProfileRoute: typeof CompanySlugPassengerProfileRoute
   CompanySlugPassengerRewardsRoute: typeof CompanySlugPassengerRewardsRoute
   CompanySlugPassengerSafetyRoute: typeof CompanySlugPassengerSafetyRoute
+  CompanySlugPassengerSigninRoute: typeof CompanySlugPassengerSigninRoute
   CompanySlugPassengerSignupRoute: typeof CompanySlugPassengerSignupRoute
   CompanySlugPassengerTrackRoute: typeof CompanySlugPassengerTrackRoute
   CompanySlugPassengerIndexRoute: typeof CompanySlugPassengerIndexRoute
@@ -2134,6 +2215,7 @@ const CompanySlugPassengerRouteChildren: CompanySlugPassengerRouteChildren = {
   CompanySlugPassengerProfileRoute: CompanySlugPassengerProfileRoute,
   CompanySlugPassengerRewardsRoute: CompanySlugPassengerRewardsRoute,
   CompanySlugPassengerSafetyRoute: CompanySlugPassengerSafetyRoute,
+  CompanySlugPassengerSigninRoute: CompanySlugPassengerSigninRoute,
   CompanySlugPassengerSignupRoute: CompanySlugPassengerSignupRoute,
   CompanySlugPassengerTrackRoute: CompanySlugPassengerTrackRoute,
   CompanySlugPassengerIndexRoute: CompanySlugPassengerIndexRoute,
@@ -2173,13 +2255,16 @@ const CompanySlugRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CompanySlugRouteRoute: CompanySlugRouteRouteWithChildren,
+  AccessRoute: AccessRoute,
   AuthRoute: AuthRoute,
   ShowcaseRoute: ShowcaseRoute,
   ApiHealthRoute: ApiHealthRoute,
+  BillingSigninRoute: BillingSigninRoute,
   DispatchSigninRoute: DispatchSigninRoute,
   DriverSigninRoute: DriverSigninRoute,
   MobilePassengerRoute: MobilePassengerRoute,
   OwnerSigninRoute: OwnerSigninRoute,
+  PassengerSigninRoute: PassengerSigninRoute,
   RideRequestIdRoute: RideRequestIdRoute,
   TrackTripIdRoute: TrackTripIdRoute,
   OwnerIndexRoute: OwnerIndexRoute,

@@ -1,9 +1,10 @@
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createServerFn } from "@tanstack/react-start";
 
 /**
- * PUBLIC guest booking.
+ * Legacy booking endpoint, now restricted to provisioned passenger accounts.
  *
- * A passenger must be able to book a ride WITHOUT an account, using only a
+ * Existing booking clients submit a
  * phone number plus a Medicaid ID (or SSN + DOB). The guest is identified by a
  * browser-generated `device_id` that persists in localStorage, so returning to
  * the app on the same device keeps them recognized.
@@ -15,6 +16,7 @@ import { createServerFn } from "@tanstack/react-start";
 type Stop = { address: string; lat: number; lng: number };
 
 export const guestRequestRide = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (input: {
       device_id: string;
@@ -64,11 +66,14 @@ export const guestRequestRide = createServerFn({ method: "POST" })
       return { ...input, medicaid_id, ssn, date_of_birth: dob, stops };
     },
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { getCompanyBySlug } = await import("@/lib/company.server");
 
-    const company = await getCompanyBySlug(data.company_slug);
+    const { assertCompanyActive } = await import("@/lib/company.server");
+    const mine = await assertCompanyActive(context.userId);
+    if (mine.url_slug !== data.company_slug.trim().toLowerCase()) throw new Error("Use your own company code.");
+    const company = await getCompanyBySlug(mine.url_slug);
     if (!company) throw new Error("Unknown provider link.");
     if (company.status !== "active") {
       throw new Error(`${company.name} is not accepting rides right now.`);
@@ -80,11 +85,12 @@ export const guestRequestRide = createServerFn({ method: "POST" })
     const last = parts.length > 1 ? parts.slice(1).join(" ") : "";
     const phone = data.contact_phone.trim();
 
-    // Find or create the guest passenger record for this device.
+    // Only a passenger record provisioned for the authenticated account may be used.
     const { data: existing } = await supabaseAdmin
       .from("passengers")
       .select("id, first_name, last_name, medicaid_id")
-      .eq("device_id", data.device_id)
+      .eq("user_id", context.userId)
+      .eq("company_id", company.id)
       .maybeSingle();
 
     let passengerId: string;
@@ -104,23 +110,7 @@ export const guestRequestRide = createServerFn({ method: "POST" })
         })
         .eq("id", passengerId);
     } else {
-      const { data: created, error: insErr } = await supabaseAdmin
-        .from("passengers")
-        .insert({
-          device_id: data.device_id,
-          first_name: first,
-          last_name: last,
-          phone,
-          company_id: company.id,
-          date_of_birth: data.date_of_birth || null,
-          medicaid_id: data.medicaid_id || `WALK-${data.device_id.slice(0, 8)}`,
-          is_active: true,
-          last_seen_at: new Date().toISOString(),
-        })
-        .select("id")
-        .single();
-      if (insErr) throw new Error(insErr.message);
-      passengerId = created.id;
+      throw new Error("Ask your administrator to create your passenger profile.");
     }
 
     // Encrypt the full SSN into Vault when that is the identity path used.

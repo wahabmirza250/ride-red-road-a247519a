@@ -1,3 +1,4 @@
+import { CompanyEntry, CompanySignInHeader } from "./CompanyEntry";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,10 @@ import { BrandWordmark } from "@/components/Brand";
 
 /** Billing-staff sign in. Rendered at `/{slug}/billing/signin`. */
 export function BillingSignInScreen({ companySlug }: { companySlug?: string }) {
+  return companySlug ? <BillingCompanySignIn companySlug={companySlug} /> : <CompanyEntry app="billing" />;
+}
+
+function BillingCompanySignIn({ companySlug }: { companySlug: string }) {
   const { user, loading, isBilling } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +39,7 @@ export function BillingSignInScreen({ companySlug }: { companySlug?: string }) {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const result = await signInAsRole(email, password, ["billing", "admin_biller"]);
+      const result = await signInAsRole(email, password, ["billing", "admin_biller"], companySlug);
       toast.success("Welcome");
       if (!result.companySlug) throw new Error(NO_COMPANY_MESSAGE);
       window.location.replace(`/${result.companySlug}/billing`);
@@ -64,6 +69,7 @@ export function BillingSignInScreen({ companySlug }: { companySlug?: string }) {
             Use the credentials your administrator gave you.
           </p>
 
+          <CompanySignInHeader code={companySlug} />
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
