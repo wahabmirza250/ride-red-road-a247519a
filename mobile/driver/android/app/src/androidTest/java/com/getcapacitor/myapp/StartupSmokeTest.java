@@ -43,14 +43,12 @@ public class StartupSmokeTest {
         try {
             waitFor(activity, "document.querySelector('h1')?.innerText.startsWith('NEMT') === true");
             assertEquals("\"https://localhost/\"", evaluate(activity, "location.href"));
-            if (packageName.endsWith("rides")) {
-                assertEquals("false", evaluate(activity, "document.getElementById('provider-fields').hidden"));
-                evaluate(activity, "document.getElementById('provider-code').value='../bad'; document.getElementById('continue').click()");
-                waitFor(activity, "document.getElementById('validation')?.hidden === false");
-            } else {
-                evaluate(activity, "document.getElementById('continue').click()");
-                waitFor(activity, "document.body.innerText.includes('Driver sign in') && document.querySelector('input[type=password]') !== null");
-            }
+            assertEquals("false", evaluate(activity, "document.getElementById('provider-fields').hidden"));
+            evaluate(activity, "document.getElementById('provider-code').value='../bad'; document.getElementById('continue').click()");
+            waitFor(activity, "document.getElementById('validation')?.hidden === false");
+            evaluate(activity, "document.getElementById('provider-code').value='walla'; document.getElementById('continue').click()");
+            // Check company routing independently of when the matching web release goes live.
+            waitFor(activity, "location.origin === 'https://nemtsolutions.co' && location.pathname === '/walla/driver/signin'");
             // Trigger a real DNS failure in the native WebView, then check bundled recovery.
             instrumentation.runOnMainSync(() -> activity.getBridge().getWebView().loadUrl("https://nemt-startup-test.invalid/"));
             waitFor(activity, "location.pathname === '/error.html' && document.getElementById('connection-error')?.hidden === false");

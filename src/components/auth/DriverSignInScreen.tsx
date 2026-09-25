@@ -1,3 +1,4 @@
+import { CompanyEntry, CompanySignInHeader } from "./CompanyEntry";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,10 @@ import { AppBrand } from "@/components/mobile/AppShell";
  * (`/{slug}/driver/signin`) and at the legacy bare `/driver/signin`.
  */
 export function DriverSignInScreen({ companySlug }: { companySlug?: string }) {
+  return companySlug ? <DriverCompanySignIn companySlug={companySlug} /> : <CompanyEntry app="driver" />;
+}
+
+function DriverCompanySignIn({ companySlug }: { companySlug: string }) {
   const { user, loading, isDriver } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +42,7 @@ export function DriverSignInScreen({ companySlug }: { companySlug?: string }) {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const result = await signInAsRole(email, password, "driver");
+      const result = await signInAsRole(email, password, "driver", companySlug);
       toast.success("Welcome");
       if (!result.companySlug) throw new Error(NO_COMPANY_MESSAGE);
       window.location.replace(`/${result.companySlug}/driver`);
@@ -65,6 +70,7 @@ export function DriverSignInScreen({ companySlug }: { companySlug?: string }) {
             Use the credentials your dispatcher gave you.
           </p>
 
+          <CompanySignInHeader code={companySlug} />
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>

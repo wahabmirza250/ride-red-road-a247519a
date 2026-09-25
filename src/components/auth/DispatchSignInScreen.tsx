@@ -1,3 +1,4 @@
+import { CompanyEntry, CompanySignInHeader } from "./CompanyEntry";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,10 @@ import { BrandWordmark } from "@/components/Brand";
  * bare `/dispatch/signin`.
  */
 export function DispatchSignInScreen({ companySlug }: { companySlug?: string }) {
+  return companySlug ? <DispatchCompanySignIn companySlug={companySlug} /> : <CompanyEntry app="dispatch" />;
+}
+
+function DispatchCompanySignIn({ companySlug }: { companySlug: string }) {
   const { user, loading, isDispatch } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +42,7 @@ export function DispatchSignInScreen({ companySlug }: { companySlug?: string }) 
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const result = await signInAsRole(email, password, "dispatch");
+      const result = await signInAsRole(email, password, "dispatch", companySlug);
       toast.success("Welcome");
       if (!result.companySlug) throw new Error(NO_COMPANY_MESSAGE);
       window.location.replace(`/${result.companySlug}/dispatch`);
@@ -67,6 +72,7 @@ export function DispatchSignInScreen({ companySlug }: { companySlug?: string }) 
             Use the credentials your administrator gave you.
           </p>
 
+          <CompanySignInHeader code={companySlug} />
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>

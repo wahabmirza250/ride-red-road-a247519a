@@ -16,6 +16,7 @@ type CreateDriverInput = {
 };
 
 type CreatePassengerInput = {
+  password?: string;
   first_name: string;
   last_name: string;
   medicaid_id: string;
@@ -303,24 +304,33 @@ export const createPassengerAccount = createServerFn({ method: "POST" })
     const { requireCompanyId } = await import("@/lib/company.server");
     const companyId = await requireCompanyId(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: inserted, error } = await supabaseAdmin
-      .from("passengers")
-      .insert({
-        company_id: companyId,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        medicaid_id: data.medicaid_id,
-        date_of_birth: data.date_of_birth ?? null,
-        phone: data.phone ?? null,
-        email: data.email ?? null,
-        county: data.county ?? null,
-        address: data.address ?? null,
-        notes: data.notes ?? null,
-      })
-      .select("id")
-      .single();
+    if (data.password && (!data.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim()) || data.password.length < 6)) {
+      throw new Error("A valid email and password of at least 6 characters are required for app access.");
+    }
+    const payload = {
+      company_id: companyId, first_name: data.first_name.trim(), last_name: data.last_name.trim(),
+      medicaid_id: data.medicaid_id?.trim() || null, date_of_birth: data.date_of_birth || null,
+      phone: data.phone || null, email: data.email?.trim().toLowerCase() || null,
+      county: data.county || null, address: data.address || null, notes: data.notes || null,
+    };
+    if (!payload.first_name || !payload.last_name || !payload.medicaid_id) throw new Error("Name and Medicaid ID are required.");
+    if (data.password) {
+      const { data: account, error: accountError } = await supabaseAdmin.auth.admin.createUser({
+        email: payload.email!, password: data.password, email_confirm: true,
+        user_metadata: { first_name: payload.first_name, last_name: payload.last_name, phone: payload.phone, role: "passenger", company_id: companyId },
+      });
+      if (accountError || !account.user) throw new Error(accountError?.message ?? "Could not create passenger login");
+      const { data: passenger, error } = await supabaseAdmin.from("passengers")
+        .update(payload).eq("user_id", account.user.id).eq("company_id", companyId).select("id").single();
+      if (error) {
+        await supabaseAdmin.auth.admin.deleteUser(account.user.id);
+        throw new Error("Could not finish creating passenger login. Please try again.");
+      }
+      return { ok: true, id: passenger.id };
+    }
+    const { data: inserted, error } = await supabaseAdmin.from("passengers").insert(payload).select("id").single();
     if (error) throw new Error(error.message);
-    return { ok: true, id: inserted?.id };
+    return { ok: true, id: inserted.id };
   });
 
 // Payroll: hours × $15 + fuel reimbursement + trip count

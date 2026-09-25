@@ -37,7 +37,6 @@ function CompanyLayout() {
     const rest = pathname.split("/").slice(2).join("/");
     return (
       rest === "" ||
-      rest.startsWith("passenger") ||
       rest === "login" ||
       rest.endsWith("signin") ||
       rest.endsWith("signup")
@@ -51,6 +50,7 @@ function CompanyLayout() {
     if (isBareLegacy) return; // handled by the index / splat children
     if (loading) return;
     let cancelled = false;
+    setState("loading");
 
     (async () => {
       try {
@@ -83,6 +83,11 @@ function CompanyLayout() {
         if (cancelled) return;
         if (!r.found) return setState("bad");
         if (!r.active) return setState("suspended");
+        if (r.url_slug !== companySlug) {
+          const rest = window.location.pathname.split("/").slice(2).join("/");
+          window.location.replace(`/${r.url_slug}${rest ? `/${rest}` : ""}${window.location.search}`);
+          return;
+        }
         setCompanySlug(r.url_slug);
         setState("ok");
       } catch {
