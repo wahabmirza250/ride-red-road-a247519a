@@ -65,12 +65,15 @@ export const submitRideRequest = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** PUBLIC — curated news feed the admin manages. */
-export const listPublicNews = createServerFn({ method: "GET" }).handler(async () => {
+/** Company announcements for issued passenger accounts. */
+export const listPublicNews = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const { assertCompanyActive } = await import('./company.server');
+  const company = await assertCompanyActive(context.userId);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
     .from("news_items")
     .select("id, title, body, image_url, link_url, created_at")
+    .eq("company_id", company.id)
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -103,12 +106,15 @@ export const getRegionalNews = createServerFn({ method: "GET" })
     }
   });
 
-/** PUBLIC — active games catalog for the passenger app. */
-export const listPublicGames = createServerFn({ method: "GET" }).handler(async () => {
+/** Active games from the passenger's own company. */
+export const listPublicGames = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const { assertCompanyActive } = await import('./company.server');
+  const company = await assertCompanyActive(context.userId);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
     .from("games")
     .select("id, title, url, thumbnail_url, category, description")
+    .eq("company_id", company.id)
     .eq("is_active", true)
     .order("sort_order", { ascending: true })
     .limit(50);
@@ -263,6 +269,8 @@ function decodeEntities(s: string): string {
   return s
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
     .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(Math.min(0x10ffff, parseInt(n, 16))))
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')

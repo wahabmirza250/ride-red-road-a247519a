@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseBrowser";
 
@@ -41,12 +42,19 @@ async function fetchRolesFor(userId: string): Promise<AppRole[]> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
+  const cachedUserId = useRef<string | null>(null);
+  const clearPreviousAccount = useCallback((nextUserId: string | null) => {
+    if (cachedUserId.current !== nextUserId) queryClient.clear();
+    cachedUserId.current = nextUserId;
+  }, [queryClient]);
   const [session, setSession] = useState<Session | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
+    clearPreviousAccount(data.session?.user.id ?? null);
     setSession(data.session);
     if (data.session?.user) {
       setRoles(await fetchRolesFor(data.session.user.id));
@@ -54,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoles([]);
     }
     setLoading(false);
-  }, []);
+  }, [clearPreviousAccount]);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Role reads from an older auth event must never overwrite a newer
       // session. This can otherwise turn a successful refresh into a logout.
       if (cancelled || revision !== sessionRevision) return;
+      clearPreviousAccount(sess?.user.id ?? null);
       setSession(sess);
       setRoles(nextRoles);
       setLoading(false);
@@ -95,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       unsubscribe?.();
     };
-  }, []);
+  }, [clearPreviousAccount]);
 
   useEffect(() => {
     if (!session?.user) return;

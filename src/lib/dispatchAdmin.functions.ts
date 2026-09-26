@@ -149,21 +149,18 @@ export const adminCancelTrip = createServerFn({ method: "POST" })
     if (reqErr) throw new Error(reqErr.message);
     if (!req) throw new Error("Ride request not found");
 
-    await supabaseAdmin.from("ride_requests").update({ status: "cancelled" }).eq("id", req.id);
-
-    if (req.trip_id) {
-      await supabaseAdmin.from("trips").update({ status: "cancelled" }).eq("id", req.trip_id);
-    }
+    const { error: cancelError } = await supabaseAdmin.rpc('update_company_dispatch_ride', {
+      _company_id: callerCompany, _request_id: req.id, _action: 'cancel',
+    });
+    if (cancelError) throw new Error(cancelError.message);
 
     if (req.driver_id) {
       const { data: drv } = await supabaseAdmin
         .from("drivers")
         .select("user_id, status")
         .eq("id", req.driver_id)
+        .eq("company_id", callerCompany)
         .maybeSingle();
-      if (drv && drv.status === "busy") {
-        await supabaseAdmin.from("drivers").update({ status: "available" }).eq("id", req.driver_id);
-      }
       if (drv?.user_id) {
         try {
           const { sendPushToUsers } = await import("@/lib/pushSend.server");
@@ -241,25 +238,10 @@ export const rescheduleRide = createServerFn({ method: "POST" })
 
     const iso = new Date(data.requested_pickup_time).toISOString();
 
-    const { error } = await supabaseAdmin
-      .from("ride_requests")
-      .update({ requested_pickup_time: iso })
-      .eq("id", data.request_id);
+    const { error } = await supabaseAdmin.rpc('update_company_dispatch_ride', {
+      _company_id: callerCompany, _request_id: req.id, _action: 'reschedule', _pickup_at: iso,
+    });
     if (error) throw new Error(error.message);
-
-    if (req.trip_id) {
-      const { data: trip } = await supabaseAdmin
-        .from("trips")
-        .select("status")
-        .eq("id", req.trip_id)
-        .maybeSingle();
-      if (trip && ["scheduled", "assigned"].includes(String(trip.status))) {
-        await supabaseAdmin
-          .from("trips")
-          .update({ scheduled_pickup_time: iso })
-          .eq("id", req.trip_id);
-      }
-    }
 
     await logDispatchEvent({
       kind: "ride_rescheduled",

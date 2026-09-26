@@ -39,22 +39,21 @@ function EventsFeed() {
 
   useEffect(() => {
     // Auto-prompt for permission for signed-in users on first visit.
-    if (!user) return;
-    if (Notification.permission === "default") {
-      ensurePushSubscribed().then((ok) => setPushOn(ok));
-    } else if (Notification.permission === "granted") {
-      ensurePushSubscribed().then(() => setPushOn(true));
-    }
+    if (!user || !pushSupported()) return;
+    let active = true;
+    void ensurePushSubscribed().then((ok) => { if (active) setPushOn(ok); })
+      .catch(() => { if (active) setPushOn(false); });
+    return () => { active = false; };
   }, [user]);
 
   async function turnOnPush() {
     if (!user) {
       toast("Sign in to enable notifications", {
-        description: "Create a free account to get event alerts.",
+        description: "Use the account issued by your company to get event alerts.",
       });
       return;
     }
-    const ok = await ensurePushSubscribed({ force: true });
+    const ok = await ensurePushSubscribed({ force: true }).catch(() => false);
     if (ok) {
       toast.success("Notifications on");
       setPushOn(true);
@@ -93,7 +92,7 @@ function EventsFeed() {
         </div>
         {!user && (
           <div className="mt-3 rounded-xl border border-dashed border-border p-3 text-xs text-muted-foreground">
-            <AppLink to="/passenger/signup" className="font-medium text-primary hover:underline">
+            <AppLink to="/passenger/signin" className="font-medium text-primary hover:underline">
               Sign in
             </AppLink>{" "}
             to get push notifications when new events are posted.
@@ -104,6 +103,11 @@ function EventsFeed() {
       {events.isLoading ? (
         <div className="flex justify-center py-10">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : events.isError ? (
+        <div role="alert" className="rounded-2xl border border-border p-6 text-center">
+          <p>Events could not be loaded.</p>
+          <Button variant="outline" onClick={() => void events.refetch()}>Try again</Button>
         </div>
       ) : (events.data ?? []).length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">

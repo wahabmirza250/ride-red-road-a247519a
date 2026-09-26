@@ -448,10 +448,15 @@ function DriverHome() {
     }
     const patch: { status: typeof next; actual_pickup_time?: string } = { status: next };
     if (next === "in_progress") patch.actual_pickup_time = new Date().toISOString();
-    const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id);
+    const { error } = await supabase.from("trips").update(patch).eq("id", active.trip_id).select("id").single();
     if (error) throw new Error(error.message);
     void loadRequests();
     return true;
+  }
+
+  async function changeStatus(next: "driver_en_route_to_pickup" | "arrived_at_pickup" | "in_progress") {
+    try { await setStatus(next); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Trip could not be updated. Try again."); }
   }
 
   /**
@@ -898,7 +903,7 @@ function DriverHome() {
                 className="h-14 w-full rounded-full bg-primary text-base"
                 onClick={() => {
                   openNavigation();
-                  void setStatus("driver_en_route_to_pickup");
+                  void changeStatus("driver_en_route_to_pickup");
                 }}
               >
                 <Navigation className="mr-2 h-5 w-5" /> Start Navigation
@@ -915,7 +920,7 @@ function DriverHome() {
                 <Button
                   variant="outline"
                   className="h-12 w-full rounded-full text-base"
-                  onClick={() => setStatus("arrived_at_pickup")}
+                  onClick={() => changeStatus("arrived_at_pickup")}
                 >
                   <Car className="mr-2 h-5 w-5" /> Arrive at pickup
                 </Button>
@@ -925,7 +930,7 @@ function DriverHome() {
               <Button
                 className="h-14 w-full rounded-full bg-emerald-500 text-base hover:bg-emerald-600"
                 onClick={() => {
-                  void setStatus("in_progress");
+                  void changeStatus("in_progress");
                 }}
               >
                 <CheckCircle2 className="mr-2 h-5 w-5" /> Start ride
@@ -1109,9 +1114,9 @@ function DriverHome() {
               setNavOpen(false);
               setShowDropoffForm(true);
             } else if (tripStatus === "arrived_at_pickup") {
-              void setStatus("in_progress");
+              void changeStatus("in_progress");
             } else {
-              void setStatus("arrived_at_pickup");
+              void changeStatus("arrived_at_pickup");
               setNavOpen(false);
             }
           }}

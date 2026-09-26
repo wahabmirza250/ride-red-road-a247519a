@@ -63,14 +63,18 @@ export async function sendPushToUsers(userIds: string[], payload: PushPayload) {
   return { sent, failed };
 }
 
-export async function sendPushToAdmins(payload: PushPayload) {
-  const { data } = await supabaseAdmin.from("user_roles").select("user_id").eq("role", "admin");
+export async function sendPushToAdmins(companyId: string, payload: PushPayload) {
+  if (!companyId) throw new Error("Company required for notifications");
+  const { data, error } = await supabaseAdmin.from("user_roles").select("user_id").eq("role", "admin").eq("company_id", companyId);
+  if (error) throw new Error(error.message);
   const ids = (data ?? []).map((r) => r.user_id);
   return sendPushToUsers(ids, payload);
 }
 
-export async function sendPushToAllPassengers(payload: PushPayload) {
-  const { data } = await supabaseAdmin.from("user_roles").select("user_id").eq("role", "passenger");
+export async function sendPushToAllPassengers(companyId: string, payload: PushPayload) {
+  if (!companyId) throw new Error("Company required for notifications");
+  const { data, error } = await supabaseAdmin.from("user_roles").select("user_id").eq("role", "passenger").eq("company_id", companyId);
+  if (error) throw new Error(error.message);
   const ids = (data ?? []).map((r) => r.user_id);
   return sendPushToUsers(ids, payload);
 }

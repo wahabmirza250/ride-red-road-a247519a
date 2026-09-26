@@ -330,7 +330,7 @@ function DispatchersCard() {
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   async function remove(userId: string, name: string) {
-    if (!window.confirm(`Remove dispatcher ${name}? Their login will be deleted.`)) return;
+    if (!window.confirm(`Remove dispatch access for ${name}? Their other app access and history will be kept.`)) return;
     setRemovingId(userId);
     try {
       await removeDispatcher({ data: { user_id: userId } });
@@ -518,7 +518,7 @@ function BillingStaffCard() {
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   async function remove(userId: string, name: string) {
-    if (!window.confirm(`Remove billing user ${name}? Their login will be deleted.`)) return;
+    if (!window.confirm(`Remove billing access for ${name}? Their other app access and history will be kept.`)) return;
     setRemovingId(userId);
     try {
       await removeBiller({ data: { user_id: userId } });

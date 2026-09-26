@@ -123,6 +123,11 @@ export const deleteDriver = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!d?.user_id) throw new Error("Driver not found");
     const uid = d.user_id;
+    if (uid === context.userId) throw new Error("You cannot delete your own account.");
+    const { data: otherRoles, error: rolesError } = await supabaseAdmin.from("user_roles")
+      .select("role").eq("user_id", uid).neq("role", "driver");
+    if (rolesError) throw new Error(rolesError.message);
+    if (otherRoles?.length) throw new Error("This login also has other app access. Remove driver access through account management instead of deleting the shared login.");
     await supabaseAdmin.from("trips").update({ driver_id: null }).eq("driver_id", data.driver_id);
     await supabaseAdmin.from("drivers").delete().eq("id", data.driver_id);
     await supabaseAdmin.from("user_roles").delete().eq("user_id", uid);
@@ -283,16 +288,8 @@ export const deleteDispatcher = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { requireCompanyId } = await import("@/lib/company.server");
     const companyId = await requireCompanyId(context.userId);
-    const { data: role } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", data.user_id)
-      .eq("role", "dispatch")
-      .eq("company_id", companyId)
-      .maybeSingle();
-    if (!role) throw new Error("Not a dispatcher account");
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
-    await supabaseAdmin.auth.admin.deleteUser(data.user_id);
+    const { revokeAppRoles } = await import("./revokeAppRoles.server");
+    await revokeAppRoles(supabaseAdmin, companyId, data.user_id, ["dispatch"]);
     return { ok: true };
   });
 
@@ -464,16 +461,8 @@ export const deleteBillingUser = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { requireCompanyId } = await import("@/lib/company.server");
     const companyId = await requireCompanyId(context.userId);
-    const { data: role } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", data.user_id)
-      .in("role", ["billing", "admin_biller"])
-      .eq("company_id", companyId)
-      .maybeSingle();
-    if (!role) throw new Error("Not a billing account");
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
-    await supabaseAdmin.auth.admin.deleteUser(data.user_id);
+    const { revokeAppRoles } = await import("./revokeAppRoles.server");
+    await revokeAppRoles(supabaseAdmin, companyId, data.user_id, ["billing", "admin_biller"]);
     return { ok: true };
   });
 

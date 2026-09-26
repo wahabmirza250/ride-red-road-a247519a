@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PortalCredentialsCard } from "@/components/billing/PortalCredentialsCard";
-import { BillingRatesCard } from "@/components/billing/BillingRatesCard";
+import { BillingSetupPanel } from "@/components/billing/BillingSetupPanel";
+import { AppLink } from '@/lib/appLink';
 
 export const Route = createFileRoute("/$companySlug/billing/settings")({
   ssr: false,
@@ -35,8 +35,12 @@ function BillingSettingsPage() {
         </p>
       </header>
 
-      <PortalCredentialsCard />
-      <BillingRatesCard />
+      <section className="rounded-2xl border border-border bg-surface p-5">
+        <h2 className="font-semibold">Electronic billing (EDI)</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Connect your provider profile, review electronic claims, and track payer responses.</p>
+        <AppLink to="/billing/edi" className="mt-3 inline-flex text-sm font-medium text-primary underline">Open EDI workspace</AppLink>
+      </section>
+      <BillingSetupPanel />
     </div>
   );
 }

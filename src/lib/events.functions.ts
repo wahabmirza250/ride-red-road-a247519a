@@ -1,17 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-async function ensureAdmin(
-  supabase: import("@supabase/supabase-js").SupabaseClient,
-  userId: string,
-) {
-  const { data } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!data) throw new Error("Admin only");
+async function ensureAdmin(userId: string) {
+  const { requireStaff } = await import('./staffGuard.server');
+  await requireStaff(userId, ['admin']);
+  const { assertCompanyActive } = await import('./company.server');
+  return assertCompanyActive(userId);
 }
 
 export type EventInput = {
@@ -32,14 +26,16 @@ export const upsertEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: EventInput) => {
     if (!input.title?.trim()) throw new Error("Title required");
-    if (!input.starts_at) throw new Error("Start time required");
+    if (!input.starts_at || !Number.isFinite(Date.parse(input.starts_at))) throw new Error("Valid start time required");
+    if (input.ends_at && (!Number.isFinite(Date.parse(input.ends_at)) || Date.parse(input.ends_at) <= Date.parse(input.starts_at))) throw new Error("End time must be after the start time");
     return input;
   })
   .handler(async ({ data, context }) => {
-    await ensureAdmin(context.supabase, context.userId);
+    const company = await ensureAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const payload = {
+      company_id: company.id,
       title: data.title.trim(),
       description: data.description?.trim() ?? "",
       starts_at: data.starts_at,
@@ -58,6 +54,7 @@ export const upsertEvent = createServerFn({ method: "POST" })
         .from("events")
         .update(payload)
         .eq("id", data.id)
+        .eq("company_id", company.id)
         .select("id, title")
         .single();
       if (error) throw new Error(error.message);
@@ -76,10 +73,10 @@ export const upsertEvent = createServerFn({ method: "POST" })
       try {
         const { sendPushToAllPassengers } = await import("@/lib/pushSend.server");
         const when = new Date(data.starts_at).toLocaleString();
-        await sendPushToAllPassengers({
+        await sendPushToAllPassengers(company.id, {
           title: row.title,
           body: `${when}${data.location_address ? " • " + data.location_address : ""} — tap to book a ride`,
-          url: "/passenger/events",
+          url: `/${company.url_slug}/passenger/events`,
           tag: `event-${row.id}`,
           requireInteraction: true,
         });
@@ -94,10 +91,11 @@ export const upsertEvent = createServerFn({ method: "POST" })
 export const listEventsAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await ensureAdmin(context.supabase, context.userId);
+    const company = await ensureAdmin(context.userId);
     const { data, error } = await context.supabase
       .from("events")
       .select("*")
+      .eq("company_id", company.id)
       .order("starts_at", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -107,20 +105,23 @@ export const deleteEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => input)
   .handler(async ({ data, context }) => {
-    await ensureAdmin(context.supabase, context.userId);
+    const company = await ensureAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("events").delete().eq("id", data.id);
+    const { error } = await supabaseAdmin.from("events").delete().eq("id", data.id).eq("company_id", company.id).select("id").single();
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
-/** PUBLIC — anyone can view the list of active events. */
-export const listActiveEvents = createServerFn({ method: "GET" }).handler(async () => {
+/** Active events for the signed-in account’s company. */
+export const listActiveEvents = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const { assertCompanyActive } = await import("./company.server");
+  const company = await assertCompanyActive(context.userId);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
     .from("events")
     .select("id, title, description, starts_at, ends_at, location_address, location_lat, location_lng, image_url")
     .eq("is_active", true)
+    .eq("company_id", company.id)
     .order("starts_at", { ascending: true })
     .limit(50);
   if (error) throw new Error(error.message);

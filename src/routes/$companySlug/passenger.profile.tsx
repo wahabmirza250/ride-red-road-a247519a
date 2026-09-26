@@ -317,25 +317,26 @@ function ProfilePage() {
         <form onSubmit={onSubmit} className="mt-5 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>First name</Label>
-              <Input value={f.first_name} onChange={(e) => upd("first_name", e.target.value)} required />
+              <Label htmlFor="profile-first_name">First name</Label>
+              <Input id="profile-first_name" value={f.first_name} onChange={(e) => upd("first_name", e.target.value)} required />
             </div>
             <div className="space-y-1.5">
-              <Label>Last name</Label>
-              <Input value={f.last_name} onChange={(e) => upd("last_name", e.target.value)} required />
+              <Label htmlFor="profile-last_name">Last name</Label>
+              <Input id="profile-last_name" value={f.last_name} onChange={(e) => upd("last_name", e.target.value)} required />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Phone</Label>
-            <Input type="tel" inputMode="tel" value={f.phone} onChange={(e) => upd("phone", e.target.value)} />
+            <Label htmlFor="profile-phone">Phone</Label>
+            <Input id="profile-phone" type="tel" inputMode="tel" value={f.phone} onChange={(e) => upd("phone", e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label>Email</Label>
-            <Input type="email" value={f.email} onChange={(e) => upd("email", e.target.value)} />
+            <Label htmlFor="profile-email">Email</Label>
+            <Input id="profile-email" type="email" value={f.email} onChange={(e) => upd("email", e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label>Home address</Label>
+            <Label htmlFor="profile-address">Home address</Label>
             <AddressAutocomplete
+              id="profile-address"
               value={f.address}
               onChange={(v) => upd("address", v)}
               onResolve={(p) => upd("address", p.address)}

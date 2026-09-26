@@ -595,17 +595,21 @@ export const getVehicleEtas = createServerFn({ method: "POST" })
     if (!company || company.status !== 'active') return {};
     let query = supabaseAdmin
       .from("drivers")
-      .select("id, default_vehicle_type, current_lat, current_lng, status, company_id")
+      .select("id, default_vehicle_type, current_lat, current_lng, status, company_id, last_location_at")
       .eq("status", "available");
     query = query.eq("company_id", company.id);
-    const { data: drivers } = await query;
-
-
+    const { data: drivers, error } = await query;
+    if (error) throw new Error(error.message);
+    const { data: shifts, error: shiftError } = await supabaseAdmin.from('driver_shifts')
+      .select('driver_id').eq('company_id', company.id).is('clock_out_at', null);
+    if (shiftError) throw new Error(shiftError.message);
+    const onShift = new Set((shifts ?? []).map(s => s.driver_id));
+    const { eligibleForDispatch } = await import('./dispatchEligibility');
     const pickup = { lat: data.lat, lng: data.lng };
     const bestByType: Record<string, number> = {};
     for (const d of drivers ?? []) {
-      if (d.current_lat == null || d.current_lng == null) continue;
       const type = d.default_vehicle_type ?? "ambulatory";
+      if (!eligibleForDispatch(d, type, onShift.has(d.id))) continue;
       const km = haversineKm(pickup, { lat: Number(d.current_lat), lng: Number(d.current_lng) });
       const mins = Math.max(1, Math.round((km / 40) * 60));
       if (bestByType[type] == null || mins < bestByType[type]) bestByType[type] = mins;
@@ -653,7 +657,7 @@ export const setDriverAvailability = createServerFn({ method: "POST" })
     return driver;
   });
 
-/** Atomically close a dispatch ride for its assigned driver. */
+/** Validate the linked ride before closing it for its assigned driver. */
 export const completeDriverDispatchTrip = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { trip_id: string; request_id: string }) => {
@@ -662,8 +666,12 @@ export const completeDriverDispatchTrip = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { requireCompanyId } = await import("@/lib/company.server");
-    const companyId = await requireCompanyId(context.userId);
+    const { assertCompanyActive } = await import("@/lib/company.server");
+    const { id: companyId } = await assertCompanyActive(context.userId);
+    const { data: driverRole, error: roleError } = await supabaseAdmin.from("user_roles")
+      .select("role").eq("user_id", context.userId).eq("company_id", companyId).eq("role", "driver").maybeSingle();
+    if (roleError) throw new Error(roleError.message);
+    if (!driverRole) throw new Error("Driver access required");
     const { data: driver, error: driverErr } = await supabaseAdmin
       .from("drivers")
       .select("id")
@@ -687,14 +695,6 @@ export const completeDriverDispatchTrip = createServerFn({ method: "POST" })
       throw new Error("Trip belongs to another company");
     }
 
-    const completedAt = new Date().toISOString();
-    const { error: tripErr } = await supabaseAdmin
-      .from("trips")
-      .update({ company_id: companyId, status: "completed", actual_dropoff_time: completedAt })
-      .eq("id", data.trip_id)
-      .eq("driver_id", driver.id);
-    if (tripErr) throw new Error(tripErr.message);
-
     const { data: request, error: requestReadErr } = await supabaseAdmin
       .from("ride_requests")
       .select("id, company_id")
@@ -706,17 +706,11 @@ export const completeDriverDispatchTrip = createServerFn({ method: "POST" })
     if (request.company_id && request.company_id !== companyId) {
       throw new Error("Ride request belongs to another company");
     }
-    const { error: requestErr } = await supabaseAdmin
-      .from("ride_requests")
-      .update({ company_id: companyId, driver_id: driver.id, status: "completed" })
-      .eq("id", data.request_id)
-      .eq("trip_id", data.trip_id);
-    if (requestErr) throw new Error(requestErr.message);
+    const { data: result, error } = await supabaseAdmin.rpc('update_company_dispatch_ride', {
+      _company_id: companyId, _request_id: data.request_id, _action: 'complete',
+      _driver_id: driver.id, _trip_id: data.trip_id,
+    });
+    if (error) throw new Error(error.message);
+    return result as { ok: boolean; completed_at: string };
 
-    const { error: statusErr } = await supabaseAdmin
-      .from("drivers")
-      .update({ status: "available" })
-      .eq("id", driver.id);
-    if (statusErr) throw new Error(statusErr.message);
-    return { ok: true, completed_at: completedAt };
   });
