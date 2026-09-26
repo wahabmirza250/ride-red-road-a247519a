@@ -204,6 +204,11 @@ export async function checkOneClaim(
   /** Optional hard wall-clock stop (run budget). Never poll past it. */
   hardDeadline?: number,
 ): Promise<{ ok: true; row: LookupRow } | { ok: false; detail: string }> {
+  if (claimNumber.startsWith("DEMO-")) {
+    const { isDemoCompany } = await import("./demoCompany.server");
+    if (!await isDemoCompany(companyId)) return { ok: false, detail: "Sample claim numbers cannot be checked for a live company." };
+    return { ok: true, row: { claim_number: claimNumber, status: "submitted", raw: "Demo simulation; no payer contacted." } };
+  }
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const apiKey = process.env["ROBOT_API_KEY"] ?? process.env["CLAIM_STATUS_API_KEY"];
   if (apiKey) headers["x-api-key"] = apiKey;

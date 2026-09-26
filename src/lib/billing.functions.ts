@@ -296,18 +296,16 @@ export const getBillingRecord = createServerFn({ method: "POST" })
       .eq("billing_record_id", data.id)
       .order("created_at", { ascending: false });
 
-    // Provider identity belongs to the trip's COMPANY, never to the admin
-    // who happens to have the bill open.
-    const { resolveProviderForTrip } = await import("@/lib/providerResolve.server");
-    const { providerId: diagProviderId } = await resolveProviderForTrip(supabase, { trip, userId });
-    const robot_diagnostic = await getRobotSubmissionDiagnostic(supabase, {
-      billingRecordId: data.id,
-      trip,
-      providerUserId: diagProviderId,
-      mode: "full",
-    });
+    const { isDemoCompany } = await import("./demoCompany.server");
+    const is_demo = await isDemoCompany(rec.company_id);
+    let robot_diagnostic = null;
+    if (!is_demo) {
+      const { resolveProviderForTrip } = await import("@/lib/providerResolve.server");
+      const { providerId } = await resolveProviderForTrip(supabase, { trip, userId });
+      robot_diagnostic = await getRobotSubmissionDiagnostic(supabase, { billingRecordId: data.id, trip, providerUserId: providerId, mode: "full" });
+    }
 
-    return { record: rec, trip, driver_name, signature_url, pdf_url, audit: audit ?? [], robot_diagnostic };
+    return { is_demo, record: rec, trip, driver_name, signature_url, pdf_url, audit: audit ?? [], robot_diagnostic };
   });
 
 export const regenerateBillingPdf = createServerFn({ method: "POST" })
@@ -473,8 +471,9 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertBilling(supabase, userId);
-    const { assertRealUser } = await import("./demoCompany.server");
-    await assertRealUser(userId);
+    const { demoPortalCompany, runDemoPortal } = await import("./demoPortal.server");
+    const demoCompany = await demoPortalCompany(userId);
+    if (demoCompany) return await runDemoPortal(supabase, demoCompany, [data.id], "submit") as any;
 
     // Operator pause switch (database-backed, applies to every worker and
     // every entry point). Capture-only runs stay allowed.
@@ -692,6 +691,9 @@ export const startRobotForRecords = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertBilling(supabase, userId);
 
+    const { demoPortalCompany, runDemoPortal } = await import("./demoPortal.server");
+    const demoCompany = await demoPortalCompany(userId);
+    if (demoCompany) return await runDemoPortal(supabase, demoCompany, data.ids, "submit");
     // ONE submit path for the row button, the bulk button and Auto Pilot.
     const { submitSelectedRecords } = await import("@/lib/submitSelection.server");
     return await submitSelectedRecords(supabase, userId, {

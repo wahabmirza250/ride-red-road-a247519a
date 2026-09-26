@@ -1,3 +1,4 @@
+import { DemoBillingRunButton } from "./DemoBillingRunButton";
 import { useWorkspaceSearch } from "@/lib/useWorkspaceSearch";
 import { QueryNotice } from "@/components/admin/QueryNotice";
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
@@ -260,7 +261,8 @@ const STAGE_HINTS: Partial<Record<TabKey, string>> = {
  * far below the fold.
  */
 export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = {}) {
-  const { isAdmin, isBilling } = useAuth();
+  const { isAdmin, isBilling, user } = useAuth();
+  const isDemo = user?.app_metadata?.is_demo === true;
   const canBill = isAdmin || isBilling;
   const qc = useQueryClient();
   const [requestedTab, setTab] = useWorkspaceSearch("stage", "pending_review");
@@ -475,7 +477,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
   // server-side when nobody has the app open.)
   const sweepFn = useServerFn(sweepRobotJobsForCompany);
   useEffect(() => {
-    if (!canBill) return;
+    if (!canBill || isDemo) return;
     let stopped = false;
     let running = false;
     const tick = async () => {
@@ -512,7 +514,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [canBill, qc, sweepFn]);
+  }, [canBill, isDemo, qc, sweepFn]);
 
   // Submission stays off until provider + portal login + rates all exist.
   const setupStatusFn = useServerFn(getBillingSetupStatus);
@@ -521,7 +523,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     queryFn: () => setupStatusFn() as any,
     enabled: canBill,
   });
-  const setupReady = setupStatus.data ? Boolean(setupStatus.data.ready) : true;
+  const setupReady = isDemo || (setupStatus.data ? Boolean(setupStatus.data.ready) : true);
   const setupBlockedReason = setupStatus.data
     ? submissionBlockedReason(setupStatus.data as any)
     : null;
@@ -574,7 +576,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
 
 
 
-      {tab === "awaiting_portal" && <SubmissionQueuePanel />}
+      {!isDemo && tab === "awaiting_portal" && <SubmissionQueuePanel />}
 
       {/* Claims filter row — one clean segmented control that wraps. */}
       <BillingStageNav
@@ -592,7 +594,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         }))}
         secondaryActiveLabel={secondaryActive ? secondaryLabel : null}
         onSelectSecondary={(k) => setTab(k as TabKey)}
-        trailing={
+        trailing={isDemo ? <DemoBillingRunButton /> :
           <AutoPilotButton
             resubmissionIds={tab === "ready_to_submit" ? [...correctedSelected] : []}
             blockedReason={setupBlockedReason}
@@ -600,7 +602,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         }
       />
 
-      {(tab === "needs_attention" || tab === "verification_hold") && (
+      {!isDemo && (tab === "needs_attention" || tab === "verification_hold") && (
         <ReconcileSweepCard onOpenRecord={setSelectedId} />
       )}
 
@@ -1180,7 +1182,7 @@ function ReadyToSubmitTab({
       const res: any = await startBatchFn({ data: { ids, acknowledge_duplicate: false } });
       setSelected(new Set());
       if (res?.batch_id) setBatchId(res.batch_id as string);
-      if (res?.started) {
+      if (res?.demo) { toast.success("Demo claims submitted successfully"); } else if (res?.started) {
         toast.success(
           `${res.queued ?? res.started} bill${(res.queued ?? res.started) === 1 ? "" : "s"} queued — ` +
             `${res.started} sending now, the rest start automatically. You can keep working; ` +
@@ -1220,7 +1222,8 @@ function ReadyToSubmitTab({
     queryKey: ["billing_setup_status"],
     queryFn: () => setupFn() as any,
   });
-  const setupBlocked = setup.data ? submissionBlockedReason(setup.data as any) : null;
+  const isDemo = useAuth().user?.app_metadata?.is_demo === true;
+  const setupBlocked = !isDemo && setup.data ? submissionBlockedReason(setup.data as any) : null;
 
   if (!rows.length)
     return (

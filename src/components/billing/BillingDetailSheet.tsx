@@ -1,3 +1,4 @@
+import { DemoBillingRunButton } from "./DemoBillingRunButton";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -191,6 +192,7 @@ export function BillingDetailSheet({
     onError: (e: any) => toast.error(e.message),
   });
 
+  const isDemo = detail.data?.is_demo === true;
   const rec = detail.data?.record as any;
   const trip = detail.data?.trip as any;
   const rider = trip?.riders;
@@ -384,7 +386,7 @@ export function BillingDetailSheet({
               <Field label="Odometer end" value={trip?.odometer_end} />
               <Field label="Miles" value={trip?.miles} />
             </div>
-            {diagnostic && <RobotDiagnosticPanel diagnostic={diagnostic} />}
+            {isDemo ? <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3"><p className="font-medium">{rec.edi_status === "paid" ? "Payment received" : rec.status === "submitted" ? "Claim submitted successfully" : "Ready for demo billing"}</p><p className="text-xs text-muted-foreground">Simulation — sample claims and payments. No portal login is needed.</p>{rec.edi_status !== "paid" && <DemoBillingRunButton ids={[rec.id]} payment={rec.status === "submitted"} />}</div> : diagnostic && <RobotDiagnosticPanel diagnostic={diagnostic} />}
             <Field label="Pickup address" value={trip?.pickup_address} />
             <Field label="Drop-off address" value={trip?.dropoff_address} />
 
@@ -412,7 +414,7 @@ export function BillingDetailSheet({
               </div>
             )}
 
-            {detail.data?.pdf_url ? (
+            {isDemo ? <p className="text-xs text-muted-foreground">Sample trip record for presentation. Live billing requires the signed trip report.</p> : detail.data?.pdf_url ? (
               <>
                 <ViewScannedFormButton
                   className="w-full"
@@ -452,7 +454,7 @@ export function BillingDetailSheet({
 
 
             {/* Actions */}
-            <div className="space-y-3 border-t pt-4">
+            <div className="space-y-3 border-t pt-4" hidden={isDemo}>
               {rec.status === "pending_review" && (
                 <>
                   <Button

@@ -1,3 +1,4 @@
+import { resolveDemoPlace } from "@/lib/demoPlaces";
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLink, useAppNavigate } from "@/lib/appLink";
 import { useEffect, useMemo, useState } from "react";
@@ -129,7 +130,12 @@ function PassengerHome() {
       {/* Big "Where are you going?" search bar with live autocomplete */}
       <DestinationSearch
         onPick={(addr, lat, lng) => goToSearch({ dropoff: addr, dLat: lat, dLng: lng })}
-        onSubmitRaw={(text) => goToSearch({ dropoff: text })}
+        onSubmitRaw={(text) => {
+          if (user?.app_metadata?.is_demo === true) {
+            const sample = resolveDemoPlace(text);
+            goToSearch({ dropoff: sample.address, dLat: sample.lat, dLng: sample.lng });
+          } else goToSearch({ dropoff: text });
+        }}
       />
 
 

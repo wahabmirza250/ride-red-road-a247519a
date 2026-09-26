@@ -1,3 +1,5 @@
+import { useAuth } from "@/lib/auth";
+import { resolveDemoPlace, DEMO_PLACES } from "@/lib/demoPlaces";
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLink, useAppNavigate } from "@/lib/appLink";
 import { useEffect, useState } from "react";
@@ -12,7 +14,8 @@ import { geocodeAddress, reverseGeocode } from "@/lib/geocode.functions";
 import { browserGeocode } from "@/lib/placesBrowser";
 
 /** Geocode server-side, falling back to the browser Geocoder if unavailable. */
-async function lookupAddress(address: string) {
+async function lookupAddress(address: string, demo = false) {
+  if (demo) return resolveDemoPlace(address);
   try {
     const g = await geocodeAddress({ data: { address } });
     if (g) return g;
@@ -88,6 +91,7 @@ function saveDraft(d: DraftShape) {
 }
 
 function ConfirmPickup() {
+  const isDemo = useAuth().user?.app_metadata?.is_demo === true;
   const search = Route.useSearch();
   const navigate = useAppNavigate();
   const { pos, err: geoErr } = useCurrentPosition();
@@ -152,6 +156,7 @@ function ConfirmPickup() {
 
   // Reverse-geocode the passenger's current position → real street address.
   useEffect(() => {
+    if (isDemo && !pickup) { setPickup(DEMO_PLACES[1].address); setPickupCoords(DEMO_PLACES[1]); setAutoLocating(false); return; }
     if (pickup || !pos) return;
     setPickupCoords({ lat: pos.lat, lng: pos.lng });
     setPickup(`Current location (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})`);
@@ -167,13 +172,14 @@ function ConfirmPickup() {
         console.warn("Reverse geocode failed", e);
       }
     })();
-  }, [pos, pickup]);
+  }, [pos, pickup, isDemo]);
 
   useEffect(() => {
     if (!pos && geoErr) setAutoLocating(false);
   }, [pos, geoErr]);
 
   async function useCurrentLocation() {
+    if (isDemo) { setPickup(DEMO_PLACES[1].address); setPickupCoords(DEMO_PLACES[1]); setAutoLocating(false); return; }
     if (!pos) {
       toast.error(geoErr ?? "Location unavailable. Please allow location access or type an address.");
       return;
@@ -211,7 +217,7 @@ function ConfirmPickup() {
       let dAddr = dropoff;
 
       if (!pc) {
-        const g = await lookupAddress(pickup);
+        const g = await lookupAddress(pickup, isDemo);
         if (!g) {
           toast.error("We couldn't find that pickup address. Try a more specific one.");
           setResolving(false);
@@ -223,7 +229,7 @@ function ConfirmPickup() {
         setPickupCoords(pc);
       }
       if (!dc) {
-        const g = await lookupAddress(dropoff);
+        const g = await lookupAddress(dropoff, isDemo);
         if (!g) {
           toast.error("We couldn't find that destination. Try a more specific one.");
           setResolving(false);
@@ -244,7 +250,7 @@ function ConfirmPickup() {
           resolvedStops.push({ address: addr, lat: s.lat, lng: s.lng });
           continue;
         }
-        const g = await lookupAddress(addr);
+        const g = await lookupAddress(addr, isDemo);
         if (!g) {
           toast.error(`We couldn't find the stop "${addr}". Try a more specific address.`);
           setResolving(false);

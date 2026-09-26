@@ -1,3 +1,5 @@
+import { useAuth } from "@/lib/auth";
+import { DEMO_PLACES, demoPlaceSuggestions } from "@/lib/demoPlaces";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useServerFn } from "@tanstack/react-start";
@@ -49,6 +51,7 @@ export function AddressAutocomplete({
   biasLng?: number;
   regionCode?: string;
 }) {
+  const isDemo = useAuth().user?.app_metadata?.is_demo === true;
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -72,6 +75,12 @@ export function AddressAutocomplete({
       setLookupError(null);
       setSuggestions([]);
       setOpen(false);
+      return;
+    }
+    if (isDemo) {
+      ++reqIdRef.current;
+      const samples = demoPlaceSuggestions(value);
+      setSuggestions(samples); setOpen(samples.length > 0); setLookupError(null); setLoading(false);
       return;
     }
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
@@ -120,9 +129,16 @@ export function AddressAutocomplete({
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [value, runAutocomplete, biasLat, biasLng, regionCode]);
+  }, [value, runAutocomplete, biasLat, biasLng, regionCode, isDemo]);
 
   async function selectSuggestion(s: Suggestion) {
+    if (isDemo) {
+      const place = DEMO_PLACES.find(p => p.placeId === s.placeId);
+      if (!place) return;
+      skipNextFetchRef.current = true;
+      onChange(place.address); onResolve(place); setSuggestions([]); setOpen(false); setLookupError(null);
+      return;
+    }
     try {
       let details: { placeId: string; address: string; lat: number; lng: number } | null;
       try {
