@@ -12,6 +12,7 @@ import {
   Moon,
   Search,
   Settings,
+  Radio,
   Sun,
   Users,
 } from "lucide-react";
@@ -34,6 +35,7 @@ const NAV = [
   { to: "/billing", label: "Work queue", icon: LayoutDashboard, exact: true },
   { to: "/billing/chat", label: "Paper bills", icon: MessageSquare, exact: false },
   { to: "/billing/batch", label: "Batch", icon: Layers, exact: false },
+  { to: "/billing/edi", label: "EDI", icon: Radio, exact: false },
   { to: "/billing/messages", label: "Messages", icon: Users, exact: false },
   { to: "/billing/settings", label: "Settings", icon: Settings, exact: false },
 ] as const;

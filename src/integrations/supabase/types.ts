@@ -14,6 +14,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      company_rewards_settings: {
+        Row: {company_id: string; enabled: boolean; rides_required: number; period_type: string; prize_description: string; winners_per_period: number; updated_at: string};
+        Insert: {company_id: string; enabled?: boolean; rides_required?: number; period_type?: string; prize_description?: string; winners_per_period?: number; updated_at?: string};
+        Update: {enabled?: boolean; rides_required?: number; period_type?: string; prize_description?: string; winners_per_period?: number; updated_at?: string};
+        Relationships: [];
+      }
       camera_recordings: {
         Row: { id: string; company_id: string; driver_id: string; object_path: string; captured_at: string; expires_at: string; created_at: string }
         Insert: { id?: string; company_id: string; driver_id: string; object_path: string; captured_at: string; expires_at: string; created_at?: string }
@@ -1238,6 +1244,7 @@ export type Database = {
       }
       contest_entries: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           passenger_id: string
@@ -1247,6 +1254,7 @@ export type Database = {
           ride_count: number
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           passenger_id: string
@@ -1256,6 +1264,7 @@ export type Database = {
           ride_count?: number
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           passenger_id?: string
@@ -1276,6 +1285,7 @@ export type Database = {
       }
       contest_winners: {
         Row: {
+          company_id: string | null
           delivered_at: string | null
           delivery_note: string | null
           id: string
@@ -1286,6 +1296,7 @@ export type Database = {
           selected_at: string
         }
         Insert: {
+          company_id?: string | null
           delivered_at?: string | null
           delivery_note?: string | null
           id?: string
@@ -1296,6 +1307,7 @@ export type Database = {
           selected_at?: string
         }
         Update: {
+          company_id?: string | null
           delivered_at?: string | null
           delivery_note?: string | null
           id?: string
@@ -2539,6 +2551,7 @@ export type Database = {
       }
       events: {
         Row: {
+          company_id: string | null
           created_at: string
           created_by: string | null
           description: string
@@ -2554,6 +2567,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string
@@ -2569,6 +2583,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string
@@ -2637,6 +2652,7 @@ export type Database = {
       }
       games: {
         Row: {
+          company_id: string | null
           category: string | null
           created_at: string
           description: string | null
@@ -2649,6 +2665,7 @@ export type Database = {
           url: string
         }
         Insert: {
+          company_id?: string | null
           category?: string | null
           created_at?: string
           description?: string | null
@@ -2661,6 +2678,7 @@ export type Database = {
           url: string
         }
         Update: {
+          company_id?: string | null
           category?: string | null
           created_at?: string
           description?: string | null
@@ -3215,6 +3233,7 @@ export type Database = {
       }
       news_items: {
         Row: {
+          company_id: string | null
           body: string
           created_at: string
           id: string
@@ -3225,6 +3244,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           body: string
           created_at?: string
           id?: string
@@ -3235,6 +3255,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           body?: string
           created_at?: string
           id?: string
@@ -5145,6 +5166,11 @@ export type Database = {
       }
     }
     Functions: {
+      draw_company_rewards: { Args: {_company_id: string; _period_start: string; _period_end: string}; Returns: number };
+      update_company_dispatch_ride: {
+        Args: { _company_id: string; _request_id: string; _action: string; _driver_id?: string; _trip_id?: string; _pickup_at?: string };
+        Returns: Json;
+      }
       can_view_driver_media: {
         Args: { _driver_user_id: string }
         Returns: boolean

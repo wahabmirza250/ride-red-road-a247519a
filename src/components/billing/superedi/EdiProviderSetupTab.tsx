@@ -49,6 +49,8 @@ import {
 } from "@/lib/ediSetup";
 import { getEdiCompanySettings, saveEdiCompanySettings } from "@/lib/ediSetup.functions";
 import { EdiBackendSyncCard } from "./EdiBackendSyncCard";
+import { findExistingEdiProvider } from '@/lib/ediExistingProfile.functions';
+import { useAuth } from '@/lib/auth';
 import { Panel, Pill } from "./ediUi";
 
 type Draft = EdiCompanySettings;
@@ -64,6 +66,13 @@ export function EdiProviderSetupTab({
 }) {
   const getFn = useServerFn(getEdiCompanySettings);
   const saveFn = useServerFn(saveEdiCompanySettings);
+  const importFn = useServerFn(findExistingEdiProvider);
+  const {isAdmin} = useAuth();
+  const importProfile = useMutation({
+    mutationFn: () => importFn({data:{company_id:companyId}}),
+    onSuccess: () => { onSaved(); void settings.refetch(); toast.success('Existing provider linked. Review the trading-partner details before submitting.'); },
+    onError: (error: unknown) => toast.error(error instanceof Error ? error.message : 'Could not load the existing provider.'),
+  });
   const [draft, setDraft] = useState<Draft | null>(null);
 
   const settings = useQuery({
@@ -143,6 +152,12 @@ export function EdiProviderSetupTab({
 
   return (
     <div className="space-y-5">
+      {(isAdmin || isOwner) && <div className="rounded-2xl border border-border p-4">
+        <p className="text-sm">Already set up in the EDI backend? Import the provider that matches your company’s legal name. This saves its details and link without sending claims.</p>
+        <Button className="mt-3" variant="outline" disabled={importProfile.isPending || save.isPending || !companyId} onClick={() => importProfile.mutate()}>
+          {importProfile.isPending ? 'Looking up provider…' : 'Use existing provider'}
+        </Button>
+      </div>}
       <div className="flex flex-wrap items-center gap-2">
         <StatusFlag ok={status.providerReady} label="Provider profile" />
         <StatusFlag ok={status.tradingPartnerReady} label="Trading partner" />

@@ -67,7 +67,7 @@ type TabKey = (typeof TABS)[number]["key"];
 
 const PAGE_SIZE = 100;
 
-export function SuperEdiWorkspace() {
+export function SuperEdiWorkspace({ billingApp = false }: { billingApp?: boolean }) {
   const companiesFn = useServerFn(listEdiCompanies);
   const settingsFn = useServerFn(getEdiCompanySettings);
   const listFn = useServerFn(listEdiWorkbench);
@@ -118,7 +118,6 @@ export function SuperEdiWorkspace() {
         },
       }),
     enabled: companies.isSuccess,
-    placeholderData: (prev) => prev,
   });
 
   const rows = useMemo(() => {
@@ -175,13 +174,14 @@ export function SuperEdiWorkspace() {
     setSelected(new Set());
     setPatched(new Map());
     setLimit(PAGE_SIZE);
+    setOpenRow(null);
   }
 
   // The probe never throws: an unreachable backend is a successful query whose
   // payload says `ok: false`, so onboarding copy comes from one pure mapper.
   const connection = useMemo(
-    () => describeEdiConnection(health.data ?? null, health.isLoading),
-    [health.data, health.isLoading],
+    () => describeEdiConnection(health.isError ? {ok:false, transport:'direct', direct_configured:true, error:'Could not check the EDI connection. Please retry.'} : health.data ?? null, health.isLoading),
+    [health.data, health.isLoading, health.isError],
   );
   const backendBlocked = ediActionsBlocked(connection);
   const blockedReason = ediBlockedReason(connection);
@@ -193,10 +193,10 @@ export function SuperEdiWorkspace() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <AppLink
-              to="/medicaid-billing"
+              to={billingApp ? '/billing' : '/medicaid-billing'}
               className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
             >
-              <ArrowLeft className="h-3.5 w-3.5" /> Back to billing methods
+              <ArrowLeft className="h-3.5 w-3.5" /> {billingApp ? 'Back to work queue' : 'Back to billing methods'}
             </AppLink>
             <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground">
               Super EDI

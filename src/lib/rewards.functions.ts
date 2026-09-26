@@ -29,8 +29,9 @@ function periodBounds(period_type: "weekly" | "monthly", ref: Date = new Date())
   return { period_start: iso(start), period_end: iso(end) };
 }
 
-async function readSettings(supabase: any): Promise<Settings> {
-  const { data } = await supabase.from("rewards_settings").select("*").eq("id", true).maybeSingle();
+async function readSettings(supabase: any, companyId: string): Promise<Settings> {
+  const { data, error } = await supabase.from("company_rewards_settings").select("*").eq("company_id", companyId).maybeSingle();
+  if (error) throw new Error(error.message);
   return (
     data ?? {
       enabled: false,
@@ -46,11 +47,14 @@ async function readSettings(supabase: any): Promise<Settings> {
 export const getRewardsPublic = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const settings = await readSettings(context.supabase);
+    const { assertCompanyActive } = await import("./company.server");
+    const { id: companyId } = await assertCompanyActive(context.userId);
+    const settings = await readSettings(context.supabase, companyId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: winners } = await supabaseAdmin
       .from("contest_winners")
       .select("id, period_start, period_end, prize_description, selected_at, passenger_id")
+      .eq("company_id", companyId)
       .order("selected_at", { ascending: false })
       .limit(10);
     let named: Array<{
@@ -87,7 +91,9 @@ export const getRewardsPublic = createServerFn({ method: "GET" })
 export const getMyProgress = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const settings = await readSettings(context.supabase);
+    const { assertCompanyActive } = await import("./company.server");
+    const { id: companyId } = await assertCompanyActive(context.userId);
+    const settings = await readSettings(context.supabase, companyId);
     const { period_start, period_end } = periodBounds(settings.period_type);
     const { data: passenger } = await context.supabase
       .from("passengers")
@@ -112,10 +118,11 @@ export const getMyProgress = createServerFn({ method: "GET" })
     let entered = false;
     if (settings.enabled && ride_count >= settings.rides_required) {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      await supabaseAdmin
+      const { error: entryError } = await supabaseAdmin
         .from("contest_entries")
         .upsert(
           {
+            company_id: companyId,
             passenger_id: passenger.id,
             period_start,
             period_end,
@@ -123,11 +130,13 @@ export const getMyProgress = createServerFn({ method: "GET" })
           },
           { onConflict: "passenger_id,period_start" },
         );
+      if (entryError) throw new Error(entryError.message);
       entered = true;
     } else {
       const { data: e } = await context.supabase
         .from("contest_entries")
         .select("id")
+      .eq("company_id", companyId)
         .eq("passenger_id", passenger.id)
         .eq("period_start", period_start)
         .maybeSingle();
@@ -140,20 +149,24 @@ export const getMyProgress = createServerFn({ method: "GET" })
 export const adminGetRewards = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const { assertCompanyActive } = await import("./company.server");
+    const { id: companyId } = await assertCompanyActive(context.userId);
     const { data: isAdmin } = await context.supabase.rpc("has_role", {
       _user_id: context.userId,
       _role: "admin",
     });
     if (!isAdmin) throw new Error("Admins only");
-    const settings = await readSettings(context.supabase);
+    const settings = await readSettings(context.supabase, companyId);
     const { period_start, period_end } = periodBounds(settings.period_type);
     const { count: entryCount } = await context.supabase
       .from("contest_entries")
       .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
       .eq("period_start", period_start);
     const { data: winners } = await context.supabase
       .from("contest_winners")
       .select("id, passenger_id, period_start, period_end, prize_description, selected_at, delivered_at")
+      .eq("company_id", companyId)
       .order("selected_at", { ascending: false })
       .limit(50);
     const ids = Array.from(new Set((winners ?? []).map((w: any) => w.passenger_id)));
@@ -178,14 +191,17 @@ export const adminGetRewards = createServerFn({ method: "GET" })
 export const adminUpdateSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: Settings) => {
+    if (typeof input.enabled !== 'boolean') throw new Error('Enabled must be true or false');
     if (!input.prize_description?.trim()) throw new Error("Prize description required");
-    if (input.rides_required < 1) throw new Error("Rides required must be > 0");
-    if (input.winners_per_period < 1) throw new Error("Winners must be > 0");
+    if (!Number.isInteger(input.rides_required) || input.rides_required < 1) throw new Error("Rides required must be > 0");
+    if (!Number.isInteger(input.winners_per_period) || input.winners_per_period < 1) throw new Error("Winners must be > 0");
     if (!["weekly", "monthly"].includes(input.period_type))
       throw new Error("Invalid period type");
     return input;
   })
   .handler(async ({ data, context }) => {
+    const { assertCompanyActive } = await import("./company.server");
+    const { id: companyId } = await assertCompanyActive(context.userId);
     const { data: isAdmin } = await context.supabase.rpc("has_role", {
       _user_id: context.userId,
       _role: "admin",
@@ -193,8 +209,8 @@ export const adminUpdateSettings = createServerFn({ method: "POST" })
     if (!isAdmin) throw new Error("Admins only");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
-      .from("rewards_settings")
-      .upsert({ id: true, ...data, updated_at: new Date().toISOString() });
+      .from("company_rewards_settings")
+      .upsert({ ...data, company_id: companyId, updated_at: new Date().toISOString() }, {onConflict:"company_id"});
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -202,43 +218,23 @@ export const adminUpdateSettings = createServerFn({ method: "POST" })
 export const adminDrawWinners = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const { assertCompanyActive } = await import("./company.server");
+    const { id: companyId } = await assertCompanyActive(context.userId);
     const { data: isAdmin } = await context.supabase.rpc("has_role", {
       _user_id: context.userId,
       _role: "admin",
     });
     if (!isAdmin) throw new Error("Admins only");
-    const settings = await readSettings(context.supabase);
+    const settings = await readSettings(context.supabase, companyId);
     const { period_start, period_end } = periodBounds(settings.period_type);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: existing } = await supabaseAdmin
-      .from("contest_winners")
-      .select("id")
-      .eq("period_start", period_start);
-    if (existing?.length) throw new Error("Winners already drawn for this period");
-
-    const { data: entries } = await supabaseAdmin
-      .from("contest_entries")
-      .select("passenger_id")
-      .eq("period_start", period_start);
-    const pool = (entries ?? []).map((e: any) => e.passenger_id);
-    if (!pool.length) throw new Error("No qualified entrants this period");
-
-    // Fisher-Yates shuffle
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    const picked = pool.slice(0, settings.winners_per_period);
-    const rows = picked.map((pid) => ({
-      passenger_id: pid,
-      period_start,
-      period_end,
-      prize_description: settings.prize_description,
-    }));
-    const { error } = await supabaseAdmin.from("contest_winners").insert(rows);
+    const { data: drawn, error } = await supabaseAdmin.rpc('draw_company_rewards', {
+      _company_id: companyId, _period_start: period_start, _period_end: period_end,
+    });
     if (error) throw new Error(error.message);
-    return { drawn: rows.length };
+    return { drawn: drawn ?? 0 };
+
   });
 
 export const adminMarkDelivered = createServerFn({ method: "POST" })
@@ -248,6 +244,8 @@ export const adminMarkDelivered = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
+    const { assertCompanyActive } = await import("./company.server");
+    const { id: companyId } = await assertCompanyActive(context.userId);
     const { data: isAdmin } = await context.supabase.rpc("has_role", {
       _user_id: context.userId,
       _role: "admin",
@@ -260,7 +258,7 @@ export const adminMarkDelivered = createServerFn({ method: "POST" })
         delivered_at: new Date().toISOString(),
         delivery_note: data.note?.trim() || null,
       })
-      .eq("id", data.winner_id);
+      .eq("id", data.winner_id).eq("company_id", companyId).select("id").single();
     if (error) throw new Error(error.message);
     return { ok: true };
   });
