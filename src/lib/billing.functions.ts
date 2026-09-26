@@ -473,6 +473,8 @@ export const startRobotForRecord = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertBilling(supabase, userId);
+    const { assertRealUser } = await import("./demoCompany.server");
+    await assertRealUser(userId);
 
     // Operator pause switch (database-backed, applies to every worker and
     // every entry point). Capture-only runs stay allowed.

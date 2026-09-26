@@ -205,6 +205,12 @@ export async function ediFetch<T = unknown>(
   supabase: FunctionsClient,
   req: EdiRequest,
 ): Promise<EdiResult<T> & { transport?: EdiTransportKind }> {
+  // Resolve through the caller's signed-in client before any outbound transport.
+  if (supabase.auth?.getUser) {
+    const {data: identity, error: identityError} = await supabase.auth.getUser();
+    if (identityError || !identity?.user) return {ok:false,error:"EDI requires a verified signed-in account."};
+    if (identity?.user?.app_metadata?.is_demo === true) return {ok:false,error:"Demo company: external EDI calls are disabled. Use demo batch actions."};
+  }
   if (!isAllowedEdiPath(req.path)) {
     return { ok: false, error: "Blocked: only EDI API paths may be proxied" };
   }

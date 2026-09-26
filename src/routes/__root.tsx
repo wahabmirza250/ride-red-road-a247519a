@@ -14,6 +14,7 @@ import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/lib/theme";
 import { Toaster } from "@/components/ui/sonner";
 import { GlobalThemeToggle } from "@/components/GlobalThemeToggle";
+import { ActualDemoSwitcher } from "@/components/ActualDemoSwitcher";
 
 function NotFoundComponent() {
   return (
@@ -148,6 +149,7 @@ function RootComponent() {
         <AuthProvider>
           <GlobalThemeToggle />
           <Outlet />
+          <ActualDemoSwitcher />
           <Toaster position="top-right" richColors closeButton />
         </AuthProvider>
       </ThemeProvider>

@@ -10,6 +10,7 @@
  * bridge. Nothing here submits by itself, and the legacy HCPF/robot flow is
  * untouched.
  */
+import { useAuth } from "@/lib/auth";
 import { useCallback, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -50,6 +51,7 @@ type TabKey = (typeof TABS)[number]["key"] | "setup" | "upload";
 const PAGE_SIZE = 100;
 
 export function SuperEdiWorkspace({ billingApp = false }: { billingApp?: boolean }) {
+  const isDemo = useAuth().user?.app_metadata?.is_demo === true;
   const companiesFn = useServerFn(listEdiCompanies);
   const settingsFn = useServerFn(getEdiCompanySettings);
   const listFn = useServerFn(listEdiWorkbench);
@@ -186,8 +188,8 @@ export function SuperEdiWorkspace({ billingApp = false }: { billingApp?: boolean
       ),
     [health.data, health.isLoading, health.isError],
   );
-  const backendBlocked = ediActionsBlocked(connection);
-  const blockedReason = ediBlockedReason(connection);
+  const backendBlocked = !isDemo && ediActionsBlocked(connection);
+  const blockedReason = isDemo ? null : ediBlockedReason(connection);
 
   return (
     <div className="space-y-5">
@@ -248,7 +250,7 @@ export function SuperEdiWorkspace({ billingApp = false }: { billingApp?: boolean
           <p className="mt-3">
             {connection.pill} · {environmentLabel(environment)}
           </p>
-          {connection.detail && <p className="mt-2 text-muted-foreground">{connection.detail}</p>}
+          {!isDemo && connection.detail && <p className="mt-2 text-muted-foreground">{connection.detail}</p>}
           <Button
             className="mt-3"
             size="sm"
@@ -326,7 +328,7 @@ export function SuperEdiWorkspace({ billingApp = false }: { billingApp?: boolean
               onRowsUpdated={onRowsUpdated}
               onOpenRow={setOpenRow}
               onOpenSubmission={() => setTab("submit")}
-              claimReady={setupStatus.claimReady && !backendBlocked}
+              claimReady={isDemo || (setupStatus.claimReady && !backendBlocked)}
               setupHint={
                 (backendBlocked
                   ? "Billing is temporarily unavailable. You can still review trips; try again shortly."

@@ -34,6 +34,7 @@ export async function ediDataClient(supabase: Sb, scope: EdiScope): Promise<Sb> 
   return new Proxy(supabaseAdmin, {
     get(target, property, receiver) {
       if (property === "functions") return supabase.functions;
+      if (property === "auth") return supabase.auth;
       const value = Reflect.get(target, property, receiver);
       return typeof value === "function" ? value.bind(target) : value;
     },

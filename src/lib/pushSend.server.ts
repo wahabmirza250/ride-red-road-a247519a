@@ -24,6 +24,10 @@ export type PushPayload = {
 
 export async function sendPushToUsers(userIds: string[], payload: PushPayload) {
   if (!userIds.length) return { sent: 0, failed: 0 };
+  const { data: recipients, error: recipientError } = await (supabaseAdmin as any).from("profiles").select("id,companies!inner(is_demo)").in("id",userIds);
+  if (recipientError) return {sent:0,failed:userIds.length};
+  userIds = (recipients ?? []).filter((r:any) => r.companies?.is_demo === false).map((r:any) => r.id);
+  if (!userIds.length) return {sent:0,failed:0};
   const { sendNativePushToUsers } = await import('./nativePushSend.server');
   const native = await sendNativePushToUsers(userIds, payload).catch(() => ({sent:0,failed:1}));
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return native;

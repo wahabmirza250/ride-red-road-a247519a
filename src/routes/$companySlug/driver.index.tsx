@@ -276,7 +276,7 @@ function DriverHome() {
       .eq("id", driver.id);
   }, [driver, addMilesFn, refreshStats]);
   const handleGeoError = useCallback((msg: string) => setGeoError(msg), []);
-  useLocationBroadcast(online, pushLoc, 10000, handleGeoError);
+  useLocationBroadcast(online && user?.app_metadata?.is_demo !== true, pushLoc, 10000, handleGeoError);
 
   const loadRequests = useCallback(async () => {
     if (!driver) return;
@@ -395,7 +395,7 @@ function DriverHome() {
     let pos: { lat: number; lng: number } | null = null;
     if (next) {
       try {
-        pos = await requestCurrentPosition();
+        pos = user?.app_metadata?.is_demo === true ? {lat:38.83,lng:-104.82} : await requestCurrentPosition();
         setGeoError(null);
       } catch (e) {
         // GPS is useful for the map, but it must never prevent a driver from

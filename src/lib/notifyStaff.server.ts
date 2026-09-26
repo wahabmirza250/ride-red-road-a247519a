@@ -34,6 +34,9 @@ export async function notifyDispatchers(n: StaffNotification) {
     console.warn("[notify] feed insert failed", e);
   }
 
+  const { isDemoCompany } = await import("./demoCompany.server");
+  if (await isDemoCompany(n.companyId)) return {push:0,sms:0};
+
   // 2. Who is on duty for this company?
   let q = supabaseAdmin.from("user_roles").select("user_id, role").in("role", ["admin", "dispatch"]);
   if (n.companyId) q = q.eq("company_id", n.companyId);

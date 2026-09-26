@@ -58,6 +58,10 @@ function DriverLayout() {
 
   const exitDriver = async () => { await signOut(); window.location.replace(signInHref); };
   const cameraKey = `${companySlug}:${user.id}`;
+  const driverContent = (
+    <AppShell kind="Driver" companySlug={companySlug} navigation={NAV}><Outlet /></AppShell>
+  );
+  if (user.app_metadata?.is_demo === true) return driverContent;
   return (
     <DriverCamera key={cameraKey} consentKey={cameraKey} onExit={exitDriver}>
     <AppShell kind="Driver" companySlug={companySlug} navigation={NAV} actions={

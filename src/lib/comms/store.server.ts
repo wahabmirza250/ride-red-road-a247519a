@@ -40,6 +40,8 @@ function providerFor(provider: CommProvider): ProviderSend | null {
 export function createCommsDeps(): CommsDeps {
   return {
     async getSettings(companyId) {
+      const { isDemoCompany } = await import("@/lib/demoCompany.server");
+      if (await isDemoCompany(companyId)) return null;
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { data } = await supabaseAdmin
         .from("company_comm_settings")

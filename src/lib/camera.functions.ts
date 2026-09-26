@@ -9,6 +9,8 @@ export const getCameraConnection = createServerFn({ method: 'POST' })
   .handler(async ({ data, context }) => {
     const { assertCompanyActive } = await import('@/lib/company.server');
     const company = await assertCompanyActive(context.userId);
+    const { assertRealCompany } = await import("./demoCompany.server");
+    await assertRealCompany(company.id);
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     const rolesResult = await supabaseAdmin.from('user_roles').select('role').eq('user_id', context.userId).eq('company_id', company.id);
     if (rolesResult.error) throw new Error('Could not verify camera access');

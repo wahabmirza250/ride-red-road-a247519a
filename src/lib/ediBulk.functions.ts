@@ -65,6 +65,9 @@ export const ediValidateSelection = createServerFn({ method: "POST" })
 
       const { assertRecordsOwned, bindClaimToRecord } = await import("@/lib/ediOwnership.server");
       await assertRecordsOwned(supabase, companyId, data.record_ids);
+      const { isDemoCompany } = await import("./demoCompany.server");
+      if (await isDemoCompany(companyId)) { const { runDemoBilling } = await import("./demoBilling.server"); return runDemoBilling(supabase,companyId,data.record_ids,"validate"); }
+
 
       const { loadEdiDetails, toWorkRow } = await import("@/lib/ediRecords.server");
       const { loadEdiEnvironment } = await import("@/lib/ediSetup.server");
@@ -178,6 +181,9 @@ export const ediBuildBatch = createServerFn({ method: "POST" })
 
     const { assertRecordsOwned } = await import("@/lib/ediOwnership.server");
     await assertRecordsOwned(supabase, companyId, data.record_ids);
+      const { isDemoCompany } = await import("./demoCompany.server");
+      if (await isDemoCompany(companyId)) { const { runDemoBilling } = await import("./demoBilling.server"); return runDemoBilling(supabase,companyId,data.record_ids,"batch"); }
+
 
     const { loadEdiDetails, toWorkRow } = await import("@/lib/ediRecords.server");
     const { loadEdiEnvironment } = await import("@/lib/ediSetup.server");
@@ -406,6 +412,12 @@ export const ediUploadFileToTradingPartner = createServerFn({ method: "POST" })
     const ids = data.record_ids ?? [];
     if (ids.length) await assertRecordsOwned(supabase, companyId, ids);
 
+    const { isDemoCompany } = await import('./demoCompany.server');
+    if (await isDemoCompany(companyId)) {
+      if (data.environment !== 'test') throw new Error('Demo companies cannot submit production claims.');
+      const { runDemoBilling } = await import('./demoBilling.server');
+      return runDemoBilling(supabase,companyId,ids,'upload',data.file_id);
+    }
     const { loadEdiEnvironment } = await import("@/lib/ediSetup.server");
     const { environment: companyEnv, productionEnabled } = await loadEdiEnvironment(
       supabase,
@@ -464,6 +476,9 @@ export const ediRefreshStatuses = createServerFn({ method: "POST" })
 
       const { assertRecordsOwned } = await import("@/lib/ediOwnership.server");
       await assertRecordsOwned(supabase, companyId, data.record_ids);
+      const { isDemoCompany } = await import("./demoCompany.server");
+      if (await isDemoCompany(companyId)) { const { runDemoBilling } = await import("./demoBilling.server"); return runDemoBilling(supabase,companyId,data.record_ids,"refresh"); }
+
 
       const { loadEdiDetails, toWorkRow } = await import("@/lib/ediRecords.server");
       const { claimStatusById } = await import("@/lib/ediApi.server");

@@ -5,6 +5,8 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
+vi.mock("@/lib/demoCompany.server", () => ({ assertRealCompany: vi.fn(async () => {}) }));
+
 process.env["SUBMISSION_TEST_MODE"] = "1";
 
 import {

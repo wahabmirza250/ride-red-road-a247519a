@@ -1,3 +1,4 @@
+import { useAuth } from "@/lib/auth";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -94,7 +95,8 @@ export function ActiveJourneyCard() {
     if (journey) saveJourney(journey);
   }, [journey]);
 
-  const trackingEnabled = Boolean(journey) && !isJourneyComplete(journey ?? ({} as Journey));
+  const isDemo = useAuth().user?.app_metadata?.is_demo === true;
+  const trackingEnabled = !isDemo && Boolean(journey) && !isJourneyComplete(journey ?? ({} as Journey));
   const onPos = useCallback((p: { lat: number; lng: number }) => {
     setPosition(p);
     setLocationIssue(null);
