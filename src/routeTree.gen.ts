@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CompanySlugRouteRouteImport } from './routes/$companySlug/route'
 import { Route as AccessRouteImport } from './routes/access'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DemoRouteImport } from './routes/demo'
 import { Route as ShowcaseRouteImport } from './routes/showcase'
 import { Route as CompanySlugIndexRouteImport } from './routes/$companySlug/index'
 import { Route as CompanySlugSplatRouteImport } from './routes/$companySlug/$'
@@ -129,6 +130,11 @@ const AccessRoute = AccessRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoRoute = DemoRouteImport.update({
+  id: '/demo',
+  path: '/demo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShowcaseRoute = ShowcaseRouteImport.update({
@@ -689,6 +695,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/access': typeof AccessRoute
   '/auth': typeof AuthRoute
+  '/demo': typeof DemoRoute
   '/showcase': typeof ShowcaseRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
   '/$companySlug/billing': typeof CompanySlugBillingRouteWithChildren
@@ -790,6 +797,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/access': typeof AccessRoute
   '/auth': typeof AuthRoute
+  '/demo': typeof DemoRoute
   '/showcase': typeof ShowcaseRoute
   '/$companySlug': typeof CompanySlugIndexRoute
   '/$companySlug/$': typeof CompanySlugSplatRoute
@@ -887,6 +895,7 @@ export interface FileRoutesById {
   '/$companySlug': typeof CompanySlugRouteRouteWithChildren
   '/access': typeof AccessRoute
   '/auth': typeof AuthRoute
+  '/demo': typeof DemoRoute
   '/showcase': typeof ShowcaseRoute
   '/$companySlug/_authenticated': typeof CompanySlugAuthenticatedRouteRouteWithChildren
   '/$companySlug/$': typeof CompanySlugSplatRoute
@@ -992,6 +1001,7 @@ export interface FileRouteTypes {
     | '/$companySlug'
     | '/access'
     | '/auth'
+    | '/demo'
     | '/showcase'
     | '/$companySlug/$'
     | '/$companySlug/billing'
@@ -1093,6 +1103,7 @@ export interface FileRouteTypes {
     | '/'
     | '/access'
     | '/auth'
+    | '/demo'
     | '/showcase'
     | '/$companySlug'
     | '/$companySlug/$'
@@ -1189,6 +1200,7 @@ export interface FileRouteTypes {
     | '/$companySlug'
     | '/access'
     | '/auth'
+    | '/demo'
     | '/showcase'
     | '/$companySlug/_authenticated'
     | '/$companySlug/$'
@@ -1293,6 +1305,7 @@ export interface RootRouteChildren {
   CompanySlugRouteRoute: typeof CompanySlugRouteRouteWithChildren
   AccessRoute: typeof AccessRoute
   AuthRoute: typeof AuthRoute
+  DemoRoute: typeof DemoRoute
   ShowcaseRoute: typeof ShowcaseRoute
   ApiHealthRoute: typeof ApiHealthRoute
   BillingSigninRoute: typeof BillingSigninRoute
@@ -1344,6 +1357,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo': {
+      id: '/demo'
+      path: '/demo'
+      fullPath: '/demo'
+      preLoaderRoute: typeof DemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/showcase': {
@@ -2300,6 +2320,7 @@ const rootRouteChildren: RootRouteChildren = {
   CompanySlugRouteRoute: CompanySlugRouteRouteWithChildren,
   AccessRoute: AccessRoute,
   AuthRoute: AuthRoute,
+  DemoRoute: DemoRoute,
   ShowcaseRoute: ShowcaseRoute,
   ApiHealthRoute: ApiHealthRoute,
   BillingSigninRoute: BillingSigninRoute,
