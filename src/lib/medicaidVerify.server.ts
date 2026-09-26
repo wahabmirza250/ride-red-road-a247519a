@@ -18,6 +18,9 @@ export async function callVerifyRobot(args: {
   /** ID-only lookup: report the portal name instead of comparing to a name. */
   lookupOnly?: boolean;
 }): Promise<VerifyResult> {
+  const { assertRealUser, assertRealCompany } = await import('./demoCompany.server');
+  if (args.companyId) await assertRealCompany(args.companyId);
+  else await assertRealUser(args.providerUserId);
   const { expectedName, memberId, usedIdentifier, lookupOnly } = args;
 
   const url = process.env.ROBOT_VERIFY_URL;

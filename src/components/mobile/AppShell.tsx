@@ -36,7 +36,7 @@ export function AppShell({ children, companySlug, kind, navigation, actions, hid
   const primary = hasMore ? navigation.slice(0, 4) : navigation;
   const extra = hasMore ? navigation.slice(4) : [];
   const moreActive = extra.some(item => isAppNavActive(path, item.to, item.exact));
-  const provider = companySlug === 'walla' ? 'Walla Investment LLC' : companySlug.replace(/-/g, ' ');
+  const provider = /^demo-[a-f0-9]{16}$/.test(companySlug) ? 'Evergreen Transport Demo' : companySlug === 'walla' ? 'Walla Investment LLC' : companySlug.replace(/-/g, ' ');
 
   function navItem(item: AppNavItem, close = false) {
     const active = isAppNavActive(path, item.to, item.exact);

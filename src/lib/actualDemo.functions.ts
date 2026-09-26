@@ -17,3 +17,17 @@ export const launchActualDemo = createServerFn({ method: 'POST' })
     const { prepareActualDemo } = await import('./actualDemo.server');
     return prepareActualDemo(context.userId);
   });
+
+/** Keep stationary sample pins current during an active presentation. Never touches a real fleet. */
+export const refreshActualDemoFleet = createServerFn({method:'POST'})
+  .middleware([requireSupabaseAuth])
+  .handler(async({context})=>{
+    const { requireCompanyId } = await import('./company.server');
+    const { isDemoCompany } = await import('./demoCompany.server');
+    const companyId = await requireCompanyId(context.userId);
+    if (!await isDemoCompany(companyId)) throw new Error('Demo company required.');
+    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    const {error} = await supabaseAdmin.from('drivers').update({last_location_at:new Date().toISOString()}).eq('company_id',companyId).neq('status','offline');
+    if(error)throw new Error('Could not refresh demo locations.');
+    return {ok:true};
+  });

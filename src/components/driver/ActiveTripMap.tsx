@@ -1,5 +1,6 @@
 /// <reference types="google.maps" />
 import { useEffect, useRef, useState } from "react";
+import { DriverFleetMap } from "@/components/nemt/useClientMap";
 import { Navigation, Loader2, Map as MapIcon } from "lucide-react";
 import { loadGoogleMapsDark, DARK_MAP_STYLE, LIGHT_MAP_STYLE } from "@/lib/googleMapsDark";
 import { useLiveEta } from "@/lib/useLiveEta";
@@ -68,6 +69,12 @@ export function ActiveTripMap({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const failed = () => setErr('Map unavailable');
+    window.addEventListener('maps-auth-failure',failed);
+    return () => window.removeEventListener('maps-auth-failure',failed);
   }, []);
 
   // Theme restyle.
@@ -151,8 +158,11 @@ export function ActiveTripMap({
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface">
       <div className="relative h-56 w-full sm:h-64">
-        <div ref={hostRef} className="h-full w-full" />
-        {(!ready || err) && (
+        {err ? <DriverFleetMap center={[destination?.lat ?? driver?.lat ?? 38.83,destination?.lng ?? driver?.lng ?? -104.82]} markers={[
+          ...(driver ? [{id:'driver',...driver,status:'busy' as const,label:'Driver'}] : []),
+          ...(destination ? [{id:'destination',...destination,status:'available' as const,label:destinationLabel ?? 'Next stop'}] : []),
+        ]}/> : <div ref={hostRef} className="h-full w-full" />}
+        {!ready && !err && (
           <div className="absolute inset-0 flex items-center justify-center gap-2 bg-surface-muted text-xs text-muted-foreground">
             {err ? err : (<><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading live map…</>)}
           </div>

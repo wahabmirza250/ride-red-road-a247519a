@@ -1,9 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useServerFn } from '@tanstack/react-start';
+import { refreshActualDemoFleet } from '@/lib/actualDemo.functions';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 export function ActualDemoSwitcher() {
   const { user, signOut } = useAuth();
   const [open,setOpen] = useState(false);
+  const heartbeat = useServerFn(refreshActualDemoFleet);
+  const isDemo = user?.app_metadata?.is_demo === true;
+  useEffect(()=>{
+    if(!isDemo)return;
+    const refresh=()=>{if(document.visibilityState==='visible')void heartbeat().catch(()=>{});};
+    refresh();const timer=window.setInterval(refresh,30000);
+    return ()=>window.clearInterval(timer);
+  },[isDemo,heartbeat]);
   const slug = user?.app_metadata?.demo_company_slug;
   if (user?.app_metadata?.is_demo !== true || typeof slug !== 'string' || !/^demo-[a-f0-9]{16}$/.test(slug)) return null;
   return <aside className="fixed bottom-20 right-3 z-[80] max-w-[calc(100vw-24px)] rounded-2xl border border-primary/40 bg-surface p-3 shadow-xl">

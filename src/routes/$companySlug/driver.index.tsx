@@ -553,6 +553,10 @@ function DriverHome() {
   /** Opens Google Maps with driving directions to the stop that is current now. */
   function openNavigation() {
     if (!active) return;
+    if (user?.app_metadata?.is_demo === true) {
+      toast.info('Demo route uses the sample pickup and drop-off. No real navigation has started.');
+      return;
+    }
     const heading = tripStatus === "in_progress"
       ? { lat: active.dropoff_lat, lng: active.dropoff_lng, address: active.dropoff_address }
       : { lat: active.pickup_lat, lng: active.pickup_lng, address: active.pickup_address };
@@ -1030,7 +1034,7 @@ function DriverHome() {
       )}
 
       <div className="flex items-center gap-2 rounded-2xl border border-border bg-surface p-4 text-xs text-muted-foreground">
-        <Phone className="h-4 w-4" /> Allow location permissions for live tracking to work.
+        <Phone className="h-4 w-4" /> {user?.app_metadata?.is_demo ? "Demo company: sample locations are shown. No device tracking." : "Allow location permissions for live tracking to work."}
       </div>
 
       {/* Signature dialog — final trip completion step: signature is captured
