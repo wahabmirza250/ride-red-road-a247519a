@@ -44,6 +44,11 @@ jobs:
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - run: npm ci --ignore-scripts
       - run: node mobile/prepare.mjs
+      - name: Configure passenger ride notifications
+        if: matrix.app == 'passenger'
+        env:
+          FIREBASE_PASSENGER_GOOGLE_SERVICES_JSON: ${{ secrets.FIREBASE_PASSENGER_GOOGLE_SERVICES_JSON }}
+        run: node mobile/configure-passenger-push.mjs
       - run: npx cap sync android
         working-directory: mobile/${{ matrix.app }}
       - run: bash ./gradlew assembleDebug --no-daemon
