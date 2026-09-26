@@ -33,4 +33,10 @@ describe('provider import authorization',()=>{
     expect(state.fetch).toHaveBeenCalledTimes(1);
     expect(state.fetch.mock.calls[0][1].method).toBe('GET');
   });
+  it('finds a matching provider on a later backend page',async()=>{
+    state.fetch.mockReset().mockResolvedValueOnce({ok:true,data:[{id:1,legal_name:'London'}],hasNextPage:true})
+      .mockResolvedValueOnce({ok:true,data:[{id:7,legal_name:'Walla Investment LLC'}],hasNextPage:false});
+    await expect(run()).resolves.toEqual({provider_id:7});
+    expect(state.fetch.mock.calls[1][1].path).toBe('/api/v1/provider-billing-profiles/?page=2');
+  });
 });

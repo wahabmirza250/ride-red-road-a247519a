@@ -47,7 +47,7 @@ export type EdiRequest = {
   body?: unknown;
 };
 
-export type EdiResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
+export type EdiResult<T> = { ok: true; data: T; hasNextPage?: boolean } | { ok: false; error: string; status?: number };
 
 /**
  * Turns whatever the bridge returned into an `EdiResult`.
@@ -74,7 +74,7 @@ export function normalizeEdiEnvelope<T>(payload: unknown, fallback = "EDI reques
           ...(status ? { status } : {}),
         };
       }
-      return { ok: true, data: (inner === undefined ? d : inner) as T };
+      return { ok: true, data: (inner === undefined ? d : inner) as T, ...('next' in d ? {hasNextPage: Boolean(d.next)} : {}) };
     }
   }
   return { ok: true, data: payload as T };

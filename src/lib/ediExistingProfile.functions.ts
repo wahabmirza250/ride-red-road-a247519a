@@ -27,7 +27,7 @@ export const findExistingEdiProvider = createServerFn({method:'POST'})
       const pageRows = Array.isArray(payload) ? payload : payload?.results;
       if (!Array.isArray(pageRows)) throw new Error('The provider list has an unsupported response format.');
       rows.push(...pageRows);
-      if (Array.isArray(payload) || !payload.next) break;
+      if (!(result.hasNextPage || (!Array.isArray(payload) && payload.next))) break;
       if (page===20) throw new Error('Provider list is too large for automatic matching. Contact the account owner.');
     }
     const {matchExistingProvider,settingsFromProvider,legalNameKey} = await import('./ediExistingProfile');

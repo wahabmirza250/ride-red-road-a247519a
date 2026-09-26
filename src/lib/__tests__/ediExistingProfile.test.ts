@@ -1,7 +1,12 @@
 import {describe,it,expect} from 'vitest';
 import {matchExistingProvider,settingsFromProvider} from '../ediExistingProfile';
+import {normalizeEdiEnvelope} from '../ediTransport';
 
 describe('existing company EDI provider matching',()=>{
+  it('retains pagination through the documented backend envelope',()=>{
+    expect(normalizeEdiEnvelope({success:true,data:[{id:1}],next:'https://backend/api/v1/providers/?page=2'}))
+      .toEqual({ok:true,data:[{id:1}],hasNextPage:true});
+  });
   const walla={id:2,legal_name:'WALLA INVESTMENT, LLC',is_active:true,is_atypical:true,location_id:'1234567890',address_line_1:'1 Main St',city:'City',state:'CO',zip:'80000'};
   it('matches the full legal name and ignores other providers',()=>{
     expect(matchExistingProvider([{id:1,legal_name:'Londons Transportation LLC'},walla],'Walla Investment LLC').id).toBe(2);
