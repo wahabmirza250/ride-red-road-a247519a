@@ -1,3 +1,4 @@
+import { DRIVER_REQUEST_FIELDS } from "@/lib/driverVisibleData";
 import { InProgressTrips } from "@/components/driver/InProgressTrips";
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLink } from "@/lib/appLink";
@@ -11,7 +12,7 @@ import {
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
 import { useLocationBroadcast, requestCurrentPosition } from "@/lib/useGeolocation";
-import { fmtMoney, haversineKm } from "@/lib/rideMath";
+import { haversineKm } from "@/lib/rideMath";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -69,7 +70,6 @@ type Request = {
   dropoff_lat: number;
   dropoff_lng: number;
   distance_km: number | null;
-  estimated_fare: number | null;
   estimated_minutes: number | null;
   status: string;
   trip_id: string | null;
@@ -155,18 +155,14 @@ function DriverHome() {
   type ShiftStats = {
     today_hours: number;
     today_miles: number;
-    today_earnings: number;
-    hourly_rate: number | null;
     closed_hours_today: number;
-    closed_earnings_today: number;
     open_shift_started_at: string | null;
     day_started_at: string | null;
-    open_shift_rate: number | null;
   };
   const [stats, setStats] = useState<ShiftStats>({
-    today_hours: 0, today_miles: 0, today_earnings: 0, hourly_rate: null,
-    closed_hours_today: 0, closed_earnings_today: 0,
-    open_shift_started_at: null, day_started_at: null, open_shift_rate: null,
+    today_hours: 0, today_miles: 0,
+    closed_hours_today: 0,
+    open_shift_started_at: null, day_started_at: null,
   });
   const [tick, setTick] = useState(0);
   const [shiftBusy, setShiftBusy] = useState(false);
@@ -197,9 +193,7 @@ function DriverHome() {
       : Math.max(0, (Date.now() - Math.max(openStart, dayStart ?? openStart)) / 3_600_000);
   const onShift = openStart != null;
   const liveElapsedHours = stats.closed_hours_today + openHoursToday;
-  const liveEarnings = stats.hourly_rate == null
-    ? null
-    : stats.closed_earnings_today + openHoursToday * (stats.open_shift_rate ?? stats.hourly_rate);
+
 
   async function startShiftNow() {
     if (shiftBusy || onShift) return;
@@ -286,7 +280,7 @@ function DriverHome() {
     // formally expired/re-dispatched — plus (b) unassigned pending requests
     // whose offer window hasn't lapsed.
     const { data: pend } = await supabase
-      .from("ride_requests").select("*").eq("status", "pending")
+      .from("ride_requests").select(DRIVER_REQUEST_FIELDS).eq("status", "pending")
       .or(
         `driver_id.eq.${driver.id},and(driver_id.is.null,or(offer_expires_at.is.null,offer_expires_at.gt.${nowIso}))`,
       )
@@ -313,7 +307,7 @@ function DriverHome() {
     // trip's scheduled pickup (not by when the request was created) is what
     // keeps a multi-passenger route running in the sequence dispatch planned.
     const { data: t } = await supabase
-      .from("trips").select("id,passenger_id,pickup_address,pickup_lat,pickup_lng,dropoff_address,dropoff_lat,dropoff_lng,estimated_fare,status,ride_purpose")
+      .from("trips").select("id,passenger_id,pickup_address,pickup_lat,pickup_lng,dropoff_address,dropoff_lat,dropoff_lng,status,ride_purpose")
       .eq("driver_id", driver.id)
       .in("status", ["assigned", "driver_en_route_to_pickup", "arrived_at_pickup", "in_progress"])
       .order("scheduled_pickup_time", { ascending: true }).limit(1).maybeSingle();
@@ -324,13 +318,13 @@ function DriverHome() {
     if (t) {
       // Prefer the originating request row (richer contact fields) when it exists.
       const { data: req } = await supabase
-        .from("ride_requests").select("*")
+        .from("ride_requests").select(DRIVER_REQUEST_FIELDS)
         .eq("driver_id", driver.id).eq("trip_id", t.id).maybeSingle();
       synthetic = (req ?? {
         id: `trip-${t.id}`, passenger_id: t.passenger_id,
         pickup_address: t.pickup_address, pickup_lat: Number(t.pickup_lat ?? 0), pickup_lng: Number(t.pickup_lng ?? 0),
         dropoff_address: t.dropoff_address, dropoff_lat: Number(t.dropoff_lat ?? 0), dropoff_lng: Number(t.dropoff_lng ?? 0),
-        distance_km: null, estimated_fare: t.estimated_fare, estimated_minutes: null,
+        distance_km: null, estimated_minutes: null,
         status: "accepted", trip_id: t.id, driver_id: driver.id, ride_purpose: t.ride_purpose,
       }) as Request;
       // Always show the trip's current addresses (mid-trip edits land on trips).
@@ -342,7 +336,7 @@ function DriverHome() {
       };
     } else {
       const { data: act } = await supabase
-        .from("ride_requests").select("*")
+        .from("ride_requests").select(DRIVER_REQUEST_FIELDS)
         .eq("driver_id", driver.id).eq("status", "accepted")
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       synthetic = (act ?? null) as Request | null;
@@ -723,7 +717,6 @@ function DriverHome() {
 
       <StatsGrid
         todayHours={liveElapsedHours} todayMiles={stats.today_miles}
-        todayEarnings={liveEarnings} hourlyRate={stats.hourly_rate}
         speedMph={online ? speedMph : null} onShift={onShift}
       />
 
@@ -748,20 +741,7 @@ function DriverHome() {
         </span>
       </AppLink>
 
-      <div className="grid grid-cols-3 gap-2">
-        <AppLink to="/driver/expenses"
-          className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface min-h-12 py-3 text-sm">
-          <Fuel className="h-3.5 w-3.5" /> Gas
-        </AppLink>
-        <AppLink to="/driver/earnings"
-          className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface min-h-12 py-3 text-sm">
-          Earnings
-        </AppLink>
-        <AppLink to="/driver/history"
-          className="flex items-center justify-center gap-1 rounded-full border border-border bg-surface min-h-12 py-3 text-sm">
-          History
-        </AppLink>
-      </div>
+      <AppLink to="/driver/history" className="flex min-h-12 items-center justify-center rounded-full border border-border bg-surface py-3 text-sm">Trip history</AppLink>
 
       {/* Standalone read-only Medicaid check — available with or without a trip */}
       <VerifyMedicaidCard />
@@ -787,7 +767,6 @@ function DriverHome() {
             <div className="text-xs font-medium uppercase tracking-widest text-primary">
               Active trip · {(tripStatus || "accepted").replace(/_/g, " ")}
             </div>
-            <Badge>{fmtMoney(active.estimated_fare)}</Badge>
           </div>
 
           {active.ride_purpose && (
@@ -1005,7 +984,6 @@ function DriverHome() {
                     {r.distance_km ? `${r.distance_km.toFixed(1)} km · ` : ""}
                     {etaMin != null ? `~${etaMin} min to pickup` : "pickup ETA unknown"}
                   </div>
-                  <div className="text-lg font-bold">{fmtMoney(r.estimated_fare)}</div>
                 </div>
                 {r.ride_purpose && (
                   <div className="text-xs text-muted-foreground">

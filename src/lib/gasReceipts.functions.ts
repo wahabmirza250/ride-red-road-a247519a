@@ -18,47 +18,14 @@ export const submitGasReceipt = createServerFn({ method: "POST" })
       return input;
     },
   )
-  .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: driver } = await supabaseAdmin
-      .from("drivers")
-      .select("id")
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    if (!driver) throw new Error("Driver profile not found");
-    const { data: row, error } = await supabaseAdmin
-      .from("gas_receipts")
-      .insert({
-        driver_id: driver.id,
-        amount: data.amount,
-        gallons: data.gallons ?? null,
-        photo_path: data.photo_path,
-        notes: data.notes ?? null,
-        shift_id: data.shift_id ?? null,
-      })
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
-    return row;
+  .handler(async () => {
+    throw new Error("This section is managed by your company office.");
   });
 
 export const listMyGasReceipts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: driver } = await supabaseAdmin
-      .from("drivers")
-      .select("id")
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    if (!driver) return [];
-    const { data } = await supabaseAdmin
-      .from("gas_receipts")
-      .select("*")
-      .eq("driver_id", driver.id)
-      .order("submitted_at", { ascending: false })
-      .limit(50);
-    return data ?? [];
+  .handler(async () => {
+    throw new Error("This section is managed by your company office.");
   });
 
 /** Staff view of gas receipts. Visible to BOTH admin and dispatch — an

@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { AppShell } from "@/components/mobile/AppShell";
 import { useEffect } from "react";
-import { Car, DollarSign, LogOut, Sun, Moon, Loader2, MessageSquare, User, History } from "lucide-react";
+import { Car, LogOut, Sun, Moon, Loader2, MessageSquare, User, History } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 
@@ -20,7 +20,6 @@ const NAV = [
   { to: "/driver", label: "Drive", icon: Car, exact: true },
   { to: "/driver/history", label: "Trips", icon: History, exact: false },
   { to: "/driver/messages", label: "Messages", icon: MessageSquare, exact: false },
-  { to: "/driver/earnings", label: "Earnings", icon: DollarSign, exact: false },
   { to: "/driver/profile", label: "Profile", icon: User, exact: false },
 ] as const;
 

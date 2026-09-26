@@ -1,7 +1,7 @@
+import { driverShiftView } from "@/lib/driverVisibleData";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  earningsInWindow,
   isStaleOpenShift,
   roundHours,
   shiftHours,
@@ -86,7 +86,7 @@ export const clockIn = createServerFn({ method: "POST" })
     const existing = await openShiftFor(driver.id);
     if (existing) {
       const closed = await closeStaleShift(existing, driver.hourly_rate);
-      if (!closed) return existing;
+      if (!closed) return driverShiftView(existing);
     }
 
     const { data: row, error } = await supabaseAdmin
@@ -99,7 +99,7 @@ export const clockIn = createServerFn({ method: "POST" })
       .select("*")
       .single();
     if (error) throw new Error(error.message);
-    return row;
+    return driverShiftView(row);
   });
 
 export const clockOut = createServerFn({ method: "POST" })
@@ -132,7 +132,7 @@ export const clockOut = createServerFn({ method: "POST" })
       .select("*")
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return closed ?? null;
+    return driverShiftView(closed ?? null);
   });
 
 /** Named for the driver-facing controls; same records payroll already reads. */
@@ -144,7 +144,7 @@ export const getCurrentShift = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const driver = await getDriver(context.userId);
     const open = await openShiftFor(driver.id);
-    return { shift: open, hourly_rate: driver.hourly_rate, pay_type: driver.pay_type };
+    return { shift: driverShiftView(open) };
   });
 
 /**
@@ -184,25 +184,17 @@ export const getShiftStats = createServerFn({ method: "GET" })
     const hours = sumHoursInWindow(todayRows, dayStart, now, now);
     const closedHours = sumHoursInWindow(closedToday, dayStart, now, now);
     const miles = todayRows.reduce((t, r) => t + Number(r.gps_miles ?? 0), 0);
-    const earnings = earningsInWindow(todayRows, dayStart, now, now, driver.hourly_rate);
-    const closedEarnings = earningsInWindow(closedToday, dayStart, now, now, driver.hourly_rate);
 
     return {
       today_hours: roundHours(hours),
       today_miles: Math.round(miles * 100) / 100,
-      today_earnings: earnings,
-      hourly_rate: driver.hourly_rate,
       /** Hours already banked today from finished shifts. */
       closed_hours_today: roundHours(closedHours),
-      closed_earnings_today: closedEarnings,
       /** When the running shift began, or null when no shift is running. */
       open_shift_started_at: openRow?.clock_in_at ?? null,
       /** Where today's live count starts (handles an overnight shift). */
       day_started_at: new Date(dayStart).toISOString(),
-      open_shift_rate:
-        openRow == null
-          ? null
-          : Number(openRow.hourly_rate_snapshot ?? driver.hourly_rate ?? 0) || 0,
+
     };
   });
 

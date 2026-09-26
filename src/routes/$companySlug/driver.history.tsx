@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseBrowser";
 import { useAuth } from "@/lib/auth";
-import { fmtMoney } from "@/lib/rideMath";
 import { formatDateTime } from "@/lib/format";
 import { Loader2 } from "lucide-react";
 import { InProgressTrips } from "@/components/driver/InProgressTrips";
@@ -17,7 +16,6 @@ type Row = {
   pickup_address: string;
   dropoff_address: string;
   status: string;
-  estimated_fare: number | null;
   passenger_rating: number | null;
 };
 
@@ -37,7 +35,7 @@ function DriverHistory() {
       const { data } = await supabase
         .from("trips")
         .select(
-          "id,scheduled_pickup_time,pickup_address,dropoff_address,status,estimated_fare,passenger_rating",
+          "id,scheduled_pickup_time,pickup_address,dropoff_address,status,passenger_rating",
         )
         .eq("driver_id", d.id)
         .order("scheduled_pickup_time", { ascending: false })
@@ -73,7 +71,6 @@ function DriverHistory() {
             <div className="truncate">↓ {r.dropoff_address}</div>
           </div>
           <div className="mt-2 flex items-center justify-between text-sm">
-            <span className="font-semibold">{fmtMoney(r.estimated_fare)}</span>
             {r.passenger_rating != null && (
               <span className="text-warning">★ {r.passenger_rating}</span>
             )}
