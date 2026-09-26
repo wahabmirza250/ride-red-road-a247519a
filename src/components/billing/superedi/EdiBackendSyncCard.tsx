@@ -2,7 +2,7 @@
  * "Linked to the EDI backend" card — the onboarding half that talks to the
  * backend itself.
  *
- * Saving provider setup stores the data in RedArt; THIS card pushes it to the
+ * Saving provider setup stores the data in NEMT Solutions; THIS card pushes it to the
  * EDI backend and remembers the ids it returned (provider profile, trading
  * partner). Running it twice is safe: unchanged data is not re-sent and an
  * existing entity is updated, never duplicated.
@@ -114,7 +114,7 @@ export function EdiBackendSyncCard({
                     <span className="inline-flex items-center gap-1.5">
                       #{link.edi_trading_partner_id}
                       <Pill tone={link.trading_partner_mode === "shared" ? "info" : "muted"}>
-                        {link.trading_partner_mode === "shared" ? "RedArt shared" : "Company"}
+                        {link.trading_partner_mode === "shared" ? "NEMT Solutions shared" : "Company"}
                       </Pill>
                     </span>
                   ) : (
@@ -127,7 +127,7 @@ export function EdiBackendSyncCard({
                 value={
                   link?.edi_sftp_credentials_id
                     ? `#${link.edi_sftp_credentials_id} (installed server-side)`
-                    : "Managed by RedArt"
+                    : "Managed by NEMT Solutions"
                 }
               />
               <DetailRow label="Environment" value={(link?.environment ?? "test").toUpperCase()} />
@@ -149,7 +149,7 @@ export function EdiBackendSyncCard({
             {mapping.data?.shared_partner_configured && (
               <p className="mt-2 flex items-start gap-2 text-xs text-muted-foreground">
                 <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                A RedArt-wide approved trading partner is configured — companies in shared mode
+                A NEMT Solutions-wide approved trading partner is configured — companies in shared mode
                 are linked to it instead of getting one of their own.
               </p>
             )}
@@ -222,7 +222,7 @@ export function EdiBackendSyncCard({
               ))}
             </dl>
             <p className="mt-3 text-xs text-muted-foreground">
-              Entity paths are read from the backend's own catalog — RedArt never guesses a URL.
+              Entity paths are read from the backend's own catalog — NEMT Solutions never guesses a URL.
               When an entity is not advertised, claims fall back to the documented
               <code className="mx-1 rounded bg-surface-muted px-1">/claims/</code> endpoint and
               the backend's own message is shown if it refuses.

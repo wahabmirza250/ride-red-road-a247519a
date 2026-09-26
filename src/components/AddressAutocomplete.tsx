@@ -25,6 +25,7 @@ function newSessionToken() {
 }
 
 export function AddressAutocomplete({
+  id,
   value,
   onChange,
   onResolve,
@@ -36,6 +37,7 @@ export function AddressAutocomplete({
   biasLng,
   regionCode = "us",
 }: {
+  id?: string;
   value: string;
   onChange: (v: string) => void;
   onResolve: (p: ResolvedPlace) => void;
@@ -156,6 +158,7 @@ export function AddressAutocomplete({
   return (
     <div className={`relative ${className ?? ""}`}>
       <Input
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? "Start typing an address…"}

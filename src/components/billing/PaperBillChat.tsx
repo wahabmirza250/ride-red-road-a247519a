@@ -762,8 +762,7 @@ function EntryForm({
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="space-y-1">
             <Label className="text-xs">Passenger name</Label>
-            <Input
-              aria-label="Passenger name"
+            <Input aria-label="Passenger name"
               value={draft.newRider.full_name}
               onChange={(e) => onPatch({ newRider: { ...draft.newRider, full_name: e.target.value } })}
             />
@@ -830,8 +829,7 @@ function EntryForm({
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="space-y-1">
           <Label className="text-xs">Trip date</Label>
-          <Input
-            aria-label="Trip date"
+          <Input aria-label="Trip date"
             type="date"
             value={draft.trip_date}
             onChange={(e) => onPatch({ trip_date: e.target.value })}

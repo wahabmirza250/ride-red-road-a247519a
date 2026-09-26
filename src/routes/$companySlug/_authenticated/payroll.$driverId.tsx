@@ -54,7 +54,7 @@ function PayrollPrintPage() {
         <div className="mb-6 flex items-start justify-between border-b border-black/10 pb-6 print:hidden">
           <div>
             <h1 className="text-2xl font-semibold">Unpaid Work Summary</h1>
-            <p className="text-sm text-black/60">RedArt LLC — NEMT</p>
+            <p className="text-sm text-black/60">NEMT Solutions LLC — NEMT</p>
           </div>
           <button
             onClick={() => window.print()}
@@ -70,7 +70,7 @@ function PayrollPrintPage() {
               R
             </div>
             <div>
-              <div className="text-lg font-semibold">RedArt LLC</div>
+              <div className="text-lg font-semibold">NEMT Solutions LLC</div>
               <div className="text-xs text-black/60">NEMT Payroll Summary</div>
             </div>
           </div>
@@ -93,7 +93,7 @@ function PayrollPrintPage() {
         </div>
 
         <p className="mt-4 text-sm">
-          Current unpaid work, using the same pay plan as Salary. Planned shifts are excluded. This
+          Current unpaid work, using the same pay plan as Driver pay. Planned shifts are excluded. This
           is not a payment receipt.
         </p>
         <h2 className="mt-8 text-sm font-semibold uppercase text-black/60">Earnings</h2>
@@ -162,7 +162,7 @@ function PayrollPrintPage() {
         </div>
 
         <p className="mt-16 text-center text-xs text-black/50">
-          RedArt LLC NEMT Platform — generated {formatDateTime(new Date())}
+          NEMT Solutions LLC NEMT Platform — generated {formatDateTime(new Date())}
         </p>
       </div>
 

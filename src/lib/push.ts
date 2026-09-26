@@ -1,3 +1,6 @@
+import { isNativeApp, registerNativePush } from './native';
+import { saveNativePushToken, removeNativePushToken } from './nativePush.functions';
+let nativeToken: string | null = null;
 import { VAPID_PUBLIC_KEY } from "./vapid";
 import { saveSubscription, removeSubscription } from "./push.functions";
 
@@ -14,6 +17,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export function pushSupported(): boolean {
+  if (isNativeApp()) return true;
   return (
     typeof window !== "undefined" &&
     "serviceWorker" in navigator &&
@@ -23,6 +27,7 @@ export function pushSupported(): boolean {
 }
 
 export async function registerPushSW(): Promise<ServiceWorkerRegistration | null> {
+  if (isNativeApp()) return null;
   if (!pushSupported()) return null;
   try {
     const reg = await navigator.serviceWorker.register(SW_URL, { scope: "/" });
@@ -35,6 +40,13 @@ export async function registerPushSW(): Promise<ServiceWorkerRegistration | null
 
 /** Ask for permission and subscribe. Safe to call on load — bails if already prompted/denied. */
 export async function ensurePushSubscribed(opts?: { force?: boolean }): Promise<boolean> {
+  if (isNativeApp()) {
+    const token = await registerNativePush();
+    if (!token) return false;
+    await saveNativePushToken({ data: { token } });
+    nativeToken = token;
+    return true;
+  }
   if (!pushSupported()) return false;
   if (Notification.permission === "denied") return false;
 
@@ -83,6 +95,13 @@ export async function ensurePushSubscribed(opts?: { force?: boolean }): Promise<
 }
 
 export async function unsubscribePush(): Promise<void> {
+  if (isNativeApp()) {
+    if (nativeToken) await removeNativePushToken({data:{token:nativeToken}});
+    nativeToken = null;
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    await PushNotifications.unregister();
+    return;
+  }
   if (!pushSupported()) return;
   const reg = await navigator.serviceWorker.getRegistration(SW_URL);
   const sub = await reg?.pushManager.getSubscription();

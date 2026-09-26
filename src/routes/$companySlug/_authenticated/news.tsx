@@ -11,7 +11,7 @@ export const Route = createFileRoute("/$companySlug/_authenticated/news")({
   component: NewsPage,
   head: () => ({
     meta: [
-      { title: "Local News — RedArt NEMT" },
+      { title: "Local News — NEMT Solutions" },
       { name: "description", content: "Live local news for each active driver's current city." },
     ],
   }),

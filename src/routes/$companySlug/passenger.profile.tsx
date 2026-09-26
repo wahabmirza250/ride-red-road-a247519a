@@ -1,3 +1,4 @@
+import { useAuth } from '@/lib/auth';
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLink } from "@/lib/appLink";
 import { useEffect, useRef, useState } from "react";
@@ -49,15 +50,18 @@ function getDeviceId(): string {
   return id;
 }
 
-const PHOTO_KEY = "passenger_photo_dataurl";
+
 
 function ProfilePage() {
+  const { companySlug } = Route.useParams();
+  const { user } = useAuth();
+  const PHOTO_KEY = `passenger-photo:${companySlug}:${user?.id ?? 'signed-out'}`;
   const deviceId = getDeviceId();
   const fetchMe = useServerFn(getMyPassengerProfile);
   const saveFn = useServerFn(upsertPassengerProfile);
 
   const me = useQuery({
-    queryKey: ["passenger-profile", deviceId],
+    queryKey: ["passenger-profile", companySlug, user?.id],
     queryFn: () => fetchMe({ data: { device_id: deviceId } }),
     enabled: !!deviceId,
   });
@@ -80,7 +84,7 @@ function ProfilePage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") setPhoto(window.localStorage.getItem(PHOTO_KEY));
-  }, []);
+  }, [PHOTO_KEY]);
 
   const hasSavedProfile = !!(
     me.data &&
@@ -232,20 +236,13 @@ function ProfilePage() {
         {/* Account */}
         <Section title="Account">
           <RowButton
-            icon={<Bell className="h-5 w-5" />}
-            title="Notifications"
-            body="Ride alerts and updates."
-            trailing={<span className="h-2 w-2 rounded-full bg-primary" aria-label="Unread" />}
-            onClick={() => toast.message("Notification preferences coming soon.")}
-          />
-          <RowButton
             icon={<Gift className="h-5 w-5" />}
             title="Refer a friend"
-            body="Share RedArt with someone who needs a ride."
+            body="Share NEMT Solutions with someone who needs a ride."
             onClick={async () => {
-              const url = window.location.origin + "/passenger";
+              const url = window.location.origin + `/${companySlug}/passenger/signin`;
               try {
-                if (navigator.share) await navigator.share({ title: "RedArt Rides", url });
+                if (navigator.share) await navigator.share({ title: "NEMT Solutions", url });
                 else {
                   await navigator.clipboard.writeText(url);
                   toast.success("Referral link copied");

@@ -6,7 +6,7 @@
  *      paper-bill inbox and extractor (one parser, one dedupe fingerprint) —
  *      nothing here re-implements extraction, and nothing is ever submitted
  *      automatically.
- *   2. Pick existing electronic bills that already live in RedArt.
+ *   2. Pick existing electronic bills that already live in NEMT Solutions.
  *
  * Everything imported/selected here flows into the Batch Review selection.
  */

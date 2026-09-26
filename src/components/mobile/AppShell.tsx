@@ -62,7 +62,7 @@ export function AppShell({ children, companySlug, kind, navigation, actions, hid
     </header>
     <aside className="mobile-app-sidebar">
       <p className="mobile-app-nav-caption">{kind} workspace</p>
-      <nav aria-label={`${kind} navigation`}>{navigation.map(item => navItem(item))}</nav>
+      <nav aria-label={`${kind} navigation`}>{primary.map(item => navItem(item))}{hasMore && <details open={moreActive}><summary className="mobile-app-nav-item">More</summary>{extra.map(item => navItem(item))}</details>}</nav>
       <p className="mobile-app-sidebar-footer">Your ride. Our care.</p>
     </aside>
     <main id="app-content" className="mobile-app-content" tabIndex={-1}>{children}</main>

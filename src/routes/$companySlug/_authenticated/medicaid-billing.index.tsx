@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/$companySlug/_authenticated/medicaid-billing/")({
   head: () => ({
     meta: [
-      { title: "Medical Billing — Choose a method | RedArt NEMT" },
+      { title: "Medical Billing — Choose a method | NEMT Solutions" },
       {
         name: "description",
         content:

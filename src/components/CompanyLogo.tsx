@@ -4,7 +4,7 @@ import { getMyCompanyBranding } from "@/lib/companyBranding.functions";
 import { cn } from "@/lib/utils";
 
 /**
- * Tenant logo shown beside the RedArt mark in staff app headers. Renders
+ * Tenant logo shown beside the NEMT Solutions mark in staff app headers. Renders
  * nothing until a logo exists, so companies without one look unchanged.
  */
 export function CompanyLogo({ className }: { className?: string }) {

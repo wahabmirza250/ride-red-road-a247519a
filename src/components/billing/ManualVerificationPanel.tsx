@@ -166,7 +166,7 @@ export function ManualVerificationPanel({
         <Row label="Provider account" value={info?.provider_account || panel.providerAccount} mono />
         <Row label="Robot job ID" value={info?.robot_job_id || panel.jobId} mono />
         <Row
-          label="RedArt trips this day"
+          label="NEMT Solutions trips this day"
           value={info ? String(info.same_day_trip_count) : "—"}
           mono
         />
@@ -231,7 +231,7 @@ export function ManualVerificationPanel({
                   {c.linked ? (
                     <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-destructive">
                       <div className="flex items-center gap-1 font-medium">
-                        <ShieldAlert className="h-3.5 w-3.5" /> Already linked to another RedArt bill
+                        <ShieldAlert className="h-3.5 w-3.5" /> Already linked to another NEMT Solutions bill
                       </div>
                       <LinkedBillDetails bill={c.linked} />
                     </div>
@@ -324,7 +324,7 @@ export function ManualVerificationPanel({
       <AlertDialog open={!!conflict} onOpenChange={(o) => !o && setConflict(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>This HCPF claim is already linked to another RedArt bill</AlertDialogTitle>
+            <AlertDialogTitle>This HCPF claim is already linked to another NEMT Solutions bill</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-xs">
                 <p>

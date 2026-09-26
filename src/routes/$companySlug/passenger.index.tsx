@@ -157,8 +157,8 @@ function PassengerHome() {
             <MapPin className="h-4 w-4" />
           </span>
           <span>
-            <span className="block text-sm font-semibold">Track a ride</span>
-            <span className="block text-[11px] text-muted-foreground">Phone or Medicaid ID</span>
+            <span className="block text-sm font-semibold">My rides</span>
+            <span className="block text-[11px] text-muted-foreground">View your requests and ride status</span>
           </span>
         </AppLink>
       </div>

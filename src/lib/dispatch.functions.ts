@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const OFFER_TTL_MS = 30_000;
 
 type Coord = { lat: number; lng: number };
 
@@ -21,122 +20,16 @@ function haversineKm(a: Coord, b: Coord) {
  *  Idempotent: safe to call after a decline/timeout to re-dispatch.
  *  Returns { assigned: driverId | null, reason? }. */
 export const dispatchRideRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { request_id: string; force?: boolean }) => {
     if (!input?.request_id) throw new Error("request_id required");
     return input;
   })
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    // Company-level auto-assign gate. When OFF, requests stay unassigned in
-    // the dispatch queue instead of auto-offering to the nearest driver.
-    // The matching logic below is unchanged — only whether it fires.
-    if (!data.force) {
-      const { data: setting } = await supabaseAdmin
-        .from("app_settings")
-        .select("value")
-        .eq("key", "auto_assign_enabled")
-        .maybeSingle();
-      if (String(setting?.value ?? "false").toLowerCase() !== "true") {
-        return { assigned: null, reason: "manual_dispatch" };
-      }
-    }
-
-    const { data: req, error: reqErr } = await supabaseAdmin
-      .from("ride_requests")
-      .select(
-        "id, status, company_id, pickup_address, pickup_lat, pickup_lng, dropoff_address, driver_id, declined_driver_ids",
-      )
-      .eq("id", data.request_id)
-      .maybeSingle();
-    if (reqErr) throw new Error(reqErr.message);
-    if (!req) throw new Error("Ride request not found");
-    if (req.status !== "pending") return { assigned: null, reason: "not_pending" };
-
-    if (req.pickup_lat == null || req.pickup_lng == null) {
-      return { assigned: null, reason: "no_pickup_coords" };
-    }
-
-    // TENANT ISOLATION: a request may only ever be offered to drivers of the
-    // same company. Never widen this filter.
-    if (!req.company_id) {
-      return { assigned: null, reason: "no_company_on_request" };
-    }
-
-    const pickup: Coord = { lat: Number(req.pickup_lat), lng: Number(req.pickup_lng) };
-    const declined = (req.declined_driver_ids ?? []) as string[];
-
-    const { data: drivers, error: dErr } = await supabaseAdmin
-      .from("drivers")
-      .select("id, user_id, current_lat, current_lng, status, company_id")
-      .eq("company_id", req.company_id)
-      .eq("status", "available");
-    if (dErr) throw new Error(dErr.message);
-
-
-    const eligible = (drivers ?? [])
-      .filter(
-        (d) =>
-          d.current_lat != null &&
-          d.current_lng != null &&
-          !declined.includes(d.id),
-      )
-      .map((d) => ({
-        ...d,
-        distance: haversineKm(pickup, {
-          lat: Number(d.current_lat),
-          lng: Number(d.current_lng),
-        }),
-      }))
-      .sort((a, b) => a.distance - b.distance);
-
-    if (!eligible.length) {
-      await supabaseAdmin
-        .from("ride_requests")
-        .update({ driver_id: null, offer_expires_at: null })
-        .eq("id", req.id);
-      try {
-        const { notifyDispatchers } = await import("@/lib/notifyStaff.server");
-        await notifyDispatchers({
-          kind: "needs_manual_assignment",
-          title: "No driver available — needs manual assignment",
-          body: `${req.pickup_address} → ${req.dropoff_address}`,
-          url: "/dispatch",
-          companyId: (req as { company_id?: string | null }).company_id ?? null,
-          data: { ride_request_id: req.id },
-        });
-      } catch (e) {
-        console.warn("[dispatch] no-driver alert failed", e);
-      }
-      return { assigned: null, reason: "no_drivers_available" };
-    }
-
-
-    const target = eligible[0];
-    const expires = new Date(Date.now() + OFFER_TTL_MS).toISOString();
-
-    const { error: upErr } = await supabaseAdmin
-      .from("ride_requests")
-      .update({ driver_id: target.id, offer_expires_at: expires })
-      .eq("id", req.id)
-      .eq("status", "pending");
-    if (upErr) throw new Error(upErr.message);
-
-    // Fire-and-forget push to the targeted driver.
-    try {
-      const { sendPushToUsers } = await import("@/lib/pushSend.server");
-      await sendPushToUsers([target.user_id], {
-        title: "New ride request",
-        body: `${req.pickup_address} → ${req.dropoff_address}`,
-        url: "/driver",
-        tag: `ride-${req.id}`,
-        requireInteraction: true,
-      });
-    } catch (e) {
-      console.warn("[dispatch] push failed", e);
-    }
-
-    return { assigned: target.id, reason: null };
+  .handler(async ({ data, context }) => {
+    const { requireRideAccess } = await import('./rideAccess.server');
+    await requireRideAccess(context.userId, data.request_id, !!data.force);
+    const { dispatchRideInternal } = await import('./dispatchEngine.server');
+    return dispatchRideInternal(data);
   });
 
 /** Driver declines an offer. Adds self to declined list and re-dispatches. */
@@ -147,6 +40,9 @@ export const declineRideOffer = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
+    const { requireRideAccess } = await import('./rideAccess.server');
+    const authorizedRide = await requireRideAccess(context.userId, data.request_id);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: driver } = await supabaseAdmin
       .from("drivers")
@@ -160,7 +56,7 @@ export const declineRideOffer = createServerFn({ method: "POST" })
       .select("id, status, declined_driver_ids, driver_id")
       .eq("id", data.request_id)
       .maybeSingle();
-    if (!req || req.status !== "pending") return { ok: true };
+    if (!req || req.driver_id !== driver.id || req.status !== "pending") return { ok: true };
 
     const declined = new Set([...(req.declined_driver_ids ?? []), driver.id]);
     await supabaseAdmin
@@ -173,7 +69,7 @@ export const declineRideOffer = createServerFn({ method: "POST" })
       .eq("id", req.id);
 
     // Re-dispatch to next-nearest driver.
-    await dispatchRideRequest({ data: { request_id: req.id } });
+    await (await import('./dispatchEngine.server')).dispatchRideInternal({ request_id: req.id });
     return { ok: true };
   });
 
@@ -184,7 +80,10 @@ export const expireRideOffer = createServerFn({ method: "POST" })
     if (!input?.request_id) throw new Error("request_id required");
     return input;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { requireRideAccess } = await import('./rideAccess.server');
+    const authorizedRide = await requireRideAccess(context.userId, data.request_id);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: req } = await supabaseAdmin
       .from("ride_requests")
@@ -205,7 +104,7 @@ export const expireRideOffer = createServerFn({ method: "POST" })
         offer_expires_at: null,
       })
       .eq("id", req.id);
-    await dispatchRideRequest({ data: { request_id: req.id } });
+    await (await import('./dispatchEngine.server')).dispatchRideInternal({ request_id: req.id });
     return { ok: true, expired: true };
   });
 
@@ -214,11 +113,15 @@ export const expireRideOffer = createServerFn({ method: "POST" })
  * model as the passenger tracking page. Marks the ride_request cancelled, any
  * linked trip cancelled, and frees the assigned driver back to available. */
 export const cancelRideRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { request_id: string; reason?: string }) => {
     if (!input?.request_id) throw new Error("request_id required");
     return input;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { requireRideAccess } = await import('./rideAccess.server');
+    const authorizedRide = await requireRideAccess(context.userId, data.request_id);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: req } = await supabaseAdmin
       .from("ride_requests")
@@ -285,6 +188,9 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
+    const { requireRideAccess } = await import('./rideAccess.server');
+    const authorizedRide = await requireRideAccess(context.userId, data.request_id);
+
     const { data: isDriver } = await context.supabase.rpc("has_role", {
       _user_id: context.userId,
       _role: "driver",
@@ -315,7 +221,7 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
       return { ok: true, trip_id: req.trip_id };
     }
     if (req.status !== "pending") throw new Error("Ride request is no longer available");
-    if (req.driver_id && req.driver_id !== driver.id) {
+    if (req.driver_id !== driver.id) {
       throw new Error("This ride is assigned to another driver");
     }
     if (req.offer_expires_at && new Date(req.offer_expires_at) < new Date()) {
@@ -328,6 +234,7 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
       const { data: byId } = await supabaseAdmin
         .from("passengers")
         .select("id")
+        .eq("company_id", authorizedRide.company_id!)
         .eq("id", passengerId)
         .maybeSingle();
       if (byId?.id) {
@@ -336,6 +243,7 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
         const { data: byUser } = await supabaseAdmin
           .from("passengers")
           .select("id")
+          .eq("company_id", authorizedRide.company_id!)
           .eq("user_id", passengerId)
           .maybeSingle();
         passengerId = byUser?.id ?? null;
@@ -346,6 +254,7 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
       const { data: byMedicaid } = await supabaseAdmin
         .from("passengers")
         .select("id")
+        .eq("company_id", authorizedRide.company_id!)
         .eq("medicaid_id", req.contact_medicaid)
         .maybeSingle();
       passengerId = byMedicaid?.id ?? null;
@@ -355,6 +264,7 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
       const { data: byPhone } = await supabaseAdmin
         .from("passengers")
         .select("id")
+        .eq("company_id", authorizedRide.company_id!)
         .eq("phone", req.contact_phone)
         .maybeSingle();
       passengerId = byPhone?.id ?? null;
@@ -386,6 +296,7 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
       const { data: insertedPassenger, error: passengerError } = await supabaseAdmin
         .from("passengers")
         .insert({
+          company_id: authorizedRide.company_id,
           user_id: req.passenger_id || null,
           first_name: firstName,
           last_name: lastName,
@@ -403,6 +314,7 @@ export const acceptRideOffer = createServerFn({ method: "POST" })
     const { data: trip, error: tripError } = await supabaseAdmin
       .from("trips")
       .insert({
+        company_id: authorizedRide.company_id,
         driver_id: driver.id,
         passenger_id: passengerId,
         status: "assigned",
@@ -548,6 +460,9 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { assertCompanyActive } = await import('./company.server');
+    const company = await assertCompanyActive(context.userId);
+    const companyId = company.id;
 
     // Auto-save / refresh the passenger profile on every booking so first-time
     // passengers become permanent records without a separate "create profile"
@@ -562,8 +477,9 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
     const { data: paxRow } = await supabaseAdmin
       .from("passengers")
       .select("id, first_name, last_name, phone")
-      .eq("user_id", context.userId)
+      .eq("user_id", context.userId).eq("company_id", companyId)
       .maybeSingle();
+    if (!paxRow) throw new Error('Ask your administrator to create your passenger profile.');
     if (paxRow?.id) {
       const patch: { first_name?: string; last_name?: string; phone?: string | null } = {};
       if (first && !paxRow.first_name) patch.first_name = first;
@@ -574,8 +490,7 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
       }
     }
 
-    const { requireCompanyId } = await import("@/lib/company.server");
-    const companyId = await requireCompanyId(context.userId);
+
 
     const { data: inserted, error } = await supabaseAdmin
       .from("ride_requests")
@@ -604,7 +519,7 @@ export const passengerRequestRide = createServerFn({ method: "POST" })
       .single();
     if (error || !inserted) throw new Error(error?.message ?? "Failed to create ride request");
 
-    const dispatch = await dispatchRideRequest({ data: { request_id: inserted.id } });
+    const dispatch = await (await import('./dispatchEngine.server')).dispatchRideInternal({ request_id: inserted.id });
     return { request_id: inserted.id, ...dispatch };
   });
 
@@ -658,7 +573,7 @@ export const dispatcherRequestRide = createServerFn({ method: "POST" })
       .single();
     if (error || !inserted) throw new Error(error?.message ?? "Failed to create ride request");
 
-    const dispatch = await dispatchRideRequest({ data: { request_id: inserted.id } });
+    const dispatch = await (await import('./dispatchEngine.server')).dispatchRideInternal({ request_id: inserted.id });
     return { request_id: inserted.id, ...dispatch };
   });
 
@@ -677,11 +592,12 @@ export const getVehicleEtas = createServerFn({ method: "POST" })
     // ETAs must only ever reflect the booking company's own fleet.
     const company = data.company_slug ? await getCompanyBySlug(data.company_slug) : null;
 
+    if (!company || company.status !== 'active') return {};
     let query = supabaseAdmin
       .from("drivers")
       .select("id, default_vehicle_type, current_lat, current_lng, status, company_id")
       .eq("status", "available");
-    if (company) query = query.eq("company_id", company.id);
+    query = query.eq("company_id", company.id);
     const { data: drivers } = await query;
 
 

@@ -71,7 +71,7 @@ function DispatchLayout() {
           <CompanyLogo />
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={toggle} className="rounded-lg p-2 text-muted-foreground hover:bg-accent">
+          <button aria-label="Switch theme" onClick={toggle} className="rounded-lg p-2 text-muted-foreground hover:bg-accent">
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
           <button

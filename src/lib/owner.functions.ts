@@ -1,3 +1,4 @@
+import { normalizeSupportPhone } from './companySupport.functions';
 import { RESERVED_COMPANY_CODES, normalizeCompanyCode } from "@/lib/companyAccess";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -188,6 +189,7 @@ export const createCompany = createServerFn({ method: "POST" })
   .inputValidator(
     (input: {
       name: string;
+      support_phone?: string;
       url_slug: string;
       logo_base64?: string | null;
       logo_ext?: string | null;
@@ -202,7 +204,9 @@ export const createCompany = createServerFn({ method: "POST" })
       if (!/^[a-z0-9-]{2,40}$/.test(slug)) {
         throw new Error("URL slug must be 2-40 characters: lowercase letters, numbers and dashes");
       }
+      const supportPhone = normalizeSupportPhone(input.support_phone ?? "");
       return {
+        support_phone: supportPhone,
         name,
         url_slug: slug,
         logo_base64: input.logo_base64 ?? null,
@@ -239,6 +243,10 @@ export const createCompany = createServerFn({ method: "POST" })
       .single();
     if (error || !created) throw new Error(error?.message ?? "Could not create company");
 
+    if (data.support_phone) {
+      const { error: supportError } = await db.from('app_settings').upsert({ key: `company:${created.id}:support_phone`, value: data.support_phone, updated_by: context.userId }, { onConflict: 'key' });
+      if (supportError) throw new Error('Company created, but support phone could not be saved. Edit it in the company profile.');
+    }
     if (data.logo_base64) {
       const bytes = Buffer.from(data.logo_base64, "base64");
       if (bytes.length > 3_000_000) throw new Error("Logo must be under 3 MB");

@@ -19,13 +19,13 @@ export const Route = createFileRoute("/$companySlug/_authenticated/payroll-state
   validateSearch: (s) => searchSchema.parse(s),
   head: () => ({
     meta: [
-      { title: "Driver Pay Stub — RedArt NEMT" },
+      { title: "Driver Pay Stub — NEMT Solutions" },
       {
         name: "description",
         content:
           "Printable driver pay stub with trip and claim rows, manual items, adjustments and the final payable amount for the pay period.",
       },
-      { property: "og:title", content: "Driver Pay Stub — RedArt NEMT" },
+      { property: "og:title", content: "Driver Pay Stub — NEMT Solutions" },
       {
         property: "og:description",
         content: "Printable NEMT driver pay stub for a pay period.",

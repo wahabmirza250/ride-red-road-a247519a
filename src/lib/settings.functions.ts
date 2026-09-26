@@ -2,12 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /** Public read of the company auto-assign toggle. */
-export const getAutoAssign = createServerFn({ method: "GET" }).handler(async () => {
+export const getAutoAssign = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const { assertCompanyActive } = await import('./company.server');
+  const company = await assertCompanyActive(context.userId);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin
     .from("app_settings")
     .select("value")
-    .eq("key", "auto_assign_enabled")
+    .eq("key", `company:${company.id}:auto_assign_enabled`)
     .maybeSingle();
   return { enabled: String(data?.value ?? "false").toLowerCase() === "true" };
 });
@@ -22,13 +24,15 @@ export const setAutoAssign = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { requireStaff, logDispatchEvent } = await import("@/lib/staffGuard.server");
     await requireStaff(context.userId, ["admin"]);
+    const { assertCompanyActive } = await import('./company.server');
+    const company = await assertCompanyActive(context.userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("app_settings")
       .upsert(
         {
-          key: "auto_assign_enabled",
+          key: `company:${company.id}:auto_assign_enabled`,
           value: data.enabled ? "true" : "false",
           updated_by: context.userId,
           updated_at: new Date().toISOString(),

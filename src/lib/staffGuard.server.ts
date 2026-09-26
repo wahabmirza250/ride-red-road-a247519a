@@ -12,10 +12,12 @@ export async function requireStaff(
   allowed: StaffRole[] = ["admin", "dispatch"],
 ): Promise<{ roles: StaffRole[]; isAdmin: boolean; isDispatch: boolean }> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { assertCompanyActive } = await import('./company.server');
+  const company = await assertCompanyActive(userId);
   const { data, error } = await supabaseAdmin
     .from("user_roles")
     .select("role")
-    .eq("user_id", userId);
+    .eq("user_id", userId).eq("company_id", company.id);
   if (error) throw new Error(error.message);
 
   const all = (data ?? []).map((r) => String(r.role));

@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useAuth } from '@/lib/auth';
 // TrackMap: use Google Maps embed iframe (same pattern as pickup screen) —
 // reliable across dev/prod and no API key required for the classic embed URL.
 
@@ -108,6 +109,7 @@ function TrackMap({
 
 
 function RidePage() {
+  const { user } = useAuth();
   const { requestId } = Route.useParams();
   const navigate = useNavigate();
   const redispatch = useServerFn(dispatchRideRequest);
@@ -142,6 +144,9 @@ function RidePage() {
   // i.e. this tracking link — is the trust boundary, same as cancelling.
   const [driver, setDriver] = useState<DriverRow | null>(null);
   useEffect(() => {
+    setReq(null); setDriver(null); setNotFound(false);
+    if (!user) { setLoading(false); return; }
+    setLoading(true);
     let cancelled = false;
     const load = async (initial = false) => {
       try {
@@ -164,7 +169,7 @@ function RidePage() {
       cancelled = true;
       window.clearInterval(poll);
     };
-  }, [requestId, rideView]);
+  }, [requestId, rideView, user?.id]);
 
   // Once a trip is created, redirect to the polished track page.
   useEffect(() => {
@@ -270,10 +275,10 @@ function RidePage() {
       </div>
     );
   }
-  if (notFound || !req) {
+  if (!user || notFound || !req) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background p-6 text-center">
-        <p className="text-sm text-muted-foreground">This ride request could not be found.</p>
+        <p className="text-sm text-muted-foreground">{user ? 'This ride is unavailable for your account.' : 'Sign in to your company account to view your rides.'}</p>
         <a href="/passenger" className="text-sm font-medium text-primary hover:underline">
           Back to rides
         </a>

@@ -132,18 +132,18 @@ export function AddManualTripDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>Passenger / client name</Label>
-              <Input value={passenger} onChange={(e) => setPassenger(e.target.value)} />
+              <Input aria-label="Passenger / client name" value={passenger} onChange={(e) => setPassenger(e.target.value)} />
             </div>
             <div className="grid gap-1.5">
               <Label>Trip / service date</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Input aria-label="Trip / service date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>Claim number</Label>
-              <Input
+              <Input aria-label="Claim number"
                 value={claimNumber}
                 onChange={(e) => setClaimNumber(e.target.value)}
                 placeholder="Optional / external reference"
@@ -169,7 +169,7 @@ export function AddManualTripDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>Amount billed ($)</Label>
-              <Input
+              <Input aria-label="Amount billed ($)"
                 type="number"
                 step="0.01"
                 value={billed}
@@ -179,7 +179,7 @@ export function AddManualTripDialog({
             </div>
             <div className="grid gap-1.5">
               <Label>Driver pay amount ($)</Label>
-              <Input
+              <Input aria-label="Driver pay amount ($)"
                 type="number"
                 step="0.01"
                 value={pay}
@@ -191,7 +191,7 @@ export function AddManualTripDialog({
 
           <div className="grid gap-1.5">
             <Label>Notes / reason (optional)</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+            <Textarea aria-label="Notes / reason (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
         </div>
 

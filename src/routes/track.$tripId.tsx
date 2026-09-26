@@ -102,7 +102,7 @@ const STATUS_META: Record<
   },
   completed: {
     headline: "You've arrived",
-    sub: "Thanks for riding with RedArt.",
+    sub: "Thanks for riding with NEMT Solutions.",
     stage: "completed",
     cta: "Done",
   },

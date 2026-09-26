@@ -14,7 +14,7 @@ function haversineKm(a: Coord, b: Coord) {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-const STALE_GPS_MS = 10 * 60 * 1000;
+const STALE_GPS_MS = 90_000;
 const UNASSIGNED_WARN_MS = 5 * 60 * 1000;
 const SOON_MS = 20 * 60 * 1000;
 
@@ -274,9 +274,9 @@ export const getDispatchBoard = createServerFn({ method: "GET" })
       requests,
       drivers,
       autoAssign:
-        String(settingMap.get("auto_assign_enabled") ?? "false").toLowerCase() ===
+        String(settingMap.get(`company:${callerCompany}:auto_assign_enabled`) ?? "false").toLowerCase() ===
         "true",
-      dispatchPhone: settingMap.get("dispatch_phone_number") ?? null,
+      dispatchPhone: settingMap.get(`company:${callerCompany}:support_phone`) ?? null,
       viewer: { isAdmin, isDispatch },
     };
   });

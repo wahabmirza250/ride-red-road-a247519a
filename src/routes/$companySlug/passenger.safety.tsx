@@ -1,3 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
+import { useServerFn } from '@tanstack/react-start';
+import { getPublicDispatchPhone } from '@/lib/guestBooking.functions';
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLink } from "@/lib/appLink";
 import {
@@ -14,6 +17,11 @@ export const Route = createFileRoute("/$companySlug/passenger/safety")({
 });
 
 function SafetyHub() {
+  const fetchPhone = useServerFn(getPublicDispatchPhone);
+  const { companySlug } = Route.useParams();
+  const support = useQuery({ queryKey: ['company-support', companySlug], queryFn: () => fetchPhone() });
+  const phone = support.data?.phone;
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-2">
@@ -50,36 +58,36 @@ function SafetyHub() {
         <Phone className="h-5 w-5 text-red-600" />
       </a>
 
-      <a
-        href="tel:+18005551234"
+      {phone ? <a
+        href={`tel:${phone}`}
         className="flex items-center gap-4 rounded-3xl border border-border/60 bg-surface p-5 shadow-soft transition hover:bg-surface-muted"
       >
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <Phone className="h-6 w-6" />
         </div>
         <div className="flex-1">
-          <div className="text-base font-semibold">RedArt 24/7 Support</div>
+          <div className="text-base font-semibold">Company support</div>
           <div className="text-xs text-muted-foreground">
-            Talk to a live dispatcher any time.
+            Call your transport company.
           </div>
         </div>
-      </a>
+      </a> : <p className="rounded-2xl border p-4 text-sm text-muted-foreground">{support.isLoading ? 'Loading company support…' : support.isError ? 'Could not load support details. Please try again.' : 'Your company has not added a support number yet. Contact your driver from your ride screen.'}</p>}
 
       <div className="rounded-3xl border border-border/60 bg-surface p-5 shadow-soft">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Shield className="h-4 w-4 text-primary" />
-          Every RedArt ride includes
+          Ride assistance
         </div>
         <ul className="mt-3 space-y-3 text-sm">
           <SafetyRow
             icon={<UserCheck className="h-4 w-4" />}
-            title="Vetted, credentialed drivers"
-            body="Background-checked and trained on NEMT protocols and passenger assistance."
+            title="Your transport provider"
+            body="Contact your company for information about driver qualifications and assistance."
           />
           <SafetyRow
             icon={<MapPin className="h-4 w-4" />}
             title="Live trip tracking"
-            body="Your ride is tracked in real time. Share your trip with a caregiver any time."
+            body="Your ride is tracked in real time. Open your ride to see the latest available location."
           />
           <SafetyRow
             icon={<Phone className="h-4 w-4" />}
@@ -90,7 +98,7 @@ function SafetyHub() {
       </div>
 
       <div className="rounded-3xl border border-border/60 bg-surface-muted p-5 text-xs text-muted-foreground">
-        In a life-threatening emergency always call 911 first. Then let RedArt
+        In a life-threatening emergency always call 911 first. Then let your company
         know so we can coordinate with responders and your care team.
       </div>
     </div>

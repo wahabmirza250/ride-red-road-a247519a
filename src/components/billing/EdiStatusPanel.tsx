@@ -5,7 +5,7 @@
  * neutral "not linked" note and no actions. Nothing here submits to HCPF and
  * nothing here duplicates X12/HCPF rules — the EDI backend owns all of that.
  *
- * SECURITY: the panel never sends an EDI claim id. It sends the RedArt billing
+ * SECURITY: the panel never sends an EDI claim id. It sends the NEMT Solutions billing
  * record id, and the server resolves the claim from that company's own row —
  * so a tampered request cannot reach another company's claim.
  */
@@ -56,7 +56,7 @@ export function EdiStatusPanel({
   companyId = null,
 }: {
   record: EdiClaimRef | null | undefined;
-  /** RedArt billing record id — the only id the browser ever sends. */
+  /** NEMT Solutions billing record id — the only id the browser ever sends. */
   recordId: string;
   companyId?: string | null;
 }) {

@@ -556,7 +556,7 @@ function DriverDetailPage() {
 
         {/* Earnings */}
         <AppLink to="/salary" className="block rounded-xl border p-4 text-primary">
-          Review pay plans, unpaid work and payment history in Salary →
+          Review pay plans, unpaid work and payment history in Driver pay →
         </AppLink>
 
         {/* Stats */}

@@ -891,7 +891,7 @@ function DriverHome() {
               photo + reading in the same flow as the signature. */}
 
           {/* Linear trip sequence. Navigation hands off directly to Google
-              Maps; Route Overview remains available in the RedArt map. */}
+              Maps; Route Overview remains available in the NEMT Solutions map. */}
           <div className="space-y-2 pt-2">
             {tripStatus === "assigned" && (
               <Button

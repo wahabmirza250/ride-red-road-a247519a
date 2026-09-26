@@ -158,14 +158,14 @@ export function ManualPayrollItemDialog({
             </div>
             <div className="grid gap-1.5">
               <Label>Service / trip date</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Input aria-label="Service / trip date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>Amount ($)</Label>
-              <Input
+              <Input aria-label="Amount ($)"
                 type="number"
                 step="0.01"
                 value={amount}
@@ -192,12 +192,12 @@ export function ManualPayrollItemDialog({
 
           <div className="grid gap-1.5">
             <Label>Passenger / client (optional)</Label>
-            <Input value={passenger} onChange={(e) => setPassenger(e.target.value)} />
+            <Input aria-label="Passenger / client (optional)" value={passenger} onChange={(e) => setPassenger(e.target.value)} />
           </div>
 
           <div className="grid gap-1.5">
             <Label>Description</Label>
-            <Input
+            <Input aria-label="Description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Weekend bonus"
@@ -206,7 +206,7 @@ export function ManualPayrollItemDialog({
 
           <div className="grid gap-1.5">
             <Label>Notes (optional)</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+            <Textarea aria-label="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
         </div>
 

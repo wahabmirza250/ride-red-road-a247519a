@@ -45,13 +45,13 @@ import {
 export const Route = createFileRoute("/$companySlug/_authenticated/payroll/")({
   head: () => ({
     meta: [
-      { title: "Driver Payroll — RedArt NEMT" },
+      { title: "Driver Payroll — NEMT Solutions" },
       {
         name: "description",
         content:
           "Admin-only payroll: review clocked hours, earnings and fuel, then clear driver payments per pay period.",
       },
-      { property: "og:title", content: "Driver Payroll — RedArt NEMT" },
+      { property: "og:title", content: "Driver Payroll — NEMT Solutions" },
       {
         property: "og:description",
         content: "Review hours, earnings and fuel, then clear driver payments per pay period.",

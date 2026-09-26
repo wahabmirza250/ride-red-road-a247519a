@@ -464,7 +464,7 @@ export function BillingDetailSheet({
                   </Button>
                   <div>
                     <Label>Needs fix — describe the issue</Label>
-                    <Textarea
+                    <Textarea aria-label="Needs fix — describe the issue"
                       rows={2}
                       value={fixNotes}
                       onChange={(e) => setFixNotes(e.target.value)}
@@ -505,7 +505,7 @@ export function BillingDetailSheet({
                   </Button>
                   <div>
                     <Label>Send back to driver</Label>
-                    <Textarea
+                    <Textarea aria-label="Send back to driver"
                       rows={2}
                       value={fixNotes}
                       onChange={(e) => setFixNotes(e.target.value)}
@@ -556,7 +556,7 @@ export function BillingDetailSheet({
                         submits and records the claim number for you.
                       </p>
                       <Label>Confirmation / Receipt number from HCPF portal</Label>
-                      <Input
+                      <Input aria-label="Confirmation / Receipt number from HCPF portal"
                         value={confirmationNumber}
                         onChange={(e) => setConfirmationNumber(e.target.value)}
                         placeholder="Paste the portal's receipt number"
@@ -589,7 +589,7 @@ export function BillingDetailSheet({
                   </Button>
                   <div>
                     <Label>Rejection reason</Label>
-                    <Input
+                    <Input aria-label="Rejection reason"
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       placeholder="Why did the state reject?"

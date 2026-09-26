@@ -60,8 +60,8 @@ function NewsAdmin() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Passenger News Feed</h1>
-        <p className="text-sm text-muted-foreground">Announcements shown in the Rider app.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Announcements</h1>
+        <p className="text-sm text-muted-foreground">Announcements shown in the Passenger app.</p>
       </div>
 
       <div className="grid gap-4 rounded-2xl border border-border bg-surface p-6 shadow-soft md:grid-cols-2">

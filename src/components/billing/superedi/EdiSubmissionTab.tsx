@@ -276,7 +276,7 @@ export function EdiSubmissionTab({
               </Button>
             </div>
             <p className="mt-2">
-              Nothing leaves RedArt until one of these is clicked. Production stays disabled until
+              Nothing leaves NEMT Solutions until one of these is clicked. Production stays disabled until
               the company is marked production-capable in Provider Setup.
             </p>
           </Step>

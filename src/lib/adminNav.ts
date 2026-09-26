@@ -41,7 +41,7 @@ export const ADMIN_NAV_GROUPS = [
   ],
   [
     { to: "/drivers", label: "Drivers", icon: Users },
-    { to: "/salary", label: "Salary", icon: Banknote },
+    { to: "/salary", label: "Driver pay", icon: Banknote },
     { to: COMPLIANCE_PATH(), label: "Compliance", icon: ClipboardCheck },
     { to: "/passengers", label: "Passengers", icon: UserRound },
   ],
@@ -57,9 +57,9 @@ export const ADMIN_NAV_GROUPS = [
   ],
   [
     { to: "/messages", label: "Messages", icon: MessageSquare },
-    { to: "/communications", label: "Communications", icon: MessageSquare },
-    { to: "/news-feed", label: "News Feed", icon: Megaphone },
-    { to: "/news", label: "News", icon: Newspaper },
+    { to: "/communications", label: "SMS settings", icon: MessageSquare },
+    { to: "/news-feed", label: "Announcements", icon: Megaphone },
+    { to: "/news", label: "Local news", icon: Newspaper },
   ],
   [
     { to: "/games", label: "Games", icon: Gamepad2 },

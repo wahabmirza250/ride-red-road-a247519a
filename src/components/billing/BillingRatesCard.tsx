@@ -327,7 +327,7 @@ export function BillingRatesCard() {
               value={form.vehicle_type}
               onValueChange={(v) => onVehicleChange(v as VehicleType)}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label="Vehicle type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -342,7 +342,8 @@ export function BillingRatesCard() {
               <span className="text-destructive">*</span>
             </Label>
             <Input
-              value={form.default_diagnosis_code}
+              aria-label="Default diagnosis code"
+                    value={form.default_diagnosis_code}
               
               onChange={(e) =>
                 setForm({ ...form, default_diagnosis_code: e.target.value })
@@ -373,6 +374,7 @@ export function BillingRatesCard() {
                     Procedure Code <span className="text-destructive">*</span>
                   </Label>
                   <Input
+                    aria-label="Procedure code"
                     value={state.procedure_code}
                     
                     onChange={(e) =>
@@ -425,6 +427,7 @@ export function BillingRatesCard() {
                     Place of Service <span className="text-destructive">*</span>
                   </Label>
                   <Input
+                    aria-label="Place of service"
                     value={state.place_of_service}
                     
                     onChange={(e) =>

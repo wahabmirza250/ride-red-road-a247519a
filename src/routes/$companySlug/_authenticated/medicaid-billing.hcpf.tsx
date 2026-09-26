@@ -30,13 +30,13 @@ export const Route = createFileRoute("/$companySlug/_authenticated/medicaid-bill
   }),
   head: () => ({
     meta: [
-      { title: "HCPF Billing — RedArt NEMT" },
+      { title: "HCPF Billing — NEMT Solutions" },
       {
         name: "description",
         content:
           "Admin billing workspace: review paper bills, confirm claims, submit to the state portal and track claims history without leaving the dashboard.",
       },
-      { property: "og:title", content: "HCPF Billing — RedArt NEMT" },
+      { property: "og:title", content: "HCPF Billing — NEMT Solutions" },
       {
         property: "og:description",
         content: "Full Medicaid billing workflow inside the admin dashboard.",

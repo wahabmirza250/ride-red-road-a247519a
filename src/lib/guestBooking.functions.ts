@@ -126,7 +126,7 @@ export const guestRequestRide = createServerFn({ method: "POST" })
       .from("ride_requests")
       .insert({
         company_id: company.id,
-        passenger_id: null,
+        passenger_id: context.userId,
         pickup_address: data.pickup_address.trim(),
         pickup_lat: data.pickup_lat,
         pickup_lng: data.pickup_lng,
@@ -158,8 +158,8 @@ export const guestRequestRide = createServerFn({ method: "POST" })
       smsSuffix: `Call back: ${phone}`,
     });
 
-    const { dispatchRideRequest } = await import("@/lib/dispatch.functions");
-    const dispatch = await dispatchRideRequest({ data: { request_id: inserted.id } });
+    const { dispatchRideInternal } = await import("@/lib/dispatchEngine.server");
+    const dispatch = await dispatchRideInternal({ request_id: inserted.id });
     return { request_id: inserted.id, ...dispatch };
 
   });
@@ -171,11 +171,15 @@ export const guestRequestRide = createServerFn({ method: "POST" })
  * no Medicaid ID, no other passengers' data.
  */
 export const getGuestRideView = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { request_id: string }) => {
     if (!input?.request_id) throw new Error("request_id required");
     return input;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { requireRideAccess } = await import('./rideAccess.server');
+    await requireRideAccess(context.userId, data.request_id);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: req } = await supabaseAdmin
       .from("ride_requests")
@@ -228,34 +232,40 @@ export const getGuestRideView = createServerFn({ method: "GET" })
 
 /** PUBLIC — a guest's own recent rides on this device. */
 export const listGuestRides = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { device_id: string }) => {
     if (!input?.device_id) throw new Error("device_id required");
     return input;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ context }) => {
+    const { assertCompanyActive } = await import('./company.server');
+    const company = await assertCompanyActive(context.userId);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: pax } = await supabaseAdmin
       .from("passengers")
       .select("id, first_name, phone")
-      .eq("device_id", data.device_id)
+      .eq("user_id", context.userId).eq("company_id", company.id)
       .maybeSingle();
-    if (!pax?.phone) return { first_name: pax?.first_name ?? null, rides: [] };
+    if (!pax) return { first_name: null, rides: [] };
     const { data: rides } = await supabaseAdmin
       .from("ride_requests")
       .select("id, status, dropoff_address, created_at, trip_id")
-      .eq("contact_phone", pax.phone)
+      .eq("passenger_id", context.userId).eq("company_id", company.id)
       .order("created_at", { ascending: false })
       .limit(10);
     return { first_name: pax.first_name, rides: rides ?? [] };
   });
 
 /** PUBLIC — dispatch phone number shown to guests on the tracking screen. */
-export const getPublicDispatchPhone = createServerFn({ method: "GET" }).handler(async () => {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin
-    .from("app_settings")
-    .select("value")
-    .eq("key", "dispatch_phone_number")
-    .maybeSingle();
-  return { phone: data?.value ?? null };
-});
+export const getPublicDispatchPhone = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { assertCompanyActive } = await import('./company.server');
+    const company = await assertCompanyActive(context.userId);
+    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    const { data, error } = await supabaseAdmin.from('app_settings').select('value')
+      .eq('key', `company:${company.id}:support_phone`).maybeSingle();
+    if (error) throw new Error('Unable to load company support details.');
+    return { phone: data?.value ?? null };
+  });

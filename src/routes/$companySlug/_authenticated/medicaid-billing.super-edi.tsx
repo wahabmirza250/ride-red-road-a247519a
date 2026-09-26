@@ -5,7 +5,7 @@ import { SuperEdiWorkspace } from "@/components/billing/superedi/SuperEdiWorkspa
 export const Route = createFileRoute("/$companySlug/_authenticated/medicaid-billing/super-edi")({
   head: () => ({
     meta: [
-      { title: "Super EDI — Electronic 837P billing | RedArt NEMT" },
+      { title: "Super EDI — Electronic 837P billing | NEMT Solutions" },
       {
         name: "description",
         content:

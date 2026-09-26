@@ -4,6 +4,7 @@ import { getRequestHeader, getRequestIP } from "@tanstack/react-start/server";
 
 /** PUBLIC — passenger submits a ride application without an account. */
 export const submitRideRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (input: {
       contact_name: string;
@@ -21,11 +22,19 @@ export const submitRideRequest = createServerFn({ method: "POST" })
       return input;
     },
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { assertCompanyActive } = await import('./company.server');
+    const company = await assertCompanyActive(context.userId);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: passenger } = await supabaseAdmin.from('passengers').select('id')
+      .eq('user_id', context.userId).eq('company_id', company.id).maybeSingle();
+    if (!passenger) throw new Error('Ask your administrator to create your passenger profile.');
     const { data: inserted, error } = await supabaseAdmin
       .from("ride_requests")
       .insert({
+        company_id: company.id,
+        passenger_id: context.userId,
         contact_name: data.contact_name.trim(),
         contact_phone: data.contact_phone.trim(),
         contact_medicaid: data.contact_medicaid?.trim() || null,
@@ -43,6 +52,7 @@ export const submitRideRequest = createServerFn({ method: "POST" })
     // Fan out to staff: DB feed + browser push + SMS.
     const { notifyDispatchers } = await import("@/lib/notifyStaff.server");
     await notifyDispatchers({
+      companyId: company.id,
       kind: "ride_request",
       title: "New ride request",
       body: `${data.contact_name} — ${data.pickup_address} → ${data.dropoff_address}`,

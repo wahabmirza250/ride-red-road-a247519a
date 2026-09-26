@@ -18,6 +18,7 @@ export type StaffNotification = {
  * (SMS here) covers every notification type at once instead of per call site.
  */
 export async function notifyDispatchers(n: StaffNotification) {
+  if (!n.companyId) throw new Error('Company is required for dispatch notifications.');
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   // 1. In-app feed (NotificationBell reads this table in realtime).
