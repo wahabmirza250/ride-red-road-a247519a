@@ -1,4 +1,8 @@
-import { getPublicDispatchPhone } from '@/lib/guestBooking.functions';
+import { AddRideDialog } from "@/components/nemt/AddRideDialog";
+import { TrackRidesPanel } from "@/components/dispatch/TrackRidesPanel";
+import { adminListAssignableDrivers } from "@/lib/dispatchAdmin.functions";
+import { AppLink } from "@/lib/appLink";
+import { getPublicDispatchPhone } from "@/lib/guestBooking.functions";
 import { locationState } from "@/lib/operationStatus";
 import { useWorkspaceSearch } from "@/lib/useWorkspaceSearch";
 import { createFileRoute, useSearch } from "@tanstack/react-router";
@@ -16,8 +20,8 @@ import { getAutoAssign, setAutoAssign } from "@/lib/settings.functions";
 export const Route = createFileRoute("/$companySlug/_authenticated/live-ops")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { tab?: "today" | "plan"; from?: string; to?: string; q?: string } => ({
-    tab: search.tab === "plan" ? "plan" : undefined,
+  ): { tab?: "today" | "plan" | "track"; from?: string; to?: string; q?: string } => ({
+    tab: search.tab === "plan" || search.tab === "track" ? search.tab : undefined,
     from: typeof search.from === "string" ? search.from : undefined,
     to: typeof search.to === "string" ? search.to : undefined,
     q: typeof search.q === "string" ? search.q : undefined,
@@ -30,22 +34,50 @@ export const Route = createFileRoute("/$companySlug/_authenticated/live-ops")({
  * planning workflow that used to live on its own top-level Planner page.
  */
 function DispatchWorkspace() {
-  const search = useSearch({ strict: false }) as { tab?: string };
+  const [revision, setRevision] = useState(0);
+  const listDrivers = useServerFn(adminListAssignableDrivers);
+  const driverOptions = useQuery({
+    queryKey: ["dispatch_create_drivers"],
+    queryFn: () => listDrivers(undefined),
+    staleTime: 30000,
+  });
   const [tab, setTab] = useWorkspaceSearch("tab", "today");
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dispatch</h1>
-        <p className="text-sm text-muted-foreground">
-          Live operations and ride planning in one workspace.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Dispatch</h1>
+          <p className="text-sm text-muted-foreground">
+            Create rides, assign drivers, and follow each trip from pickup to drop-off.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <AppLink
+            to="/trips"
+            className="rounded-xl border border-border px-4 py-2 text-sm font-medium"
+          >
+            Ride history
+          </AppLink>
+          <AddRideDialog
+            drivers={(driverOptions.data ?? []).map((d: any) => ({
+              id: d.id,
+              name: d.name ?? "Driver",
+              activity: d.status,
+            }))}
+            onCreated={() => {
+              setRevision((v) => v + 1);
+              setTab("plan");
+            }}
+          />
+        </div>
       </div>
-      <div className="inline-flex rounded-xl border border-border bg-surface p-1 text-sm">
+      <div className="inline-flex flex-wrap rounded-xl border border-border bg-surface p-1 text-sm">
         {(
           [
-            { id: "today", label: "Today" },
+            { id: "today", label: "Dispatch rides" },
             { id: "plan", label: "Plan rides" },
+            { id: "track", label: "Track rides" },
           ] as const
         ).map((t) => (
           <button
@@ -60,7 +92,13 @@ function DispatchWorkspace() {
           </button>
         ))}
       </div>
-      {tab === "today" ? <LiveOps /> : <PlanRidesPanel />}
+      {tab === "today" ? (
+        <LiveOps key={revision} />
+      ) : tab === "track" ? (
+        <TrackRidesPanel />
+      ) : (
+        <PlanRidesPanel key={revision} />
+      )}
     </div>
   );
 }
@@ -424,11 +462,18 @@ function LiveOps() {
 
 function DispatchPhoneCard() {
   const getPhone = useServerFn(getPublicDispatchPhone);
-  const phone = useQuery({queryKey:['company-support'],queryFn:()=>getPhone()});
-  return <div className="rounded-2xl border border-border bg-surface p-4"><h2 className="text-sm font-semibold">Passenger support number</h2>
-    <p className="mt-2 text-sm">{phone.isLoading ? 'Loading…' : phone.data?.phone || 'Not configured'}</p>
-    <p className="mt-2 text-xs text-muted-foreground">The platform owner sets this number in the company profile.</p>
-  </div>;
+  const phone = useQuery({ queryKey: ["company-support"], queryFn: () => getPhone() });
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-4">
+      <h2 className="text-sm font-semibold">Passenger support number</h2>
+      <p className="mt-2 text-sm">
+        {phone.isLoading ? "Loading…" : phone.data?.phone || "Not configured"}
+      </p>
+      <p className="mt-2 text-xs text-muted-foreground">
+        The platform owner sets this number in the company profile.
+      </p>
+    </div>
+  );
 }
 
 /**

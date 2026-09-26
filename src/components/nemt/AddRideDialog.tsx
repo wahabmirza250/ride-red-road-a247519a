@@ -138,7 +138,7 @@ export function AddRideDialog({
   return (
     <>
       <Button className="rounded-full" onClick={() => setOpen(true)}>
-        <Plus className="mr-1.5 h-4 w-4" /> Add ride
+        <Plus className="mr-1.5 h-4 w-4" /> Create ride
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
