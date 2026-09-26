@@ -28,7 +28,7 @@ describe("presentation billing", () => {
     await runDemoPortal(db,"demo",[row.id],"submit");
     expect(row).toMatchObject({status:"submitted",state_confirmation_number:"DEMO-12345678"});
     await runDemoPortal(db,"demo",[row.id],"submit");expect(writes).toHaveLength(1);
-    await runDemoPortal(db,"demo",[row.id],"payment");expect(row).toMatchObject({edi_status:"paid"});
+    await runDemoPortal(db,"demo",[row.id],"payment");expect(row).toMatchObject({status:"paid",edi_status:"paid"});
     expect(writes.every(w=>w.filters.some(([k,v]:any[])=>k==="company_id"&&v==="demo"))).toBe(true);
     expect(fetch).not.toHaveBeenCalled();fetch.mockRestore();
   });

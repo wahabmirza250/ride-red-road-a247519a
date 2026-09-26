@@ -15,7 +15,7 @@ export async function runDemoPortal(db: any, companyId: string, ids: string[] | 
   const { data: rows, error } = await query;
   if (error) throw new Error(error.message);
   if (ids && rows.length !== new Set(ids).size) throw new Error("The selected bills do not belong to this demo company.");
-  if (action === "payment" && rows.some((r: any) => r.status !== "submitted")) throw new Error("Submit the sample claims first.");
+  if (action === "payment" && rows.some((r: any) => !["submitted", "paid"].includes(r.status))) throw new Error("Submit the sample claims first.");
   const now = new Date().toISOString();
   const startedIds: string[] = [];
   for (const row of rows) {
@@ -23,7 +23,7 @@ export async function runDemoPortal(db: any, companyId: string, ids: string[] | 
     const patch = action === "submit" ? {
       status: "submitted", submitted_at: now, state_confirmation_number: `DEMO-${row.id.slice(0,8).toUpperCase()}`,
       requires_human_step: false, submission_error: null, submit_last_error: null, failure_code: null, fix_notes: null,
-    } : { edi_environment: "test", edi_status: "paid", edi_status_detail: { demo: true, status: "paid", message: "Sample payment received. No payer contacted." } };
+    } : { status: "paid", edi_environment: "test", edi_status: "paid", edi_status_detail: { demo: true, status: "paid", message: "Sample payment received. No payer contacted." } };
     const { error: updateError } = await db.from("billing_records").update(patch).eq("company_id", companyId).eq("id", row.id);
     if (updateError) throw new Error(updateError.message);
     startedIds.push(row.id);

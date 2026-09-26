@@ -1,4 +1,6 @@
-import { resolveDemoPlace } from "@/lib/demoPlaces";
+import { DriverFleetMap } from "@/components/nemt/useClientMap";
+import { useTheme } from "@/lib/theme";
+import { resolveDemoPlace, DEMO_PLACES } from "@/lib/demoPlaces";
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLink, useAppNavigate } from "@/lib/appLink";
 import { useEffect, useMemo, useState } from "react";
@@ -21,7 +23,9 @@ type RecentTrip = { id: string; dropoff_address: string; created_at: string };
 function PassengerHome() {
   const { user } = useAuth();
   const navigate = useAppNavigate();
-  const { pos, err } = useCurrentPosition();
+  const isDemo = user?.app_metadata?.is_demo === true;
+  const { theme } = useTheme();
+  const { pos, err } = useCurrentPosition(!isDemo);
   const [firstName, setFirstName] = useState<string>("");
   const [recent, setRecent] = useState<RecentTrip[]>([]);
 
@@ -220,11 +224,11 @@ function PassengerHome() {
       {/* You are here */}
       <section className="space-y-2.5">
         <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <Navigation className="h-3.5 w-3.5" /> You are here
+          <Navigation className="h-3.5 w-3.5" /> {isDemo ? "Sample pickup location" : "You are here"}
         </h2>
         <div className="relative overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">
           <div className="h-40 w-full">
-            {pos ? (
+            {isDemo ? <DriverFleetMap dark={theme === "dark"} center={[DEMO_PLACES[1].lat, DEMO_PLACES[1].lng]} markers={[{id:"demo-pickup",lat:DEMO_PLACES[1].lat,lng:DEMO_PLACES[1].lng,status:"available",label:"Sample pickup"}]} /> : pos ? (
               <iframe
                 title="Your location"
                 className="h-full w-full border-0"

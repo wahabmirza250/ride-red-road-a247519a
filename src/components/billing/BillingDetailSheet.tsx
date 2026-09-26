@@ -275,7 +275,7 @@ export function BillingDetailSheet({
               />
             )}
 
-            <EdiStatusPanel record={recAny} recordId={id!} />
+            {!isDemo && <EdiStatusPanel record={recAny} recordId={id!} />}
 
             {resendDecision && (
               <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3 text-xs">

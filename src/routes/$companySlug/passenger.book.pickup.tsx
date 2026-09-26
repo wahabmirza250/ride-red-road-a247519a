@@ -94,7 +94,7 @@ function ConfirmPickup() {
   const isDemo = useAuth().user?.app_metadata?.is_demo === true;
   const search = Route.useSearch();
   const navigate = useAppNavigate();
-  const { pos, err: geoErr } = useCurrentPosition();
+  const { pos, err: geoErr } = useCurrentPosition(!isDemo);
   const draft = loadDraft();
 
   // Destination — URL search wins, else persisted draft.

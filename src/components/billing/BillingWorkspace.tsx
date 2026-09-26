@@ -545,12 +545,12 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     <div className={embedded ? "space-y-5" : "space-y-6"}>
       {/* A company that is not configured yet gets the setup wizard here rather
           than a dead end — the workspace itself stays browsable. */}
-      <details className="rounded-2xl border border-border p-4">
+      {!isDemo && <details className="rounded-2xl border border-border p-4">
         <summary className="cursor-pointer font-medium">{setupReady ? 'Billing setup and rates' : 'Complete billing setup before submitting claims'}</summary>
         <div className="mt-4"><BillingSetupPanel compact /></div>
-      </details>
+      </details>}
 
-      {setupReady && !defaultPortal && (
+      {!isDemo && setupReady && !defaultPortal && (
         <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>

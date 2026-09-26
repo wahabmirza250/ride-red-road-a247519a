@@ -1,3 +1,4 @@
+import { useAuth } from "@/lib/auth";
 /**
  * The ONE badge that is allowed to say what the state portal did.
  *
@@ -29,6 +30,8 @@ export function ClaimStatePill({
   record: ClaimStateInput | null | undefined;
   className?: string;
 }) {
+  const isDemo = useAuth().user?.app_metadata?.is_demo === true;
+  if (isDemo) return <span title="Simulated demo status"><StatusPill status={String(record?.status ?? "")} className={className} /></span>;
   const state = presentClaimState(record);
   if (state.key === "other" || !state.label)
     return <StatusPill status={String(record?.status ?? "")} className={className} />;

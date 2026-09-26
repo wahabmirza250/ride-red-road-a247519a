@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 
-export function useCurrentPosition() {
+export function useCurrentPosition(enabled = true) {
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
+    if (!enabled) return;
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setErr("Geolocation not supported");
       return;
@@ -13,7 +14,7 @@ export function useCurrentPosition() {
       (e) => setErr(e.message),
       { enableHighAccuracy: true, timeout: 8000 },
     );
-  }, []);
+  }, [enabled]);
   return { pos, err };
 }
 
