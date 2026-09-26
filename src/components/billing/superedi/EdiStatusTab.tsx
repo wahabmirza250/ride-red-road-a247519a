@@ -139,11 +139,11 @@ export function EdiStatusTab({ companyId }: { companyId: string | null }) {
 
       {linked.isLoading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading EDI claims…
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading claims…
         </div>
       ) : list.length === 0 ? (
         <Empty icon>
-          No bill is linked to an EDI claim yet. Validate a selection in Batch Review first.
+          No claims to track yet. Select and check your trips in Trips to bill to get started.
         </Empty>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">

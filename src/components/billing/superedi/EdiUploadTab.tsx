@@ -8,7 +8,7 @@
  *      automatically.
  *   2. Pick existing electronic bills that already live in NEMT Solutions.
  *
- * Everything imported/selected here flows into the Batch Review selection.
+ * Everything imported/selected here flows into the Trips to bill selection.
  */
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
