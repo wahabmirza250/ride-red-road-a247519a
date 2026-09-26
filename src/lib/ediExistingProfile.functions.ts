@@ -39,7 +39,7 @@ export const findExistingEdiProvider = createServerFn({method:'POST'})
     const {parseEdiId} = await import('./ediGuard');
     const id = parseEdiId(provider.id);
     if (!id) throw new Error('The matching provider has no valid identifier.');
-    const {data:other,error:otherError} = await supabaseAdmin.from('edi_company_mapping').select('company_id').eq('edi_provider_profile_id',id).neq('company_id',companyId);
+    const {data:other,error:otherError} = await supabaseAdmin.from('edi_company_mapping').select('company_id').eq('edi_provider_profile_id',String(id)).neq('company_id',companyId);
     if (otherError) throw new Error(otherError.message);
     if (other?.length) throw new Error('This provider is already linked to another company. Contact the account owner.');
     const {loadEdiCompanySettings} = await import('./ediSetup.server');
