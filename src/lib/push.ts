@@ -41,6 +41,7 @@ export async function registerPushSW(): Promise<ServiceWorkerRegistration | null
 /** Ask for permission and subscribe. Safe to call on load — bails if already prompted/denied. */
 export async function ensurePushSubscribed(opts?: { force?: boolean }): Promise<boolean> {
   if (isNativeApp()) {
+    await (await import('./nativePushInteractions')).initializeNativePushInteractions();
     const token = await registerNativePush();
     if (!token) return false;
     await saveNativePushToken({ data: { token } });
