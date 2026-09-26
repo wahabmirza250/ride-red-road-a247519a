@@ -5,7 +5,7 @@
  * decides readiness (`ready === true`). One bad claim never blocks the rest:
  * ready rows stay selected, bad rows can be opened and fixed. No local mileage
  * threshold, no invented statuses — everything shown here came from the
- * backend or from RedArt's own data checks.
+ * backend or from NEMT Solutions's own data checks.
  */
 import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";

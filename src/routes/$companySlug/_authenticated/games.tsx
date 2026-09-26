@@ -14,7 +14,7 @@ export const Route = createFileRoute("/$companySlug/_authenticated/games")({
   component: GamesPage,
   head: () => ({
     meta: [
-      { title: "Games — RedArt NEMT" },
+      { title: "Games — NEMT Solutions" },
       { name: "description", content: "Curated web games for drivers on break." },
     ],
   }),

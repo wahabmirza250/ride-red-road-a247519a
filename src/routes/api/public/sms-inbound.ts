@@ -200,8 +200,8 @@ export const Route = createFileRoute("/api/public/sms-inbound")({
         }
 
         try {
-          const { dispatchRideRequest } = await import("@/lib/dispatch.functions");
-          await dispatchRideRequest({ data: { request_id: inserted.id } });
+          const { dispatchRideInternal } = await import("@/lib/dispatchEngine.server");
+          await dispatchRideInternal({ request_id: inserted.id });
         } catch (e) {
           console.warn("[sms-inbound] auto-dispatch skipped", e);
         }

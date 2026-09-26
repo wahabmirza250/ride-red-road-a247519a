@@ -26,8 +26,16 @@ GitHub Actions launches each app on an Android 35 emulator, checks the bundled s
 
 Included native permissions: foreground location in both apps; camera in the driver app. No microphone, background camera, or background location permission. The unused FCM push plugin is excluded until Firebase configuration is supplied. Existing web notifications remain separate.
 
-Device validation: sign in with a real company driver, grant camera permission, enable camera, view from a same-company administrator, close the viewer, turn the camera off, switch apps, disconnect and restore Wi-Fi, and verify another company's administrator is denied. Confirm that all camera indicators disappear after stopping. Repeat on the actual tablet and cellular connection.
+Device validation: sign in with a real company driver, grant camera permission, accept the seven-day recording notice, view live video and saved clips from a same-company administrator, close the viewer, sign out to stop camera use, switch apps, disconnect and restore Wi-Fi, and verify another company's administrator is denied. Confirm that all camera indicators disappear after stopping. Repeat on the actual tablet and cellular connection.
 
 ## Company access (version 1.2)
 
 Both launchers ask for the same company code and open `https://nemtsolutions.co/<code>/driver/signin` or `/passenger/signin`. Company accounts are issued by administrators; public registration is disabled. Existing APKs remain supported through the web sign-in routes.
+
+## Recording and notification release validation
+
+Apply `app_review_security_and_recordings` before deploying this web release. Video-only recording runs while the app is visible, in independent 30-second clips. The local pending queue is capped at 200 MB; a full or unavailable queue blocks the camera gate instead of silently losing footage. Unuploaded clips expire locally on the next queue operation. This is not background dashcam recording; keep the managed tablet app visible during service. A force-close can lose the currently open clip.
+
+The private `vehicle-recordings` bucket is served through five-minute-or-shorter signed viewing links. Access expires seven days after capture. The Node server removes expired storage objects every 15 minutes, retrying after outages. Monitor cleanup failures. An idle/stopped server delays physical removal; expired footage remains unavailable through the application.
+
+For native notifications, supply the Firebase `google-services.json` separately for each Android app before `cap sync`. The plugin is included only when that file exists; builds without it remain usable but cannot receive native push. Set `FIREBASE_SERVICE_ACCOUNT_JSON` as a server-only Railway secret for the matching Firebase project. Never commit private service-account credentials. Verify a generic notification with the app foregrounded, backgrounded and screen locked, and verify sign-out unregisters the device. No Firebase credentials are included in this change.

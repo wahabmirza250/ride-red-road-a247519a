@@ -25,7 +25,7 @@ type Props = {
 /**
  * Route preview for the driver's next stop.
  *
- * RedArt keeps the stop order, passenger state, times, mileage, odometer and
+ * NEMT Solutions keeps the stop order, passenger state, times, mileage, odometer and
  * signatures. Driving directions open in Google Maps for the stop that is
  * current right now — when a stop is completed the route moves on, and the
  * next tap of Start Navigation opens directions to the new stop.

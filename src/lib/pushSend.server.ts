@@ -24,6 +24,9 @@ export type PushPayload = {
 
 export async function sendPushToUsers(userIds: string[], payload: PushPayload) {
   if (!userIds.length) return { sent: 0, failed: 0 };
+  const { sendNativePushToUsers } = await import('./nativePushSend.server');
+  const native = await sendNativePushToUsers(userIds, payload).catch(() => ({sent:0,failed:1}));
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return native;
   configure();
 
   const { data: subs } = await supabaseAdmin
@@ -31,11 +34,11 @@ export async function sendPushToUsers(userIds: string[], payload: PushPayload) {
     .select("id, endpoint, p256dh, auth")
     .in("user_id", userIds);
 
-  if (!subs?.length) return { sent: 0, failed: 0 };
+  if (!subs?.length) return native;
 
   const body = JSON.stringify(payload);
-  let sent = 0;
-  let failed = 0;
+  let sent = native.sent;
+  let failed = native.failed;
   const stale: string[] = [];
 
   await Promise.all(

@@ -18,8 +18,8 @@ export const Route = createFileRoute("/$companySlug/driver")({
 
 const NAV = [
   { to: "/driver", label: "Drive", icon: Car, exact: true },
-  { to: "/driver/history", label: "History", icon: History, exact: false },
-  { to: "/driver/messages", label: "Chat", icon: MessageSquare, exact: false },
+  { to: "/driver/history", label: "Trips", icon: History, exact: false },
+  { to: "/driver/messages", label: "Messages", icon: MessageSquare, exact: false },
   { to: "/driver/earnings", label: "Earnings", icon: DollarSign, exact: false },
   { to: "/driver/profile", label: "Profile", icon: User, exact: false },
 ] as const;

@@ -14,6 +14,19 @@ export type Database = {
   }
   public: {
     Tables: {
+      camera_recordings: {
+        Row: { id: string; company_id: string; driver_id: string; object_path: string; captured_at: string; expires_at: string; created_at: string }
+        Insert: { id?: string; company_id: string; driver_id: string; object_path: string; captured_at: string; expires_at: string; created_at?: string }
+        Update: { expires_at?: string }
+        Relationships: []
+      }
+      native_push_tokens: {
+        Row: { token: string; user_id: string; company_id: string; updated_at: string }
+        Insert: { token: string; user_id: string; company_id: string; updated_at?: string }
+        Update: { user_id?: string; company_id?: string; updated_at?: string }
+        Relationships: []
+      }
+
       admin_notifications: {
         Row: {
           body: string

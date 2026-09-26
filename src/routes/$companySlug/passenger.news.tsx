@@ -60,7 +60,7 @@ function NewsPage() {
       {curated.data && curated.data.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            From RedArt
+            From NEMT Solutions
           </h2>
           {curated.data.map((n, i) => (
             <article

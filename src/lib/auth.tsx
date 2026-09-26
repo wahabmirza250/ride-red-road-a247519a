@@ -97,6 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!session?.user) return;
+    void import('./native').then(async ({isNativeApp}) => {
+      if (isNativeApp()) await (await import('./push')).ensurePushSubscribed();
+    }).catch(() => {});
+  }, [session?.user.id]);
+
   const value = useMemo<AuthState>(
     () => ({
       user: session?.user ?? null,
@@ -112,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdminBiller: roles.includes("admin_biller"),
       refresh,
       signOut: async () => {
+        try { await (await import('./push')).unsubscribePush(); } catch { /* Server sessions are still revoked below. */ }
         await supabase.auth.signOut();
       },
     }),

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useAppNavigate } from "@/lib/appLink";
-import { useEffect, useState } from "react";
+import { cloneElement, isValidElement, useId, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Loader2, Send, MapPin, Clock, Phone, User, FileText, CheckCircle2 } from "lucide-react";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
-import { submitRideRequest } from "@/lib/passengerPublic.functions";
+import { getMyPassengerProfile, submitRideRequest } from "@/lib/passengerPublic.functions";
 import { passengerRequestRide } from "@/lib/dispatch.functions";
 import { useAuth } from "@/lib/auth";
 
@@ -26,6 +26,7 @@ function ApplyForRide() {
   const { user } = useAuth();
   const navigate = useAppNavigate();
   const submit = useServerFn(submitRideRequest);
+  const profile = useServerFn(getMyPassengerProfile);
   const submitAuthed = useServerFn(passengerRequestRide);
   const search = Route.useSearch();
   const [f, setF] = useState({
@@ -44,10 +45,15 @@ function ApplyForRide() {
   const [dispatchMsg, setDispatchMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const phone = window.localStorage.getItem("passenger_phone") ?? "";
-    if (phone) setF((p) => ({ ...p, contact_phone: p.contact_phone || phone }));
-  }, []);
+    let active = true;
+    void profile({ data: { device_id: 'issued-account' } }).then(p => {
+      if (active && p) setF(f => ({ ...f,
+        contact_name: f.contact_name || `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim(),
+        contact_phone: f.contact_phone || p.phone || '', contact_medicaid: f.contact_medicaid || p.medicaid_id || '',
+      }));
+    }).catch(() => { /* The form remains usable if profile loading fails. */ });
+    return () => { active = false; };
+  }, [user?.id]);
 
   function upd<K extends keyof typeof f>(k: K, v: string) {
     setF((p) => ({ ...p, [k]: v }));
@@ -66,7 +72,7 @@ function ApplyForRide() {
             dropoff_address: f.dropoff_address,
             dropoff_lat: dropoffCoords.lat,
             dropoff_lng: dropoffCoords.lng,
-            requested_pickup_time: f.requested_pickup_time || null,
+            requested_pickup_time: f.requested_pickup_time ? new Date(f.requested_pickup_time).toISOString() : null,
             notes: f.notes || null,
             contact_name: f.contact_name || null,
             contact_phone: f.contact_phone || null,
@@ -79,7 +85,7 @@ function ApplyForRide() {
         void navigate({ to: "/ride/$requestId", params: { requestId: res.request_id } });
         return;
       } else {
-        await submit({ data: f });
+        await submit({ data: { ...f, requested_pickup_time: f.requested_pickup_time ? new Date(f.requested_pickup_time).toISOString() : undefined } });
         setDispatchMsg(null);
       }
       setDone(true);
@@ -130,7 +136,7 @@ function ApplyForRide() {
       <div className="rounded-3xl border border-border/60 bg-surface/80 p-6 shadow-soft backdrop-blur">
         <h1 className="text-lg font-semibold tracking-tight">Book a ride</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Fill out the form and dispatch will call you back to confirm.
+          Request a pickup now or choose a later time. Dispatch confirms availability; sending a request does not guarantee a ride.
         </p>
 
         <form onSubmit={onSubmit} className="mt-5 space-y-3">
@@ -160,14 +166,14 @@ function ApplyForRide() {
             />
           </Field>
           {user && (!pickupCoords || !dropoffCoords) && (
-            <p className="text-xs text-amber-500">Pick both addresses from the dropdown so we can auto-dispatch a driver.</p>
+            <p className="text-xs text-amber-500">You can type either address. Dispatch will confirm it before assigning a driver; select suggestions for faster matching.</p>
           )}
           <Field icon={<Clock className="h-4 w-4" />} label="Pickup time">
             <Input type="datetime-local" value={f.requested_pickup_time} onChange={(e) => upd("requested_pickup_time", e.target.value)} />
           </Field>
           <div className="space-y-1.5">
-            <Label>Notes for driver</Label>
-            <Textarea rows={2} value={f.notes} onChange={(e) => upd("notes", e.target.value)} placeholder="Wheelchair, appointment info, etc." />
+            <Label htmlFor="ride-notes">Notes for driver</Label>
+            <Textarea id="ride-notes" rows={2} value={f.notes} onChange={(e) => upd("notes", e.target.value)} placeholder="Wheelchair, appointment info, etc." />
           </div>
 
           <Button type="submit" disabled={loading} className="mt-2 w-full rounded-full">
@@ -190,14 +196,15 @@ function Field({
   required?: boolean;
   children: React.ReactNode;
 }) {
+  const id = useId();
   return (
     <div className="space-y-1.5">
-      <Label className="flex items-center gap-1.5 text-xs">
+      <Label htmlFor={id} className="flex items-center gap-1.5 text-xs">
         <span className="text-muted-foreground">{icon}</span>
         {label}
         {required && <span className="text-rose-500">*</span>}
       </Label>
-      {children}
+      {isValidElement(children) ? cloneElement(children as React.ReactElement<{ id?: string }>, { id }) : children}
     </div>
   );
 }

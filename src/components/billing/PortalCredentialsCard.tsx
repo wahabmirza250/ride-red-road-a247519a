@@ -396,7 +396,7 @@ function CredentialDialog({
         </div>
         <div className="space-y-1.5">
           <Label>Login username</Label>
-          <Input
+          <Input aria-label="Login username"
             type="text"
             autoComplete="username"
             value={loginEmail}

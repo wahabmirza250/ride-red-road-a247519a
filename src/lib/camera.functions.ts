@@ -10,10 +10,10 @@ export const getCameraConnection = createServerFn({ method: 'POST' })
     const { assertCompanyActive } = await import('@/lib/company.server');
     const company = await assertCompanyActive(context.userId);
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
-    const rolesResult = await supabaseAdmin.from('user_roles').select('role').eq('user_id', context.userId);
+    const rolesResult = await supabaseAdmin.from('user_roles').select('role').eq('user_id', context.userId).eq('company_id', company.id);
     if (rolesResult.error) throw new Error('Could not verify camera access');
     let query = supabaseAdmin.from('drivers').select('id, user_id, company_id, merged_into').eq('company_id', company.id).is('merged_into', null);
-    if (data.mode === 'publish') query = query.eq('user_id', context.userId);
+    if (data.mode === 'publish') query = query.eq('user_id', context.userId).eq('company_id', company.id);
     else {
       if (!data.driverId) throw new Error('Select a driver');
       query = query.eq('id', data.driverId);

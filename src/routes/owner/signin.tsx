@@ -13,16 +13,16 @@ export const Route = createFileRoute("/owner/signin")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Platform Owner Sign In — RedArt Digital" },
+      { title: "Platform Owner Sign In — NEMT Solutions Digital" },
       {
         name: "description",
-        content: "Restricted sign-in for the RedArt Digital platform owner console.",
+        content: "Restricted sign-in for the NEMT Solutions Digital platform owner console.",
       },
       { name: "robots", content: "noindex, nofollow" },
-      { property: "og:title", content: "Platform Owner Sign In — RedArt Digital" },
+      { property: "og:title", content: "Platform Owner Sign In — NEMT Solutions Digital" },
       {
         property: "og:description",
-        content: "Restricted sign-in for the RedArt Digital platform owner console.",
+        content: "Restricted sign-in for the NEMT Solutions Digital platform owner console.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

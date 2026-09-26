@@ -295,8 +295,8 @@ export function EdiProviderSetupTab({
             <div className="grid gap-2 sm:grid-cols-2">
               <TransportChoice
                 active={value.transport_mode === "shared"}
-                title="RedArt shared connection"
-                description="Files are exchanged through RedArt's own trading-partner connection. No company credentials needed."
+                title="NEMT Solutions shared connection"
+                description="Files are exchanged through NEMT Solutions's own trading-partner connection. No company credentials needed."
                 onClick={() => set("transport_mode", "shared" as EdiTransportMode)}
               />
               <TransportChoice
@@ -318,7 +318,7 @@ export function EdiProviderSetupTab({
                   <Field label="Host" value={value.sftp_host} onChange={(v) => set("sftp_host", v)} />
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Port</Label>
-                    <Input
+                    <Input aria-label="Port"
                       className="h-9"
                       inputMode="numeric"
                       value={value.sftp_port === null ? "" : String(value.sftp_port)}

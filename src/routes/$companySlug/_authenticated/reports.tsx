@@ -104,7 +104,7 @@ function ReportsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Reports"
-        description="Payable work uses the same pay plans as Salary. Paid work is in Salary payment history."
+        description="Payable work uses the same pay plans as Driver pay. Paid work is in Driver pay payment history."
       />
       <QueryNotice query={payroll} label="Payroll" />
       <QueryNotice query={drivers} label="Drivers" />

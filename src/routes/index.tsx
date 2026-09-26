@@ -209,7 +209,7 @@ function LandingPage() {
           <Reveal delay={160}>
             <ProductCard
               icon={Users}
-              name="Rider App"
+              name="Passenger App"
               desc="Rideshare-quality booking with address autocomplete, live ETA, driver tracking, and guest-friendly flows for family members."
               accent="green"
             />

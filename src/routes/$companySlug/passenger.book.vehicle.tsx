@@ -73,7 +73,8 @@ function VehicleSelect() {
   const [ssn, setSsn] = useState("");
   const [dob, setDob] = useState("");
 
-  const missingCoords = !s.pLat || !s.pLng || !s.dLat || !s.dLng;
+  const missingCoords = !s.pickup || !s.dropoff || ![s.pLat,s.pLng,s.dLat,s.dLng].every(Number.isFinite);
+  useEffect(() => { if (missingCoords) void navigate({to:'/passenger/book/pickup'}); }, [missingCoords]);
 
   useEffect(() => {
     if (missingCoords) return;

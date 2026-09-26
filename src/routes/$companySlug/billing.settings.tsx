@@ -6,13 +6,13 @@ export const Route = createFileRoute("/$companySlug/billing/settings")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Billing settings — RedArt Billing" },
+      { title: "Billing settings — NEMT Solutions Billing" },
       {
         name: "description",
         content:
           "Attach or remove state portal logins, choose the default portal, and manage trip and mileage rates.",
       },
-      { property: "og:title", content: "Billing settings — RedArt Billing" },
+      { property: "og:title", content: "Billing settings — NEMT Solutions Billing" },
       {
         property: "og:description",
         content: "Manage portal credentials and billing rates for your company.",

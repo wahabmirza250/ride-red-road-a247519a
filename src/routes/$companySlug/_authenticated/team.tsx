@@ -393,6 +393,7 @@ function DispatchersCard() {
                   size="icon"
                   variant="ghost"
                   className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
+                  aria-label={`Remove access for ${[d.first_name, d.last_name].filter(Boolean).join(" ") || d.email}`}
                   disabled={removingId === d.id}
                   onClick={() =>
                     remove(
@@ -586,6 +587,7 @@ function BillingStaffCard() {
                   size="icon"
                   variant="ghost"
                   className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
+                  aria-label={`Remove access for ${[d.first_name, d.last_name].filter(Boolean).join(" ") || d.email}`}
                   disabled={removingId === d.id}
                   onClick={() =>
                     remove(

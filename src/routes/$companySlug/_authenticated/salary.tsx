@@ -11,13 +11,13 @@ export const Route = createFileRoute("/$companySlug/_authenticated/salary")({
   }),
   head: () => ({
     meta: [
-      { title: "Driver Salary — RedArt NEMT" },
+      { title: "Driver pay — NEMT Solutions" },
       {
         name: "description",
         content:
           "One place to pay drivers: hourly payroll from clocked shifts, or a percentage of the Medicaid claims the state actually paid.",
       },
-      { property: "og:title", content: "Driver Salary — RedArt NEMT" },
+      { property: "og:title", content: "Driver pay — NEMT Solutions" },
       {
         property: "og:description",
         content: "All pay plans and percentage-of-paid-claims payouts in a single workspace.",
@@ -33,7 +33,7 @@ function SalaryPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Salary"
+        title="Driver pay"
         description="Review unpaid work using each driver’s hourly, commission or per-trip plan. Payment history is shown separately."
       />
 

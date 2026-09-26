@@ -107,7 +107,7 @@ export function ReconcileSweepCard({ onOpenRecord }: { onOpenRecord?: (id: strin
       const c = parseClaimConflict(e);
       toast.error(
         c
-          ? `Claim ${c.claim} is already linked to another RedArt bill — nothing was written.`
+          ? `Claim ${c.claim} is already linked to another NEMT Solutions bill — nothing was written.`
           : friendlyLinkError(e),
       );
     },
@@ -367,7 +367,7 @@ function SweepRow({
 }
 
 /**
- * A candidate whose claim id is ALREADY attached to a different RedArt bill.
+ * A candidate whose claim id is ALREADY attached to a different NEMT Solutions bill.
  * Never offer Confirm here — the bill stays on Verification Hold for a biller
  * decision, and nothing is archived, merged or deleted automatically.
  */

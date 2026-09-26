@@ -11,12 +11,12 @@ export const Route = createFileRoute("/$companySlug/passenger")({ ssr: false, co
 const TABS = [
   { to: "/passenger", label: "Home", icon: Home, exact: true },
   { to: "/passenger/apply", label: "Book", icon: PlusCircle },
-  { to: "/passenger/track", label: "Track", icon: MapPin },
+  { to: "/passenger/track", label: "My rides", icon: MapPin },
   { to: "/passenger/profile", label: "Profile", icon: UserCircle2 },
   { to: "/passenger/rewards", label: "Rewards", icon: Trophy },
   { to: "/passenger/games", label: "Games", icon: Gamepad2 },
   { to: "/passenger/events", label: "Events", icon: Sparkles },
-  { to: "/passenger/news", label: "News", icon: Newspaper },
+  { to: "/passenger/news", label: "Local news", icon: Newspaper },
 ] as const;
 
 function PassengerLayout() {

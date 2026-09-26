@@ -544,7 +544,10 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     <div className={embedded ? "space-y-5" : "space-y-6"}>
       {/* A company that is not configured yet gets the setup wizard here rather
           than a dead end — the workspace itself stays browsable. */}
-      <BillingSetupPanel compact />
+      <details className="rounded-2xl border border-border p-4">
+        <summary className="cursor-pointer font-medium">{setupReady ? 'Billing setup and rates' : 'Complete billing setup before submitting claims'}</summary>
+        <div className="mt-4"><BillingSetupPanel compact /></div>
+      </details>
 
       {/* EDI backend link (test integration) — informational only. */}
       <div className="flex justify-end">
@@ -573,9 +576,9 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
           onSelect={(k) => setTab(k as TabKey)}
         />
       )}
-      {!counts.isError && <BillingInsights counts={counts.data as any} embedded={embedded} />}
+      {!counts.isError && <details className="rounded-2xl border border-border p-4"><summary className="cursor-pointer font-medium">Trends and billing insights</summary><BillingInsights counts={counts.data as any} embedded={embedded} /></details>}
 
-      {isAdmin && !embedded && <BillingRatesCard />}
+
 
       {tab === "awaiting_portal" && <SubmissionQueuePanel />}
 

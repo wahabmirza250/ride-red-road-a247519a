@@ -64,6 +64,9 @@ export const createGroupRide = createServerFn({ method: "POST" })
     if (!isAdmin) throw new Error("Admins only");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const { assertCompanyActive } = await import('./company.server');
+    const company = await assertCompanyActive(context.userId);
+
     const pax = data.passengers;
     // Sequence pickups starting from first passenger's pickup as origin.
     const pickupOrigin = { lat: pax[0].pickup_lat, lng: pax[0].pickup_lng };
@@ -76,6 +79,7 @@ export const createGroupRide = createServerFn({ method: "POST" })
     const primary = pax[0];
     const { data: req, error: reqErr } = await supabaseAdmin
       .from("ride_requests").insert({
+        company_id: company.id,
         passenger_id: null,
         pickup_address: primary.pickup_address,
         pickup_lat: primary.pickup_lat,
@@ -119,8 +123,8 @@ export const createGroupRide = createServerFn({ method: "POST" })
     if (manErr) throw new Error(manErr.message);
 
     // Auto-dispatch
-    const { dispatchRideRequest } = await import("@/lib/dispatch.functions");
-    const dispatch = await dispatchRideRequest({ data: { request_id: req.id } });
+    const { dispatchRideInternal } = await import("@/lib/dispatchEngine.server");
+    const dispatch = await dispatchRideInternal({ request_id: req.id });
     return { request_id: req.id, ...dispatch };
   });
 
@@ -128,11 +132,17 @@ export const createGroupRide = createServerFn({ method: "POST" })
 export const getGroupManifest = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { request_id?: string; trip_id?: string }) => input)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let requestId = data.request_id;
+    if (!requestId && data.trip_id) {
+      const { data: ride } = await supabaseAdmin.from('ride_requests').select('id').eq('trip_id', data.trip_id).maybeSingle();
+      requestId = ride?.id;
+    }
+    if (!requestId) throw new Error('Ride unavailable for this account.');
+    const { requireRideAccess } = await import('./rideAccess.server');
+    await requireRideAccess(context.userId, requestId);
     const q = supabaseAdmin.from("ride_passengers").select("*");
-    const { data: rows } = data.trip_id
-      ? await q.eq("trip_id", data.trip_id)
-      : await q.eq("request_id", data.request_id!);
+    const { data: rows } = await q.eq("request_id", requestId);
     return rows ?? [];
   });

@@ -31,10 +31,10 @@ export const Route = createFileRoute("/$companySlug/billing")({
 
 /** Top-level destinations. Claims lives in its own collapsible group below. */
 const NAV = [
-  { to: "/billing", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/billing", label: "Work queue", icon: LayoutDashboard, exact: true },
   { to: "/billing/chat", label: "Paper bills", icon: MessageSquare, exact: false },
   { to: "/billing/batch", label: "Batch", icon: Layers, exact: false },
-  { to: "/billing/messages", label: "Team", icon: Users, exact: false },
+  { to: "/billing/messages", label: "Messages", icon: Users, exact: false },
   { to: "/billing/settings", label: "Settings", icon: Settings, exact: false },
 ] as const;
 
@@ -187,7 +187,8 @@ function BillingLayout() {
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
               <button
-                aria-label="Notifications"
+                aria-label="Open billing messages"
+                onClick={() => { window.location.href = `/${companySlug}/billing/messages`; }}
                 className="rounded-full p-2 text-muted-foreground transition hover:bg-accent"
               >
                 <Bell className="h-4 w-4" />

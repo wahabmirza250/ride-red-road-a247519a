@@ -829,16 +829,14 @@ function BatchRow({
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="space-y-1">
             <Label className="text-xs">Driver name</Label>
-            <Input
-              aria-label={`Driver name for ${item.fileName}`}
+            <Input aria-label={`Driver name for ${item.fileName}`}
               value={item.driver_name}
               onChange={(e) => onPatch({ driver_name: e.target.value })}
             />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Trip date</Label>
-            <Input
-              aria-label={`Trip date for ${item.fileName}`}
+            <Input aria-label={`Trip date for ${item.fileName}`}
               type="date"
               value={item.trip_date}
               onChange={(e) => onPatch({ trip_date: e.target.value })}
@@ -846,8 +844,7 @@ function BatchRow({
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Passenger</Label>
-            <Input
-              aria-label={`Passenger for ${item.fileName}`}
+            <Input aria-label={`Passenger for ${item.fileName}`}
               value={item.passenger_name}
               onChange={(e) => onPatch({ passenger_name: e.target.value, rider: null })}
             />

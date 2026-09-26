@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import type { CapacitorConfig } from '@capacitor/cli';
 
 // Start from bundled HTML so launching never depends on DNS or a web deployment.
@@ -10,7 +11,7 @@ const config: CapacitorConfig = {
   appId: 'com.redart.driver',
   appName: 'NEMT Driver',
   webDir: 'www',
-  includePlugins: ['@capacitor/app', '@capacitor/camera', '@capacitor/geolocation', '@capacitor/splash-screen', '@capacitor/status-bar'],
+  includePlugins: ['@capacitor/app', '@capacitor/camera', '@capacitor/geolocation', '@capacitor/splash-screen', '@capacitor/status-bar', ...(existsSync('android/app/google-services.json') ? ['@capacitor/push-notifications'] : [])],
   server: {
     cleartext: false,
     allowNavigation: [origin.hostname],

@@ -30,13 +30,13 @@ import {
 export const Route = createFileRoute("/$companySlug/_authenticated/driver-pay")({
   head: () => ({
     meta: [
-      { title: "Driver Pay — RedArt NEMT" },
+      { title: "Driver Pay — NEMT Solutions" },
       {
         name: "description",
         content:
           "Pay drivers a percentage of the claims the state actually paid. Pick a driver and date range, review every paid bill, then lock the payout.",
       },
-      { property: "og:title", content: "Driver Pay — RedArt NEMT" },
+      { property: "og:title", content: "Driver Pay — NEMT Solutions" },
       {
         property: "og:description",
         content: "Percentage payouts calculated from real paid Medicaid claims.",

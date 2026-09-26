@@ -4,13 +4,13 @@ import { CommunicationsSettingsCard } from "@/components/comms/CommunicationsSet
 export const Route = createFileRoute("/$companySlug/_authenticated/communications")({
   head: () => ({
     meta: [
-      { title: "Communications — RedArt Dispatch" },
+      { title: "SMS settings — NEMT Solutions" },
       {
         name: "description",
         content:
           "Configure your company's dispatch text number, messaging provider status, and automatic rider notifications.",
       },
-      { property: "og:title", content: "Communications — RedArt Dispatch" },
+      { property: "og:title", content: "SMS settings — NEMT Solutions" },
       {
         property: "og:description",
         content: "Dispatch texting setup and rider notification controls for your company.",
@@ -26,7 +26,7 @@ function CommunicationsPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-xl font-semibold">Communications</h1>
+        <h1 className="text-xl font-semibold">SMS settings</h1>
         <p className="text-sm text-muted-foreground">
           Your dispatch text number, provider status, and the events that automatically text riders.
         </p>

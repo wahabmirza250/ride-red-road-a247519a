@@ -1,3 +1,4 @@
+import { CompanySupportField } from '@/components/owner/CompanySupportField';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -321,7 +322,7 @@ function CompanyCard({
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              redartdigital.com/{c.url_slug} · last activity {fmtDate(c.last_activity)}
+              nemtsolutions.co/{c.url_slug} · last activity {fmtDate(c.last_activity)}
             </p>
             <LogoControl company={c} onChanged={onChanged} />
           </div>
@@ -394,6 +395,7 @@ function CompanyCard({
 
       <SeatLimitsField company={c} onChanged={onChanged} />
 
+      <CompanySupportField companyId={c.id} />
       <TwilioNumberField companyId={c.id} current={c.twilio_phone} />
 
 
@@ -627,6 +629,7 @@ function NewCompanyDialog({ onDone }: { onDone: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [supportPhone, setSupportPhone] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [limits, setLimits] = useState({ drivers: "", dispatch: "", billing: "", admins: "" });
@@ -651,6 +654,7 @@ function NewCompanyDialog({ onDone }: { onDone: () => Promise<void> }) {
         data: {
           name,
           url_slug: effectiveSlug,
+          support_phone: supportPhone,
           logo_base64,
           logo_ext,
           max_drivers: num(limits.drivers),
@@ -663,6 +667,7 @@ function NewCompanyDialog({ onDone }: { onDone: () => Promise<void> }) {
       setOpen(false);
       setName("");
       setSlug("");
+      setSupportPhone("");
       setFile(null);
       await onDone();
     } catch (err) {
@@ -697,9 +702,10 @@ function NewCompanyDialog({ onDone }: { onDone: () => Promise<void> }) {
               placeholder={autoSlug || "company-name"}
               onChange={(e) => setSlug(slugify(e.target.value))}
             />
-            <p className="text-xs text-muted-foreground">redartdigital.com/{effectiveSlug || "…"}/driver</p>
+            <p className="text-xs text-muted-foreground">nemtsolutions.co/{effectiveSlug || "…"}/driver</p>
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor="co-support">Passenger support phone</Label><Input id="co-support" type="tel" placeholder="Include country code" value={supportPhone} onChange={e => setSupportPhone(e.target.value)} />
             <Label htmlFor="co-logo">Logo (optional)</Label>
             <Input
               id="co-logo"

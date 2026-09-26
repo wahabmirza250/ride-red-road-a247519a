@@ -1,3 +1,4 @@
+import { getPublicDispatchPhone } from '@/lib/guestBooking.functions';
 import { locationState } from "@/lib/operationStatus";
 import { useWorkspaceSearch } from "@/lib/useWorkspaceSearch";
 import { createFileRoute, useSearch } from "@tanstack/react-router";
@@ -422,85 +423,12 @@ function LiveOps() {
 }
 
 function DispatchPhoneCard() {
-  const [phone, setPhone] = useState<string>("");
-  const [initial, setInitial] = useState<string>("");
-  const [canEdit, setCanEdit] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    void (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData?.user?.id;
-      if (uid) {
-        const { data: role } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", uid)
-          .eq("role", "admin")
-          .maybeSingle();
-        setCanEdit(!!role);
-      }
-      const { data } = await supabase
-        .from("app_settings")
-        .select("value")
-        .eq("key", "dispatch_phone_number")
-        .maybeSingle();
-      const v = data?.value ?? "";
-      setPhone(v);
-      setInitial(v);
-    })();
-  }, []);
-
-  const dirty = phone.trim() !== initial;
-
-  async function save() {
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from("app_settings")
-        .upsert({ key: "dispatch_phone_number", value: phone.trim() }, { onConflict: "key" });
-      if (error) {
-        toast.error(error.message);
-      } else {
-        setInitial(phone.trim());
-        toast.success("Dispatch phone updated");
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="rounded-2xl border border-border bg-surface p-4">
-      <div className="mb-2 text-sm font-semibold">Dispatch phone number</div>
-      <p className="mb-3 text-xs text-muted-foreground">
-        Shown to passengers when no driver is auto-matched. Use a number that reaches your dispatch
-        team 24/7.
-      </p>
-      <div className="flex gap-2">
-        <input
-          type="tel"
-          value={phone}
-          disabled={!canEdit}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="+1 (800) 555-1234"
-          className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
-        />
-        {canEdit && (
-          <button
-            onClick={save}
-            disabled={!dirty || saving}
-            className="h-10 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        )}
-      </div>
-      {!canEdit && (
-        <p className="mt-2 text-xs text-muted-foreground">Admin access required to edit.</p>
-      )}
-    </div>
-  );
+  const getPhone = useServerFn(getPublicDispatchPhone);
+  const phone = useQuery({queryKey:['company-support'],queryFn:()=>getPhone()});
+  return <div className="rounded-2xl border border-border bg-surface p-4"><h2 className="text-sm font-semibold">Passenger support number</h2>
+    <p className="mt-2 text-sm">{phone.isLoading ? 'Loading…' : phone.data?.phone || 'Not configured'}</p>
+    <p className="mt-2 text-xs text-muted-foreground">The platform owner sets this number in the company profile.</p>
+  </div>;
 }
 
 /**
