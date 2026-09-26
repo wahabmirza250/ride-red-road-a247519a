@@ -8,7 +8,7 @@
  * only, and says "Secure credential setup required" when none is installed.
  */
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   AlertTriangle,
@@ -67,10 +67,11 @@ export function EdiProviderSetupTab({
   const getFn = useServerFn(getEdiCompanySettings);
   const saveFn = useServerFn(saveEdiCompanySettings);
   const importFn = useServerFn(findExistingEdiProvider);
+  const queryClient = useQueryClient();
   const {isAdmin} = useAuth();
   const importProfile = useMutation({
     mutationFn: () => importFn({data:{company_id:companyId}}),
-    onSuccess: () => { onSaved(); void settings.refetch(); toast.success('Existing provider linked. Review the trading-partner details before submitting.'); },
+    onSuccess: () => { onSaved(); void settings.refetch(); void queryClient.invalidateQueries({queryKey:['edi','mapping',companyId]}); toast.success('Existing provider linked. Review the trading-partner details before submitting.'); },
     onError: (error: unknown) => toast.error(error instanceof Error ? error.message : 'Could not load the existing provider.'),
   });
   const [draft, setDraft] = useState<Draft | null>(null);

@@ -42,15 +42,22 @@ export const findExistingEdiProvider = createServerFn({method:'POST'})
     const {data:other,error:otherError} = await supabaseAdmin.from('edi_company_mapping').select('company_id').eq('edi_provider_profile_id',String(id)).neq('company_id',companyId);
     if (otherError) throw new Error(otherError.message);
     if (other?.length) throw new Error('This provider is already linked to another company. Contact the account owner.');
+    // List responses omit address, ZIP, tax ID and contact fields. Read the
+    // verified provider's detail endpoint before copying its full profile.
+    const {entityDetailPath} = await import('./ediCatalog');
+    const detail = await ediFetch<Record<string,unknown>>(context.supabase,{path:entityDetailPath(catalog.paths.provider,id),method:'GET'});
+    if (!detail.ok) throw new Error(detail.error);
+    if (parseEdiId(detail.data?.id) !== id) throw new Error('Provider identity changed. Please retry.');
+    matchExistingProvider([detail.data],company.name);
     const {loadEdiCompanySettings} = await import('./ediSetup.server');
     const {saveCompanyMapping,loadCompanyMapping} = await import('./ediLedger.server');
     const mapping = await loadCompanyMapping(supabaseAdmin,companyId);
     if (mapping.edi_provider_profile_id && String(mapping.edi_provider_profile_id) !== String(id))
       throw new Error('This company already has a different provider linked. Contact the account owner before replacing it.');
     const existing = await loadEdiCompanySettings(supabaseAdmin,companyId);
-    const imported = settingsFromProvider(companyId,provider);
+    const imported = settingsFromProvider(companyId,detail.data);
     const settings = {...existing, ...Object.fromEntries(Object.entries(imported).filter(([key]) =>
-      !['environment','production_enabled','transport_mode','sender_id','receiver_id','contact_name','tax_id','sftp_host','sftp_port','sftp_username','sftp_directory','sftp_secret_configured','notes'].includes(key)))};
+      !['environment','production_enabled','transport_mode','sender_id','receiver_id','contact_name','sftp_host','sftp_port','sftp_username','sftp_directory','sftp_secret_configured','notes'].includes(key)))};
     // Save the identity first so a retry after a settings failure cannot create a duplicate provider.
     await saveCompanyMapping(supabaseAdmin,companyId,{edi_provider_profile_id:String(id),provider_fingerprint:null});
     const {error:saveError} = await supabaseAdmin.from('edi_company_settings').upsert(settings as never,{onConflict:'company_id'});

@@ -16,7 +16,7 @@ vi.mock('@/integrations/supabase/client.server',()=>({supabaseAdmin:{from:(table
 import {findExistingEdiProvider} from '../ediExistingProfile.functions';
 const run=()=> (findExistingEdiProvider as any)({data:{},context:{userId:'user',supabase:{rpc:async()=>({data:state.admin,error:null})}}});
 describe('provider import authorization',()=>{
-  beforeEach(()=>{state.admin=true;state.foreign=false;state.writes.mockClear();state.mapping.mockReset().mockResolvedValue({});state.fetch.mockReset().mockResolvedValue({ok:true,data:[{id:7,legal_name:'Walla Investment LLC',is_active:true}]});});
+  beforeEach(()=>{state.admin=true;state.foreign=false;state.writes.mockClear();state.mapping.mockReset().mockResolvedValue({});state.fetch.mockReset().mockResolvedValueOnce({ok:true,data:[{id:7,legal_name:'Walla Investment LLC',is_active:true}]}).mockResolvedValue({ok:true,data:{id:7,legal_name:'Walla Investment LLC',address_line_1:'1 Main St',zip:'80000',tax_id:'123456789'}});});
   it('rejects non-admin billing staff before querying providers',async()=>{
     state.admin=false;await expect(run()).rejects.toThrow('company admin');expect(state.fetch).not.toHaveBeenCalled();
   });
@@ -24,18 +24,18 @@ describe('provider import authorization',()=>{
     state.foreign=true;await expect(run()).rejects.toThrow('another company');expect(state.writes).not.toHaveBeenCalled();expect(state.mapping).not.toHaveBeenCalled();
   });
   it('does not write when the backend has no company match',async()=>{
-    state.fetch.mockResolvedValue({ok:true,data:[{id:1,legal_name:'London'}]});await expect(run()).rejects.toThrow('No existing');expect(state.writes).not.toHaveBeenCalled();
+    state.fetch.mockReset().mockResolvedValue({ok:true,data:[{id:1,legal_name:'London'}]});await expect(run()).rejects.toThrow('No existing');expect(state.writes).not.toHaveBeenCalled();
   });
   it('links the verified provider and preserves submission configuration',async()=>{
     await expect(run()).resolves.toEqual({provider_id:7});
     expect(state.mapping).toHaveBeenCalledWith(expect.anything(),'a',{edi_provider_profile_id:'7',provider_fingerprint:null});
-    expect(state.writes).toHaveBeenCalledWith(expect.objectContaining({company_id:'a',billing_name:'Walla Investment LLC',sender_id:'keep-sender',environment:'test',production_enabled:false}));
-    expect(state.fetch).toHaveBeenCalledTimes(1);
+    expect(state.writes).toHaveBeenCalledWith(expect.objectContaining({company_id:'a',billing_name:'Walla Investment LLC',sender_id:'keep-sender',environment:'test',production_enabled:false,address_line1:'1 Main St',postal_code:'80000',tax_id:'123456789'}));
+    expect(state.fetch).toHaveBeenCalledTimes(2);
     expect(state.fetch.mock.calls[0][1].method).toBe('GET');
   });
   it('finds a matching provider on a later backend page',async()=>{
     state.fetch.mockReset().mockResolvedValueOnce({ok:true,data:[{id:1,legal_name:'London'}],hasNextPage:true})
-      .mockResolvedValueOnce({ok:true,data:[{id:7,legal_name:'Walla Investment LLC'}],hasNextPage:false});
+      .mockResolvedValueOnce({ok:true,data:[{id:7,legal_name:'Walla Investment LLC'}],hasNextPage:false}).mockResolvedValue({ok:true,data:{id:7,legal_name:'Walla Investment LLC'}});
     await expect(run()).resolves.toEqual({provider_id:7});
     expect(state.fetch.mock.calls[1][1].path).toBe('/api/v1/provider-billing-profiles/?page=2');
   });
