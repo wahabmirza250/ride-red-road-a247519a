@@ -30,13 +30,13 @@ export const Route = createFileRoute("/$companySlug/_authenticated/medicaid-bill
   }),
   head: () => ({
     meta: [
-      { title: "HCPF Billing — NEMT Solutions" },
+      { title: "Robot billing — NEMT Solutions" },
       {
         name: "description",
         content:
           "Admin billing workspace: review paper bills, confirm claims, submit to the state portal and track claims history without leaving the dashboard.",
       },
-      { property: "og:title", content: "HCPF Billing — NEMT Solutions" },
+      { property: "og:title", content: "Robot billing — NEMT Solutions" },
       {
         property: "og:description",
         content: "Full Medicaid billing workflow inside the admin dashboard.",
@@ -87,11 +87,11 @@ function AdminBillingPage() {
         to="/medicaid-billing"
         className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
       >
-        <ArrowLeft className="h-3.5 w-3.5" /> Back to billing methods
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to billing
       </AppLink>
 
       <PageHeader
-        title="Medicaid Billing"
+        title="Robot billing"
         description="Review, confirm and submit bills without leaving the admin dashboard."
       />
 

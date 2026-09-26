@@ -24,6 +24,7 @@ import { AccessDenied } from "@/components/AccessDenied";
 import { BrandMark } from "@/components/Brand";
 import { CompanyLogo } from "@/components/CompanyLogo";
 import { Input } from "@/components/ui/input";
+import { BillingMethodNavigation } from "@/components/billing/BillingMethodNavigation";
 
 export const Route = createFileRoute("/$companySlug/billing")({
   ssr: false,
@@ -203,6 +204,7 @@ function BillingLayout() {
         </header>
 
         <main className="mx-auto w-full max-w-[1600px] overflow-x-hidden px-4 py-6 sm:px-6">
+          <BillingMethodNavigation billingApp />
           <Outlet />
         </main>
       </div>

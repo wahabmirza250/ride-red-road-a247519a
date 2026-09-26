@@ -194,7 +194,7 @@ export function SuperEdiWorkspace({ billingApp = false }: { billingApp?: boolean
       <header className="rounded-2xl border border-border bg-surface p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">EDI billing</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Review completed trips, group them into a batch, and send the bill.
             </p>
