@@ -12,6 +12,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import { useEffect, type ReactNode } from "react";
+import { DarkStreetBasemap } from "./DarkStreetBasemap";
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -143,7 +144,7 @@ export function DriverFleetMap({
       className={dark ? "driver-map-dark" : undefined}
       style={{ height: "100%", width: "100%" }}
     >
-      <TileLayer attribution={OSM_ATTR} url={OSM_URL} />
+      {dark ? <DarkStreetBasemap /> : <TileLayer attribution={OSM_ATTR} url={OSM_URL} />}
       <MapTheme dark={dark} />
       {routePath ? (
         <DriverMapViewport
