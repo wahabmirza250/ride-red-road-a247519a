@@ -881,3 +881,11 @@
 .mobile-app-booking .app-install-prompt { display: none; }
 .mobile-app-shell .app-install-prompt { bottom: calc(var(--driver-nav-offset) + 1rem); flex-wrap: wrap; }
 @media (min-width: 768px) { .mobile-app-shell .driver-cta-bar > div { max-width: 54rem; } }
+
+/* Dark road tiles only: keep driver pins, routes and controls in their original colors. */
+.driver-map-dark.leaflet-container { background: #101a22; }
+.driver-map-dark .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) saturate(.35) brightness(.85) contrast(.9); }
+.driver-map-dark .leaflet-control-zoom a,
+.driver-map-dark .leaflet-control-attribution { background: #101a22; color: #cbd5e1; }
+.driver-map-dark .leaflet-control-attribution a { color: #63d6c6; }
+.driver-map-dark .leaflet-control-zoom a:hover { background: #23343f; }

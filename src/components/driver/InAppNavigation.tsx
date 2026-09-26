@@ -1,7 +1,7 @@
-/// <reference types="google.maps" />
-import { useEffect, useRef, useState } from "react";
-import { X, Loader2, Navigation, Navigation2, Map as MapIcon } from "lucide-react";
-import { loadGoogleMapsDark, DARK_MAP_STYLE, LIGHT_MAP_STYLE } from "@/lib/googleMapsDark";
+import { useMemo, useState } from "react";
+import { X, Navigation, Navigation2, Map as MapIcon } from "lucide-react";
+import { DriverFleetMap } from "@/components/nemt/useClientMap";
+import { decodePolyline } from "@/lib/navigation/adapter";
 import { useLiveEta } from "@/lib/useLiveEta";
 import { openNavigation } from "@/lib/mapsDeepLink";
 import { useTheme } from "@/lib/theme";
@@ -30,135 +30,55 @@ type Props = {
  * again opens directions to the new stop.
  */
 export function InAppNavigation({
-  open, driver, destination, destinationLabel, destinationKind,
-  actionLabel, onAction, onClose,
+  open,
+  driver,
+  destination,
+  destinationLabel,
+  destinationKind,
+  actionLabel,
+  onAction,
+  onClose,
 }: Props) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const driverMarkerRef = useRef<google.maps.Marker | null>(null);
-  const destMarkerRef = useRef<google.maps.Marker | null>(null);
-  const lineRef = useRef<google.maps.Polyline | null>(null);
-
-  const [ready, setReady] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
   const { theme } = useTheme();
-
   const eta = useLiveEta(driver, destination, open);
-
-  useEffect(() => {
-    if (!open) {
-      setReady(false);
-      mapRef.current = null;
-      driverMarkerRef.current = null;
-      destMarkerRef.current = null;
-      lineRef.current = null;
-      return;
-    }
-    let cancelled = false;
-    loadGoogleMapsDark()
-      .then((g) => {
-        if (cancelled || !hostRef.current) return;
-        mapRef.current = new g.maps.Map(hostRef.current, {
-          center: driver ?? destination,
-          zoom: 15,
-          styles: theme === "dark" ? DARK_MAP_STYLE : LIGHT_MAP_STYLE,
-          disableDefaultUI: true,
-          zoomControl: true,
-          gestureHandling: "greedy",
-        });
-        mapRef.current.addListener("dragstart", () => setFollow(false));
-        setReady(true);
-      })
-      .catch((e) => setErr(e instanceof Error ? e.message : "Failed to load map"));
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  useEffect(() => {
-    mapRef.current?.setOptions({ styles: theme === "dark" ? DARK_MAP_STYLE : LIGHT_MAP_STYLE });
-  }, [theme]);
-
-  // Route line for the current stop.
-  useEffect(() => {
-    const g = window.google;
-    const map = mapRef.current;
-    if (!open || !ready || !g || !map) return;
-    if (!eta.polyline) {
-      lineRef.current?.setPath([]);
-      return;
-    }
-    try {
-      const path = g.maps.geometry.encoding.decodePath(eta.polyline);
-      if (!lineRef.current) {
-        lineRef.current = new g.maps.Polyline({
-          map, strokeColor: "#f59e0b", strokeOpacity: 0.95, strokeWeight: 6,
-        });
-      }
-      lineRef.current.setPath(path);
-    } catch { /* geometry library unavailable */ }
-  }, [open, ready, eta.polyline]);
-
-  // Markers + camera follow.
-  useEffect(() => {
-    const g = window.google;
-    const map = mapRef.current;
-    if (!open || !ready || !g || !map) return;
-
-    if (!destMarkerRef.current) destMarkerRef.current = new g.maps.Marker({ map });
-    destMarkerRef.current.setOptions({
-      position: destination,
-      title: destinationLabel,
-      icon: {
-        path: g.maps.SymbolPath.CIRCLE, scale: 9,
-        fillColor: destinationKind === "dropoff" ? "#ef4444" : "#22c55e",
-        fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 3,
-      },
-    });
-
-    if (driver) {
-      if (!driverMarkerRef.current) driverMarkerRef.current = new g.maps.Marker({ map, zIndex: 999 });
-      driverMarkerRef.current.setOptions({
-        position: driver,
-        title: "You",
-        icon: {
-          path: g.maps.SymbolPath.CIRCLE, scale: 8, fillColor: "#f59e0b",
-          fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 3,
-        },
-      });
-      if (follow) map.panTo(driver);
-    }
-  }, [open, ready, driver, destination, destinationLabel, destinationKind, follow]);
-
+  const routePath = useMemo(
+    () =>
+      eta.polyline
+        ? decodePolyline(eta.polyline).map(({ lat, lng }) => [lat, lng] as [number, number])
+        : [],
+    [eta.polyline],
+  );
+  const focus = useMemo(
+    () => (follow && driver ? { ...driver, zoom: 15 } : null),
+    [follow, driver?.lat, driver?.lng],
+  );
   if (!open) return null;
 
   function routeOverview() {
     setFollow(false);
-    const g = window.google;
-    const map = mapRef.current;
-    if (!g || !map) return;
-    const bounds = new g.maps.LatLngBounds();
-    if (eta.polyline) {
-      try {
-        g.maps.geometry.encoding.decodePath(eta.polyline).forEach((p) => bounds.extend(p));
-      } catch { /* geometry library unavailable */ }
-    }
-    if (driver) bounds.extend(driver);
-    bounds.extend(destination);
-    if (!bounds.isEmpty()) map.fitBounds(bounds, 64);
   }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      <div className="relative flex-1">
-        <div ref={hostRef} className="h-full w-full" />
-        {(!ready || err) && (
-          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-surface-muted text-xs text-muted-foreground">
-            {err ? err : (<><Loader2 className="h-4 w-4 animate-spin" /> Opening route…</>)}
-          </div>
-        )}
+      <div className="relative isolate min-h-0 flex-1">
+        <div className="absolute inset-0 z-0">
+          <DriverFleetMap
+            dark={theme === "dark"}
+            center={[destination.lat, destination.lng]}
+            routePath={routePath}
+            focus={focus}
+            onDragStart={() => setFollow(false)}
+            markers={[
+              ...(driver
+                ? [{ id: "driver", ...driver, status: "busy" as const, label: "You" }]
+                : []),
+              { id: "destination", ...destination, status: "available", label: destinationLabel },
+            ]}
+          />
+        </div>
 
-        <div className="pointer-events-none absolute inset-x-3 top-3 space-y-2">
+        <div className="pointer-events-none absolute z-10 inset-x-3 top-3 space-y-2">
           <div className="pointer-events-auto flex items-start gap-3 rounded-2xl bg-surface/95 p-4 shadow-lg backdrop-blur">
             <div className="min-w-0 flex-1">
               <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
@@ -183,8 +103,13 @@ export function InAppNavigation({
           )}
         </div>
 
-        <div className="absolute bottom-4 right-4 flex flex-col gap-2">
-          <Button size="sm" variant="secondary" className="rounded-full shadow" onClick={routeOverview}>
+        <div className="absolute z-10 bottom-4 right-4 flex flex-col gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="rounded-full shadow"
+            onClick={routeOverview}
+          >
             <MapIcon className="mr-1.5 h-4 w-4" /> Route Overview
           </Button>
           <Button

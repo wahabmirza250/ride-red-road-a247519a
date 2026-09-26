@@ -14,6 +14,9 @@ type MapModule = {
   DriverFleetMap: React.ComponentType<{
     center: [number, number];
     markers: DriverMarker[];
+    dark?: boolean;
+    routePath?: [number, number][];
+    onDragStart?: () => void;
     focus?: { lat: number; lng: number; zoom?: number } | null;
   }>;
   RouteMap: React.ComponentType<{ center: [number, number]; path: GpsPoint[]; stops: StopDot[] }>;
@@ -50,6 +53,9 @@ function MapFallback() {
 export function DriverFleetMap(props: {
   center: [number, number];
   markers: DriverMarker[];
+  dark?: boolean;
+  routePath?: [number, number][];
+  onDragStart?: () => void;
   focus?: { lat: number; lng: number; zoom?: number } | null;
 }) {
   const mod = useMapModule();

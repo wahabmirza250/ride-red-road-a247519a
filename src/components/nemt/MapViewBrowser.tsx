@@ -8,6 +8,7 @@ import {
   Polyline,
   Marker,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
 import { useEffect, type ReactNode } from "react";
@@ -72,13 +73,66 @@ function FocusController({
   return null;
 }
 
+function DriverMapViewport({
+  markers,
+  routePath,
+  focus,
+  onDragStart,
+}: {
+  markers: DriverMarker[];
+  routePath: [number, number][];
+  focus?: { lat: number; lng: number; zoom?: number } | null;
+  onDragStart?: () => void;
+}) {
+  const map = useMapEvents({ dragstart: () => onDragStart?.() });
+  useEffect(() => {
+    if (focus) map.setView([focus.lat, focus.lng], focus.zoom ?? 15);
+  }, [map, focus]);
+  // Fit on stop/route changes, without pulling the map away while the driver pans.
+  const stopKey = markers
+    .filter((m) => m.id !== "driver")
+    .map((m) => `${m.id}:${m.lat}:${m.lng}`)
+    .join("|");
+  const hasMarkers = markers.length > 0;
+  useEffect(() => {
+    if (focus) return;
+    const points: [number, number][] = [
+      ...markers.map((m) => [m.lat, m.lng] as [number, number]),
+      ...routePath,
+    ];
+    if (points.length) map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 15 });
+    // GPS updates move the pin without resetting a manually adjusted view.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, stopKey, hasMarkers, routePath, !!focus]);
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize({ pan: false }));
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+}
+
+function MapTheme({ dark }: { dark: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    map.getContainer().classList.toggle("driver-map-dark", dark);
+  }, [map, dark]);
+  return null;
+}
+
 export function DriverFleetMap({
   center,
   markers,
   focus,
+  dark = false,
+  routePath,
+  onDragStart,
 }: {
   center: [number, number];
   markers: DriverMarker[];
+  dark?: boolean;
+  routePath?: [number, number][];
+  onDragStart?: () => void;
   focus?: { lat: number; lng: number; zoom?: number } | null;
 }) {
   return (
@@ -86,10 +140,27 @@ export function DriverFleetMap({
       center={center}
       zoom={11}
       scrollWheelZoom
+      className={dark ? "driver-map-dark" : undefined}
       style={{ height: "100%", width: "100%" }}
     >
       <TileLayer attribution={OSM_ATTR} url={OSM_URL} />
-      <FocusController focus={focus} markers={markers} />
+      <MapTheme dark={dark} />
+      {routePath ? (
+        <DriverMapViewport
+          markers={markers}
+          routePath={routePath}
+          focus={focus}
+          onDragStart={onDragStart}
+        />
+      ) : (
+        <FocusController focus={focus} markers={markers} />
+      )}
+      {routePath && routePath.length > 1 && (
+        <Polyline
+          positions={routePath}
+          pathOptions={{ color: "#2dd4bf", weight: 5, opacity: 0.95 }}
+        />
+      )}
       {markers.map((m) => (
         <Marker key={m.id} position={[m.lat, m.lng]} icon={pillIcon(m)}>
           <Popup>
