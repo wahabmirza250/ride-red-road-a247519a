@@ -149,7 +149,7 @@ export const dispatchScheduleRide = createServerFn({ method: "POST" })
 
     const { data: passenger } = await supabaseAdmin
       .from("passengers")
-      .select("id, first_name, last_name, phone, medicaid_id")
+      .select("id, user_id, first_name, last_name, phone, medicaid_id")
       .eq("id", data.passenger_id)
       .eq("company_id", companyId)
       .maybeSingle();
@@ -175,7 +175,9 @@ export const dispatchScheduleRide = createServerFn({ method: "POST" })
       .from("ride_requests")
       .insert({
         company_id: companyId,
-        passenger_id: passenger.id,
+        // Requests reference auth.users; the passenger record is resolved on
+        // acceptance by its linked account or company-scoped Medicaid ID.
+        passenger_id: passenger.user_id ?? null,
         driver_id: null,
         trip_id: null,
         status: "pending",
