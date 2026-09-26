@@ -20,13 +20,23 @@ export async function prepareActualDemo(ownerId: string) {
     let profile = await checked(db.from('profiles').select('id,company_id').eq('email',accountEmail).maybeSingle());
     if (!profile) {
       const res = await db.auth.admin.createUser({ email:accountEmail,password:randomUUID()+randomUUID(),email_confirm:true,user_metadata:{first_name:first,last_name:last,company_id:companyId},app_metadata:{is_demo:true,demo_company_slug:slug,demo_owner_id:ownerId} });
-      if (res.error || !res.data.user) throw new Error(`Demo account: ${res.error?.message ?? 'creation failed'}`);
-      profile = {id:res.data.user.id,company_id:companyId};
+      if (res.error || !res.data.user) {
+        // Recover a previous interrupted provisioning attempt without changing any existing login.
+        let recovered: any = null;
+        for (let page=1; page<=100 && !recovered; page++) {
+          const users = await db.auth.admin.listUsers({page,perPage:1000});
+          if (users.error) throw new Error('Could not verify the demo account.');
+          recovered = users.data.users.find((u:any)=>u.email===accountEmail && u.app_metadata?.demo_owner_id===ownerId && u.app_metadata?.is_demo===true);
+          if (users.data.users.length<1000) break;
+        }
+        if (!recovered) throw new Error(`Demo account: ${res.error?.message ?? 'creation failed'}`);
+        profile = {id:recovered.id,company_id:companyId};
+      } else profile = {id:res.data.user.id,company_id:companyId};
     }
     if (profile.company_id !== companyId) throw new Error('Demo account belongs to another company.');
     const { data: auth, error } = await db.auth.admin.getUserById(profile.id);
     if (error || auth.user?.app_metadata?.demo_owner_id !== ownerId) throw new Error('Demo account ownership mismatch.');
-    await checked(db.from('profiles').update({company_id:companyId,first_name:first,last_name:last,phone:null,sms_alerts_enabled:false,is_active:true}).eq('id',profile.id));
+    await checked(db.from('profiles').upsert({id:profile.id,email:accountEmail,company_id:companyId,first_name:first,last_name:last,phone:null,sms_alerts_enabled:false,is_active:true},{onConflict:'id'}).select('id').single());
     const roles = presenter ? ['admin','driver','passenger','dispatch','billing','admin_biller'] : ['driver'];
     await checked(db.from('user_roles').upsert(roles.map(role=>({user_id:profile.id,company_id:companyId,role})),{onConflict:'user_id,role'}));
     return profile.id as string;

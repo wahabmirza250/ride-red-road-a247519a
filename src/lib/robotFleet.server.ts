@@ -1,3 +1,4 @@
+import { assertRealCompany } from "@/lib/demoCompany.server";
 /**
  * ROBOT FLEET ORCHESTRATION (server-only).
  *
@@ -402,7 +403,7 @@ export async function dispatchToFleet(
     context?: FleetContext | null;
   },
 ): Promise<FleetDispatchResult> {
-  const { assertRealCompany } = await import('./demoCompany.server');
+
   if (args.companyId) await assertRealCompany(args.companyId);
   const { postSubmitClaimTo } = await import("@/lib/robotAdapter.server");
 
