@@ -32,10 +32,8 @@ export const Route = createFileRoute("/$companySlug/billing")({
 
 /** Top-level destinations. Claims lives in its own collapsible group below. */
 const NAV = [
-  { to: "/billing", label: "Work queue", icon: LayoutDashboard, exact: true },
+  { to: "/billing", label: "Trips & billing", icon: LayoutDashboard, exact: true },
   { to: "/billing/chat", label: "Paper bills", icon: MessageSquare, exact: false },
-  { to: "/billing/batch", label: "Batch", icon: Layers, exact: false },
-  { to: "/billing/edi", label: "EDI", icon: Radio, exact: false },
   { to: "/billing/messages", label: "Messages", icon: Users, exact: false },
   { to: "/billing/settings", label: "Settings", icon: Settings, exact: false },
 ] as const;
@@ -61,7 +59,7 @@ function BillingLayout() {
   const { theme, toggle } = useTheme();
   const signInHref = `/${companySlug}/billing/signin`;
   const isPublicAuthRoute = loc.pathname.replace(/\/$/, "").endsWith("/billing/signin");
-  const [claimsOpen, setClaimsOpen] = useState(true);
+  const [claimsOpen, setClaimsOpen] = useState(false);
 
   useEffect(() => {
     if (isPublicAuthRoute || loading) return;
@@ -112,7 +110,7 @@ function BillingLayout() {
             aria-expanded={claimsOpen}
           >
             <ListChecks className="h-[18px] w-[18px] shrink-0" strokeWidth={1.6} />
-            <span className="truncate">Claims</span>
+            <span className="truncate">Portal claims</span>
             <ChevronDown
               className={cn("ml-auto h-3.5 w-3.5 transition-transform", claimsOpen && "rotate-180")}
             />
@@ -122,7 +120,7 @@ function BillingLayout() {
               {CLAIM_STAGES.map((s) => (
                 <AppLink
                   key={s.hash}
-                  to="/billing"
+                  to="/billing/portal"
                   hash={s.hash}
                   className="truncate rounded-lg px-2.5 py-1.5 text-[13px] text-white/60 transition hover:bg-white/5 hover:text-white"
                 >
@@ -190,7 +188,9 @@ function BillingLayout() {
               </button>
               <button
                 aria-label="Open billing messages"
-                onClick={() => { window.location.href = `/${companySlug}/billing/messages`; }}
+                onClick={() => {
+                  window.location.href = `/${companySlug}/billing/messages`;
+                }}
                 className="rounded-full p-2 text-muted-foreground transition hover:bg-accent"
               >
                 <Bell className="h-4 w-4" />

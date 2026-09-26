@@ -20,15 +20,7 @@ import { ediFeedSections } from "@/lib/ediStatusFeed";
 import { ediRefreshStatuses } from "@/lib/ediBulk.functions";
 import { listEdiWorkbench } from "@/lib/ediRecords.functions";
 import type { EdiWorkRow } from "@/lib/ediTypes";
-import {
-  Empty,
-  FeedSections,
-  Pill,
-  StatCard,
-  dateText,
-  dateTimeText,
-  moneyText,
-} from "./ediUi";
+import { Empty, FeedSections, Pill, StatCard, dateText, dateTimeText, moneyText } from "./ediUi";
 
 export function EdiStatusTab({ companyId }: { companyId: string | null }) {
   const listFn = useServerFn(listEdiWorkbench);
@@ -94,10 +86,10 @@ export function EdiStatusTab({ companyId }: { companyId: string | null }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="EDI-linked bills" value={linked.data?.total ?? list.length} />
-        <StatCard label="Uploaded" value={totals.uploaded} />
-        <StatCard label="With 999 acknowledgement" value={totals.withAck} />
-        <StatCard label="With 835 remittance" value={totals.withRemit} />
+        <StatCard label="Claims" value={linked.data?.total ?? list.length} />
+        <StatCard label="Sent" value={totals.uploaded} />
+        <StatCard label="Receipt received" value={totals.withAck} />
+        <StatCard label="Payment responses" value={totals.withRemit} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface p-3 shadow-soft">
@@ -163,7 +155,7 @@ export function EdiStatusTab({ companyId }: { companyId: string | null }) {
                   <th className="px-3 py-2.5">Member</th>
                   <th className="px-3 py-2.5">Service date</th>
                   <th className="px-3 py-2.5">Claim / batch / file</th>
-                  <th className="px-3 py-2.5">Backend status</th>
+                  <th className="px-3 py-2.5">Payer response</th>
                   <th className="px-3 py-2.5 text-right">Charge</th>
                   <th className="px-3 py-2.5">Last sync</th>
                   <th className="w-10 px-3 py-2.5" />
@@ -175,7 +167,10 @@ export function EdiStatusTab({ companyId }: { companyId: string | null }) {
                   return (
                     <Fragment key={row.record_id}>
                       <tr
-                        className={cn("transition hover:bg-surface-muted/60", open && "bg-surface-muted/40")}
+                        className={cn(
+                          "transition hover:bg-surface-muted/60",
+                          open && "bg-surface-muted/40",
+                        )}
                       >
                         <td className="px-3 py-3">
                           <Checkbox
@@ -192,7 +187,9 @@ export function EdiStatusTab({ companyId }: { companyId: string | null }) {
                             {row.medicaid_id ?? "No Medicaid ID"}
                           </div>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-3">{dateText(row.service_date)}</td>
+                        <td className="whitespace-nowrap px-3 py-3">
+                          {dateText(row.service_date)}
+                        </td>
                         <td className="whitespace-nowrap px-3 py-3 text-xs text-muted-foreground">
                           #{row.edi_claim_id ?? "—"}
                           {row.edi_batch_id ? ` · b${row.edi_batch_id}` : ""}
@@ -238,7 +235,9 @@ export function EdiStatusTab({ companyId }: { companyId: string | null }) {
                       {open && (
                         <tr className="bg-surface-muted/30">
                           <td colSpan={8} className="px-3 py-4">
-                            <FeedSections sections={ediFeedSections(parse(row.status_detail_json))} />
+                            <FeedSections
+                              sections={ediFeedSections(parse(row.status_detail_json))}
+                            />
                           </td>
                         </tr>
                       )}

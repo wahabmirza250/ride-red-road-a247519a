@@ -36,7 +36,7 @@ const FILTERS: { key: "all" | EdiRowState; label: string }[] = [
   { key: "ready", label: "Ready" },
   { key: "needs_attention", label: "Needs attention" },
   { key: "error", label: "Error" },
-  { key: "not_validated", label: "Not validated" },
+  { key: "not_validated", label: "To check" },
   { key: "batched", label: "In batch" },
   { key: "uploaded", label: "Uploaded" },
 ];
@@ -106,8 +106,7 @@ export function EdiBatchReviewTab({
     return acc;
   }, [rows]);
 
-  const allVisibleSelected =
-    visible.length > 0 && visible.every((r) => selected.has(r.record_id));
+  const allVisibleSelected = visible.length > 0 && visible.every((r) => selected.has(r.record_id));
 
   const validate = useMutation({
     mutationFn: async (ids: string[]) => {
@@ -155,9 +154,7 @@ export function EdiBatchReviewTab({
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface p-3 shadow-soft">
         <Checkbox
           checked={allVisibleSelected}
-          onCheckedChange={() =>
-            onSelectMany(allVisibleSelected ? [] : visible.map((r) => r.record_id))
-          }
+          onCheckedChange={() => onSelectMany(visible.map((r) => r.record_id))}
           aria-label="Select all visible"
         />
         <span className="text-sm text-muted-foreground">
@@ -171,12 +168,24 @@ export function EdiBatchReviewTab({
           <Input
             value={search}
             onChange={(e) => onSearch(e.target.value)}
-            placeholder="Member, Medicaid ID, date…"
-            className="h-9 w-60 rounded-full pl-8 text-sm"
+            aria-label="Search loaded trips"
+            placeholder="Search loaded trips…"
+            className="h-9 w-full sm:w-60 rounded-full pl-8 text-sm"
           />
         </div>
-        <Button size="sm" variant="ghost" className="rounded-full" onClick={onRefresh} disabled={fetching}>
-          {fetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="rounded-full"
+          aria-label="Refresh trips"
+          onClick={onRefresh}
+          disabled={fetching}
+        >
+          {fetching ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" />
+          )}
         </Button>
         <Button
           size="sm"
@@ -190,10 +199,18 @@ export function EdiBatchReviewTab({
           ) : (
             <ShieldCheck className="mr-2 h-3.5 w-3.5" />
           )}
-          {progress ? `Validating ${progress.done}/${progress.total}` : `Validate all (${selected.size})`}
+          {progress
+            ? `Validating ${progress.done}/${progress.total}`
+            : `Check trips (${selected.size})`}
         </Button>
-        <Button size="sm" variant="outline" className="rounded-full" onClick={onOpenSubmission}>
-          Build 837P <ArrowRight className="ml-1 h-3.5 w-3.5" />
+        <Button
+          size="sm"
+          variant="outline"
+          className="rounded-full"
+          disabled={!selectedRows.length || validate.isPending}
+          onClick={onOpenSubmission}
+        >
+          Make a batch <ArrowRight className="ml-1 h-3.5 w-3.5" />
         </Button>
       </div>
 
@@ -207,7 +224,7 @@ export function EdiBatchReviewTab({
       {summary && (
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm">
           <CheckCircle2 className="h-4 w-4 text-success" />
-          <span className="font-medium text-foreground">Last validation pass</span>
+          <span className="font-medium text-foreground">Trip check results</span>
           <CountChip label="ready" value={summary.ready} tone="ready" />
           <CountChip label="need attention" value={summary.needsAttention} tone="warn" />
           <CountChip label="error" value={summary.error} tone="error" />
@@ -254,22 +271,20 @@ export function EdiBatchReviewTab({
       ) : visible.length === 0 ? (
         <Empty icon>
           {rows.length === 0
-            ? "No bills for this company yet. Import scanned trip forms in Upload / Import."
+            ? "No completed trip forms to bill yet. Driver trip forms appear here automatically after they are saved."
             : "No bill matches this filter."}
         </Empty>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px] text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead className="bg-surface-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="w-10 px-3 py-2.5" />
                   <th className="px-3 py-2.5">Member</th>
                   <th className="px-3 py-2.5">Service date</th>
                   <th className="px-3 py-2.5">Trip</th>
-                  <th className="px-3 py-2.5">Service lines</th>
                   <th className="px-3 py-2.5 text-right">Charge</th>
-                  <th className="px-3 py-2.5">Documents</th>
                   <th className="px-3 py-2.5">State</th>
                   <th className="w-10 px-3 py-2.5" />
                 </tr>
@@ -278,7 +293,10 @@ export function EdiBatchReviewTab({
                 {visible.map((row) => {
                   const state = ediRowState(row);
                   const issue =
-                    state === "ready" || state === "batched" || state === "generated" || state === "uploaded"
+                    state === "ready" ||
+                    state === "batched" ||
+                    state === "generated" ||
+                    state === "uploaded"
                       ? null
                       : exclusionReason(row);
                   return (
@@ -313,21 +331,8 @@ export function EdiBatchReviewTab({
                           {row.pickup_address ?? "—"} → {row.dropoff_address ?? "—"}
                         </div>
                       </td>
-                      <td className="px-3 py-3 text-xs">
-                        <div className="text-foreground">
-                          {row.procedure_codes.join(", ") || "—"}
-                          {row.modifiers.length ? ` · ${row.modifiers.join(", ")}` : ""}
-                        </div>
-                        <div className="text-muted-foreground">
-                          {row.units} unit{row.units === 1 ? "" : "s"}
-                          {row.diagnosis_code ? ` · dx ${row.diagnosis_code}` : ""}
-                        </div>
-                      </td>
                       <td className="whitespace-nowrap px-3 py-3 text-right font-medium tabular-nums text-foreground">
                         {moneyText(row.total_charge)}
-                      </td>
-                      <td className="px-3 py-3">
-                        <LongDistancePill value={row.long_distance} />
                       </td>
                       <td className="px-3 py-3">
                         <StatePill state={state} />
@@ -359,27 +364,27 @@ export function EdiBatchReviewTab({
               </tbody>
             </table>
           </div>
-          {hasMore && (
-            <div className="border-t border-border p-3 text-center">
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full"
-                onClick={onLoadMore}
-                disabled={fetching}
-              >
-                {fetching ? (
-                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ChevronDown className="mr-2 h-3.5 w-3.5" />
-                )}
-                Load more ({rows.length} of {total})
-              </Button>
-            </div>
-          )}
         </div>
       )}
 
+      {hasMore && (
+        <div className="border-t border-border p-3 text-center">
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-full"
+            onClick={onLoadMore}
+            disabled={fetching}
+          >
+            {fetching ? (
+              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ChevronDown className="mr-2 h-3.5 w-3.5" />
+            )}
+            Load more ({rows.length} of {total})
+          </Button>
+        </div>
+      )}
       {selectedRows.length > 0 && (
         <p className="text-xs text-muted-foreground">
           Selection is kept while you switch tabs — ready claims stay selected even when other rows

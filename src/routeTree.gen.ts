@@ -59,6 +59,7 @@ import { Route as CompanySlugBillingBatchRouteImport } from './routes/$companySl
 import { Route as CompanySlugBillingChatRouteImport } from './routes/$companySlug/billing.chat'
 import { Route as CompanySlugBillingEdiRouteImport } from './routes/$companySlug/billing.edi'
 import { Route as CompanySlugBillingMessagesRouteImport } from './routes/$companySlug/billing.messages'
+import { Route as CompanySlugBillingPortalRouteImport } from './routes/$companySlug/billing.portal'
 import { Route as CompanySlugBillingSettingsRouteImport } from './routes/$companySlug/billing.settings'
 import { Route as CompanySlugBillingSigninRouteImport } from './routes/$companySlug/billing.signin'
 import { Route as CompanySlugDispatchIndexRouteImport } from './routes/$companySlug/dispatch.index'
@@ -381,6 +382,12 @@ const CompanySlugBillingMessagesRoute =
   CompanySlugBillingMessagesRouteImport.update({
     id: '/messages',
     path: '/messages',
+    getParentRoute: () => CompanySlugBillingRoute,
+  } as any)
+const CompanySlugBillingPortalRoute =
+  CompanySlugBillingPortalRouteImport.update({
+    id: '/portal',
+    path: '/portal',
     getParentRoute: () => CompanySlugBillingRoute,
   } as any)
 const CompanySlugBillingSettingsRoute =
@@ -726,6 +733,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/billing/chat': typeof CompanySlugBillingChatRoute
   '/$companySlug/billing/edi': typeof CompanySlugBillingEdiRoute
   '/$companySlug/billing/messages': typeof CompanySlugBillingMessagesRoute
+  '/$companySlug/billing/portal': typeof CompanySlugBillingPortalRoute
   '/$companySlug/billing/settings': typeof CompanySlugBillingSettingsRoute
   '/$companySlug/billing/signin': typeof CompanySlugBillingSigninRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
@@ -821,6 +829,7 @@ export interface FileRoutesByTo {
   '/$companySlug/billing/chat': typeof CompanySlugBillingChatRoute
   '/$companySlug/billing/edi': typeof CompanySlugBillingEdiRoute
   '/$companySlug/billing/messages': typeof CompanySlugBillingMessagesRoute
+  '/$companySlug/billing/portal': typeof CompanySlugBillingPortalRoute
   '/$companySlug/billing/settings': typeof CompanySlugBillingSettingsRoute
   '/$companySlug/billing/signin': typeof CompanySlugBillingSigninRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
@@ -923,6 +932,7 @@ export interface FileRoutesById {
   '/$companySlug/billing/chat': typeof CompanySlugBillingChatRoute
   '/$companySlug/billing/edi': typeof CompanySlugBillingEdiRoute
   '/$companySlug/billing/messages': typeof CompanySlugBillingMessagesRoute
+  '/$companySlug/billing/portal': typeof CompanySlugBillingPortalRoute
   '/$companySlug/billing/settings': typeof CompanySlugBillingSettingsRoute
   '/$companySlug/billing/signin': typeof CompanySlugBillingSigninRoute
   '/$companySlug/dispatch/history': typeof CompanySlugDispatchHistoryRoute
@@ -1026,6 +1036,7 @@ export interface FileRouteTypes {
     | '/$companySlug/billing/chat'
     | '/$companySlug/billing/edi'
     | '/$companySlug/billing/messages'
+    | '/$companySlug/billing/portal'
     | '/$companySlug/billing/settings'
     | '/$companySlug/billing/signin'
     | '/$companySlug/dispatch/history'
@@ -1121,6 +1132,7 @@ export interface FileRouteTypes {
     | '/$companySlug/billing/chat'
     | '/$companySlug/billing/edi'
     | '/$companySlug/billing/messages'
+    | '/$companySlug/billing/portal'
     | '/$companySlug/billing/settings'
     | '/$companySlug/billing/signin'
     | '/$companySlug/dispatch/history'
@@ -1222,6 +1234,7 @@ export interface FileRouteTypes {
     | '/$companySlug/billing/chat'
     | '/$companySlug/billing/edi'
     | '/$companySlug/billing/messages'
+    | '/$companySlug/billing/portal'
     | '/$companySlug/billing/settings'
     | '/$companySlug/billing/signin'
     | '/$companySlug/dispatch/history'
@@ -1653,6 +1666,13 @@ declare module '@tanstack/react-router' {
       path: '/messages'
       fullPath: '/$companySlug/billing/messages'
       preLoaderRoute: typeof CompanySlugBillingMessagesRouteImport
+      parentRoute: typeof CompanySlugBillingRoute
+    }
+    '/$companySlug/billing/portal': {
+      id: '/$companySlug/billing/portal'
+      path: '/portal'
+      fullPath: '/$companySlug/billing/portal'
+      preLoaderRoute: typeof CompanySlugBillingPortalRouteImport
       parentRoute: typeof CompanySlugBillingRoute
     }
     '/$companySlug/billing/settings': {
@@ -2129,6 +2149,7 @@ interface CompanySlugBillingRouteChildren {
   CompanySlugBillingChatRoute: typeof CompanySlugBillingChatRoute
   CompanySlugBillingEdiRoute: typeof CompanySlugBillingEdiRoute
   CompanySlugBillingMessagesRoute: typeof CompanySlugBillingMessagesRoute
+  CompanySlugBillingPortalRoute: typeof CompanySlugBillingPortalRoute
   CompanySlugBillingSettingsRoute: typeof CompanySlugBillingSettingsRoute
   CompanySlugBillingSigninRoute: typeof CompanySlugBillingSigninRoute
   CompanySlugBillingIndexRoute: typeof CompanySlugBillingIndexRoute
@@ -2139,6 +2160,7 @@ const CompanySlugBillingRouteChildren: CompanySlugBillingRouteChildren = {
   CompanySlugBillingChatRoute: CompanySlugBillingChatRoute,
   CompanySlugBillingEdiRoute: CompanySlugBillingEdiRoute,
   CompanySlugBillingMessagesRoute: CompanySlugBillingMessagesRoute,
+  CompanySlugBillingPortalRoute: CompanySlugBillingPortalRoute,
   CompanySlugBillingSettingsRoute: CompanySlugBillingSettingsRoute,
   CompanySlugBillingSigninRoute: CompanySlugBillingSigninRoute,
   CompanySlugBillingIndexRoute: CompanySlugBillingIndexRoute,

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BillingWorkspace } from "@/components/billing/BillingWorkspace";
-
+import { SuperEdiWorkspace } from "@/components/billing/superedi/SuperEdiWorkspace";
 export const Route = createFileRoute("/$companySlug/billing/")({
-  component: BillingWorkspace,
+  ssr: false,
+  component: () => <SuperEdiWorkspace billingApp />,
 });

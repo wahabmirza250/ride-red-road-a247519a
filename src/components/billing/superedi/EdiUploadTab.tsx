@@ -87,7 +87,9 @@ export function EdiUploadTab({
             Import queue
           </span>
           <CountChip label="files" value={progress.total} />
-          {progress.uploading > 0 && <CountChip label="uploading" value={progress.uploading} tone="info" />}
+          {progress.uploading > 0 && (
+            <CountChip label="uploading" value={progress.uploading} tone="info" />
+          )}
           {progress.extracting > 0 && (
             <CountChip label="extracting" value={progress.extracting} tone="info" />
           )}
@@ -158,17 +160,21 @@ export function EdiUploadTab({
             variant="outline"
             className="rounded-full"
             disabled={!visibleIds.length}
-            onClick={() => onSelectMany(allVisibleSelected ? [] : visibleIds)}
+            onClick={() => onSelectMany(visibleIds)}
           >
             <Layers className="mr-2 h-3.5 w-3.5" />
             {allVisibleSelected ? "Clear these" : `Add all ${visibleIds.length} to batch`}
           </Button>
-          <CountChip label="in selection" value={selected.size} tone={selected.size ? "info" : "muted"} />
+          <CountChip
+            label="in selection"
+            value={selected.size}
+            tone={selected.size ? "info" : "muted"}
+          />
           {importedTripIds.length > 0 && (
             <CountChip label="imported this session" value={importedTripIds.length} tone="ready" />
           )}
           <Button size="sm" variant="ghost" className="ml-auto rounded-full" onClick={onOpenReview}>
-            Go to Batch Review <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            Review trips <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>
         </div>
 

@@ -37,7 +37,11 @@ import {
 import { batchCounts, partitionForBatch } from "@/lib/ediBulk";
 import { ediBuildBatch, ediUploadFileToTradingPartner } from "@/lib/ediBulk.functions";
 import type { EdiBatchBuildResult } from "@/lib/ediBulk.functions";
-import { PRODUCTION_CONFIRM_PHRASE, isProductionConfirmed, type EdiEnvironment } from "@/lib/ediSetup";
+import {
+  PRODUCTION_CONFIRM_PHRASE,
+  isProductionConfirmed,
+  type EdiEnvironment,
+} from "@/lib/ediSetup";
 import type { EdiWorkRow } from "@/lib/ediTypes";
 import { CountChip, Empty, Panel, StatCard, moneyText } from "./ediUi";
 
@@ -153,9 +157,9 @@ export function EdiSubmissionTab({
       <Empty icon>
         Nothing selected yet. Pick the bills you want to file in{" "}
         <button className="underline underline-offset-2" onClick={onOpenReview}>
-          Batch Review
+          Trips to bill
         </button>{" "}
-        — every claim the backend called ready goes into one 837P.
+        — ready trips will be grouped into one bill.
       </Empty>
     );
   }
@@ -171,8 +175,8 @@ export function EdiSubmissionTab({
         />
         <StatCard label="Excluded" value={counts.excluded} hint="Held back with a reason" />
         <StatCard
-          label="Environment"
-          value={environment === "production" ? "PRODUCTION" : "TEST"}
+          label="Billing mode"
+          value={environment === "production" ? "Live" : "Test only"}
           hint={productionReady ? "Company cleared for live filing" : "Live filing not enabled"}
         />
       </div>
@@ -185,7 +189,7 @@ export function EdiSubmissionTab({
       )}
 
       <Panel
-        title="Build the 837P"
+        title="Make a batch and bill"
         action={
           <Badge variant={environment === "production" ? "destructive" : "secondary"}>
             {environment === "production" ? "PRODUCTION" : "TEST"}
@@ -193,25 +197,25 @@ export function EdiSubmissionTab({
         }
       >
         <ol className="space-y-3">
-          <Step index={1} title="Backend validation" done={counts.ready > 0}>
+          <Step index={1} title="Check trips" done={counts.ready > 0}>
             {counts.ready > 0 ? (
               <>
                 {counts.ready} claim{counts.ready === 1 ? "" : "s"} reported <strong>ready</strong>{" "}
-                by the EDI backend.
+                for billing.
                 {counts.excluded > 0 && ` ${counts.excluded} excluded — see the list below.`}
               </>
             ) : (
               <>
                 No claim in this selection is ready yet. Run{" "}
                 <button className="underline underline-offset-2" onClick={onOpenReview}>
-                  Validate All
+                  Check trips
                 </button>{" "}
-                in Batch Review first.
+                in Trips to bill first.
               </>
             )}
           </Step>
 
-          <Step index={2} title="Submission batch + 837P file" done={!!batchId && !!fileId}>
+          <Step index={2} title="Create your batch" done={!!batchId && !!fileId}>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
@@ -231,14 +235,14 @@ export function EdiSubmissionTab({
               {fileId ? <CountChip label="837P file" value={`#${fileId}`} tone="info" /> : null}
             </div>
             <p className="mt-2">
-              One batch, one file: every ready claim is added to the same submission batch, then a
-              single 837P is generated for it. Clicking again reuses the existing batch and file.
+              Ready trips are grouped into one batch. Trips needing attention stay out until
+              corrected.
             </p>
           </Step>
 
           <Step
             index={3}
-            title="Hand the file to the trading partner"
+            title="Send the bill"
             done={selectedRows.some((r) => (r.edi_status ?? "") === "uploaded")}
           >
             <div className="flex flex-wrap items-center gap-2">
@@ -255,7 +259,7 @@ export function EdiSubmissionTab({
                 ) : (
                   <ShieldCheck className="mr-2 h-3.5 w-3.5" />
                 )}
-                Upload TEST file
+                Send test batch
               </Button>
               <Button
                 size="sm"
@@ -272,12 +276,12 @@ export function EdiSubmissionTab({
                 onClick={() => setConfirmOpen(true)}
               >
                 <Rocket className="mr-2 h-3.5 w-3.5" />
-                Submit to PRODUCTION
+                Send bill to payer
               </Button>
             </div>
             <p className="mt-2">
-              Nothing leaves NEMT Solutions until one of these is clicked. Production stays disabled until
-              the company is marked production-capable in Provider Setup.
+              Review the batch before sending. Live billing stays unavailable until your company’s
+              payer connection is approved.
             </p>
           </Step>
         </ol>
@@ -312,7 +316,7 @@ export function EdiSubmissionTab({
           title={`Excluded from this file (${excluded.length})`}
           action={
             <Button size="sm" variant="ghost" className="rounded-full" onClick={onOpenReview}>
-              Fix in Batch Review <ArrowRight className="ml-1 h-3.5 w-3.5" />
+              Fix in Trips to bill <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Button>
           }
         >
