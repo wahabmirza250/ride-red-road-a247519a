@@ -17,9 +17,13 @@ Only individually linked passenger accounts receive alerts. Group manifest membe
 - Android app `com.redart.rides` registered as NEMT Passenger, app ID `1:992464989459:android:021d8d523c1828d3bebee6`.
 - Cloud Messaging HTTP v1 enabled.
 
-## Connection blocked
+## Connection progress and remaining approvals
 
-The in-app browser's configuration download did not produce a usable local file. Official Firebase CLI 15.11.0 was installed separately from the app dependencies to retrieve the configuration. Google OAuth asks to administer all Firebase and Google Cloud projects on the account. Automatic approval review rejected that broader grant pending explicit user approval. No CLI authorization or server credential was obtained.
+The user approved the official Firebase CLI connection for wahabmirza250@gmail.com. Sign-in succeeded and the real Android configuration was downloaded to the ignored google-services.json file. Capacitor synchronization includes the native push plugin. No server credential has been created yet.
+
+Automatic approval review separately blocked creating the dedicated nemt-ride-notifications service account, granting roles/firebasecloudmessaging.admin in nemt-solutions, and generating its private key. That exact project permission and credential creation requires explicit approval. The key will be stored only in server-side Railway settings, not the APK or repository.
+
+Saving the Android configuration as a GitHub Actions secret also needs a signed-in repository settings session. Automatic approval review blocked the GitHub sign-in because the specific GitHub account was not explicitly approved. The intended account is wahabmirza250, owner of the existing app repository.
 
 ## Finish after account authorization
 
