@@ -1,4 +1,5 @@
 import { DemoBillingRunButton } from "./DemoBillingRunButton";
+import { BatchPaperBills } from "./BatchPaperBills";
 import { useWorkspaceSearch } from "@/lib/useWorkspaceSearch";
 import { QueryNotice } from "@/components/admin/QueryNotice";
 import { REAL_SUBMISSIONS_PAUSED } from "@/lib/submissionPause";
@@ -131,6 +132,7 @@ function looksLikeEdgeFailure(e: unknown): boolean {
 }
 
 type TabKey =
+  | "upload"
   | "pending_review"
   | "ready_to_submit"
   | "needs_attention"
@@ -156,9 +158,10 @@ const TABS: {
   )[];
   countKeys: string[];
 }[] = [
+  { key: "upload", label: "1. Upload", statuses: [], countKeys: [] },
   {
     key: "pending_review",
-    label: "Review",
+    label: "2. Review",
     statuses: ["pending_review"],
     countKeys: ["pending_review"],
   },
@@ -169,7 +172,7 @@ const TABS: {
     // needs_fix rows, so the tab rendered "nothing waiting" while the badge
     // (a head count of eligible approved rows) said 19.
     key: "ready_to_submit",
-    label: "Ready to Submit",
+    label: "3. Ready to submit",
     statuses: ["approved"],
     countKeys: ["ready_to_submit"],
   },
@@ -233,14 +236,11 @@ const TABS: {
 ];
 
 const PRIMARY_KEYS: TabKey[] = [
+  "upload",
   "pending_review",
   "ready_to_submit",
-  "needs_attention",
-  "verification_hold",
-  "awaiting_portal",
-  "submitted",
 ];
-const SECONDARY_KEYS: TabKey[] = ["medical_review", "claims_history", "payroll", "denied"];
+const SECONDARY_KEYS: TabKey[] = ["awaiting_portal", "submitted", "needs_attention", "verification_hold", "medical_review", "claims_history", "payroll", "denied"];
 
 /** One short, plain-English hint per stage so the rail reads like a pipeline. */
 const STAGE_HINTS: Partial<Record<TabKey, string>> = {
@@ -332,7 +332,7 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         });
       }
     },
-    enabled: canBill,
+    enabled: canBill && tab !== "upload",
     // Keep the previous page visible while a background refresh runs — a
     // harmless refetch must never blank the table into a spinner.
     placeholderData: (prev: unknown) => prev as any,
@@ -565,12 +565,12 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
 
       {/* First row: the six numbers that matter, then the overview charts. */}
       <QueryNotice query={counts} label="Billing counts" />
-      {!counts.isError && (
+      {!counts.isError && (<details className="rounded-2xl border border-border p-4"><summary className="cursor-pointer font-medium">Billing summary</summary>
         <BillingKpiRow
           counts={counts.data as any}
           loading={counts.isLoading}
           onSelect={(k) => setTab(k as TabKey)}
-        />
+        /></details>
       )}
       {!counts.isError && <details className="rounded-2xl border border-border p-4"><summary className="cursor-pointer font-medium">Trends and billing insights</summary><BillingInsights counts={counts.data as any} embedded={embedded} /></details>}
 
@@ -606,7 +606,12 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
         <ReconcileSweepCard onOpenRecord={setSelectedId} />
       )}
 
-      {tab === "claims_history" ? (
+      {tab === "upload" ? (
+        <BatchPaperBills embedded onOpenReview={() => setTab("pending_review")} onImported={() => {
+          void qc.invalidateQueries({ queryKey: ["billing_list"] });
+          void qc.invalidateQueries({ queryKey: ["billing_counts"] });
+        }} />
+      ) : tab === "claims_history" ? (
         <ClaimsHistoryTab />
       ) : tab === "payroll" ? (
         <PayrollClaimsTab />

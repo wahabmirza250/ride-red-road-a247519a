@@ -206,9 +206,27 @@ async function reconcileRobotJobInner(
     // Terminal: PASS 2 finished — the robot really clicked Submit + Confirm.
     if (jobStatus === "done" && pass === "submit") {
       const confirmation = extractConfirmationNumber(result) ?? extractConfirmationNumber(body);
-      const submitted =
-        !!confirmation ||
-        ["SUBMITTED", "CONFIRMED", "SUCCESS", "COMPLETED"].includes(resultStatus.toUpperCase());
+      // A success flag is not a receipt. Keep an uncertain outcome out of
+      // Ready/Submitted and let the existing read-only recovery find its ID.
+      if (!confirmation && ["SUBMITTED", "CONFIRMED", "SUCCESS", "COMPLETED"].includes(resultStatus.toUpperCase())) {
+        const message = "The portal reported success, but the claim ID was not saved. Checking the portal for its receipt — do not submit again.";
+        await supabase.from("medicaid_trips").update({
+          robot_last_status: UNVERIFIED_SUBMIT_STATUS,
+          robot_last_message: message,
+          robot_last_checked_at: nowIso,
+        }).eq("id", trip.id);
+        await supabase.from("billing_records").update({
+          status: "submitting",
+          submission_error: message,
+          requires_human_step: false,
+          submit_next_attempt_at: null,
+          submit_locked_until: null,
+          submit_worker: null,
+        }).eq("id", rec.id);
+        await logAudit(supabase, rec.id, userId, "robot_submit_unverified", message);
+        return { pending: true, status: UNVERIFIED_SUBMIT_STATUS, message };
+      }
+      const submitted = !!confirmation;
 
       if (submitted) {
         await supabase

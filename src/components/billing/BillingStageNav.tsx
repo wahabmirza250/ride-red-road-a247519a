@@ -20,6 +20,7 @@ export function BillingStageNav({
   active,
   onSelect,
   secondary,
+  secondaryActiveLabel,
   onSelectSecondary,
   trailing,
 }: {
@@ -31,10 +32,7 @@ export function BillingStageNav({
   onSelectSecondary: (key: string) => void;
   trailing?: ReactNode;
 }) {
-  const all = [
-    ...stages,
-    ...secondary.map((s) => ({ key: s.key, label: s.label, count: null as number | null })),
-  ];
+  const all = stages;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -77,6 +75,18 @@ export function BillingStageNav({
           );
         })}
       </div>
+      <label className="text-sm text-muted-foreground">
+        <span className="sr-only">Tracking and other billing tools</span>
+        <select
+          aria-label="Tracking and other billing tools"
+          className="h-10 max-w-full rounded-xl border border-border bg-surface px-3 text-foreground"
+          value={secondaryActiveLabel ? active : ""}
+          onChange={(event) => onSelectSecondary(event.target.value)}
+        >
+          <option value="" disabled>Track bills &amp; more</option>
+          {secondary.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+        </select>
+      </label>
       {trailing ? <div className="shrink-0">{trailing}</div> : null}
     </div>
   );

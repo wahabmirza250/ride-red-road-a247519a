@@ -113,6 +113,18 @@ describe("reconcile: orphaned 404 job", () => {
 });
 
 describe("reconcile: terminal outcomes", () => {
+  it.each(["SUBMITTED", "CONFIRMED", "SUCCESS", "COMPLETED"])("holds %s without a receipt for recovery, never another submission", async (status) => {
+    mockFetch(200, { status: "done", result: { status } });
+    const { supabase, writes } = db({ ...BASE_TRIP }, { ...BASE_REC });
+    const out = await reconcileRobotJob(supabase, "r1", null);
+    expect(out.status).toBe("SUBMITTED_UNVERIFIED");
+    expect(out.pending).toBe(true);
+    const bill = writes.find((w) => w.table === "billing_records")!.patch;
+    expect(bill.status).toBe("submitting");
+    expect(bill.submit_next_attempt_at).toBeNull();
+    expect(writes.some((w) => w.patch.status === "submitted")).toBe(false);
+    expect(maybeAutoRetryTimeout).not.toHaveBeenCalled();
+  });
   it("atomically stores the HCPF claim id on success", async () => {
     mockFetch(200, { status: "done", result: { status: "SUBMITTED", claim_id: "9426213001270" } });
     const { supabase, writes } = db({ ...BASE_TRIP }, { ...BASE_REC });
