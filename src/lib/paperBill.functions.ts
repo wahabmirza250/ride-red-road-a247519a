@@ -1,5 +1,5 @@
 import { digitsFromBracketAware, mountainIso, normalizeClockTime } from "./paperBillParse";
-import { fetchAiGatewayWithRetry } from "./aiGatewayRetry";
+import { requestOpenAiOcr } from "./openAiOcr.server";
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -469,8 +469,6 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertBilling(context.supabase);
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) throw new Error("Auto-read is not configured");
 
     const isPdf = data.image_data_url.startsWith("data:application/pdf");
     const filePart = isPdf
@@ -480,10 +478,7 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
         }
       : { type: "image_url", image_url: { url: data.image_data_url } };
 
-    const body = JSON.stringify({
-      // Handwriting reading needs the full Flash model, not the lite tier.
-      model: "google/gemini-2.5-flash",
-      messages: [
+    const parsed = await requestOpenAiOcr( [
         {
           role: "user",
           content: [
@@ -497,46 +492,8 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
           ],
         },
       ],
-      temperature: 0,
-      max_tokens: 600,
-    });
-
-    // The gateway rate-limits when several billers upload at the same moment,
-    // so 429s and transient 5xx are retried with growing backoff.
-    const { response, lastError } = await fetchAiGatewayWithRetry(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body,
-      },
-      { label: "paper-bill-ocr" },
+      1600,
     );
-
-    if (!response || !response.ok) {
-      // Terminal gateway conditions are reported with their status so the
-      // client can stop the batch instead of repeating a doomed request per
-      // file. Auto-read is optional — manual entry always still works.
-      if (response?.status === 402)
-        throw new Error("402 Auto-read is out of AI credits — enter the details manually.");
-      if (response?.status === 403)
-        throw new Error("403 Auto-read is disabled for this workspace — enter the details manually.");
-      if (response?.status === 429)
-        throw new Error("Auto-read is busy right now (429) — try again in a moment.");
-      throw new Error(`Auto-read failed (${lastError || "no response"})`);
-    }
-
-
-
-
-    const payload = await response.json();
-    const content = String(payload?.choices?.[0]?.message?.content ?? "");
-    let parsed: Record<string, unknown> = {};
-    try {
-      parsed = JSON.parse(content.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
-    } catch {
-      parsed = {};
-    }
 
     const MIN_CONFIDENCE = 0.6;
     const node = (key: string) => {

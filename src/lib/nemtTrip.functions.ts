@@ -1,3 +1,4 @@
+import { requestOpenAiOcr } from "./openAiOcr.server";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
@@ -193,18 +194,8 @@ export const detectOdometerFromImage = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("Odometer auto-detect is not configured");
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
+    const parsed = await requestOpenAiOcr(
+[
           {
             role: "user",
             content: [
@@ -217,25 +208,9 @@ export const detectOdometerFromImage = createServerFn({ method: "POST" })
             ],
           },
         ],
-        temperature: 0,
-        max_tokens: 80,
-      }),
-    });
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(`Odometer auto-detect failed (${response.status})${body ? `: ${body.slice(0, 180)}` : ""}`);
-    }
-
-    const payload = await response.json();
-    const content = String(payload?.choices?.[0]?.message?.content ?? "");
-    const jsonText = content.match(/\{[\s\S]*\}/)?.[0] ?? "{}";
-    let parsed: { odometer?: unknown; confidence?: unknown } = {};
-    try {
-      parsed = JSON.parse(jsonText);
-    } catch {
-      parsed = {};
-    }
+      160,
+    );
+    const content = JSON.stringify(parsed);
 
     const raw = typeof parsed.odometer === "string" || typeof parsed.odometer === "number"
       ? String(parsed.odometer)
