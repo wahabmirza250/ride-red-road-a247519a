@@ -40,6 +40,7 @@ export function PlanRidesPanel() {
   const [rides, setRides] = useState<Ride[] | null>(null);
   const [drivers, setDrivers] = useState<Array<{ id: string; name: string; status: string }>>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<{ rideId: string; message: string } | null>(null);
   const [from, setFrom] = useWorkspaceSearch("from", "");
   const [to, setTo] = useWorkspaceSearch("to", "");
   const [query, setQuery] = useWorkspaceSearch("q", "");
@@ -100,12 +101,15 @@ export function PlanRidesPanel() {
 
   async function doAssign(rideId: string, driverId: string) {
     setBusy(rideId);
+    setActionError(null);
     try {
       await assign({ data: { request_id: rideId, driver_id: driverId } });
       toast.success("Driver assigned");
       await refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Assignment failed");
+      const message = e instanceof Error ? e.message : "Assignment failed";
+      setActionError({ rideId, message });
+      toast.error(message);
     } finally {
       setBusy(null);
     }
@@ -114,6 +118,7 @@ export function PlanRidesPanel() {
   async function doReschedule(rideId: string, local: string) {
     if (!local) return;
     setBusy(rideId);
+    setActionError(null);
     try {
       await reschedule({
         data: { request_id: rideId, requested_pickup_time: new Date(local).toISOString() },
@@ -121,7 +126,9 @@ export function PlanRidesPanel() {
       toast.success("Pickup time updated");
       await refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not reschedule");
+      const message = e instanceof Error ? e.message : "Could not reschedule";
+      setActionError({ rideId, message });
+      toast.error(message);
     } finally {
       setBusy(null);
     }
@@ -217,6 +224,9 @@ export function PlanRidesPanel() {
                       {r.driver_name ? `Assigned · ${r.driver_name}` : "Unassigned"}
                     </span>
                   </div>
+                  {actionError?.rideId === r.id && (
+                    <p role="alert" className="mt-2 text-sm text-destructive">{actionError.message}</p>
+                  )}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <select
                       defaultValue=""

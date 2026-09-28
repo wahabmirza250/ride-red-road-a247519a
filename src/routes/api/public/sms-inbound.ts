@@ -1,3 +1,4 @@
+import { requestOpenAiOcr } from "@/lib/openAiOcr.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { createHmac, timingSafeEqual } from "crypto";
 
@@ -43,22 +44,16 @@ type Parsed = {
 };
 
 async function parseBooking(body: string): Promise<Parsed> {
-  const key = process.env["LOVABLE_API_KEY"];
   const empty: Parsed = {
     pickup_address: null,
     dropoff_address: null,
     requested_pickup_time: null,
     passenger_name: null,
   };
-  if (!key) return empty;
 
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { "Lovable-API-Key": key, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3.6-flash",
-        messages: [
+    const parsed = await requestOpenAiOcr(
+[
           {
             role: "system",
             content:
@@ -69,17 +64,8 @@ async function parseBooking(body: string): Promise<Parsed> {
           },
           { role: "user", content: body.slice(0, 800) },
         ],
-      }),
-    });
-    if (!res.ok) {
-      console.error(`[sms-inbound] AI parse failed ${res.status}: ${await res.text()}`);
-      return empty;
-    }
-    const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const raw = json.choices?.[0]?.message?.content ?? "";
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) return empty;
-    const parsed = JSON.parse(match[0]) as Partial<Parsed>;
+      400,
+    );
     const clean = (v: unknown) => {
       const s = typeof v === "string" ? v.trim() : "";
       return s && s.toLowerCase() !== "null" ? s : null;
@@ -95,7 +81,7 @@ async function parseBooking(body: string): Promise<Parsed> {
       passenger_name: clean(parsed.passenger_name),
     };
   } catch (e) {
-    console.error("[sms-inbound] AI parse error", e);
+    console.error("[sms-inbound] AI parse failed");
     return empty;
   }
 }
