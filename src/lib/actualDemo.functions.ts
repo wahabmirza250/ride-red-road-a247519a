@@ -9,6 +9,12 @@ export const launchActualDemo = createServerFn({ method: 'POST' })
     const db: any = supabaseAdmin;
     const { data: roles, error: roleError } = await db.from('user_roles').select('role').eq('user_id', context.userId).in('role',['admin','platform_owner']);
     if (roleError || !roles?.length) throw new Error('Sign in with your company admin account to open the full demo.');
+    // Platform owners do not belong to a transport company. Provision their
+    // own isolated demo directly after checking the server-held owner role.
+    if (roles.some((role: {role: string}) => role.role === 'platform_owner')) {
+      const { prepareActualDemo } = await import('./actualDemo.server');
+      return prepareActualDemo(context.userId);
+    }
     const { data: profile, error: profileError } = await db.from('profiles').select('company_id').eq('id',context.userId).single();
     if (profileError || !profile?.company_id) throw new Error('Your company account is unavailable.');
     const { data: ownCompany, error: ownError } = await db.from('companies').select('is_demo,url_slug').eq('id',profile.company_id).single();
