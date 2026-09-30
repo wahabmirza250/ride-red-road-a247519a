@@ -4,7 +4,7 @@ import { loadEdiDetails, toWorkRow } from './ediRecords.server';
 import { summarizeValidation } from './ediBulk';
 
 /** Local presentation transitions only. This module never calls a payer or robot. */
-export async function runDemoBilling(db: any, companyId: string, ids: string[], action: 'validate' | 'batch' | 'upload' | 'refresh', fileId?: number) {
+export async function runDemoBilling(db: any, companyId: string, ids: string[], action: 'validate' | 'batch' | 'upload' | 'refresh' | 'submit', fileId?: number) {
   if (!await isDemoCompany(companyId)) throw new Error('Demo billing is restricted to demo companies.');
   if (!ids.length) throw new Error('Select demo bills first.');
   const details = await loadEdiDetails(db, companyId, { recordIds: ids });
@@ -17,7 +17,15 @@ export async function runDemoBilling(db: any, companyId: string, ids: string[], 
   if (action === 'upload' && (!fileId || rows.some(row => row.edi_file_id !== fileId))) throw new Error('The selected bills do not belong to this demo batch.');
   for (const row of rows) {
     const patch: Record<string, unknown> = { edi_environment: 'test', edi_last_sync_at: new Date().toISOString(), edi_last_error: null };
-    if (action === 'validate') {
+    if (action === 'submit') {
+      if (['uploaded','paid'].includes(row.edi_status ?? '')) continue;
+      Object.assign(patch, {status:'submitted', submitted_at:new Date().toISOString(),
+        state_confirmation_number:`DEMO-${row.record_id.slice(0,8).toUpperCase()}`,
+        edi_claim_id:row.edi_claim_id ?? demoNumber(row.record_id), edi_batch_id:row.edi_batch_id ?? batchId,
+        edi_file_id:row.edi_file_id ?? batchId, edi_status:'uploaded',
+        edi_validation:{ready:true,demo:true,issues:[]}, submission_error:null,
+        edi_status_detail:{demo:true,status:'uploaded',message:'Demo bill submitted successfully. No payer contacted.',total:row.total_charge}});
+    } else if (action === 'validate') {
       if (row.edi_batch_id) continue;
       Object.assign(patch, { edi_claim_id: demoNumber(row.record_id), edi_status: row.local_blockers.length ? 'not_ready' : 'ready', edi_validation: { ready: !row.local_blockers.length, demo: true, issues: row.local_blockers } });
     } else if (action === 'batch') {

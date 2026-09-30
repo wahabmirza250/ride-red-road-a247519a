@@ -6,6 +6,8 @@
  * what the biller saw. Reads only; the EDI writers live in `ediBulk.functions`.
  */
 import { ediIsValid, ediValidationIssues } from "@/lib/edi";
+import { isDemoCompany } from './demoCompany.server';
+import { DEMO_TRIP_RATE, DEMO_MILE_RATE, DEMO_BILLING_ACCOUNT } from './demoBillingRates';
 import { ediBackendStatus } from "@/lib/ediStatusFeed";
 import { readEdiLongDistance } from "@/lib/ediLongDistance";
 import { localClaimBlockers } from "@/lib/ediPayload";
@@ -39,6 +41,7 @@ export type LoadEdiRecordsOptions = {
 
 /** Company billing rates, keyed by vehicle type. */
 async function loadRates(supabase: Sb, _companyId: string) {
+  const demo = await isDemoCompany(_companyId);
   const { data } = await supabase
     .from("billing_rate_settings")
     .select(
@@ -47,6 +50,8 @@ async function loadRates(supabase: Sb, _companyId: string) {
     .is("company_id", null);
   const byVehicle = new Map<string, any[]>();
   for (const row of (data ?? []) as any[]) {
+    if (demo && row.unit_type === 'trip') row.charge_amount = DEMO_TRIP_RATE;
+    if (demo && row.unit_type === 'mile') row.charge_amount = DEMO_MILE_RATE;
     const key = String(row.vehicle_type ?? "ambulatory");
     byVehicle.set(key, [...(byVehicle.get(key) ?? []), row]);
   }
@@ -54,6 +59,12 @@ async function loadRates(supabase: Sb, _companyId: string) {
 }
 
 async function loadProvider(supabase: Sb, companyId: string) {
+  if (await isDemoCompany(companyId)) return {
+    billing_name: DEMO_BILLING_ACCOUNT, provider_identifier_type: 'health_first_colorado_id',
+    medicaid_provider_id: 'DEMO-ACCOUNT', npi: null, taxonomy_code: '343900000X', tax_id: 'DEMO',
+    address_line1: '100 Demo Lane', address_line2: null, city: 'Colorado Springs', state: 'CO',
+    postal_code: '80903', phone: null, sender_id: 'DEMO-SENDER', receiver_id: 'DEMO-PAYER', configured: true,
+  };
   const { data } = await supabase
     .from("edi_company_settings")
     .select(

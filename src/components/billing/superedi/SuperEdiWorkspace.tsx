@@ -38,6 +38,7 @@ import { EdiProviderSetupTab } from "./EdiProviderSetupTab";
 import { EdiRowDetailSheet } from "./EdiRowDetailSheet";
 import { EdiStatusTab } from "./EdiStatusTab";
 import { EdiSubmissionTab } from "./EdiSubmissionTab";
+import { DemoInvoicePanel } from './DemoInvoicePanel';
 import { EdiUploadTab } from "./EdiUploadTab";
 
 const TABS = [
@@ -193,6 +194,7 @@ export function SuperEdiWorkspace({ billingApp = false }: { billingApp?: boolean
 
   return (
     <div className="space-y-5">
+      {isDemo && <DemoInvoicePanel companyId={activeCompanyId} rows={selectedRows} onRowsUpdated={onRowsUpdated} />}
       <header className="rounded-2xl border border-border bg-surface p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -340,7 +342,7 @@ export function SuperEdiWorkspace({ billingApp = false }: { billingApp?: boolean
             />
           )}
 
-          {tab === "setup" && (
+          {tab === "setup" && !isDemo && (
             <EdiProviderSetupTab
               companyId={activeCompanyId}
               isOwner={isOwner}
@@ -348,7 +350,7 @@ export function SuperEdiWorkspace({ billingApp = false }: { billingApp?: boolean
             />
           )}
 
-          {tab === "submit" && (
+          {tab === "submit" && !isDemo && (
             <EdiSubmissionTab
               companyId={activeCompanyId}
               selectedRows={selectedRows}
