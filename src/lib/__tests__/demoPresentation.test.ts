@@ -32,6 +32,19 @@ describe('presentation seeding safety',()=>{
     expect(demoId('a','medical-1')).toBe(demoId('a','medical-1'));
     expect(demoId('a','medical-1')).not.toBe(demoId('b','medical-1'));
   });
+  it('adopts the auth-created unscoped driver instead of inserting a conflicting user ID',async()=>{
+    const {db}=database({is_demo:true,demo_owner_id:'owner'});
+    const original=db.from;const patches:any[]=[];
+    db.from=(table:string)=>{
+      if(table==='driver_pay_plans')throw new Error('Reached pay setup');
+      if(table!=='drivers')return original(table);
+      const q:any={select:()=>q,eq:()=>q,maybeSingle:()=>q,upsert:(p:any)=>{patches.push(p);return q;},
+        then:(resolve:any)=>Promise.resolve({data:{id:'auth-created-row',company_id:null},error:null}).then(resolve)};
+      return q;
+    };
+    await expect(seedDemoPresentation(db,'company','owner',[{id:'demo-user',name:'Sample Driver'}])).rejects.toThrow('Reached pay setup');
+    expect(patches[0]).toMatchObject({id:'auth-created-row',user_id:'demo-user',company_id:'company',status:'available'});
+  });
   it('creates an actual downloadable PDF with explicit fictional-document metadata',async()=>{
     const bytes=await createDemoBillPdf({reference:'DEMO-001',passenger:'Alex Morgan',memberId:'DEMO123',driver:'Jordan Lee',
       date:'2026-09-30',plate:'DEMO-12',pickup:'10 Example Lane, Colorado Springs, CO',dropoff:'Demo Medical Center, Colorado Springs, CO',tripRate:12.15,mileRate:2.74});

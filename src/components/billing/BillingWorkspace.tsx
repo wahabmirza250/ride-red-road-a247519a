@@ -1032,7 +1032,7 @@ function PendingReviewTab({
               />
             </td>
             <td className="px-4 py-3">
-              <div className="font-medium">{r.passenger_name ?? "—"}</div>
+              <button className="text-left font-medium underline decoration-primary/40 underline-offset-4 hover:text-primary" aria-label={`Review bill for ${r.passenger_name ?? 'passenger'}`} onClick={(e)=>{e.stopPropagation();onOpen(r.id);}}>{r.passenger_name ?? "—"}</button>
               <div className="text-xs text-muted-foreground">{r.medicaid_id}</div>
             </td>
             <td className="px-4 py-3 text-muted-foreground">{formatDateTime(r.pickup_at)}</td>
