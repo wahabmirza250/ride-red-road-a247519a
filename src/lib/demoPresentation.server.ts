@@ -25,13 +25,16 @@ export async function seedDemoPresentation(db: any, companyId: string, ownerId: 
   const presenter = users[0].id;
   const driverRows: any[] = [];
   for(const [i,user] of users.entries()) {
-    const existing = await read(db.from('drivers').select('id').eq('user_id',user.id).eq('company_id',companyId).maybeSingle());
+    // Auth may create the driver before its company profile is attached.
+    // Adopt only that verified demo user's unscoped row; never move another tenant's driver.
+    const existing = await read(db.from('drivers').select('id,company_id').eq('user_id',user.id).maybeSingle());
+    if(existing?.company_id && existing.company_id!==companyId)throw new Error('Demo driver belongs to another company.');
     const driverId = existing?.id ?? id(`driver-${i}`);
     const driver = {id:driverId,user_id:user.id,company_id:companyId,vehicle_make:'Ford',vehicle_model:'Transit',vehicle_year:2024,
       vehicle_plate:`DEMO-${i+12}`,unit_number:String(i+12),default_vehicle_type:'ambulatory',default_plate:`DEMO-${i+12}`,
       current_lat:38.83+i*.008,current_lng:-104.82+i*.006,last_location_at:at(0),rating:4.9,total_trips:24+i*8};
     // Existing drivers may be in a trip started by the presenter. Preserve their status.
-    await read(db.from('drivers').upsert(existing ? driver : {...driver,status:'available'}));
+    await read(db.from('drivers').upsert(existing?.company_id ? driver : {...driver,status:'available'}));
     driverRows.push({...driver,name:user.name});
     await read(db.from('driver_pay_plans').upsert({driver_id:driverId,company_id:companyId,plan:'hourly',hourly_rate:22+i,per_trip_source:'completed_trips'}));
     const payoutId=id(`presentation-payout-${i}`);
