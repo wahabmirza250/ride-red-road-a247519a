@@ -45,6 +45,8 @@ export const refreshActualDemoFleet = createServerFn({method:'POST'})
       await prepareActualDemo(company.demo_owner_id,{session:false});
       upgraded=true;
     }
+    const { upgradeDemoStateReports } = await import('./demoStateReports.server');
+    upgraded = await upgradeDemoStateReports(db, companyId) || upgraded;
     const {error} = await supabaseAdmin.from('drivers').update({last_location_at:new Date().toISOString()}).eq('company_id',companyId).neq('status','offline');
     if(error)throw new Error('Could not refresh demo locations.');
     return {ok:true,upgraded};

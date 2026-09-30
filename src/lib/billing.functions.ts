@@ -299,8 +299,9 @@ export const getBillingRecord = createServerFn({ method: "POST" })
     const { isDemoCompany } = await import("./demoCompany.server");
     const is_demo = await isDemoCompany(rec.company_id);
     let demo_bill_url: string | null = null;
-    if(is_demo && trip?.state_pdf_path?.endsWith('/sample-report.pdf')) {
-      const {data:bill}=await supabase.storage.from('state-pdfs').createSignedUrl(`${trip.state_pdf_path}.invoice.pdf`,60*15);
+    if(is_demo && /\/(?:sample-report|state-report-v1)\.pdf$/.test(trip?.state_pdf_path ?? '')) {
+      const invoicePath = trip.state_pdf_path.replace(/(?:sample-report|state-report-v1)\.pdf$/, 'sample-report.pdf.invoice.pdf');
+      const {data:bill}=await supabase.storage.from('state-pdfs').createSignedUrl(invoicePath,60*15);
       demo_bill_url=bill?.signedUrl??null;
     }
     let robot_diagnostic = null;

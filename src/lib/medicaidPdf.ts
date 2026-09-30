@@ -36,6 +36,8 @@ export type FormArgs = {
 
 type GeneratePdfOptions = {
   templateBaseUrl?: string;
+  /** Fictional presentation only; never used for a completed real trip. */
+  demoSample?: boolean;
 };
 
 type PdfRect = { x: number; y: number; width: number; height: number };
@@ -95,7 +97,7 @@ export async function generateStateFormPdf(
   setRadio("type of trip", tripKindRadioValue(a.tripKind));
   setText(
     "Trip Date",
-    leg1?.leg_date ? new Date(leg1.leg_date).toLocaleDateString() : "",
+    formatStateTripDate(leg1?.leg_date),
   );
   setText(
     "Member facility or escort may sign to confirm that trip occurred  Escort Name if applicable",
@@ -115,7 +117,7 @@ export async function generateStateFormPdf(
 
 
   /* ---------- Legs ---------- */
-  const fmt = fmtDate;
+  const fmt = formatStateTripDate;
   const tm = splitTime;
 
   if (leg1) {
@@ -149,6 +151,14 @@ export async function generateStateFormPdf(
   }
 
   /* ---------- Signature: stamp PNG inside the widget's rectangle ---------- */
+  if (options.demoSample && !a.signatureUrl) {
+    const field = form.getField("Members Signature");
+    const widget = field.acroField.getWidgets()[0];
+    if (!widget) throw new Error("State form signature field is missing.");
+    const page = pdf.getPages().find(pg => pg.ref === widget.P()) ?? pdf.getPage(0);
+    drawHandwrittenValue(page, "SAMPLE SIGNATURE", widget.getRectangle(), handwritingFont, 14, rgb(.09, .15, .55));
+    form.removeField(field);
+  }
   if (a.signatureUrl) {
     const bytes = await fetch(a.signatureUrl).then((r) => {
       if (!r.ok) throw new Error(`Failed to load saved signature: ${r.status}`);
@@ -250,6 +260,17 @@ export async function generateStateFormPdf(
 
 
 
+  if (options.demoSample) {
+    pdf.setTitle("DEMO - State trip report");
+    pdf.setSubject("Fictional trip and sample signature. Not for submission.");
+    for (const page of pdf.getPages()) {
+      const rotation = ((page.getRotation().angle % 360) + 360) % 360;
+      page.drawText("DEMO - FICTIONAL TRIP / SAMPLE SIGNATURE - NOT FOR SUBMISSION", {
+        x: rotation === 90 ? 16 : 28, y: rotation === 90 ? 28 : 16,
+        size: 9, font: handwritingFont, color: rgb(.7, .08, .08), rotate: degrees(rotation),
+      });
+    }
+  }
   return await pdf.save();
 }
 
@@ -392,8 +413,12 @@ function signatureFit(imgW: number, imgH: number, maxW: number, maxH: number) {
   return { width, height };
 }
 
-function fmtDate(iso?: string | null): string {
+export function formatStateTripDate(iso?: string | null): string {
   if (!iso) return "";
+  // Service dates are calendar dates, not UTC instants. Avoid moving them to
+  // the previous day when the driver exports in a US time zone.
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (dateOnly) return `${Number(dateOnly[2])}/${Number(dateOnly[3])}/${dateOnly[1]}`;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return String(iso);
   return d.toLocaleDateString();

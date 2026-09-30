@@ -102,6 +102,30 @@ function TripsPage() {
     navigate({ to: "/trips", search: { ...search, page: 0, ...patch } });
   const [openNew, setOpenNew] = useState(false);
   const [detail, setDetail] = useState<Trip | null>(null);
+  const [reportPdf, setReportPdf] = useState<{url: string; id: string} | null>(null);
+  const [openingPdf, setOpeningPdf] = useState<string | null>(null);
+  async function openStatePdf(trip: Trip) {
+    setOpeningPdf(trip.id);
+    try {
+      let ids = [trip.id];
+      if (trip.source === 'dispatch' && trip.round_trip_group_id) {
+        const {data, error} = await supabase.from('trips').select('id').eq('round_trip_group_id', trip.round_trip_group_id);
+        if (error) throw error;
+        ids = (data ?? []).map(row => row.id);
+      }
+      let query = supabase.from('medicaid_trips').select('state_pdf_path');
+      query = trip.source === 'report' ? query.eq('id', trip.id) : query.in('dispatch_trip_id', ids);
+      const {data, error} = await query.not('state_pdf_path', 'is', null).order('created_at', {ascending:false}).limit(1);
+      if (error) throw error;
+      if (!data?.[0]?.state_pdf_path) throw new Error('The driver has not saved a state PDF for this trip yet.');
+      const {data: signed, error: linkError} = await supabase.storage.from('state-pdfs').createSignedUrl(data[0].state_pdf_path, 900);
+      if (linkError) throw linkError;
+      if (!signed?.signedUrl) throw new Error('Could not open the trip PDF.');
+      setReportPdf({url:signed.signedUrl, id:trip.id});
+    } catch (error) {
+      toast.error(friendlyErrorMessage(error, 'Could not open the state PDF'));
+    } finally { setOpeningPdf(null); }
+  }
   const assignment = useServerFn(assignAdminTrip);
   const nextAssignment = useServerFn(nextAdminAssignment);
   const [proposal, setProposal] = useState<
@@ -341,6 +365,13 @@ function TripsPage() {
                     >
                       {formatDateTime(t.scheduled_pickup_time)}
                     </button>
+                    {(t.source === 'report' || (t.source === 'dispatch' && t.status === 'completed')) && (
+                      <Button variant="outline" size="sm" className="mt-2 flex" disabled={openingPdf !== null}
+                        aria-label={`View state PDF for ${t.passenger_name}`} onClick={() => void openStatePdf(t)}>
+                        {openingPdf === t.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                        View state PDF
+                      </Button>
+                    )}
                   </td>
                   <td className="p-3 capitalize">{t.source}</td>
                   <td className="p-3">{t.passenger_name || "Passenger"}</td>
@@ -398,6 +429,7 @@ function TripsPage() {
           </Button>
         </div>
       </div>
+      <PdfPreviewDialog url={reportPdf?.url ?? null} filename={`state-trip-${reportPdf?.id ?? 'report'}.pdf`} onClose={() => setReportPdf(null)} />
       <Dialog open={openNew} onOpenChange={setOpenNew}>
         <NewTripDialog
           onClose={() => setOpenNew(false)}
