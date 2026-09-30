@@ -60,9 +60,9 @@ export async function prepareActualDemo(ownerId: string) {
     for (const [index,[first,last]] of names.entries()) {
       const existing=index===0 ? await checked(db.from('passengers').select('id').eq('user_id',presenterId).maybeSingle()) : null;
       const pid=existing?.id ?? idFor(companyId,`passenger-${index}`);passengerIds.push(pid);
-      await checked(db.from('passengers').upsert({id:pid,company_id:companyId,user_id:index===0?presenterId:null,first_name:first,last_name:last,date_of_birth:'1980-01-01',phone:null,email:null,medicaid_id:`DEMO00${index+1}`,address:`${10+index} Example Lane, Colorado Springs, CO`,is_active:true,notes:'Fictional presentation passenger'}));
+      await checked(db.from('passengers').upsert({id:pid,company_id:companyId,user_id:index===0?presenterId:null,first_name:first,last_name:last,date_of_birth:'1980-01-01',phone:null,email:null,medicaid_id:`D${createHash('sha256').update(companyId).digest('hex').slice(0,8).toUpperCase()}${index+1}`,address:`${10+index} Example Lane, Colorado Springs, CO`,is_active:true,notes:'Fictional presentation passenger'}));
       const rid=idFor(companyId,`rider-${index}`);riderIds.push(rid);
-      await checked(db.from('riders').upsert({id:rid,company_id:companyId,full_name:`${first} ${last}`,dob:'1980-01-01',medicaid_id:`DEMO00${index+1}`,address:`${10+index} Example Lane, Colorado Springs, CO`,created_by:presenterId,notes:'Fictional demo record — never submit to a payer'}));
+      await checked(db.from('riders').upsert({id:rid,company_id:companyId,full_name:`${first} ${last}`,dob:'1980-01-01',medicaid_id:`D${createHash('sha256').update(companyId).digest('hex').slice(0,8).toUpperCase()}${index+1}`,address:`${10+index} Example Lane, Colorado Springs, CO`,created_by:presenterId,notes:'Fictional demo record — never submit to a payer'}));
     }
     for(let i=0;i<12;i++) {
       const tid=idFor(companyId,`trip-${i}`);const pickup=new Date(Date.now()+(i<6 ? -(i+1)*3600000 : (i-5)*3600000)).toISOString();const completed=i<6;
