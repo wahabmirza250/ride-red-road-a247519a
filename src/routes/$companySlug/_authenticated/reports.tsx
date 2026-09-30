@@ -2,7 +2,8 @@ import { QueryNotice } from "@/components/admin/QueryNotice";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCompanySlug } from "@/lib/appLink";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseBrowser";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { StatCard } from "@/components/nemt/StatCard";
@@ -54,8 +55,12 @@ function useDriverOptions() {
 }
 
 function ReportsPage() {
+  const isDemo = useAuth().user?.app_metadata?.is_demo === true;
   const drivers = useDriverOptions();
   const [driverId, setDriverId] = useState<string>("");
+  useEffect(() => {
+    if (isDemo && !driverId && drivers.data?.[0]) setDriverId(drivers.data[0].id);
+  }, [isDemo, driverId, drivers.data]);
   const [range, setRange] = useState<"today" | "7d" | "all">("7d");
 
   const period = useMemo(() => {
