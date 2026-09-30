@@ -39,10 +39,10 @@ export async function seedDemoPresentation(db: any, companyId: string, ownerId: 
     await read(db.from('driver_pay_plans').upsert({driver_id:driverId,company_id:companyId,plan:'hourly',hourly_rate:22+i,per_trip_source:'completed_trips'}));
     const payoutId=id(`presentation-payout-${i}`);
     await read(db.from('driver_payouts').upsert({id:payoutId,company_id:companyId,driver_id:driverId,
-      period_start:at(-168),period_end:at(-144),hours:8,hourly_rate:22+i,hourly_pay:8*(22+i),gross_earnings:8*(22+i),total_paid:8*(22+i),
-      fuel_reimbursed:0,method:'manual',reference:`DEMO-PAY-${i+1}`,notes:'Simulated payroll only. No funds transferred.',paid_by:presenter,paid_at:at(-120),plan:'hourly',shift_count:1}));
+      period_start:at(-504),period_end:at(-480),hours:8,hourly_rate:22+i,hourly_pay:8*(22+i),gross_earnings:8*(22+i),total_paid:8*(22+i),
+      fuel_reimbursed:0,method:'manual',reference:`DEMO-PAY-${i+1}`,notes:'Simulated payroll only. No funds transferred.',paid_by:presenter,paid_at:at(-456),plan:'hourly',shift_count:1}));
     await read(db.from('driver_shifts').upsert({id:id(`presentation-paid-shift-${i}`),driver_id:driverId,company_id:companyId,
-      clock_in_at:at(-160),clock_out_at:at(-152),start_odometer:24000,end_odometer:24096,hourly_rate_snapshot:22+i,earnings:8*(22+i),payout_id:payoutId,cleared_at:at(-120)}));
+      clock_in_at:at(-496),clock_out_at:at(-488),start_odometer:24000,end_odometer:24096,hourly_rate_snapshot:22+i,earnings:8*(22+i),payout_id:payoutId,cleared_at:at(-456)}));
     await read(db.from('driver_shifts').upsert({id:id(`presentation-unpaid-shift-${i}`),driver_id:driverId,company_id:companyId,
       clock_in_at:at(-24),clock_out_at:at(-18),start_odometer:24800,end_odometer:24872,hourly_rate_snapshot:22+i,earnings:6*(22+i)}));
     await read(db.from('shifts').upsert({id:id(`presentation-schedule-${i}`),driver_id:driverId,shift_date:day(24),start_time:at(24),end_time:at(32),status:'scheduled',notes:'Demo transport shift'}));
