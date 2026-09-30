@@ -414,7 +414,9 @@ export function BillingDetailSheet({
               </div>
             )}
 
-            {isDemo ? <p className="text-xs text-muted-foreground">Sample trip record for presentation. Live billing requires the signed trip report.</p> : detail.data?.pdf_url ? (
+            {isDemo && <p className="text-xs text-muted-foreground">Fictional signed trip report and sample bill. Not for submission.</p>}
+            {isDemo && detail.data?.demo_bill_url && <a href={detail.data.demo_bill_url} target="_blank" rel="noopener noreferrer" className="block rounded-xl border border-primary/40 px-4 py-3 text-center text-sm font-semibold text-primary">Open signed sample bill PDF →</a>}
+            {detail.data?.pdf_url ? (
               <>
                 <ViewScannedFormButton
                   className="w-full"
@@ -426,7 +428,7 @@ export function BillingDetailSheet({
                   url={detail.data.pdf_url}
                   onRegenerate={() => regeneratePdf.mutate()}
                   regenerating={regeneratePdf.isPending}
-                  canRegenerate={!!detail.data?.signature_url}
+                  canRegenerate={!isDemo && !!detail.data?.signature_url}
                 />
               </>
             ) : (

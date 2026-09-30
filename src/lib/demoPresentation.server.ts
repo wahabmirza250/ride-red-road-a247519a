@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createDemoBillPdf } from './demoDocuments';
 
-export const DEMO_PRESENTATION_VERSION = 'presentation_v2';
+export const DEMO_PRESENTATION_VERSION = 'presentation_v3';
 export function demoId(company: string, key: string) {
   const h = createHash('sha256').update(`${company}:${key}`).digest('hex');
   return `${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`;
@@ -72,10 +72,13 @@ export async function seedDemoPresentation(db: any, companyId: string, ownerId: 
     if(!trip) continue;
     const date=day(-24*(1+Math.floor(i/3)));
     const reference=`DEMO-TRIP-${String(i+1).padStart(3,'0')}`;
-    const path=`${presenter}/demo/${mid}/sample-bill.pdf`;
-    const document=await createDemoBillPdf({reference,passenger:trip.riders?.full_name??names[i%4],memberId:trip.riders?.medicaid_id??'DEMO',
-      driver:driver.name,date,plate:driver.vehicle_plate,pickup:`${10+i%4} Example Lane, Colorado Springs, CO`,dropoff:'Demo Medical Center, Colorado Springs, CO',tripRate,mileRate});
+    const path=`${presenter}/demo/${mid}/sample-report.pdf`;
+    const documentInput={reference,passenger:trip.riders?.full_name??names[i%4],memberId:trip.riders?.medicaid_id??'DEMO',
+      driver:driver.name,date,plate:driver.vehicle_plate,pickup:`${10+i%4} Example Lane, Colorado Springs, CO`,dropoff:'Demo Medical Center, Colorado Springs, CO',tripRate,mileRate};
+    const document=await createDemoBillPdf(documentInput);
     await read(db.storage.from('state-pdfs').upload(path,document,{contentType:'application/pdf',upsert:true}));
+    const bill=await createDemoBillPdf({...documentInput,includeCharges:true});
+    await read(db.storage.from('state-pdfs').upload(`${path}.invoice.pdf`,bill,{contentType:'application/pdf',upsert:true}));
     await read(db.from('medicaid_trips').update({driver_id:driver.user_id,pickup_at:`${date}T14:30:00.000Z`,state_pdf_path:path,
       state_pdf_generated_at:at(0),signature_name:`${names[i%4]} (sample signature)`,vehicle_plate:driver.vehicle_plate,
       review_notes:'Fictional signed sample. Never submit to a payer.'}).eq('company_id',companyId).eq('id',mid));

@@ -298,6 +298,11 @@ export const getBillingRecord = createServerFn({ method: "POST" })
 
     const { isDemoCompany } = await import("./demoCompany.server");
     const is_demo = await isDemoCompany(rec.company_id);
+    let demo_bill_url: string | null = null;
+    if(is_demo && trip?.state_pdf_path?.endsWith('/sample-report.pdf')) {
+      const {data:bill}=await supabase.storage.from('state-pdfs').createSignedUrl(`${trip.state_pdf_path}.invoice.pdf`,60*15);
+      demo_bill_url=bill?.signedUrl??null;
+    }
     let robot_diagnostic = null;
     if (!is_demo) {
       const { resolveProviderForTrip } = await import("@/lib/providerResolve.server");
@@ -305,7 +310,7 @@ export const getBillingRecord = createServerFn({ method: "POST" })
       robot_diagnostic = await getRobotSubmissionDiagnostic(supabase, { billingRecordId: data.id, trip, providerUserId: providerId, mode: "full" });
     }
 
-    return { is_demo, record: rec, trip, driver_name, signature_url, pdf_url, audit: audit ?? [], robot_diagnostic };
+    return { is_demo, record: rec, trip, driver_name, signature_url, pdf_url, demo_bill_url, audit: audit ?? [], robot_diagnostic };
   });
 
 export const regenerateBillingPdf = createServerFn({ method: "POST" })

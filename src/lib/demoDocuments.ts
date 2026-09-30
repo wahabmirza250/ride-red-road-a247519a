@@ -3,10 +3,10 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 /** Fictional presentation documents. Never an official claim form or a real signature. */
 export async function createDemoBillPdf(input: {
   reference: string; passenger: string; memberId: string; driver: string;
-  date: string; plate: string; pickup: string; dropoff: string; tripRate: number; mileRate: number;
+  date: string; plate: string; pickup: string; dropoff: string; tripRate: number; mileRate: number; includeCharges?: boolean;
 }) {
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`DEMO trip report and bill ${input.reference}`);
+  pdf.setTitle(`DEMO ${input.includeCharges?'trip report and bill':'signed trip report'} ${input.reference}`);
   pdf.setSubject('Fictional training record. Not for submission. Sample signatures only.');
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -18,7 +18,7 @@ export async function createDemoBillPdf(input: {
   page.drawRectangle({ x: 0, y: 714, width: 612, height: 78, color: ink });
   text('EVERGREEN TRANSPORT', 40, 754, 19, bold, rgb(1,1,1));
   text('DEMO / NOT FOR SUBMISSION', 40, 731, 12, bold, rgb(.35,.9,.84));
-  text('Signed trip report & sample bill', 40, 680, 21, bold);
+  text(input.includeCharges?'Signed trip report & sample bill':'Signed trip report', 40, 680, 21, bold);
   text(`Reference: ${input.reference}`, 40, 655);
   text(`Service date: ${input.date}`, 355, 655);
   const field = (label: string, value: string, x: number, y: number) => {
@@ -33,6 +33,7 @@ export async function createDemoBillPdf(input: {
   page.drawRectangle({x:40,y:372,width:532,height:44,color:rgb(.92,.96,.96)});
   text('Journey completed', 52, 397, 12, bold, teal);
   text('08:30 pickup  /  09:00 drop-off  /  12 loaded miles', 52, 381, 10);
+  if(input.includeCharges) {
   text('SAMPLE BILLING',40,343,10,bold,teal);
   const money=(n:number)=>`$${n.toFixed(2)}`;
   text('Ambulatory transport - 1 trip',40,320); text(money(input.tripRate),500,320);
@@ -40,6 +41,12 @@ export async function createDemoBillPdf(input: {
   page.drawLine({start:{x:40,y:282},end:{x:572,y:282},thickness:1,color:muted});
   text('Total sample charge',40,258,13,bold); text(money(input.tripRate+12*input.mileRate),494,258,14,bold);
   text('Illustrative rates only. No claim sent and no money collected.',40,238,9,regular,muted);
+  } else {
+    text('SERVICE CONFIRMATION',40,343,10,bold,teal);
+    text('Ambulatory passenger transport - one-way journey',40,318);
+    text('Passenger assisted at pickup and destination.',40,293);
+    text('Sample completion record for the driver and dispatch team.',40,268,10,regular,muted);
+  }
   text(input.passenger,40,194,21,script,teal);
   text(input.driver,330,194,21,script,teal);
   page.drawLine({start:{x:40,y:182},end:{x:276,y:182},thickness:.6,color:muted});
