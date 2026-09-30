@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 340" role="img" aria-label="Silver passenger transport van illustration">
+<defs><linearGradient id="body" x2=".2" y2="1"><stop stop-color="#f0f5f6"/><stop offset=".5" stop-color="#b6cbd1"/><stop offset="1" stop-color="#647f8a"/></linearGradient><linearGradient id="glass" x2="1" y2="1"><stop stop-color="#425e70"/><stop offset="1" stop-color="#101f30"/></linearGradient><linearGradient id="front" x2="1" y2="1"><stop stop-color="#c8d9de"/><stop offset="1" stop-color="#536c79"/></linearGradient><radialGradient id="tire"><stop stop-color="#718491"/><stop offset=".35" stop-color="#ced9df"/><stop offset=".43" stop-color="#35414c"/><stop offset=".58" stop-color="#111a24"/><stop offset="1" stop-color="#050c13"/></radialGradient></defs>
+<ellipse cx="381" cy="294" rx="312" ry="26" fill="#040c13" opacity=".6"/>
+<path d="M93 115 Q99 87 126 83 L448 48 Q482 46 502 68 L565 140 L652 161 Q676 169 678 195 L671 248 L552 278 L105 256 Q77 252 77 233 L81 141Z" fill="url(#body)" stroke="#90aab3" stroke-width="2"/>
+<path d="M451 65 L482 64 Q489 64 501 82 L544 138 L456 154Z" fill="url(#glass)" stroke="#627b8a" stroke-width="4"/>
+<path d="M123 103 L208 95 L207 161 L107 165 L109 127 Q111 109 123 103ZM222 93 L312 83 L315 158 L221 161ZM327 81 L419 70 L429 155 L329 158Z" fill="url(#glass)" stroke="#69828d" stroke-width="3"/>
+<path d="M106 180 L431 176 L440 247 L99 232Z" fill="#d3e0e4" opacity=".48"/>
+<path d="M446 160 L550 145 L653 163 L676 182 L552 209 L447 197Z" fill="url(#front)"/>
+<path d="M552 209 L676 182 L671 248 L552 278Z" fill="#58717d"/>
+<path d="M567 226 L658 205 L654 232 L568 253Z" fill="#142530"/>
+<path d="M574 232 L651 214 M574 241 L649 223" fill="none" stroke="#a9bec8" stroke-width="3"/>
+<path d="M556 208 L592 200 L595 216 L557 225Z M644 188 L670 183 L668 201 L645 205Z" fill="#def8ff"/>
+<path d="M87 218 L447 235 L547 256 L549 275 L97 253 Q81 250 80 235Z" fill="#283e4a"/>
+<path d="M149 255 Q144 205 185 207 Q224 209 228 260M436 272 Q434 217 477 219 Q522 224 522 281" fill="#09131d"/>
+<ellipse cx="186" cy="259" rx="35" ry="42" fill="url(#tire)" transform="rotate(-4 186 259)"/><ellipse cx="478" cy="274" rx="37" ry="44" fill="url(#tire)" transform="rotate(-5 478 274)"/>
+<path d="M320 170 L327 247 M432 163 L443 252" stroke="#607c88" fill="none" stroke-width="2"/>
+<rect x="399" y="175" width="24" height="6" rx="3" fill="#243b47"/>
+<path d="M455 154 L479 153 L482 171 L457 174Z" fill="#132632"/>
+<path d="M233 192 L295 192 L295 219 L233 219Z" fill="#0f6368"/>
+<text x="264" y="211" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#e5fbfc">NEMT</text>
+<path d="M109 112 L199 104 M232 104 L300 97 M341 94 L408 86 M464 79 L502 120" stroke="#d4eef4" opacity=".18" stroke-width="6"/>
+</svg>

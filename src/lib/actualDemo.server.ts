@@ -1,11 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
+import { presentationKey, seedDemoPresentation } from './demoPresentation.server';
 
 const db: any = supabaseAdmin;
 async function checked(query: any) { const { data, error } = await query; if (error) throw new Error(`Demo setup: ${error.message}`); return data; }
 function idFor(company: string, key: string) { const h = createHash('sha256').update(`${company}:${key}`).digest('hex'); return `${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`; }
 
-export async function prepareActualDemo(ownerId: string) {
+export async function prepareActualDemo(ownerId: string, options: {session?: boolean} = {}) {
   const slug = `demo-${ownerId.replaceAll('-','').slice(0,16)}`;
   let company = await checked(db.from('companies').select('id,url_slug,is_demo,demo_owner_id').eq('demo_owner_id',ownerId).eq('is_demo',true).maybeSingle());
   if (!company) {
@@ -77,6 +78,14 @@ export async function prepareActualDemo(ownerId: string) {
     for(let i=0;i<3;i++) await checked(db.from('ride_requests').upsert({id:idFor(companyId,`request-${i}`),company_id:companyId,passenger_id:presenterId,pickup_address:`${10+i} Example Lane, Colorado Springs, CO`,dropoff_address:'Demo Medical Center, Colorado Springs, CO',pickup_lat:38.83,pickup_lng:-104.82,dropoff_lat:38.87,dropoff_lng:-104.80,status:'pending',contact_name:names[i].join(' '),contact_phone:null,requested_pickup_time:new Date(Date.now()+3600000*(i+1)).toISOString(),vehicle_type:'ambulatory',ride_purpose:'Medical appointment',notes:'Fictional demo request',source:'passenger'}));
     await checked(db.from('app_settings').upsert({key:marker,value:'1'},{onConflict:'key'}));
   }
+  if(!await checked(db.from('app_settings').select('value').eq('key',presentationKey(companyId)).maybeSingle())) {
+    const users=[{id:presenterId,name:'Jordan Lee'},{id:driver2Id,name:'Casey Reed'}];
+    for(const [index,[first,last]] of [['Morgan','Hayes'],['Riley','Brooks'],['Avery','Chen']].entries()) {
+      users.push({id:await account(`driver${index+3}-${ownerId}@demo.nemtsolutions.co`,first,last,false),name:`${first} ${last}`});
+    }
+    await seedDemoPresentation(db,companyId,ownerId,users);
+  }
+  if(options.session===false)return {slug,token_hash:null};
   const link=await db.auth.admin.generateLink({type:'magiclink',email});
   if(link.error || !link.data.properties?.hashed_token) throw new Error('Could not start demo session.');
   return {slug,token_hash:link.data.properties.hashed_token as string};

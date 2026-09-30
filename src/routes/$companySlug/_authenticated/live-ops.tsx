@@ -16,6 +16,7 @@ import { fmtMoney } from "@/lib/rideMath";
 import { adminReassignDriver, adminCancelTrip } from "@/lib/dispatchAdmin.functions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAutoAssign, setAutoAssign } from "@/lib/settings.functions";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/$companySlug/_authenticated/live-ops")({
   validateSearch: (
@@ -461,8 +462,10 @@ function LiveOps() {
 }
 
 function DispatchPhoneCard() {
+  const {user}=useAuth();
   const getPhone = useServerFn(getPublicDispatchPhone);
   const phone = useQuery({ queryKey: ["company-support"], queryFn: () => getPhone() });
+  if(user?.app_metadata?.is_demo===true)return <div className="rounded-2xl border border-border bg-surface p-4"><h2 className="text-sm font-semibold">Passenger support · Demo</h2><p className="mt-2 text-sm text-muted-foreground">Passenger messages stay inside this sample company. Phone calls and external notifications are disabled for presentations.</p></div>;
   return (
     <div className="rounded-2xl border border-border bg-surface p-4">
       <h2 className="text-sm font-semibold">Passenger support number</h2>

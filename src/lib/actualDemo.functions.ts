@@ -33,7 +33,19 @@ export const refreshActualDemoFleet = createServerFn({method:'POST'})
     const companyId = await requireCompanyId(context.userId);
     if (!await isDemoCompany(companyId)) throw new Error('Demo company required.');
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    const db:any=supabaseAdmin;
+    const { presentationKey } = await import('./demoPresentation.server');
+    const {data:seed,error:seedError}=await db.from('app_settings').select('value').eq('key',presentationKey(companyId)).maybeSingle();
+    if(seedError)throw new Error('Could not check demo presentation data.');
+    let upgraded=false;
+    if(!seed) {
+      const {data:company,error}=await db.from('companies').select('demo_owner_id,is_demo').eq('id',companyId).single();
+      if(error || !company?.is_demo || !company.demo_owner_id)throw new Error('Demo ownership is unavailable.');
+      const { prepareActualDemo }=await import('./actualDemo.server');
+      await prepareActualDemo(company.demo_owner_id,{session:false});
+      upgraded=true;
+    }
     const {error} = await supabaseAdmin.from('drivers').update({last_location_at:new Date().toISOString()}).eq('company_id',companyId).neq('status','offline');
     if(error)throw new Error('Could not refresh demo locations.');
-    return {ok:true};
+    return {ok:true,upgraded};
   });

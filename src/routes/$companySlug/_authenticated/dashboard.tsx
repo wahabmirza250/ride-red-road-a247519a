@@ -11,6 +11,7 @@ import { DriverTripMap, type LatLng } from "@/components/nemt/DriverTripMap";
 import { EarningsPanel } from "@/components/admin/EarningsPanel";
 
 import { Avatar } from "@/components/Avatar";
+import { useAuth } from "@/lib/auth";
 import {
   Search,
   Star,
@@ -317,10 +318,7 @@ function DriverDetailPage() {
                   className="h-full w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.35)] transition-transform duration-500 group-hover:scale-[1.05]"
                 />
               ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-2 fleet-text-dim">
-                  <Car className="h-14 w-14" strokeWidth={1.25} />
-                  <span className="text-[11px] font-medium">No vehicle photo</span>
-                </div>
+                <img src="/demo-transport-van.svg" alt="Transport van illustration; vehicle photo not uploaded" className="h-full w-full object-contain" />
               )}
             </div>
 
@@ -795,6 +793,8 @@ function DashboardPage() {
 }
 function TodayPage({ setupOnly }: { setupOnly: boolean }) {
   const drivers = useDrivers();
+  const { user } = useAuth();
+  const isDemo = user?.app_metadata?.is_demo === true;
   const queue = useQuery({
     queryKey: ["today-queues"],
     refetchInterval: 15000,
@@ -864,6 +864,24 @@ function TodayPage({ setupOnly }: { setupOnly: boolean }) {
       </header>
       <QueryNotice query={queue} label="Operations" />
       <QueryNotice query={drivers} label="Driver locations" />
+      <section className="relative overflow-hidden rounded-[28px] border border-teal-300/15 bg-gradient-to-br from-[#17383e] via-[#12232d] to-[#10161e]">
+        <div className="relative grid items-center gap-2 p-5 sm:p-7 lg:grid-cols-[1fr_1.2fr]">
+          <div className="relative z-10 space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-[.2em] text-teal-200">Fleet overview {isDemo ? '· Demo company' : ''}</p>
+            <h2 className="max-w-md text-3xl font-semibold leading-tight text-white sm:text-4xl">Your fleet.<br/>Every journey connected.</h2>
+            <p className="max-w-md text-sm leading-relaxed text-slate-300">Dispatch rides, follow your drivers and move completed trips into billing from one workspace.</p>
+            <div className="flex flex-wrap gap-2">
+              <AppLink to="/live-ops" className="rounded-xl bg-teal-300 px-5 py-3 text-sm font-semibold text-slate-950">Open dispatch →</AppLink>
+              <AppLink to="/drivers" className="rounded-xl border border-white/20 px-5 py-3 text-sm font-medium text-white">View drivers</AppLink>
+              <AppLink to="/billing" className="rounded-xl border border-white/20 px-5 py-3 text-sm font-medium text-white">Review bills</AppLink>
+            </div>
+          </div>
+          <div className="relative min-w-0">
+            <img src="/demo-transport-van.svg" alt="Passenger transport van illustration" className="mx-auto w-full max-w-[620px]"/>
+            <p className="text-center text-xs text-slate-300">{drivers.data?.length ?? '…'} drivers · {(drivers.data ?? []).filter(d=>d.status==='available').length} available</p>
+          </div>
+        </div>
+      </section>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {(
           [

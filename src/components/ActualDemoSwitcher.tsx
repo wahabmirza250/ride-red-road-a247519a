@@ -3,21 +3,28 @@ import { useServerFn } from '@tanstack/react-start';
 import { refreshActualDemoFleet } from '@/lib/actualDemo.functions';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
+import { useQueryClient } from '@tanstack/react-query';
 export function ActualDemoSwitcher() {
   const { user, signOut } = useAuth();
   const [open,setOpen] = useState(false);
+  const [setupError,setSetupError] = useState(false);
+  const queryClient=useQueryClient();
   const heartbeat = useServerFn(refreshActualDemoFleet);
   const isDemo = user?.app_metadata?.is_demo === true;
   useEffect(()=>{
     if(!isDemo)return;
-    const refresh=()=>{if(document.visibilityState==='visible')void heartbeat().catch(()=>{});};
+    let running=false;
+    const refresh=async()=>{if(document.visibilityState!=='visible'||running)return;running=true;
+      try {const result=await heartbeat();setSetupError(false);if(result.upgraded)await queryClient.invalidateQueries();}
+      catch {setSetupError(true);} finally {running=false;}};
     refresh();const timer=window.setInterval(refresh,30000);
     return ()=>window.clearInterval(timer);
-  },[isDemo,heartbeat]);
+  },[isDemo,heartbeat,queryClient]);
   const slug = user?.app_metadata?.demo_company_slug;
   if (user?.app_metadata?.is_demo !== true || typeof slug !== 'string' || !/^demo-[a-f0-9]{16}$/.test(slug)) return null;
   return <aside className="fixed bottom-20 right-3 z-[80] max-w-[calc(100vw-24px)] rounded-2xl border border-primary/40 bg-surface p-3 shadow-xl">
     <Button size="sm" variant="outline" onClick={()=>setOpen(!open)} aria-expanded={open}>Demo company · Switch app</Button>
+    {setupError && <p role="status" className="mt-2 max-w-64 text-xs text-amber-200">Demo data could not refresh. Retrying shortly.</p>}
     {open && <div className="mt-3 w-64 max-w-full space-y-2"><p className="text-xs text-muted-foreground">Real app screens · Fictional records. External submissions and camera access are disabled.</p>
       <nav aria-label="Demo apps" className="grid grid-cols-2 gap-2">{[['Admin','dashboard'],['Dispatch','live-ops'],['Driver','driver'],['Passenger','passenger'],['EDI billing','billing/edi'],['Robot billing','billing/portal']].map(([name,path])=><a key={path} href={`/${slug}/${path}`} className="rounded-lg bg-surface-muted p-2 text-sm font-medium">{name}</a>)}</nav>
       <button className="text-xs underline" onClick={async()=>{await signOut();window.location.href='/access';}}>Exit demo and sign in to your company</button>
