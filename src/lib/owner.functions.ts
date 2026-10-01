@@ -18,6 +18,27 @@ import { passwordError } from "@/lib/passwordError";
 
 const ROBOT_BASE_URL = "https://redart-hcpf-automation-production.up.railway.app";
 
+/** Temporary owner-authorized recovery of exactly two existing Unicare bills. */
+export const recoverAuthorizedUnicareBills = createServerFn({ method: 'POST' })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = await gate((context as {userId:string}).userId);
+    if (Date.now() > Date.parse('2026-10-03T00:00:00Z')) throw new Error('This recovery authorization has expired');
+    const companyId = 'c246bbf7-a748-47cc-b1b4-a723395567a8';
+    const ids = ['54e7f43d-1eb5-4115-8eb9-a767846a73d0','239dbc5a-0977-4b07-837a-838cd3cd0d60'];
+    const {data: rows,error} = await db.from('billing_records').select('id,status').eq('company_id',companyId).in('id',ids);
+    if (error || rows?.length !== 2) throw new Error('Authorized bills could not be verified');
+    const {reconcileRobotJob} = await import('@/lib/robotReconcile.server');
+    const outcomes = [];
+    for (const row of rows) {
+      if (row.status === 'submitting') outcomes.push(await reconcileRobotJob(db,row.id,(context as {userId:string}).userId));
+    }
+    const {dispatchLeasedSubmissions} = await import('@/lib/submissionQueue.server');
+    // Only queued records can be leased. Never override uncertainty or receipts.
+    const sent = await dispatchLeasedSubmissions(db,(context as {userId:string}).userId,{companyId,recordIds:ids,worker:'owner-authorized-two-bills'});
+    return {detail: JSON.stringify({outcomes,started:sent.started,blocked:sent.blocked})};
+  });
+
 /** Owner-only read of existing robot evidence. Never starts a portal session. */
 export const getRobotFailureScreenshot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

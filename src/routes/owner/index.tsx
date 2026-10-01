@@ -44,6 +44,7 @@ import {
   isPlatformOwnerFn,
   runPortalHealthCheck,
   getRobotFailureScreenshot,
+  recoverAuthorizedUnicareBills,
   setCompanyStatus,
   setCompanyTwilioPhone,
   setCompanyLimits,
@@ -233,6 +234,7 @@ function CompanyCard({
   const toggleStatus = useServerFn(setCompanyStatus);
   const healthCheck = useServerFn(runPortalHealthCheck);
   const screenshotFn = useServerFn(getRobotFailureScreenshot);
+  const authorizedRecovery = useServerFn(recoverAuthorizedUnicareBills);
   const [robotImage, setRobotImage] = useState<string | null>(null);
   const [loadingImage, setLoadingImage] = useState(false);
   const removeCompany = useServerFn(deleteCompany);
@@ -405,6 +407,12 @@ function CompanyCard({
 
 
       <Button variant="outline" size="sm" disabled={checking} onClick={() => onHealthCheck(true)}>Verify login &amp; recover blocked bills</Button>
+      {c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" disabled={checking} onClick={async () => {
+        setChecking(true);
+        try { const result = await authorizedRecovery(); setHealth({ok:true,active:true,detail:result.detail}); }
+        catch(e) { toast.error(e instanceof Error ? e.message : 'Recovery failed'); }
+        finally { setChecking(false); }
+      }}>Resume authorized Jenna and Juan bills</Button>}
       <Button variant="outline" size="sm" disabled={loadingImage} onClick={async () => {
         setLoadingImage(true);
         try { setRobotImage((await screenshotFn()).image); }
