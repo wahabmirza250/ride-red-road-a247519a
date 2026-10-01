@@ -1,3 +1,4 @@
+import { ensureStaffProfile } from "@/lib/staffProfile.server";
 import { robotServiceHeaders } from "@/lib/robotServiceAuth.server";
 import { normalizeSupportPhone } from './companySupport.functions';
 import { RESERVED_COMPANY_CODES, normalizeCompanyCode } from "@/lib/companyAccess";
@@ -429,10 +430,11 @@ export const createCompanyAdmin = createServerFn({ method: "POST" })
     if (error || !created.user) throw new Error(error?.message ?? "Could not create the admin account");
 
     const uid = created.user.id;
-    await db.from("profiles").update({ company_id: data.company_id }).eq("id", uid);
-    await db
+    await ensureStaffProfile(db, uid, data);
+    const { error: roleError } = await db
       .from("user_roles")
       .upsert({ user_id: uid, role: "admin", company_id: data.company_id }, { onConflict: "user_id,role" });
+    if (roleError) throw new Error("The admin role could not be saved. Repair the account before signing in.");
     await db.from("user_roles").delete().eq("user_id", uid).neq("role", "admin");
     // The signup trigger creates a passenger record for every new auth user.
     await db.from("passengers").delete().eq("user_id", uid);
@@ -815,10 +817,11 @@ export const createCompanyStaff = createServerFn({ method: "POST" })
     if (error || !created.user) throw new Error(passwordError(error?.message) ?? "Could not create the account");
 
     const uid = created.user.id;
-    await db.from("profiles").update({ company_id: data.company_id }).eq("id", uid);
-    await db
+    await ensureStaffProfile(db, uid, data);
+    const { error: roleError } = await db
       .from("user_roles")
       .upsert({ user_id: uid, role: data.role, company_id: data.company_id }, { onConflict: "user_id,role" });
+    if (roleError) throw new Error("The staff role could not be saved. Repair the account before signing in.");
     // Staff accounts hold exactly one role; the signup trigger's passenger
     // role/record is not meaningful for them.
     await db.from("user_roles").delete().eq("user_id", uid).neq("role", data.role);
