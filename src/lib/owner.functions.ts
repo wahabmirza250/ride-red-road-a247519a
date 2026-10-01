@@ -18,6 +18,22 @@ import { passwordError } from "@/lib/passwordError";
 
 const ROBOT_BASE_URL = "https://redart-hcpf-automation-production.up.railway.app";
 
+/** Owner-only read of existing robot evidence. Never starts a portal session. */
+export const getRobotFailureScreenshot = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await gate((context as { userId: string }).userId);
+    const response = await fetch(`${ROBOT_BASE_URL}/last-run-screenshot`, {
+      headers: robotServiceHeaders(),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) throw new Error(`Robot screenshot unavailable (HTTP ${response.status}).`);
+    if (!response.headers.get("content-type")?.includes("image/png")) throw new Error("Robot did not return a screenshot.");
+    const bytes = await response.arrayBuffer();
+    if (bytes.byteLength > 10 * 1024 * 1024) throw new Error("Robot screenshot is too large.");
+    return { image: `data:image/png;base64,${Buffer.from(bytes).toString("base64")}` };
+  });
+
 /** Slugs that collide with app routes and can never become a company slug. */
 const RESERVED_SLUGS = RESERVED_COMPANY_CODES;
 
@@ -533,6 +549,7 @@ export const runPortalHealthCheck = createServerFn({ method: "POST" })
         { headers: { ...robotServiceHeaders(), "X-Robot-Api-Key": keyRow.api_key } },
       );
       const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
         account_active?: boolean;
         checked_at?: string;
         detail?: { status?: string; reason?: string };
@@ -540,7 +557,7 @@ export const runPortalHealthCheck = createServerFn({ method: "POST" })
       if (!res.ok) {
         return { ok: false, account_active: false, detail: `Health check failed (HTTP ${res.status})` };
       }
-      const reason = body.detail?.reason ?? body.detail?.status ?? null;
+      const reason = body.error ?? body.detail?.reason ?? body.detail?.status ?? null;
       return {
         ok: true,
         account_active: Boolean(body.account_active),

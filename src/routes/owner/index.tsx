@@ -43,6 +43,7 @@ import {
   getOwnerOverview,
   isPlatformOwnerFn,
   runPortalHealthCheck,
+  getRobotFailureScreenshot,
   setCompanyStatus,
   setCompanyTwilioPhone,
   setCompanyLimits,
@@ -231,6 +232,9 @@ function CompanyCard({
 }) {
   const toggleStatus = useServerFn(setCompanyStatus);
   const healthCheck = useServerFn(runPortalHealthCheck);
+  const screenshotFn = useServerFn(getRobotFailureScreenshot);
+  const [robotImage, setRobotImage] = useState<string | null>(null);
+  const [loadingImage, setLoadingImage] = useState(false);
   const removeCompany = useServerFn(deleteCompany);
   const viewAs = useServerFn(startViewAsCompany);
   const [health, setHealth] = useState<{ ok: boolean; active: boolean; detail: string; at?: string } | null>(
@@ -400,6 +404,13 @@ function CompanyCard({
 
 
 
+      <Button variant="outline" size="sm" disabled={loadingImage} onClick={async () => {
+        setLoadingImage(true);
+        try { setRobotImage((await screenshotFn()).image); }
+        catch (e) { toast.error(e instanceof Error ? e.message : "Could not load robot screenshot"); }
+        finally { setLoadingImage(false); }
+      }}>View latest robot screenshot</Button>
+      {robotImage && <div className="mt-3"><p className="text-xs">Latest robot screenshot across all companies — may belong to a different run.</p><img src={robotImage} alt="Latest saved robot portal screenshot" className="mt-2 w-full rounded-xl" /></div>}
       {health && (
         <div
           className={`mt-4 rounded-2xl border p-3 text-xs ${
