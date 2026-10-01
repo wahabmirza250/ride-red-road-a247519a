@@ -26,8 +26,29 @@ export const recoverAuthorizedUnicareBills = createServerFn({ method: 'POST' })
     if (Date.now() > Date.parse('2026-10-03T00:00:00Z')) throw new Error('This recovery authorization has expired');
     const companyId = 'c246bbf7-a748-47cc-b1b4-a723395567a8';
     const ids = ['54e7f43d-1eb5-4115-8eb9-a767846a73d0','239dbc5a-0977-4b07-837a-838cd3cd0d60'];
-    const {data: rows,error} = await db.from('billing_records').select('id,status').eq('company_id',companyId).in('id',ids);
+    const {data: rows,error} = await db.from('billing_records').select('id,status,trip_id,state_confirmation_number,medicaid_trips!inner(robot_job_id,robot_confirmation_number,submitted_confirmation)').eq('company_id',companyId).in('id',ids);
     if (error || rows?.length !== 2) throw new Error('Authorized bills could not be verified');
+    const {resolveBillingProviderId} = await import('@/lib/providerResolve.server');
+    const providerId = await resolveBillingProviderId(db,companyId);
+    if (!providerId) throw new Error('Billing provider is missing');
+    const response = await fetch(`${ROBOT_BASE_URL}/recover-portal-login`,{
+      method:'POST',headers:{...robotServiceHeaders(),'Content-Type':'application/json'},
+      body:JSON.stringify({provider_id:providerId,company_id:companyId,trip_ids:rows.map(r=>r.trip_id)}),
+      signal:AbortSignal.timeout(90000)
+    });
+    const recovered = await response.json();
+    if (!response.ok || !recovered.account_active) throw new Error(recovered.error || 'Scoped recovery could not verify portal access');
+    for (const row of rows) {
+      const trip:any = row.medicaid_trips;
+      if (!recovered.recovered_trip_ids?.includes(row.trip_id) || row.state_confirmation_number || trip?.robot_confirmation_number || trip?.submitted_confirmation) continue;
+      const {data: changed,error:tripError} = await db.from('medicaid_trips').update({robot_job_id:null,robot_last_status:'PORTAL_NAVIGATION_FAILED',robot_last_message:'Owner-authorized recovery: proven failure before claim entry; safe to retry.'}).eq('id',row.trip_id).eq('robot_job_id',trip.robot_job_id).is('robot_confirmation_number',null).select('id');
+      if (tripError) throw new Error(tripError.message);
+      if (!changed?.length) continue;
+      const {error:updateError} = await db.from('billing_records').update({status:'queued',failure_code:null,failure_stage:null,submission_error:null,submit_last_error:null,requires_human_step:false,submit_next_attempt_at:null,submit_locked_until:null,submit_worker:null}).eq('id',row.id).in('status',['needs_fix','submitting','queued']).is('state_confirmation_number',null);
+      if(updateError) throw new Error(updateError.message);
+      await db.from('billing_audit_log').insert({billing_record_id:row.id,action:'owner_scoped_presubmit_recovery',actor_id:(context as {userId:string}).userId,actor_type:'user',notes:'Explicit authorization for this bill. Robot verified claim form and released proven pre-submit ledger failure; no submission receipt was removed.'});
+      row.status='queued';
+    }
     const {reconcileRobotJob} = await import('@/lib/robotReconcile.server');
     const outcomes = [];
     for (const row of rows) {
