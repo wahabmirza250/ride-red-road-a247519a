@@ -256,11 +256,11 @@ function CompanyCard({
     }
   }
 
-  async function onHealthCheck() {
+  async function onHealthCheck(recover = false) {
     setChecking(true);
     setHealth(null);
     try {
-      const r = await healthCheck({ data: { company_id: c.id } });
+      const r = await healthCheck({ data: { company_id: c.id, recover_blocks: recover } });
       setHealth({
         ok: r.ok,
         active: r.account_active,
@@ -338,7 +338,7 @@ function CompanyCard({
             View as company
           </Button>
           <StaffManagerDialog companyId={c.id} companyName={c.name} onChanged={onChanged} />
-          <Button variant="outline" size="sm" className="rounded-full" onClick={onHealthCheck} disabled={checking}>
+          <Button variant="outline" size="sm" className="rounded-full" onClick={() => onHealthCheck()} disabled={checking}>
             {checking ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Stethoscope className="mr-1 h-3.5 w-3.5" />}
             Health check
           </Button>
@@ -404,6 +404,7 @@ function CompanyCard({
 
 
 
+      <Button variant="outline" size="sm" disabled={checking} onClick={() => onHealthCheck(true)}>Verify login &amp; recover blocked bills</Button>
       <Button variant="outline" size="sm" disabled={loadingImage} onClick={async () => {
         setLoadingImage(true);
         try { setRobotImage((await screenshotFn()).image); }

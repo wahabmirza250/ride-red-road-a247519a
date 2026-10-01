@@ -486,10 +486,10 @@ export const listCompanyAdmins = createServerFn({ method: "POST" })
     };
   });
 
-/** Read-only HCPF portal reachability probe for one company. */
+/** Owner-requested login probe, with optional recovery of pre-submit blocks. */
 export const runPortalHealthCheck = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { company_id: string }) => {
+  .inputValidator((input: { company_id: string; recover_blocks?: boolean }) => {
     if (!input?.company_id) throw new Error("company_id required");
     return input;
   })
@@ -517,7 +517,8 @@ export const runPortalHealthCheck = createServerFn({ method: "POST" })
       .eq("company_id", data.company_id)
       .limit(1)
       .maybeSingle();
-    let providerId: string | null = rate?.provider_id ?? null;
+    const { data: settings } = await db.from("billing_settings").select("default_provider_id").eq("company_id", data.company_id).maybeSingle();
+    let providerId: string | null = settings?.default_provider_id ?? rate?.provider_id ?? null;
     if (!providerId) {
       const { data: adminRole } = await db
         .from("user_roles")
@@ -545,11 +546,19 @@ export const runPortalHealthCheck = createServerFn({ method: "POST" })
 
     try {
       const res = await fetch(
-        `${ROBOT_BASE_URL}/health-check-portal?provider_id=${encodeURIComponent(providerId)}&company_id=${encodeURIComponent(data.company_id)}`,
-        { headers: { ...robotServiceHeaders(), "X-Robot-Api-Key": keyRow.api_key } },
+        data.recover_blocks === true
+          ? `${ROBOT_BASE_URL}/recover-portal-login`
+          : `${ROBOT_BASE_URL}/health-check-portal?provider_id=${encodeURIComponent(providerId)}&company_id=${encodeURIComponent(data.company_id)}`,
+        {
+          method: data.recover_blocks === true ? "POST" : "GET",
+          headers: { ...robotServiceHeaders(), "X-Robot-Api-Key": keyRow.api_key, "Content-Type": "application/json" },
+          ...(data.recover_blocks === true ? { body: JSON.stringify({ provider_id: providerId, company_id: data.company_id }) } : {}),
+          signal: AbortSignal.timeout(90_000),
+        },
       );
       const body = (await res.json().catch(() => ({}))) as {
         error?: string;
+        recovered_count?: number;
         account_active?: boolean;
         checked_at?: string;
         detail?: { status?: string; reason?: string };
@@ -564,7 +573,7 @@ export const runPortalHealthCheck = createServerFn({ method: "POST" })
         checked_at: body.checked_at ?? new Date().toISOString(),
         status: body.detail?.status ?? null,
         detail: body.account_active
-          ? "Portal login succeeded and the account is active."
+          ? `Portal login succeeded.${data.recover_blocks === true ? ` Released ${body.recovered_count ?? 0} pre-submit block(s). No bills were submitted by this check.` : " The account is active."}`
           : (reason ?? "The portal account did not respond as active."),
       };
     } catch (e) {
