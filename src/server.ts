@@ -1,6 +1,8 @@
 import "./lib/error-capture";
 import { startRecordingRetention } from './lib/recordingRetention.server';
 startRecordingRetention();
+import { startPassengerRidePush } from './lib/passengerRidePush.server';
+startPassengerRidePush();
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";

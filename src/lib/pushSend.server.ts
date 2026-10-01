@@ -20,6 +20,7 @@ export type PushPayload = {
   url?: string;
   tag?: string;
   requireInteraction?: boolean;
+  rideStatus?: import('./passengerRidePush').RidePushStatus;
 };
 
 export async function sendPushToUsers(userIds: string[], payload: PushPayload) {
