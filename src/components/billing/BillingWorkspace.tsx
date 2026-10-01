@@ -239,8 +239,10 @@ const PRIMARY_KEYS: TabKey[] = [
   "upload",
   "pending_review",
   "ready_to_submit",
+  "awaiting_portal",
+  "submitted",
 ];
-const SECONDARY_KEYS: TabKey[] = ["awaiting_portal", "submitted", "needs_attention", "verification_hold", "medical_review", "claims_history", "payroll", "denied"];
+const SECONDARY_KEYS: TabKey[] = [ "needs_attention", "verification_hold", "medical_review", "claims_history", "payroll", "denied"];
 
 /** One short, plain-English hint per stage so the rail reads like a pipeline. */
 const STAGE_HINTS: Partial<Record<TabKey, string>> = {
@@ -545,8 +547,9 @@ export function BillingWorkspace({ embedded = false }: { embedded?: boolean } = 
     <div className={embedded ? "space-y-5" : "space-y-6"}>
       {/* A company that is not configured yet gets the setup wizard here rather
           than a dead end — the workspace itself stays browsable. */}
-      {!isDemo && <details className="rounded-2xl border border-border p-4">
+      {!isDemo && <details open={!setupReady} className="rounded-2xl border border-border p-4">
         <summary className="cursor-pointer font-medium">{setupReady ? 'Billing setup and rates' : 'Complete billing setup before submitting claims'}</summary>
+        {setupBlockedReason && <p role="status" className="mt-2 text-sm text-amber-500">{setupBlockedReason}</p>}
         <div className="mt-4"><BillingSetupPanel compact /></div>
       </details>}
 
