@@ -502,7 +502,7 @@ function ChatEntry({
         <h3 className="text-sm font-semibold">Review trip details</h3>
         {entry.stage !== "done" && (
           <div className="space-y-2 rounded-xl border border-amber-400 p-3 text-sm">
-            <p>Automatic name matching is paused. Enter or select the passenger and enter the driver from the original paper.</p>
+            <p>Compare the auto-read details with the original paper. Fields that disagree between reads are left blank for correction.</p>
             <label className="flex items-start gap-2"><input type="checkbox" checked={!!entry.draft.identityReviewed} onChange={(e) => onPatchDraft({ identityReviewed: e.target.checked })} />I checked the passenger name, Medicaid ID, driver and service date against the paper.</label>
           </div>
         )}

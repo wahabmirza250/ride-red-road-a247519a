@@ -415,7 +415,7 @@ export function BatchPaperBills({
         driver_name: res?.driver_name ?? "",
         passenger_name: res?.rider?.full_name ?? res?.name ?? "",
         medicaid_id: res?.rider?.medicaid_id ?? res?.medicaid_id ?? "",
-        ...(res?.trip_date ? { trip_date: res.trip_date } : {}),
+        trip_date: res?.trip_date ?? "",
         ...(res?.vehicle_type ? { vehicle_type: res.vehicle_type } : {}),
         l1p: res?.l1p ?? "",
         l1d: res?.l1d ?? "",
@@ -808,7 +808,7 @@ function BatchRow({
       </div>
 
       <div className="space-y-2">
-        {item.phase !== "done" && <label className="flex items-start gap-2 rounded-xl border border-amber-400 p-3 text-sm"><input type="checkbox" checked={!!item.identityReviewed} onChange={(e) => onPatch({ identityReviewed: e.target.checked })} />Automatic name matching is paused. I checked passenger name, Medicaid ID, driver and date against the paper.</label>}
+        {item.phase !== "done" && <label className="flex items-start gap-2 rounded-xl border border-amber-400 p-3 text-sm"><input type="checkbox" checked={!!item.identityReviewed} onChange={(e) => onPatch({ identityReviewed: e.target.checked })} />I checked passenger name, Medicaid ID, driver and date against the paper.</label>}
         {legsOf(item).length === 2 && item.phase !== "done" && (
           <div className="space-y-2 rounded-xl border border-amber-400 p-3 text-sm">
             <label className="flex items-start gap-2"><input type="checkbox" checked={!!item.twoLegsVerified} onChange={(e) => onPatch({ twoLegsVerified: e.target.checked })} />I checked the paper: two completed trips are written on it.</label>
