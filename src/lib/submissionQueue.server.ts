@@ -114,7 +114,7 @@ export function submitBackoffMs(attempt: number): number {
 export function isTransientSubmitError(msg: string | null | undefined): boolean {
   if (!msg) return false;
   // A semantic portal refusal is not temporary capacity, even with HTTP 503.
-  if (/PORTAL_BLOCKED|SUBMISSION_CIRCUIT_OPEN/i.test(msg)) return false;
+  if (/PORTAL_BLOCKED|SUBMISSION_CIRCUIT_OPEN|PORTAL_SESSION_ACTIVE|PORTAL_LOGOUT_UNVERIFIED/i.test(msg)) return false;
   if (isAmbiguousSubmitError(msg)) return false;
   // A timeout on its own proves nothing about where the run died. Without
   // explicit pre-Submit evidence it is parked, never automatically re-queued.

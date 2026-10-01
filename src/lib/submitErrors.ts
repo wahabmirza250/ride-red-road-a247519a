@@ -18,6 +18,12 @@
  */
 import { isPortalNavigationFailure, PORTAL_NAV_USER_MESSAGE } from "@/lib/portalNavigation";
 
+export function isPortalLoginFailure(msg: string | null | undefined): boolean {
+  const text = String(msg ?? "");
+  return /PORTAL_SESSION_ACTIVE|PORTAL_LOGOUT_UNVERIFIED|POST_LOGIN_NOT_AUTHENTICATED|you did not log\s*off your previous session/i.test(text)
+    || (/page\.click: Timeout/i.test(text) && /LoginCmnButton|\[value=['"]Log In['"]\]/i.test(text));
+}
+
 const INFRA_PATTERNS = [
   /EAGAIN/i,
   /spawn(\s|ing)?\s*(chrom|browser|ETXTBSY|EAGAIN)?/i,
@@ -105,6 +111,7 @@ const NOTHING_SUBMITTED_PATTERNS = [
 export function isInfrastructureSubmitError(msg: string | null | undefined): boolean {
   if (!msg) return false;
   const s = String(msg);
+  if (isPortalLoginFailure(s)) return false;
   if (AMBIGUOUS_PATTERNS.some((re) => re.test(s))) return false;
   return INFRA_PATTERNS.some((re) => re.test(s));
 }
@@ -169,6 +176,7 @@ export function isFleetUnavailable(msg: string | null | undefined): boolean {
 
 /** Pre-submit conditions that must requeue without consuming an attempt. */
 export function isPreSubmitPacingCondition(msg: string | null | undefined): boolean {
+  if (isPortalLoginFailure(msg)) return false;
   if (/PORTAL_BLOCKED|SUBMISSION_CIRCUIT_OPEN/i.test(String(msg ?? ""))) return false;
   return (
     isAccountBusyPreSubmitError(msg) ||
@@ -209,6 +217,12 @@ export function isPortalStep1ValidationFailure(msg: string | null | undefined): 
 export function sanitizeSubmitError(msg: string | null | undefined): string {
   const raw = String(msg ?? "").trim();
   if (!raw) return "Submission could not be started. It is queued for a safe retry.";
+  if (/PORTAL_SESSION_ACTIVE|you did not log\s*off your previous session/i.test(raw))
+    return "The state portal is holding a previous login session. Sign out of that portal session or let it expire, then verify the connection. Keep this bill; this login attempt did not submit it.";
+  if (/PORTAL_LOGOUT_UNVERIFIED/i.test(raw))
+    return "Portal login worked, but logout could not be verified. Check the portal connection before retrying.";
+  if (isPortalLoginFailure(raw))
+    return "The robot could not complete the state portal login. Verify the portal connection before retrying this bill.";
   if (/PORTAL_BLOCKED|SUBMISSION_CIRCUIT_OPEN/i.test(raw))
     return "Portal access is blocked or the robot has retained an earlier block. Review the portal connection before retrying.";
   if (isPortalStep1ValidationFailure(raw)) return PORTAL_STEP1_USER_MESSAGE;
@@ -216,7 +230,7 @@ export function sanitizeSubmitError(msg: string | null | undefined): string {
   if (isPortalNavigationFailure(raw)) return PORTAL_NAV_USER_MESSAGE;
   if (isBrowserLaunchFailure(raw)) return LAUNCH_BUSY_USER_MESSAGE;
   if (isFleetUnavailable(raw)) return INFRA_USER_MESSAGE;
-  if (isInfrastructureSubmitError(raw)) return INFRA_USER_MESSAGE;
+  if (isInfrastructureSubmitError(raw)) return "The robot encountered a browser error. Check the bill’s submission history before retrying.";
 
   const firstLine =
     raw
@@ -241,6 +255,7 @@ export type SubmitFailureStage =
   | "preflight"
   | "dispatch"
   | "portal_step1"
+  | "portal_login"
   | "portal_navigation"
   | "portal_submit"
   | "worker"
@@ -257,6 +272,7 @@ export type SubmitFailureCode =
   | "worker_capacity"
   | "portal_navigation"
   | "portal_rejected"
+  | "portal_login"
   | "unknown";
 
 export function classifySubmitFailure(
@@ -264,6 +280,7 @@ export function classifySubmitFailure(
 ): { stage: SubmitFailureStage; code: SubmitFailureCode } {
   const s = String(msg ?? "").trim();
   if (!s) return { stage: "unknown", code: "unknown" };
+  if (isPortalLoginFailure(s)) return { stage: "portal_login", code: "portal_login" };
   if (isPortalStep1ValidationFailure(s))
     return { stage: "portal_step1", code: "portal_step1_required_field" };
   if (AMBIGUOUS_PATTERNS.some((re) => re.test(s)))
