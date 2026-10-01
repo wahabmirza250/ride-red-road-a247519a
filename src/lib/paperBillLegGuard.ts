@@ -1,20 +1,18 @@
-/** Fail closed when the model cannot establish which printed trip rows are filled. */
-export function guardPaperLegs(parsed: Record<string, unknown>) {
+/** Keep readable fields when trip-count evidence is incomplete. Never invent a return. */
+export function guardPaperLegs(parsed: Record<string, unknown>): Record<string, unknown> {
   const field = (key: string) => parsed[key] as { v?: unknown; c?: number } | undefined;
   const count = field("completed_legs");
-  if (!count || typeof count.c !== "number" || count.c < 0.9 || ![1, 2].includes(Number(count.v))) {
-    throw new Error("Could not verify the number of completed trips on the paper. Enter the trip details manually.");
-  }
-  if (Number(count.v) === 1) {
-    return { ...parsed, ...Object.fromEntries(["l2p", "l2d", "l2pt", "l2dt"].map(k => [k, { v: null, c: 0 }])) };
-  }
-  for (const key of ["l2p", "l2d"]) {
+  const certain = count && Number.isFinite(count.c) && count.c! >= 0.9 && [1, 2].includes(Number(count.v));
+  const completeReturn = ["l2p", "l2d"].every(key => {
     const value = field(key);
-    if (!value || typeof value.c !== "number" || value.c < 0.9 || value.v == null || String(value.v).trim() === "") {
-      throw new Error("The return trip is unclear. Check the original paper and enter the legs manually.");
-    }
+    return value && Number.isFinite(value.c) && value.c! >= 0.9 && value.v != null && String(value.v).trim() !== "";
+  });
+  if (!certain || Number(count!.v) === 1 || !completeReturn) {
+    return { ...parsed,
+      leg_count_needs_review: !certain || Number(count!.v) === 2,
+      ...Object.fromEntries(["l2p", "l2d", "l2pt", "l2dt"].map(k => [k, { v: null, c: 0 }])) };
   }
-  return parsed;
+  return { ...parsed, leg_count_needs_review: false };
 }
 
 export function assertPaperLegReview(legs: unknown[], verified?: boolean) {

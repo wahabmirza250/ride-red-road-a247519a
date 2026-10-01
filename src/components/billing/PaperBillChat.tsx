@@ -67,6 +67,7 @@ type Entry = {
   ocr: "idle" | "running" | "done" | "failed";
   /** Visible reason the auto-read failed, shown in the chat. */
   ocrError?: string;
+  legCountNeedsReview?: boolean;
   ocrFilled: OdoField[];
   /** OCR read the Medicaid ID but is not confident it got the characters right. */
   idUncertain?: boolean;
@@ -225,6 +226,7 @@ export function PaperBillChat() {
       const res = (await detectFn({
         data: { image_data_url: dataUrl, file_name: file.name },
       })) as {
+        leg_count_needs_review?: boolean;
         name: string | null;
         driver_name: string | null;
         medicaid_id: string | null;
@@ -277,6 +279,7 @@ export function PaperBillChat() {
         !!nextDraft.l1p &&
         !!nextDraft.l1d &&
         !!nextDraft.trip_date &&
+        !!nextDraft.driver_name &&
         (!!nextDraft.rider ||
           !!(nextDraft.newRider?.full_name && nextDraft.newRider?.medicaid_id));
 
@@ -287,6 +290,7 @@ export function PaperBillChat() {
             ? {
                 ...e,
                 ocr: "done",
+                legCountNeedsReview: !!res.leg_count_needs_review,
                 ocrFilled: filled,
                 idUncertain: !!res?.medicaid_id_uncertain,
                 stage: readyToReview ? "review" : "form",
@@ -503,9 +507,10 @@ function ChatEntry({
         {entry.stage !== "done" && (
           <div className="space-y-2 rounded-xl border border-amber-400 p-3 text-sm">
             <p>Compare the auto-read details with the original paper. Fields that disagree between reads are left blank for correction.</p>
-            <label className="flex items-start gap-2"><input type="checkbox" checked={!!entry.draft.identityReviewed} onChange={(e) => onPatchDraft({ identityReviewed: e.target.checked })} />I checked the passenger name, Medicaid ID, driver and service date against the paper.</label>
+            <label className="flex items-start gap-2"><input type="checkbox" checked={!!entry.draft.identityReviewed} onChange={(e) => onPatchDraft({ identityReviewed: e.target.checked })} />I checked the passenger name, Medicaid ID, driver, service date and completed trip count against the paper.</label>
           </div>
         )}
+        {entry.legCountNeedsReview && entry.stage !== "done" && <p className="rounded-xl border border-amber-400 p-3 text-sm">The completed trip count needs your check. Other readable fields are kept. Return fields are blank: leave them blank for one completed trip, or enter the second trip from the paper. Include the trip count in your review above.</p>}
         {legs.length === 2 && entry.stage !== "done" && (
           <div className="space-y-2 rounded-xl border border-amber-400 p-3 text-sm">
             <label className="flex items-start gap-2">

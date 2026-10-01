@@ -40,6 +40,7 @@ import {
 type Rider = { id: string; full_name: string; medicaid_id: string };
 
 type Item = {
+  legCountNeedsReview?: boolean;
   identityReviewed?: boolean;
   twoLegsVerified?: boolean;
   key: string;
@@ -394,6 +395,7 @@ export function BatchPaperBills({
       const res = (await detectFn({
         data: { image_data_url: dataUrl, file_name: fileName },
       })) as {
+        leg_count_needs_review?: boolean;
         name: string | null;
         driver_name: string | null;
         medicaid_id: string | null;
@@ -411,6 +413,7 @@ export function BatchPaperBills({
       };
       const next: Partial<Item> = {
         phase: "ready",
+        legCountNeedsReview: !!res?.leg_count_needs_review,
         rider: res?.rider ?? null,
         driver_name: res?.driver_name ?? "",
         passenger_name: res?.rider?.full_name ?? res?.name ?? "",
@@ -808,7 +811,8 @@ function BatchRow({
       </div>
 
       <div className="space-y-2">
-        {item.phase !== "done" && <label className="flex items-start gap-2 rounded-xl border border-amber-400 p-3 text-sm"><input type="checkbox" checked={!!item.identityReviewed} onChange={(e) => onPatch({ identityReviewed: e.target.checked })} />I checked passenger name, Medicaid ID, driver and date against the paper.</label>}
+        {item.phase !== "done" && <label className="flex items-start gap-2 rounded-xl border border-amber-400 p-3 text-sm"><input type="checkbox" checked={!!item.identityReviewed} onChange={(e) => onPatch({ identityReviewed: e.target.checked })} />I checked passenger name, Medicaid ID, driver, date and completed trip count against the paper.</label>}
+        {item.legCountNeedsReview && item.phase !== "done" && <p className="text-sm text-amber-500">Check the completed trip count. Other readable fields are kept; return fields are blank until you enter a completed second trip.</p>}
         {legsOf(item).length === 2 && item.phase !== "done" && (
           <div className="space-y-2 rounded-xl border border-amber-400 p-3 text-sm">
             <label className="flex items-start gap-2"><input type="checkbox" checked={!!item.twoLegsVerified} onChange={(e) => onPatch({ twoLegsVerified: e.target.checked })} />I checked the paper: two completed trips are written on it.</label>

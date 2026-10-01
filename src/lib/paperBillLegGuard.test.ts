@@ -8,14 +8,14 @@ describe("paper leg protection", () => {
     expect(result.l1p).toEqual(f("171606"));
   });
   it.each([undefined, f(null), f(3), f(2, 0.6)])("blocks missing or uncertain count %j", completed_legs => {
-    expect(() => guardPaperLegs({ completed_legs })).toThrow();
+    expect(guardPaperLegs({ completed_legs, name: f("Test Passenger"), l1p: f("1000") })).toMatchObject({ name: f("Test Passenger"), l1p: f("1000"), leg_count_needs_review: true, l2p: f(null, 0) });
   });
   it("blocks incomplete return evidence", () => {
-    expect(() => guardPaperLegs({ completed_legs: f(2), l2p: f("1000"), l2d: f(null) })).toThrow();
+    expect(guardPaperLegs({ completed_legs: f(2), l2p: f("1000"), l2d: f(null) })).toMatchObject({ leg_count_needs_review: true, l2p: f(null, 0) });
   });
   it("retains two clearly filled rows for human review", () => {
     const input = { completed_legs: f(2), l2p: f("1000"), l2d: f("1007") };
-    expect(guardPaperLegs(input)).toEqual(input);
+    expect(guardPaperLegs(input)).toMatchObject({ ...input, leg_count_needs_review: false });
   });
   it("requires explicit review even when OCR confidently invents a second leg", () => {
     expect(() => assertPaperLegReview([{}, {}])).toThrow();

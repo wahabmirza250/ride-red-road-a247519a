@@ -551,6 +551,7 @@ Read the first completed trip row into l1 fields and the second into l2 fields. 
       medicaid_id: node("medicaid_id"),
       rider: null,
       review_fields: crossCheck.conflicts,
+      leg_count_needs_review: parsed.leg_count_needs_review === true,
       driver_name_match: { matched: false, score: 0, raw: node("driver_name") },
       /** True when the ID needs a careful human double-check before use. */
       medicaid_id_uncertain,
