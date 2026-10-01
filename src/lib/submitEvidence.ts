@@ -27,6 +27,7 @@
 export function looksLikePostConfirmTimeout(raw: string | null | undefined): boolean {
   if (!raw) return false;
   const t = String(raw);
+  if (/PORTAL_NAVIGATION_FAILED: stage=navigate submit_reached=false/.test(t)) return false;
   const clickedConfirm =
     /ConfirmCmnButton/i.test(t) || /confirm/i.test(t);
   const clickLanded = /click action done/i.test(t);
@@ -43,8 +44,9 @@ export function looksLikePostConfirmTimeout(raw: string | null | undefined): boo
 export function looksLikePossiblySubmittedTimeout(raw: string | null | undefined): boolean {
   if (!raw) return false;
   const t = String(raw);
+  if (/PORTAL_NAVIGATION_FAILED: stage=navigate submit_reached=false/.test(t)) return false;
   const reachedSubmitOrConfirm =
-    /ConfirmCmnButton|SubmitClaimProf3|Submit\s*Claim|Confirm Professional Claim|click(?:ed)?\s*(?:Submit|Confirm)/i.test(t) ||
+    /ConfirmCmnButton|SubmitClaimProf3|Confirm Professional Claim|click(?:ed)?\s*(?:Submit|Confirm)/i.test(t) ||
     (/confirm|submit/i.test(t) && /click action done|after clicking|postback/i.test(t));
   const timeoutOrClosed =
     /Timeout \d+ms exceeded|timed out|navigation timeout|browser has been closed|Target page, context or browser has been closed|closed browser|page closed/i.test(t);

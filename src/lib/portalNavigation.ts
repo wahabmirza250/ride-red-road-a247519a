@@ -101,6 +101,7 @@ const NOT_NAVIGATION_PATTERNS = [
 export function isPortalNavigationFailure(msg: string | null | undefined): boolean {
   if (!msg) return false;
   const s = String(msg);
+  if (/PORTAL_NAVIGATION_FAILED: stage=navigate submit_reached=false/.test(s)) return true;
   if (NOT_NAVIGATION_PATTERNS.some((re) => re.test(s))) return false;
   return NAV_FAILURE_PATTERNS.some((re) => re.test(s));
 }
