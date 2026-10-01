@@ -41,6 +41,7 @@ const INFRA_PATTERNS = [
 ];
 
 const AMBIGUOUS_PATTERNS = [
+  /CLAIM_UNCERTAIN/i,
   /confirm/i,
   /already submitted/i,
   /claim may exist/i,
@@ -223,6 +224,7 @@ export function sanitizeSubmitError(msg: string | null | undefined): string {
     return "Portal login worked, but logout could not be verified. Check the portal connection before retrying.";
   if (isPortalLoginFailure(raw))
     return "The robot could not complete the state portal login. Verify the portal connection before retrying this bill.";
+  if (/CLAIM_UNCERTAIN/i.test(raw)) return AMBIGUOUS_USER_MESSAGE;
   if (/PORTAL_BLOCKED|SUBMISSION_CIRCUIT_OPEN/i.test(raw))
     return "Portal access is blocked or the robot has retained an earlier block. Review the portal connection before retrying.";
   if (isPortalStep1ValidationFailure(raw)) return PORTAL_STEP1_USER_MESSAGE;

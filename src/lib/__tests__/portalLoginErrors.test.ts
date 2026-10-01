@@ -18,4 +18,10 @@ describe('portal login errors are not worker shortages', () => {
     expect(sanitizeSubmitError('page.click: Timeout 30000ms exceeded')).not.toContain('No submission worker');
     expect(sanitizeSubmitError('No healthy submission robot')).toContain('No submission worker');
   });
+  it('keeps an unresolved ledger claim out of ordinary resubmission', () => {
+    const error='Automation service rejected request (409): CLAIM_UNCERTAIN';
+    expect(classifySubmitFailure(error)).toEqual({stage:'portal_submit',code:'ambiguous_outcome'});
+    expect(sanitizeSubmitError(error)).toContain('awaiting verification');
+    expect(isPreSubmitPacingCondition(error)).toBe(false);
+  });
 });
