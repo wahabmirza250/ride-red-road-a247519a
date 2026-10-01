@@ -37,6 +37,7 @@ type Rider = { id: string; full_name: string; medicaid_id: string; dob?: string 
 type OdoField = "l1p" | "l1d" | "l2p" | "l2d";
 
 type Draft = {
+  twoLegsVerified?: boolean;
   rider: Rider | null;
   newRider: { full_name: string; medicaid_id: string };
   driver_name: string;
@@ -92,7 +93,7 @@ const emptyDraft = (): Draft => ({
   rider: null,
   newRider: { full_name: "", medicaid_id: "" },
   driver_name: "",
-  trip_date: new Date().toISOString().slice(0, 10),
+  trip_date: "",
   // Ambulatory is the only type this business bills, so it starts pre-selected.
   // OCR still overrides it when a different type is explicitly marked on the paper.
   vehicle_type: "ambulatory",
@@ -169,7 +170,7 @@ export function PaperBillChat() {
   }
   function patchDraft(key: string, next: Partial<Draft>) {
     setEntries((prev) =>
-      prev.map((e) => (e.key === key ? { ...e, draft: { ...e.draft, ...next } } : e)),
+      prev.map((e) => (e.key === key ? { ...e, draft: { ...e.draft, twoLegsVerified: false, ...next } } : e)),
     );
   }
 
@@ -274,6 +275,7 @@ export function PaperBillChat() {
       const readyToReview =
         !!nextDraft.l1p &&
         !!nextDraft.l1d &&
+        !!nextDraft.trip_date &&
         (!!nextDraft.rider ||
           !!(nextDraft.newRider?.full_name && nextDraft.newRider?.medicaid_id));
 
@@ -325,6 +327,7 @@ export function PaperBillChat() {
           // report, so identity verification is always Yes.
           identity_verified: true,
           legs,
+          two_legs_verified: entry.draft.twoLegsVerified === true,
           upload_path: entry.uploadPath!,
           upload_mime: entry.mime,
         },
@@ -494,6 +497,15 @@ function ChatEntry({
     <section className="grid min-w-0 items-start gap-4 xl:grid-cols-2" aria-label={`Review ${entry.fileName}`}>
       <div className="min-w-0 space-y-3">
         <h3 className="text-sm font-semibold">Review trip details</h3>
+        {legs.length === 2 && entry.stage !== "done" && (
+          <div className="space-y-2 rounded-xl border border-amber-400 p-3 text-sm">
+            <label className="flex items-start gap-2">
+              <input type="checkbox" checked={!!entry.draft.twoLegsVerified} onChange={(e) => onPatchDraft({ twoLegsVerified: e.target.checked })} />
+              I checked the paper: two completed trips are written on it.
+            </label>
+            <Button size="sm" variant="outline" onClick={() => onPatchDraft({ l2p: "", l2d: "", l2pt: "", l2dt: "", twoLegsVerified: false })}>Only one leg — remove return trip</Button>
+          </div>
+        )}
       {entry.stage === "form" && (
         <Bubble side="bot">
           <div className="w-full min-w-0 space-y-3">
@@ -608,7 +620,7 @@ function ChatEntry({
               </div>
             )}
             <div className="flex gap-2 pt-1">
-              <Button size="sm" className="rounded-full" disabled={saving} onClick={onConfirm}>
+              <Button size="sm" className="rounded-full" disabled={saving || (legs.length === 2 && !entry.draft.twoLegsVerified)} onClick={onConfirm}>
                 {saving ? (
                   <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                 ) : (

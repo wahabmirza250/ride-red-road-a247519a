@@ -1,3 +1,4 @@
+import { guardPaperLegs, assertPaperLegReview } from "./paperBillLegGuard";
 import { digitsFromBracketAware, mountainIso, normalizeClockTime } from "./paperBillParse";
 import { requestOpenAiOcr } from "./openAiOcr.server";
 
@@ -98,6 +99,7 @@ const PaperBillInput = z.object({
   identity_verified: z.boolean(),
 
   legs: z.array(LegInput).min(1).max(2),
+  two_legs_verified: z.boolean().optional(),
   pickup_address: z.string().optional(),
   dropoff_address: z.string().optional(),
   /** Temp object already uploaded by the browser into the `state-pdfs` bucket. */
@@ -117,6 +119,7 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => PaperBillInput.parse(d))
   .handler(async ({ data, context }) => {
+    assertPaperLegReview(data.legs, data.two_legs_verified);
     const { supabase: authSupabase, userId } = context;
     await assertBilling(authSupabase);
 
@@ -478,14 +481,14 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
         }
       : { type: "image_url", image_url: { url: data.image_data_url } };
 
-    const parsed = await requestOpenAiOcr( [
+    const rawParsed = await requestOpenAiOcr( [
         {
           role: "user",
           content: [
             {
               type: "text",
               text:
-                'This is a HANDWRITTEN NEMT paper trip report (Colorado HCPF style). Read the handwriting carefully, field by field. Return strict JSON: {"name":{"v":null,"c":0},"medicaid_id":{"v":null,"c":0},"driver_name":{"v":null,"c":0},"trip_date":{"v":null,"c":0},"vehicle_type":{"v":null,"c":0},"l1p":{"v":null,"c":0},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0},"l1pt":{"v":null,"c":0},"l1dt":{"v":null,"c":0},"l2pt":{"v":null,"c":0},"l2dt":{"v":null,"c":0}}. name = member/passenger full name. medicaid_id = the Medicaid / Member / State ID, usually ONE letter followed by 6 digits (e.g. P458407, M964077); transcribe exactly, uppercase, no spaces or dashes; look near labels like "Medicaid ID", "Member ID", "State ID", "Client ID", "RID". driver_name = the DRIVER / transport provider staff name written on the form (look near labels like "Driver", "Driver Name", "Driver Signature", "Transport Provider", "Attendant"); it is NOT the member/passenger name — if the only name on the form is the member, return null. trip_date = ISO YYYY-MM-DD. vehicle_type = ONLY report what is EXPLICITLY marked on the form: "wheelchair_van" if a wheelchair van / WAV box is checked or written, "ambulatory" if an ambulatory / mobility box is checked or written. If NO vehicle-type box is marked, or it is blank, crossed out, unclear or ambiguous, return v null and c 0 — NEVER assume a vehicle type. l1p/l1d = leg 1 (outbound) beginning/ending odometer; l2p/l2d = leg 2 (return) beginning/ending odometer; digits only, no commas or units. l1pt/l1dt = leg 1 pickup (begin) and dropoff (end) TIME as written on the form; l2pt/l2dt = the same for leg 2. Return times as written including AM/PM (e.g. "9:15 AM", "14:05"). NEVER invent, round or infer a time: if the time box is blank, smudged, cropped or you are not sure, return v null and c 0. BRACKETS/PARENTHESES RULE (very important): numbers on these forms may or may not be enclosed in parentheses, brackets or braces — e.g. "(8)", "[8]" or plain "8". When a number IS enclosed, the value is ONLY the digit(s) INSIDE the enclosure; drop the bracket characters and drop any digit, label, unit or character printed OUTSIDE the enclosure. NEVER concatenate a bracketed number with an adjacent unbracketed number or character: "(8) 1" is 8, "1 (8)" is 8, "(8)mi" is 8 — never 18 or 81. If a plain number has no brackets at all, read it exactly as written. Handwriting hints — commonly confused characters: 0 vs O, 1 vs 7, 4 vs 9, 5 vs S, Y vs 4 (a handwritten Y is very often misread as a 4, and vice versa), Z vs 2, B vs 8, G vs 6, I vs 1. STRUCTURE OF THE MEDICAID ID: it is ALWAYS exactly ONE letter followed by EXACTLY 6 digits (7 characters total). Apply this rule when reading it: the FIRST character must be a letter (so if it looks like a 4 there, seriously consider Y; if it looks like a 0 consider O; if 1 consider I; if 5 consider S; if 2 consider Z; if 8 consider B; if 6 consider G), and the remaining 6 characters must be digits (so a letter-looking mark after position 1 is a digit). IMPORTANT: report your confidence for the ID honestly and SEPARATELY from digit count — if you can count the 6 digits clearly but you are at all unsure which letter the leading character is, you MUST return a LOW confidence (c below 0.6) rather than guessing a letter. Never silently pick between Y and 4. "c" is your confidence 0-1. Never guess: if a field is blank, smudged, cropped or ambiguous use v null and c 0. Output JSON only.',
+                'This is a HANDWRITTEN NEMT paper trip report (Colorado HCPF style). Read the handwriting carefully, field by field. First count COMPLETED trip sections: completed_legs is 1 or 2, based on actual written pickup AND destination odometers in separate rows, never the number of printed blank sections. A ONE WAY mark and blank second section means completed_legs=1. A ROUND TRIP mark alone is NOT evidence of a completed second leg. For a blank second section return null for ALL l2 fields. NEVER extrapolate odometers, repeat mileage, copy leg 1, or invent return times. Transcribe odometers directly, never calculate them from handwritten mileage notes. Read the service date from Trip Date or the filled trip row, NEVER the printed form revision date. If conflicting or unreadable return null. Return strict JSON: {"completed_legs":{"v":null,"c":0},"name":{"v":null,"c":0},"medicaid_id":{"v":null,"c":0},"driver_name":{"v":null,"c":0},"trip_date":{"v":null,"c":0},"vehicle_type":{"v":null,"c":0},"l1p":{"v":null,"c":0},"l1d":{"v":null,"c":0},"l2p":{"v":null,"c":0},"l2d":{"v":null,"c":0},"l1pt":{"v":null,"c":0},"l1dt":{"v":null,"c":0},"l2pt":{"v":null,"c":0},"l2dt":{"v":null,"c":0}}. name = member/passenger full name. medicaid_id = the Medicaid / Member / State ID, usually ONE letter followed by 6 digits (e.g. P458407, M964077); transcribe exactly, uppercase, no spaces or dashes; look near labels like "Medicaid ID", "Member ID", "State ID", "Client ID", "RID". driver_name = the DRIVER / transport provider staff name written on the form (look near labels like "Driver", "Driver Name", "Driver Signature", "Transport Provider", "Attendant"); it is NOT the member/passenger name — if the only name on the form is the member, return null. trip_date = ISO YYYY-MM-DD. vehicle_type = ONLY report what is EXPLICITLY marked on the form: "wheelchair_van" if a wheelchair van / WAV box is checked or written, "ambulatory" if an ambulatory / mobility box is checked or written. If NO vehicle-type box is marked, or it is blank, crossed out, unclear or ambiguous, return v null and c 0 — NEVER assume a vehicle type. l1p/l1d = leg 1 (outbound) beginning/ending odometer; l2p/l2d = leg 2 (return) beginning/ending odometer; digits only, no commas or units. l1pt/l1dt = leg 1 pickup (begin) and dropoff (end) TIME as written on the form; l2pt/l2dt = the same for leg 2. Return times as written including AM/PM (e.g. "9:15 AM", "14:05"). NEVER invent, round or infer a time: if the time box is blank, smudged, cropped or you are not sure, return v null and c 0. BRACKETS/PARENTHESES RULE (very important): numbers on these forms may or may not be enclosed in parentheses, brackets or braces — e.g. "(8)", "[8]" or plain "8". When a number IS enclosed, the value is ONLY the digit(s) INSIDE the enclosure; drop the bracket characters and drop any digit, label, unit or character printed OUTSIDE the enclosure. NEVER concatenate a bracketed number with an adjacent unbracketed number or character: "(8) 1" is 8, "1 (8)" is 8, "(8)mi" is 8 — never 18 or 81. If a plain number has no brackets at all, read it exactly as written. Handwriting hints — commonly confused characters: 0 vs O, 1 vs 7, 4 vs 9, 5 vs S, Y vs 4 (a handwritten Y is very often misread as a 4, and vice versa), Z vs 2, B vs 8, G vs 6, I vs 1. STRUCTURE OF THE MEDICAID ID: it is ALWAYS exactly ONE letter followed by EXACTLY 6 digits (7 characters total). Apply this rule when reading it: the FIRST character must be a letter (so if it looks like a 4 there, seriously consider Y; if it looks like a 0 consider O; if 1 consider I; if 5 consider S; if 2 consider Z; if 8 consider B; if 6 consider G), and the remaining 6 characters must be digits (so a letter-looking mark after position 1 is a digit). IMPORTANT: report your confidence for the ID honestly and SEPARATELY from digit count — if you can count the 6 digits clearly but you are at all unsure which letter the leading character is, you MUST return a LOW confidence (c below 0.6) rather than guessing a letter. Never silently pick between Y and 4. "c" is your confidence 0-1. Never guess: if a field is blank, smudged, cropped or ambiguous use v null and c 0. Output JSON only.',
             },
 
             filePart,
@@ -495,7 +498,8 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
       1600,
     );
 
-    const MIN_CONFIDENCE = 0.6;
+    const parsed = guardPaperLegs(rawParsed);
+    const MIN_CONFIDENCE = 0.9;
     const node = (key: string) => {
       const n = parsed[key] as { v?: unknown; c?: unknown } | undefined;
       if (!n || typeof n !== "object") return null;

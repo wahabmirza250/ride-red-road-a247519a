@@ -40,6 +40,7 @@ import {
 type Rider = { id: string; full_name: string; medicaid_id: string };
 
 type Item = {
+  twoLegsVerified?: boolean;
   key: string;
   /** Durable `paper_inbox_files` row id — the real identity of this upload. */
   inboxId: string | null;
@@ -165,6 +166,7 @@ function legsOf(i: Item) {
 function isValid(i: Item) {
   const legs = legsOf(i);
   if (!legs.length) return false;
+  if (legs.length === 2 && !i.twoLegsVerified) return false;
   if (legs.some((l) => l.dropoff_odometer <= l.pickup_odometer)) return false;
   if (!i.trip_date) return false;
   if (!i.vehicle_type) return false;
@@ -415,6 +417,7 @@ export function BatchPaperBills({
         ...(res?.vehicle_type ? { vehicle_type: res.vehicle_type } : {}),
         l1p: res?.l1p ?? "",
         l1d: res?.l1d ?? "",
+        twoLegsVerified: false,
         l2p: res?.l2p ?? "",
         l2d: res?.l2d ?? "",
         // Never invent a time — blank stays blank for manual entry.
@@ -580,6 +583,7 @@ export function BatchPaperBills({
             // Paper bills always carry a signed paper report → always Yes.
             identity_verified: true,
             legs: legsOf(item),
+            two_legs_verified: item.twoLegsVerified === true,
             upload_path: item.uploadPath,
             upload_mime: item.mime,
             inbox_file_id: item.inboxId,
@@ -800,6 +804,12 @@ function BatchRow({
       </div>
 
       <div className="space-y-2">
+        {legsOf(item).length === 2 && item.phase !== "done" && (
+          <div className="space-y-2 rounded-xl border border-amber-400 p-3 text-sm">
+            <label className="flex items-start gap-2"><input type="checkbox" checked={!!item.twoLegsVerified} onChange={(e) => onPatch({ twoLegsVerified: e.target.checked })} />I checked the paper: two completed trips are written on it.</label>
+            <Button size="sm" variant="outline" onClick={() => onPatch({ l2p: "", l2d: "", l2pt: "", l2dt: "", twoLegsVerified: false })}>Only one leg — remove return trip</Button>
+          </div>
+        )}
         {item.phase === "uploading" && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading {item.fileName}…
@@ -894,7 +904,7 @@ function BatchRow({
                 aria-label={`${label} for ${item.fileName}`}
                 inputMode="decimal"
                 value={item[field]}
-                onChange={(e) => onPatch({ [field]: e.target.value } as Partial<Item>)}
+                onChange={(e) => onPatch({ [field]: e.target.value, twoLegsVerified: false } as Partial<Item>)}
               />
             </div>
           ))}
@@ -915,7 +925,7 @@ function BatchRow({
                 aria-label={`${label} for ${item.fileName}`}
                 type="time"
                 value={item[field]}
-                onChange={(e) => onPatch({ [field]: e.target.value } as Partial<Item>)}
+                onChange={(e) => onPatch({ [field]: e.target.value, twoLegsVerified: false } as Partial<Item>)}
               />
             </div>
           ))}
