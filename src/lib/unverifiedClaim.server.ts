@@ -1,3 +1,4 @@
+import { robotServiceHeaders } from "@/lib/robotServiceAuth.server";
 /**
  * AUTOMATIC RESOLUTION OF "SUBMITTED_UNVERIFIED" JOBS.
  *
@@ -64,7 +65,7 @@ async function searchPortalClaim(args: {
   try {
     res = await fetch(`${ROBOT_BASE_URL}/discover-search-claims`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...robotServiceHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
         // READ-ONLY contract. Aliases cover whichever key the robot reads.
         mode: "search_claims",

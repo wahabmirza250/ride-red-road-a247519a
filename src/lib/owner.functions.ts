@@ -1,3 +1,4 @@
+import { robotServiceHeaders } from "@/lib/robotServiceAuth.server";
 import { normalizeSupportPhone } from './companySupport.functions';
 import { RESERVED_COMPANY_CODES, normalizeCompanyCode } from "@/lib/companyAccess";
 import { createServerFn } from "@tanstack/react-start";
@@ -527,7 +528,7 @@ export const runPortalHealthCheck = createServerFn({ method: "POST" })
     try {
       const res = await fetch(
         `${ROBOT_BASE_URL}/health-check-portal?provider_id=${encodeURIComponent(providerId)}&company_id=${encodeURIComponent(data.company_id)}`,
-        { headers: { "X-Robot-Api-Key": keyRow.api_key } },
+        { headers: { ...robotServiceHeaders(), "X-Robot-Api-Key": keyRow.api_key } },
       );
       const body = (await res.json().catch(() => ({}))) as {
         account_active?: boolean;

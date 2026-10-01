@@ -1,3 +1,4 @@
+import { robotServiceHeaders } from "@/lib/robotServiceAuth.server";
 /**
  * ROBOT ADAPTER — the single network boundary to the HCPF submission robot.
  *
@@ -71,7 +72,7 @@ export async function postSubmitClaimTo(
   realCallAttempts++;
   const res = await fetch(`${worker.url}/submit-claim`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { ...robotServiceHeaders(), "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
   const text = await res.text();

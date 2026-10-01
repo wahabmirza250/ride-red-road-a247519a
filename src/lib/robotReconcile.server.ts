@@ -1,3 +1,4 @@
+import { robotServiceHeaders } from "@/lib/robotServiceAuth.server";
 /**
  * SHARED ROBOT RECONCILIATION.
  *
@@ -145,7 +146,7 @@ async function reconcileRobotJobInner(
     const { pollBaseUrlFor } = await import("@/lib/robotFleet.server");
     const pollBase = pollBaseUrlFor(trip);
     const res = await fetch(`${pollBase}/job-status/${encodeURIComponent(jobId)}`, {
-      method: "GET",
+      method: "GET", headers: robotServiceHeaders(),
     });
     const text = await res.text();
     if (!res.ok) {

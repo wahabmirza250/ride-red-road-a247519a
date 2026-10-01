@@ -1,3 +1,4 @@
+import { robotServiceHeaders } from "@/lib/robotServiceAuth.server";
 /**
  * READ-ONLY HCPF claim search used by the Verify HCPF claim panel.
  *
@@ -74,7 +75,7 @@ async function callWorker(payload: Record<string, unknown>): Promise<{
     try {
       res = await fetch(`${ROBOT_BASE_URL}${path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...robotServiceHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
     } catch (e: any) {

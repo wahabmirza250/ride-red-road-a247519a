@@ -6,6 +6,8 @@ import { Loader2, Pencil, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/lib/auth";
+import { DEMO_BILLING_ACCOUNT, DEMO_TRIP_RATE, DEMO_MILE_RATE } from "@/lib/demoBillingRates";
 import {
   Select,
   SelectContent,
@@ -75,6 +77,7 @@ function groupRates(rows: BillingRateSetting[]): GroupedRates {
 }
 
 export function BillingRatesCard() {
+  const isDemo = useAuth().user?.app_metadata?.is_demo === true;
   const qc = useQueryClient();
   const listFn = useServerFn(listBillingRateSettings);
   const upsertPairFn = useServerFn(upsertBillingRatePair);
@@ -195,6 +198,14 @@ export function BillingRatesCard() {
 
   const configuredVehicles = VEHICLE_TYPES.filter(
     (vt) => grouped[vt].trip || grouped[vt].mile,
+  );
+
+  if (isDemo) return (
+    <section className="rounded-2xl border border-border bg-surface p-4 space-y-2">
+      <h3 className="text-base font-semibold">{DEMO_BILLING_ACCOUNT}</h3>
+      <p>Trip unit ${DEMO_TRIP_RATE.toFixed(2)} · Per mile ${DEMO_MILE_RATE.toFixed(2)}</p>
+      <p className="text-sm text-muted-foreground">Demo account connected. Use Workflow &amp; claims to review and submit sample bills.</p>
+    </section>
   );
 
   return (

@@ -1,3 +1,4 @@
+import { robotServiceHeaders } from "@/lib/robotServiceAuth.server";
 /**
  * CORRECTED-RESUBMISSION RECONCILIATION (server-only).
  *
@@ -324,7 +325,7 @@ export async function reconcileCorrectedRobotJob(
   let text = "";
   let body: any = undefined;
   try {
-    const r = await fetch(`${pollBase}/job-status/${encodeURIComponent(jobId)}`, { method: "GET" });
+    const r = await fetch(`${pollBase}/job-status/${encodeURIComponent(jobId)}`, { method: "GET", headers: robotServiceHeaders() });
     httpStatus = r.status;
     text = await r.text();
     try {

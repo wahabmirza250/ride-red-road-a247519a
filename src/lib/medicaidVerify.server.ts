@@ -1,3 +1,4 @@
+import { robotServiceHeaders } from "@/lib/robotServiceAuth.server";
 import type { VerifyResult } from "@/lib/medicaidVerify.functions";
 
 /**
@@ -40,6 +41,7 @@ export async function callVerifyRobot(args: {
       headers: {
         "Content-Type": "application/json",
         "X-Robot-Api-Key": args.apiKey,
+        ...robotServiceHeaders(),
       },
       body: JSON.stringify({
         provider_id: args.providerUserId,
