@@ -1,4 +1,4 @@
-import { guardPaperLegs, assertPaperLegReview } from "./paperBillLegGuard";
+import { guardPaperLegs, assertPaperLegReview, manualPaperIdentity, assertPaperIdentityReview } from "./paperBillLegGuard";
 import { digitsFromBracketAware, mountainIso, normalizeClockTime } from "./paperBillParse";
 import { requestOpenAiOcr } from "./openAiOcr.server";
 
@@ -100,6 +100,7 @@ const PaperBillInput = z.object({
 
   legs: z.array(LegInput).min(1).max(2),
   two_legs_verified: z.boolean().optional(),
+  identity_reviewed: z.boolean().optional(),
   pickup_address: z.string().optional(),
   dropoff_address: z.string().optional(),
   /** Temp object already uploaded by the browser into the `state-pdfs` bucket. */
@@ -119,6 +120,8 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => PaperBillInput.parse(d))
   .handler(async ({ data, context }) => {
+    assertPaperIdentityReview(data.identity_reviewed);
+    if (!data.driver_name?.trim()) throw new Error("Enter the driver name from the paper before creating this bill.");
     assertPaperLegReview(data.legs, data.two_legs_verified);
     const { supabase: authSupabase, userId } = context;
     await assertBilling(authSupabase);
@@ -272,20 +275,8 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
     // the leg's pickup_time stays null so the blank is visible.
     const pickupAt = mountainIso(data.trip_date, legs[0].pickup_time ?? null);
 
-    // Snap the paper driver name onto the real driver profile spelling so
-    // Driver Pay (which links paper claims by normalized name) matches even
-    // when the handwriting/OCR was slightly off. No confident match => keep
-    // exactly what was typed/read.
-    let paperDriverName = data.driver_name?.trim() || null;
-    if (paperDriverName) {
-      try {
-        const { resolveDriverName } = await import("@/lib/driverNameMatch.server");
-        const m = await resolveDriverName(supabase, companyId, paperDriverName);
-        paperDriverName = m.resolved_name ?? paperDriverName;
-      } catch {
-        /* keep the raw name */
-      }
-    }
+    // Preserve the identity the biller explicitly checked against the paper.
+    const paperDriverName = data.driver_name?.trim() || null;
 
     const pickupAddress = data.pickup_address?.trim() || "See attached paper trip report";
     const dropoffAddress = data.dropoff_address?.trim() || "See attached paper trip report";
@@ -545,51 +536,12 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
     const medicaid_id_uncertain =
       !!medicaidId && (idConfidence < ID_MIN_CONFIDENCE || !idWellFormed);
 
-    // Link a known passenger straight away so billing reuses the existing
-    // record instead of trying to create a duplicate member.
-    let rider: { id: string; full_name: string; medicaid_id: string } | null = null;
-    if (medicaidId) {
-      const { data: match } = await context.supabase
-        .from("riders")
-        .select("id, full_name, medicaid_id")
-        .eq("medicaid_id", medicaidId)
-        .maybeSingle();
-      if (match) rider = match as { id: string; full_name: string; medicaid_id: string };
-    }
-
-    // Driver name: OCR inherits handwriting misspellings, so snap it to the
-    // closest real driver profile in this company when we are confident.
-    const rawDriverName = node("driver_name");
-    let driverName = rawDriverName;
-    let driverMatch: { matched: boolean; score: number; raw: string | null } = {
-      matched: false,
-      score: 0,
-      raw: rawDriverName,
-    };
-    if (rawDriverName) {
-      try {
-        const { requireCompanyId } = await import("@/lib/company.server");
-        const { resolveDriverName } = await import("@/lib/driverNameMatch.server");
-        const companyId = await requireCompanyId(context.userId);
-        const m = await resolveDriverName(context.supabase, companyId, rawDriverName);
-        driverName = m.resolved_name ?? rawDriverName;
-        driverMatch = { matched: !!m.canonical_name, score: m.score, raw: rawDriverName };
-      } catch {
-        // Matching is a convenience — never block an OCR read on it.
-      }
-    }
-
     return {
-      name: node("name"),
-      driver_name: driverName,
-      /** How the driver name was resolved (for UI hinting). */
-      driver_name_match: driverMatch,
-      medicaid_id: medicaidId,
+      ...manualPaperIdentity(),
       /** True when the ID needs a careful human double-check before use. */
       medicaid_id_uncertain,
       medicaid_id_confidence: idConfidence,
 
-      rider,
       trip_date,
       vehicle_type,
       l1p: odo("l1p"),

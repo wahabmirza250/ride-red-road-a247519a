@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { guardPaperLegs, assertPaperLegReview } from "./paperBillLegGuard";
+import { guardPaperLegs, assertPaperLegReview, manualPaperIdentity, assertPaperIdentityReview } from "./paperBillLegGuard";
 const f = (v: unknown, c = 0.99) => ({ v, c });
 describe("paper leg protection", () => {
   it("discards invented return odometers and times when only one row is completed", () => {
@@ -22,5 +22,16 @@ describe("paper leg protection", () => {
     expect(() => assertPaperLegReview([{}, {}], false)).toThrow();
     expect(() => assertPaperLegReview([{}, {}], true)).not.toThrow();
     expect(() => assertPaperLegReview([{}])).not.toThrow();
+  });
+});
+
+describe("paper identity quarantine", () => {
+  it("never exposes OCR identity guesses as passenger or driver", () => {
+    expect(manualPaperIdentity()).toMatchObject({ name: null, driver_name: null, medicaid_id: null, rider: null, identity_manual_required: true });
+  });
+  it("rejects old clients and unreviewed drafts before creating records", () => {
+    expect(() => assertPaperIdentityReview()).toThrow();
+    expect(() => assertPaperIdentityReview(false)).toThrow();
+    expect(() => assertPaperIdentityReview(true)).not.toThrow();
   });
 });

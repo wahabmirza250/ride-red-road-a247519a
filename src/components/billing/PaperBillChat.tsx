@@ -37,6 +37,7 @@ type Rider = { id: string; full_name: string; medicaid_id: string; dob?: string 
 type OdoField = "l1p" | "l1d" | "l2p" | "l2d";
 
 type Draft = {
+  identityReviewed?: boolean;
   twoLegsVerified?: boolean;
   rider: Rider | null;
   newRider: { full_name: string; medicaid_id: string };
@@ -170,7 +171,7 @@ export function PaperBillChat() {
   }
   function patchDraft(key: string, next: Partial<Draft>) {
     setEntries((prev) =>
-      prev.map((e) => (e.key === key ? { ...e, draft: { ...e.draft, twoLegsVerified: false, ...next } } : e)),
+      prev.map((e) => (e.key === key ? { ...e, draft: { ...e.draft, identityReviewed: false, twoLegsVerified: false, ...next } } : e)),
     );
   }
 
@@ -328,6 +329,7 @@ export function PaperBillChat() {
           identity_verified: true,
           legs,
           two_legs_verified: entry.draft.twoLegsVerified === true,
+          identity_reviewed: entry.draft.identityReviewed === true,
           upload_path: entry.uploadPath!,
           upload_mime: entry.mime,
         },
@@ -489,6 +491,7 @@ function ChatEntry({
   const canReview =
     legs.length >= 1 &&
     !!entry.draft.trip_date &&
+    !!entry.draft.driver_name.trim() &&
     !!entry.draft.vehicle_type &&
     (!!entry.draft.rider ||
       (entry.draft.newRider.full_name.trim() && entry.draft.newRider.medicaid_id.trim()));
@@ -497,6 +500,12 @@ function ChatEntry({
     <section className="grid min-w-0 items-start gap-4 xl:grid-cols-2" aria-label={`Review ${entry.fileName}`}>
       <div className="min-w-0 space-y-3">
         <h3 className="text-sm font-semibold">Review trip details</h3>
+        {entry.stage !== "done" && (
+          <div className="space-y-2 rounded-xl border border-amber-400 p-3 text-sm">
+            <p>Automatic name matching is paused. Enter or select the passenger and enter the driver from the original paper.</p>
+            <label className="flex items-start gap-2"><input type="checkbox" checked={!!entry.draft.identityReviewed} onChange={(e) => onPatchDraft({ identityReviewed: e.target.checked })} />I checked the passenger name, Medicaid ID, driver and service date against the paper.</label>
+          </div>
+        )}
         {legs.length === 2 && entry.stage !== "done" && (
           <div className="space-y-2 rounded-xl border border-amber-400 p-3 text-sm">
             <label className="flex items-start gap-2">
@@ -572,7 +581,7 @@ function ChatEntry({
                 fix anything.
               </div>
             )}
-            <div className="text-sm font-semibold">{riderName}</div>
+            <div className="text-sm font-semibold">Passenger: {riderName}</div>
             {riderMedicaid ? (
               <div className="font-mono text-xs text-muted-foreground">
                 Medicaid ID: {riderMedicaid}
@@ -620,7 +629,7 @@ function ChatEntry({
               </div>
             )}
             <div className="flex gap-2 pt-1">
-              <Button size="sm" className="rounded-full" disabled={saving || (legs.length === 2 && !entry.draft.twoLegsVerified)} onClick={onConfirm}>
+              <Button size="sm" className="rounded-full" disabled={saving || !entry.draft.identityReviewed || (legs.length === 2 && !entry.draft.twoLegsVerified)} onClick={onConfirm}>
                 {saving ? (
                   <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                 ) : (

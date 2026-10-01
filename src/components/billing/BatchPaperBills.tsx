@@ -40,6 +40,7 @@ import {
 type Rider = { id: string; full_name: string; medicaid_id: string };
 
 type Item = {
+  identityReviewed?: boolean;
   twoLegsVerified?: boolean;
   key: string;
   /** Durable `paper_inbox_files` row id — the real identity of this upload. */
@@ -165,10 +166,11 @@ function legsOf(i: Item) {
 
 function isValid(i: Item) {
   const legs = legsOf(i);
+  if (!i.identityReviewed) return false;
   if (!legs.length) return false;
   if (legs.length === 2 && !i.twoLegsVerified) return false;
   if (legs.some((l) => l.dropoff_odometer <= l.pickup_odometer)) return false;
-  if (!i.trip_date) return false;
+  if (!i.trip_date || !i.driver_name.trim()) return false;
   if (!i.vehicle_type) return false;
   if (!i.rider && !(i.passenger_name.trim() && i.medicaid_id.trim())) return false;
   return true;
@@ -254,7 +256,7 @@ export function BatchPaperBills({
   }, [inbox.data]);
 
   function patch(key: string, next: Partial<Item>) {
-    setItems((prev) => prev.map((i) => (i.key === key ? { ...i, ...next } : i)));
+    setItems((prev) => prev.map((i) => (i.key === key ? { ...i, ...(DRAFT_FIELDS.some((f) => f in next) ? { identityReviewed: false } : {}), ...next } : i)));
   }
 
   /** Persist the biller's edits so nothing typed is lost on refresh. */
@@ -417,6 +419,7 @@ export function BatchPaperBills({
         ...(res?.vehicle_type ? { vehicle_type: res.vehicle_type } : {}),
         l1p: res?.l1p ?? "",
         l1d: res?.l1d ?? "",
+        identityReviewed: false,
         twoLegsVerified: false,
         l2p: res?.l2p ?? "",
         l2d: res?.l2d ?? "",
@@ -584,6 +587,7 @@ export function BatchPaperBills({
             identity_verified: true,
             legs: legsOf(item),
             two_legs_verified: item.twoLegsVerified === true,
+            identity_reviewed: item.identityReviewed === true,
             upload_path: item.uploadPath,
             upload_mime: item.mime,
             inbox_file_id: item.inboxId,
@@ -804,6 +808,7 @@ function BatchRow({
       </div>
 
       <div className="space-y-2">
+        {item.phase !== "done" && <label className="flex items-start gap-2 rounded-xl border border-amber-400 p-3 text-sm"><input type="checkbox" checked={!!item.identityReviewed} onChange={(e) => onPatch({ identityReviewed: e.target.checked })} />Automatic name matching is paused. I checked passenger name, Medicaid ID, driver and date against the paper.</label>}
         {legsOf(item).length === 2 && item.phase !== "done" && (
           <div className="space-y-2 rounded-xl border border-amber-400 p-3 text-sm">
             <label className="flex items-start gap-2"><input type="checkbox" checked={!!item.twoLegsVerified} onChange={(e) => onPatch({ twoLegsVerified: e.target.checked })} />I checked the paper: two completed trips are written on it.</label>
