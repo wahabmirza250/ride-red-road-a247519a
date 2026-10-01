@@ -21,6 +21,7 @@ import { AppLink } from "@/lib/appLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PdfInlineViewer } from "@/components/PdfInlineViewer";
 import { PageHeader } from "@/components/nemt/PageHeader";
 import { formatMoney } from "@/lib/claimReview";
 import { calcClaim, type RateRow } from "@/lib/claimCalc";
@@ -147,7 +148,12 @@ export function PaperBillChat() {
   const createFn = useServerFn(createPaperBillTrip);
   const detectFn = useServerFn(detectPaperBillOdometers);
   const fileRef = useRef<HTMLInputElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const previewUrls = useRef(new Set<string>());
+
+  useEffect(() => () => {
+    previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    previewUrls.current.clear();
+  }, []);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -157,9 +163,6 @@ export function PaperBillChat() {
     staleTime: 5 * 60 * 1000,
   });
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [entries.length, entries[entries.length - 1]?.stage]);
 
   function patch(key: string, next: Partial<Entry>) {
     setEntries((prev) => prev.map((e) => (e.key === key ? { ...e, ...next } : e)));
@@ -172,11 +175,13 @@ export function PaperBillChat() {
 
   async function onPickFile(file: File) {
     const key = crypto.randomUUID();
-    const isPdf = file.type === "application/pdf";
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    const previewUrl = URL.createObjectURL(file);
+    previewUrls.current.add(previewUrl);
     const entry: Entry = {
       key,
       fileName: file.name,
-      previewUrl: isPdf ? null : URL.createObjectURL(file),
+      previewUrl,
       isPdf,
       uploadPath: null,
       mime: file.type || (isPdf ? "application/pdf" : "image/jpeg"),
@@ -342,7 +347,10 @@ export function PaperBillChat() {
   /** Discard a paper bill at any point before it is confirmed. */
   async function cancelEntry(entry: Entry) {
     setEntries((prev) => prev.filter((e) => e.key !== entry.key));
-    if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+    if (entry.previewUrl) {
+      URL.revokeObjectURL(entry.previewUrl);
+      previewUrls.current.delete(entry.previewUrl);
+    }
     if (entry.uploadPath) {
       await supabase.storage.from("state-pdfs").remove([entry.uploadPath]);
     }
@@ -394,7 +402,6 @@ export function PaperBillChat() {
               onCancel={() => void cancelEntry(entry)}
             />
           ))}
-          <div ref={bottomRef} />
         </div>
 
         <div className="flex items-center gap-2 border-t border-border p-3">
@@ -440,7 +447,7 @@ function Bubble({
         className={
           side === "user"
             ? "max-w-[88%] sm:max-w-[80%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-primary-foreground"
-            : "max-w-[88%] sm:max-w-[80%] rounded-2xl rounded-bl-sm border border-border bg-surface-muted px-3 py-2 text-foreground"
+            : "w-full min-w-0 rounded-2xl rounded-bl-sm border border-border bg-surface-muted px-3 py-2 text-foreground"
         }
       >
         {children}
@@ -484,27 +491,12 @@ function ChatEntry({
       (entry.draft.newRider.full_name.trim() && entry.draft.newRider.medicaid_id.trim()));
 
   return (
-    <div className="space-y-3">
-      <Bubble side="user">
-        {entry.isPdf || !entry.previewUrl ? (
-          <div className="flex items-center gap-2 text-sm">
-            <FileText className="h-4 w-4" /> {entry.fileName}
-          </div>
-        ) : (
-          <img
-            src={entry.previewUrl}
-            alt={`Paper trip report ${entry.fileName}`}
-            className="max-h-56 rounded-lg"
-          />
-        )}
-        <div className="mt-1 text-[11px] opacity-80">
-          {entry.uploading ? "Uploading…" : "Uploaded"}
-        </div>
-      </Bubble>
-
+    <section className="grid min-w-0 items-start gap-4 xl:grid-cols-2" aria-label={`Review ${entry.fileName}`}>
+      <div className="min-w-0 space-y-3">
+        <h3 className="text-sm font-semibold">Review trip details</h3>
       {entry.stage === "form" && (
         <Bubble side="bot">
-          <div className="w-full space-y-3 sm:w-[min(78vw,520px)]">
+          <div className="w-full min-w-0 space-y-3">
             <p className="text-sm">
               Got it. Who was the passenger, and what were the odometer readings?
             </p>
@@ -561,7 +553,7 @@ function ChatEntry({
 
       {entry.stage === "review" && (
         <Bubble side="bot">
-          <div className="w-full space-y-2 sm:w-[min(78vw,520px)]">
+          <div className="w-full min-w-0 space-y-2">
             {entry.ocrFilled.length > 0 && (
               <div className="rounded-lg border border-amber-400/60 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
                 Read from the uploaded document. Check the numbers — Confirm if correct, Edit to
@@ -694,7 +686,31 @@ function ChatEntry({
           </div>
         </Bubble>
       )}
-    </div>
+      </div>
+      <aside className="min-w-0 overflow-hidden rounded-2xl border border-border bg-surface xl:sticky xl:top-4" aria-label="Original paper report">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-3">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-semibold">Original paper report</h3>
+            <p className="break-all text-xs text-muted-foreground">{entry.fileName}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {entry.uploading ? "Uploading…" : entry.uploadPath ? "Uploaded · Compare with the details on the left" : "Upload failed · Cancel and upload again"}
+            </p>
+          </div>
+          {entry.previewUrl && (
+            <a href={entry.previewUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-medium hover:bg-surface-muted">
+              Open full size
+            </a>
+          )}
+        </div>
+        {entry.previewUrl && (entry.isPdf ? (
+          <PdfInlineViewer url={entry.previewUrl} height={640} className="w-full max-h-[75vh] overflow-auto bg-muted/30" />
+        ) : (
+          <div className="max-h-[75vh] overflow-auto p-3">
+            <img src={entry.previewUrl} alt={`Original paper trip report ${entry.fileName}`} className="h-auto w-full rounded-lg" />
+          </div>
+        ))}
+      </aside>
+    </section>
   );
 }
 
