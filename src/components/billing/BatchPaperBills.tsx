@@ -240,7 +240,9 @@ export function BatchPaperBills({
   const rates = useQuery({
     queryKey: ["paper_bill_rates", companyId],
     queryFn: () => ratesFn({ data: { company_id: companyId } }) as Promise<RateRow[]>,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchOnWindowFocus: "always",
+    refetchOnMount: "always",
   });
 
   const inbox = useQuery({

@@ -53,13 +53,8 @@ export const getBillingRatesForCalc = createServerFn({ method: "GET" })
     );
     const { companyId } = rateScope;
     const dataSupabase = await ediDataClient(context.supabase, rateScope);
-    const { data: rows, error } = await dataSupabase
-      .from("billing_rate_settings")
-      .select(
-        "vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
-      )
-      .is("company_id", null);
-    if (error) throw new Error(error.message);
+    const { loadRateRows } = await import("@/lib/billingRates.server");
+    const { rows } = await loadRateRows(dataSupabase, { companyId });
     return (rows ?? []) as RateRow[];
   });
 
@@ -259,12 +254,8 @@ export const createPaperBillTrip = createServerFn({ method: "POST" })
       }
     }
 
-    const { data: rateRows } = await supabase
-      .from("billing_rate_settings")
-      .select(
-        "vehicle_type, unit_type, procedure_code, charge_amount, place_of_service, default_diagnosis_code",
-      )
-      .is("company_id", null);
+    const { loadRateRows } = await import("@/lib/billingRates.server");
+    const { rows: rateRows } = await loadRateRows(supabase, { companyId });
     const calc = calcClaim({
       legs,
       rates: (rateRows ?? []) as RateRow[],

@@ -145,6 +145,7 @@ export function BillingRatesCard() {
     onSuccess: () => {
       toast.success("Billing settings saved");
       qc.invalidateQueries({ queryKey: ["billing_rate_settings"] });
+      qc.invalidateQueries({ queryKey: ["paper_bill_rates"] });
       resetForm();
     },
     onError: (e: Error) => toast.error(e.message),
