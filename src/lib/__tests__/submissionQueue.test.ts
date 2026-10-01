@@ -56,6 +56,8 @@ describe("limits", () => {
     expect(submitBackoffMs(20)).toBe(30 * 60_000);
   });
   it("classifies errors", () => {
+    expect(isTransientSubmitError('Automation service rejected the request (503): {"error":"PORTAL_BLOCKED"}')).toBe(false);
+    expect(isTransientSubmitError('503 SUBMISSION_CIRCUIT_OPEN')).toBe(false);
     // A bare worker timeout proves nothing about where the run died.
     expect(isTransientSubmitError("Robot timed out after 600s")).toBe(false);
     expect(

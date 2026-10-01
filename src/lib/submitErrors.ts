@@ -169,6 +169,7 @@ export function isFleetUnavailable(msg: string | null | undefined): boolean {
 
 /** Pre-submit conditions that must requeue without consuming an attempt. */
 export function isPreSubmitPacingCondition(msg: string | null | undefined): boolean {
+  if (/PORTAL_BLOCKED|SUBMISSION_CIRCUIT_OPEN/i.test(String(msg ?? ""))) return false;
   return (
     isAccountBusyPreSubmitError(msg) ||
     isBrowserLaunchFailure(msg) ||
@@ -208,6 +209,8 @@ export function isPortalStep1ValidationFailure(msg: string | null | undefined): 
 export function sanitizeSubmitError(msg: string | null | undefined): string {
   const raw = String(msg ?? "").trim();
   if (!raw) return "Submission could not be started. It is queued for a safe retry.";
+  if (/PORTAL_BLOCKED|SUBMISSION_CIRCUIT_OPEN/i.test(raw))
+    return "Portal access is blocked or the robot has retained an earlier block. Review the portal connection before retrying.";
   if (isPortalStep1ValidationFailure(raw)) return PORTAL_STEP1_USER_MESSAGE;
   if (isAccountBusyPreSubmitError(raw)) return ACCOUNT_BUSY_USER_MESSAGE;
   if (isPortalNavigationFailure(raw)) return PORTAL_NAV_USER_MESSAGE;
