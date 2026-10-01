@@ -27,6 +27,7 @@ import {
   getSubmissionQueueState,
   getSubmissionDoneFeed,
   setSubmissionQueuePaused,
+  runSubmissionQueueNow,
   type SubmissionQueueState,
 } from "@/lib/submissionQueue.functions";
 import { ThroughputBadge } from "@/components/billing/DoneClaimsSection";
@@ -54,10 +55,21 @@ import {
 export function SubmissionQueuePanel() {
   const stateFn = useServerFn(getSubmissionQueueState);
   const pauseFn = useServerFn(setSubmissionQueuePaused);
+  const runQueueFn = useServerFn(runSubmissionQueueNow);
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const runQueue = useMutation({
+    mutationFn: () => runQueueFn(),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["submission_queue_state"] });
+      void qc.invalidateQueries({ queryKey: ["billing_list"] });
+      void qc.invalidateQueries({ queryKey: ["billing_counts"] });
+      toast.success("Queue checked. Follow each bill's status below.");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not process the queue"),
+  });
 
   const state = useQuery({
     queryKey: ["submission_queue_state"],
@@ -146,6 +158,9 @@ export function SubmissionQueuePanel() {
         </div>
 
         <div className="flex flex-wrap items-center gap-1">
+          {t.queued > 0 && <Button size="sm" variant="outline" disabled={paused || runQueue.isPending} onClick={() => runQueue.mutate()}>
+            {runQueue.isPending ? "Processing queue…" : "Process queued bills"}
+          </Button>}
           {paused ? (
             <Button
               size="sm"
