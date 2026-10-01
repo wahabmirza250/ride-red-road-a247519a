@@ -57,3 +57,13 @@ export function mountainIso(dateYmd: string, hhmm: string | null): string {
   const abs = String(Math.abs(hours)).padStart(2, "0");
   return new Date(`${date}T${time}:00${sign}${abs}:00`).toISOString();
 }
+
+/** An odometer must be a literal reading, never a distance annotation. */
+export function parsePaperOdometer(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  if (/\b(?:mi|miles?|km|kilometers?)\b/i.test(s)) return null;
+  if (!/^(?:\d[\d, ]*|\(\d[\d, ]*\)|\[\d[\d, ]*\])$/.test(s)) return null;
+  const digits = s.replace(/[^0-9]/g, "");
+  return digits.length >= 2 && digits.length <= 8 ? digits : null;
+}
