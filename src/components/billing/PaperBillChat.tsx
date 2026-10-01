@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { patchPaperReview } from "@/lib/paperReviewPatch";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -174,7 +175,7 @@ export function PaperBillChat() {
   }
   function patchDraft(key: string, next: Partial<Draft>) {
     setEntries((prev) =>
-      prev.map((e) => (e.key === key ? { ...e, draft: { ...e.draft, identityReviewed: false, twoLegsVerified: false, ...next } } : e)),
+      prev.map((e) => (e.key === key ? { ...e, draft: patchPaperReview(e.draft, next) } : e)),
     );
   }
 
