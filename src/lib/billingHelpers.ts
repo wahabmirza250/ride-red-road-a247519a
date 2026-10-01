@@ -696,6 +696,7 @@ export async function startRobotSubmission(
     navigation: CLAIMS_NAV_SPEC,
     job_id: jobId,
     medicaid_trip_id: trip.id,
+    pickup_at: trip.pickup_at,
     provider_id: providerUserId,
     company_id: rates.companyId,
     // Portal login is company-owned; tell the robot exactly which one to fetch.
