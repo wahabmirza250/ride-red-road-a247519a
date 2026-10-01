@@ -471,7 +471,7 @@ export const detectPaperBillOdometers = createServerFn({ method: "POST" })
           type: "file",
           file: { filename: `${data.file_name}.pdf`, file_data: data.image_data_url },
         }
-      : { type: "image_url", image_url: { url: data.image_data_url } };
+      : { type: "image_url", image_url: { url: data.image_data_url, detail: "high" } };
 
     const rawParsed = await requestOpenAiOcr( [
         {
