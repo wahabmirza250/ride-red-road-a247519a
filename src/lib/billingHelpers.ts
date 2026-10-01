@@ -1,3 +1,4 @@
+import { billingLimitIssues, assertBillingLimits } from "@/lib/billingLimits";
 import { CLAIMS_NAV_SPEC } from "@/lib/portalNavigation";
 import { robotPassFor } from "@/lib/correctedJob";
 import { withPortalMoneyFields } from "@/lib/portalCurrency";
@@ -470,6 +471,7 @@ export async function getRobotSubmissionDiagnostic(
         pickup_odometer: Number(l.pickup_odometer ?? 0),
         dropoff_odometer: Number(l.dropoff_odometer ?? 0),
       }));
+      issues.push(...billingLimitIssues({ odometer_legs: odometerLegs }).map(message => diagnosticIssue("miles", message)));
       billedMiles = computeBilledMiles(odometerLegs);
       const positiveLegs = odometerLegs.filter((l: { pickup_odometer: number; dropoff_odometer: number }) => legMiles(l) > 0).length;
       tripUnits = trip.trip_kind === "round_trip" || positiveLegs >= 2 ? 2 : 1;
@@ -672,6 +674,7 @@ export async function startRobotSubmission(
     pickup_odometer: Number(l.pickup_odometer ?? 0),
     dropoff_odometer: Number(l.dropoff_odometer ?? 0),
   }));
+  assertBillingLimits({ odometer_legs: odometerLegs });
   const billedMiles = computeBilledMiles(odometerLegs);
   if (doesSubmit && billedMiles <= 0) {
     throw new Error("Submission blocked: odometer readings give 0 billable miles");

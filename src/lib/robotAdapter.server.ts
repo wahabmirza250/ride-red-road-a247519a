@@ -1,3 +1,4 @@
+import { assertBillingLimits } from "@/lib/billingLimits";
 import { robotServiceHeaders } from "@/lib/robotServiceAuth.server";
 /**
  * ROBOT ADAPTER — the single network boundary to the HCPF submission robot.
@@ -49,6 +50,7 @@ export async function postSubmitClaimTo(
   jobId: string,
   worker: { id: string; url: string },
 ): Promise<string> {
+  assertBillingLimits(payload);
   if (isSubmissionTestMode()) {
     mockCalls++;
     const outcome = mockPlan ? mockPlan(jobId, { ...payload, __worker: worker.id }) : "fast_success";

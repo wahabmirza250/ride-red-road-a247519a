@@ -1,3 +1,4 @@
+import { billingLimitIssues, assertBillingLimits } from "@/lib/billingLimits";
 /**
  * Builds the claim payload handed to the EDI backend.
  *
@@ -64,6 +65,7 @@ export function buildEdiClaimPayload(
   detail: EdiTripDetail,
   environment: "test" | "production",
 ): EdiClaimPayload {
+  assertBillingLimits({miles: detail.trip.miles, trip_units: detail.trip.leg_count, service_lines: detail.lines});
   return {
     external_id: detail.record_id,
     environment,
@@ -104,7 +106,7 @@ export function buildEdiClaimPayload(
  * EDI backend.
  */
 export function localClaimBlockers(detail: EdiTripDetail): string[] {
-  const out: string[] = [];
+  const out: string[] = billingLimitIssues({ miles: detail.trip.miles, trip_units: detail.trip.leg_count, service_lines: detail.lines });
   if (!detail.member.medicaid_id) out.push("Member Medicaid ID is missing");
   if (!detail.trip.service_date) out.push("Service date is missing");
   if (!detail.provider.configured) out.push("Provider billing profile is incomplete");

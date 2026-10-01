@@ -1,3 +1,4 @@
+import { assertBillingLimits } from "./billingLimits";
 import { createHash } from 'node:crypto';
 import { isDemoCompany } from './demoCompany.server';
 import { loadEdiDetails, toWorkRow } from './ediRecords.server';
@@ -9,6 +10,7 @@ export async function runDemoBilling(db: any, companyId: string, ids: string[], 
   if (!ids.length) throw new Error('Select demo bills first.');
   const details = await loadEdiDetails(db, companyId, { recordIds: ids });
   if (details.length !== new Set(ids).size) throw new Error('Demo bills do not belong to this company.');
+  if (["submit", "batch", "upload"].includes(action)) details.forEach(d => assertBillingLimits({miles:d.trip.miles, trip_units:d.trip.leg_count, service_lines:d.lines}));
   const rows = details.map(toWorkRow);
   const demoNumber = (key: string) => 1_000_000_000 + parseInt(createHash('sha256').update(companyId + key).digest('hex').slice(0,7), 16);
   const batchId = demoNumber([...ids].sort().join(','));

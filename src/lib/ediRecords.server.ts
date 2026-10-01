@@ -169,7 +169,7 @@ export async function loadEdiDetails(
         vehicle_type: vehicleType,
         pickup_address: trip.pickup_address ?? null,
         dropoff_address: trip.dropoff_address ?? null,
-        miles: calc.miles || Number(trip.miles ?? 0),
+        miles: legs.length ? legs.reduce((sum, l) => sum + Number(l.dropoff_odometer) - Number(l.pickup_odometer), 0) : Number(trip.miles ?? 0),
         leg_count: legs.length,
         has_signed_form: Boolean(trip.state_pdf_path || trip.signature_path),
       },

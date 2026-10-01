@@ -95,6 +95,8 @@ function AdminBillingPage() {
         description="Review, confirm and submit bills without leaving the admin dashboard."
       />
 
+      <p className="text-sm text-muted-foreground" role="note">Billing guard: maximum 50 total miles and 2 trip units per bill. Over-limit bills are blocked. Missing claim confirmations require review before retrying.</p>
+
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap sm:flex-wrap">
           {TABS.map((t) => (

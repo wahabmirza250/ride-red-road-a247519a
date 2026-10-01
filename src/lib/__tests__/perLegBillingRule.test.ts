@@ -16,29 +16,29 @@ const leg = (miles: number) => ({ pickup_odometer: 1000, dropoff_odometer: 1000 
 const claim = (miles: number[]) =>
   calcClaim({ legs: miles.map(leg), rates, vehicleType: "ambulatory" });
 
-describe("52-mile billing eligibility is applied per leg", () => {
-  it("allows the exact 52-mile boundary", () => {
-    expect(MAX_BILLABLE_MILES_PER_LEG).toBe(52);
-    expect(isBillableLeg(leg(52))).toBe(true);
-    expect(claim([52])).toMatchObject({ miles: 52, units: 1, total: 114 });
+describe("50-mile billing eligibility is applied per leg", () => {
+  it("allows the exact 50-mile boundary", () => {
+    expect(MAX_BILLABLE_MILES_PER_LEG).toBe(50);
+    expect(isBillableLeg(leg(50))).toBe(true);
+    expect(claim([50])).toMatchObject({ miles: 50, units: 1, total: 110 });
   });
 
-  it("excludes 52.01 miles instead of capping or splitting it", () => {
-    expect(isBillableLeg(leg(52.01))).toBe(false);
-    const result = claim([52.01]);
+  it("excludes 50.01 miles instead of capping or splitting it", () => {
+    expect(isBillableLeg(leg(50.01))).toBe(false);
+    const result = claim([50.01]);
     expect(result.miles).toBe(0);
     expect(result.lines).toEqual([]);
     expect(result.total).toBe(0);
   });
 
-  it("allows two independently eligible 52-mile legs (104 total)", () => {
-    expect(claim([52, 52])).toMatchObject({ miles: 104, units: 2, total: 228 });
+  it("blocks a round trip over 50 total miles", () => {
+    expect(claim([50, 50]).lines).toEqual([]);
   });
 
-  it("bills only the eligible leg of a mixed 40 + 222 trip", () => {
+  it("blocks the whole bill instead of billing a smaller subset", () => {
     const parts = partitionBillableLegs([leg(40), leg(222)]);
     expect(parts.eligible).toHaveLength(1);
     expect(parts.excluded).toHaveLength(1);
-    expect(claim([40, 222])).toMatchObject({ miles: 40, units: 1, total: 90 });
+    expect(claim([40, 222]).lines).toEqual([]);
   });
 });

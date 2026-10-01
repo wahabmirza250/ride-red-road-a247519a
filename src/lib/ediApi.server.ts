@@ -1,3 +1,4 @@
+import { assertBillingLimits } from "@/lib/billingLimits";
 /**
  * SERVER ONLY — the vetted EDI operations.
  *
@@ -182,6 +183,16 @@ export async function fileUpload<T = unknown>(
   fileId: number,
 ): Promise<EdiResult<T>> {
   await assertFileOwned(supabase, companyId, fileId);
+  // Recheck every bill in an existing file too; old batches cannot bypass new limits.
+  const { data: bills, error } = await supabase.from("billing_records")
+    .select("id,medicaid_trips!inner(miles,odometer_start,odometer_end,medicaid_trip_legs(pickup_odometer,dropoff_odometer))")
+    .eq("company_id", companyId).eq("edi_file_id", fileId).limit(1000);
+  if (error || !bills?.length || bills.length >= 1000) throw new Error("Cannot verify all bills in this file. Submission blocked.");
+  for (const bill of bills) {
+    const trip = bill.medicaid_trips;
+    if (!trip) throw new Error("Missing trip: submission blocked.");
+    assertBillingLimits({miles: trip.miles, odometer_legs: trip.medicaid_trip_legs?.length ? trip.medicaid_trip_legs : [{pickup_odometer:trip.odometer_start,dropoff_odometer:trip.odometer_end}]});
+  }
   return fetchEdi<T>(supabase, { path: EDI_PATHS.ediFileUpload(fileId), method: "POST", body: {} });
 }
 

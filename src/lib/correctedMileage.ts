@@ -1,3 +1,4 @@
+import { billingLimitIssues } from "@/lib/billingLimits";
 /**
  * CORRECTED-CLAIM MILEAGE SANITY (pure, no I/O).
  *
@@ -67,7 +68,7 @@ export function correctedMileageIssues(args: {
   legs?: CorrectedLeg[] | null;
   lines?: CorrectedLine[] | null;
 }): CorrectedMileageIssue[] {
-  const issues: CorrectedMileageIssue[] = [];
+  const issues: CorrectedMileageIssue[] = billingLimitIssues({ odometer_legs: args.legs, service_lines: args.lines }).map(message => ({ code: "line_miles_out_of_range", message }));
   const legs = args.legs ?? [];
 
   legs.forEach((leg, i) => {

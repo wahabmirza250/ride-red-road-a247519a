@@ -1,3 +1,4 @@
+import { billingLimitIssues } from "@/lib/billingLimits";
 /**
  * Claim charge math — the single source of truth shared by the paper-bill
  * chat entry and the review UI. Mirrors exactly what the HCPF automation
@@ -24,7 +25,7 @@ export type OdometerLeg = {
 };
 
 /** HCPF billing policy: eligibility is decided independently for each leg. */
-export const MAX_BILLABLE_MILES_PER_LEG = 52;
+export const MAX_BILLABLE_MILES_PER_LEG = 50;
 
 export type ChargeLine = {
   label: string;
@@ -55,13 +56,13 @@ export function legMiles(leg: OdometerLeg): number {
 }
 
 /**
- * A leg over 52 miles is excluded in full. It is never capped at 52 and is
+ * A leg over 50 miles is excluded in full. It is never capped at 50 and is
  * never split into artificial smaller legs. Invalid/zero-mile legs are also
  * not billable.
  */
 export function isBillableLeg(leg: OdometerLeg): boolean {
-  // Compare the raw delta. Rounding 52.01 to one decimal before this check
-  // would incorrectly turn an excluded leg into an allowed 52-mile leg.
+  // Compare the raw delta. Rounding 50.01 to one decimal before this check
+  // would incorrectly turn an excluded leg into an allowed 50-mile leg.
   const miles = rawLegMiles(leg);
   return miles > 0 && miles <= MAX_BILLABLE_MILES_PER_LEG;
 }
@@ -97,9 +98,9 @@ export function calcClaim(args: {
   vehicleType: string;
 }): ClaimCalc {
   const { legs, rates, vehicleType } = args;
-  // The trip charge and mileage charge both follow the same per-leg
-  // eligibility rule. A mixed trip bills only its eligible leg(s).
-  const { eligible } = partitionBillableLegs(legs);
+  // Never silently bill a smaller subset when the original bill exceeds policy.
+  const blocked = billingLimitIssues({ odometer_legs: legs }).length > 0;
+  const eligible = blocked ? [] : partitionBillableLegs(legs).eligible;
   const trip_kind = resolveTripKind(eligible);
   const units = trip_kind === "round_trip" ? 2 : 1;
   const miles = Math.round(eligible.reduce((sum, l) => sum + legMiles(l), 0) * 10) / 10;

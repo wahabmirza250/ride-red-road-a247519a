@@ -57,10 +57,10 @@ describe("corrected mileage is per leg, never a whole-day span", () => {
       [10100, 10199],
     ]);
     const issues = correctedMileageIssues({ legs });
-    expect(issues).toHaveLength(1);
-    expect(issues[0]!.leg_index).toBe(2);
-    expect(issues[0]!.message).toContain("Leg 2");
-    expect(issues[0]!.message).toContain("99 miles");
+    expect(issues.some(issue => issue.message.includes("50 per bill"))).toBe(true);
+    const legIssue = issues.find(issue => issue.leg_index === 2)!;
+    expect(legIssue.message).toContain("Leg 2");
+    expect(legIssue.message).toContain("99 miles");
   });
 
   it("a zero-mile leg is reported as a leg problem, not a claim total problem", () => {

@@ -9,7 +9,7 @@
  */
 
 /** Longest single billable NEMT trip we will ever send without a human OK. */
-export const MAX_CLAIM_MILES = 52;
+export const MAX_CLAIM_MILES = 50;
 /** A service date older than this is almost certainly a data error. */
 export const MAX_SERVICE_AGE_DAYS = 365;
 
