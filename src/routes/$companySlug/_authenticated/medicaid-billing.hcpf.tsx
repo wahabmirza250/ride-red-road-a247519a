@@ -1,6 +1,5 @@
 import { BillingSetupPanel } from "@/components/billing/BillingSetupPanel";
 import { QueryNotice } from "@/components/admin/QueryNotice";
-import { PortalCredentialsCard } from "@/components/billing/PortalCredentialsCard";
 import { useWorkspaceSearch } from "@/lib/useWorkspaceSearch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -74,7 +73,8 @@ type TabKey = (typeof TABS)[number]["key"];
  * is embedded here as well as in the standalone Billing app.
  */
 function AdminBillingPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  const isDemo = user?.app_metadata?.is_demo === true;
   const [tab, setTab] = useWorkspaceSearch("tab", "overview");
 
   if (!isAdmin) {
@@ -108,9 +108,10 @@ function AdminBillingPage() {
       {tab === "overview" && <BillingOverview />}
       {tab === "settings" && (
         <div className="space-y-5">
-          <BillingSetupPanel />
-          <PortalCredentialsCard />
-          <BillingRatesCard />
+          {isDemo ? <>
+            <BillingRatesCard />
+            <Button onClick={() => setTab("workflow")}>Open demo billing</Button>
+          </> : <BillingSetupPanel />}
         </div>
       )}
       {tab === "workflow" && <BillingWorkspace embedded />}
