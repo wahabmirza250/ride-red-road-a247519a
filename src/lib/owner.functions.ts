@@ -18,16 +18,17 @@ import { passwordError } from "@/lib/passwordError";
 
 const ROBOT_BASE_URL = "https://redart-hcpf-automation-production.up.railway.app";
 
-/** Owner-only read of the four Unicare attempts under investigation. No portal session or submission. */
+/** Owner-only read of the five interrupted Unicare attempts under investigation. No portal session or submission. */
 export const inspectAuthorizedRobotBills = createServerFn({method:'POST'})
   .middleware([requireSupabaseAuth])
   .handler(async ({context}) => {
     const db = await gate((context as {userId:string}).userId);
     const companyId='c246bbf7-a748-47cc-b1b4-a723395567a8';
-    const tripIds=['80756453-69c0-4fbf-a17d-9f42cdbd169e','b7141380-fb43-477d-bea0-b8215af402d3','fb55161d-c288-4a3e-802d-377810fd0de0','6a23c5f0-7985-4e69-bc52-4a97459439ea'];
+    const tripIds=['194ddfbd-f764-4210-aaae-629236d5c922','2ec33534-1ee2-46b9-9ef2-7811ccd783b0','7827c962-72c5-4905-a962-3be7a14ba461','35faec6e-0e0b-4be8-933d-3d519c2a4c36','36607f0d-a14b-42db-baa0-5dddec87a370'];
     const {data:trips,error}=await db.from('medicaid_trips').select('id,robot_job_id').eq('company_id',companyId).in('id',tripIds);
     if(error) throw new Error(error.message);
-    const evidence=[];
+    const state=await fetch(ROBOT_BASE_URL+'/',{headers:robotServiceHeaders(),signal:AbortSignal.timeout(15000)});
+    const evidence:any[]=[{kind:'runtime',http:state.status,evidence:await state.json()}];
     for(const trip of trips ?? []) {
       const urls=[['ledger',`/ledger/${encodeURIComponent(companyId+'::'+trip.id)}`]];
       if(trip.robot_job_id) urls.push(['job',`/job-status/${encodeURIComponent(trip.robot_job_id)}`]);

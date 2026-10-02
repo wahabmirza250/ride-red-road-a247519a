@@ -420,7 +420,7 @@ function CompanyCard({
       {c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" onClick={async () => {
         try { setHealth({ok:true,active:true,detail:(await inspectRecovery()).detail}); }
         catch(e) { toast.error(e instanceof Error ? e.message : 'Could not read evidence'); }
-      }}>Check four uncertain Unicare attempts</Button>}
+      }}>Check five interrupted Unicare jobs</Button>}
       {c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" disabled={checking} onClick={async()=>{
         setChecking(true);
         try {setHealth({ok:true,active:true,detail:(await searchIncident()).detail});}
