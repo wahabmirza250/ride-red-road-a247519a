@@ -418,7 +418,7 @@ function CompanyCard({
       {c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" onClick={async () => {
         try { setHealth({ok:true,active:true,detail:(await inspectRecovery()).detail}); }
         catch(e) { toast.error(e instanceof Error ? e.message : 'Could not read evidence'); }
-      }}>Check Jenna and Juan saved evidence</Button>}
+      }}>Check four uncertain Unicare attempts</Button>}
       <Button variant="outline" size="sm" disabled={loadingImage} onClick={async () => {
         setLoadingImage(true);
         try { setRobotImage((await screenshotFn()).image); }

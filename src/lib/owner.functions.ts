@@ -18,17 +18,23 @@ import { passwordError } from "@/lib/passwordError";
 
 const ROBOT_BASE_URL = "https://redart-hcpf-automation-production.up.railway.app";
 
-/** Read only: inspect saved evidence for the two authorized recovery records. */
+/** Owner-only read of the four Unicare attempts under investigation. No portal session or submission. */
 export const inspectAuthorizedRobotBills = createServerFn({method:'POST'})
   .middleware([requireSupabaseAuth])
   .handler(async ({context}) => {
-    await gate((context as {userId:string}).userId);
-    const evidence = [];
-    for (const tripId of ['18be4ce3-4296-4898-9723-c49baac04fd8','24bfd0c2-71a2-4b64-9642-4d2b4a9d2755']) {
-      const key = `c246bbf7-a748-47cc-b1b4-a723395567a8::${tripId}`;
-      const response = await fetch(`${ROBOT_BASE_URL}/ledger/${encodeURIComponent(key)}`,{headers:robotServiceHeaders(),signal:AbortSignal.timeout(15000)});
-      if (!response.ok) throw new Error(`Could not read saved evidence (${response.status})`);
-      evidence.push(await response.json());
+    const db = await gate((context as {userId:string}).userId);
+    const companyId='c246bbf7-a748-47cc-b1b4-a723395567a8';
+    const tripIds=['80756453-69c0-4fbf-a17d-9f42cdbd169e','b7141380-fb43-477d-bea0-b8215af402d3','fb55161d-c288-4a3e-802d-377810fd0de0','6a23c5f0-7985-4e69-bc52-4a97459439ea'];
+    const {data:trips,error}=await db.from('medicaid_trips').select('id,robot_job_id').eq('company_id',companyId).in('id',tripIds);
+    if(error) throw new Error(error.message);
+    const evidence=[];
+    for(const trip of trips ?? []) {
+      const urls=[['ledger',`/ledger/${encodeURIComponent(companyId+'::'+trip.id)}`]];
+      if(trip.robot_job_id) urls.push(['job',`/job-status/${encodeURIComponent(trip.robot_job_id)}`]);
+      for(const [kind,path] of urls) {
+        const response=await fetch(ROBOT_BASE_URL+path,{method:'GET',headers:robotServiceHeaders(),signal:AbortSignal.timeout(15000)});
+        evidence.push({tripId:trip.id,kind,http:response.status,evidence:await response.json()});
+      }
     }
     return {detail:JSON.stringify(evidence)};
   });
