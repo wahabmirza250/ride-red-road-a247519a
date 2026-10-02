@@ -1,4 +1,6 @@
 import "./lib/error-capture";
+import { startRobotReceiptSync } from './lib/robotReceiptSync.server';
+startRobotReceiptSync();
 import { startRecordingRetention } from './lib/recordingRetention.server';
 startRecordingRetention();
 
