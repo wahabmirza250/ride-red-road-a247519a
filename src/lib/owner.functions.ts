@@ -65,16 +65,23 @@ export const searchJenniferClaim = createServerFn({method:'POST'})
   return {detail:JSON.stringify(result)};
 });
 
-/** Release only the four jobs proven interrupted before Confirm. No submission. */
+/** Resume only existing user-queued bills held for the session rollout. */
 export const recoverAuthorizedUnicareBills=createServerFn({method:'POST'}).middleware([requireSupabaseAuth]).handler(async({context})=>{
-  const db=await gate((context as {userId:string}).userId);
-  if(Date.now()>Date.parse('2026-10-03T00:00:00Z')) throw new Error('Incident recovery expired');
-  const companyId='c246bbf7-a748-47cc-b1b4-a723395567a8';
-  const tripIds=['194ddfbd-f764-4210-aaae-629236d5c922','2ec33534-1ee2-46b9-9ef2-7811ccd783b0','7827c962-72c5-4905-a962-3be7a14ba461','36607f0d-a14b-42db-baa0-5dddec87a370'];
-  const {data:trips,error}=await db.from('medicaid_trips').select('id,robot_confirmation_number,submitted_confirmation').eq('company_id',companyId).in('id',tripIds);
-  if(error||trips?.length!==4||trips.some(t=>t.robot_confirmation_number||t.submitted_confirmation))throw new Error('Recovery evidence changed');
-  const response=await fetch(ROBOT_BASE_URL+'/recover-portal-login',{method:'POST',headers:{...robotServiceHeaders(),'Content-Type':'application/json'},body:JSON.stringify({company_id:companyId,provider_id:'b072fccb-9504-41b7-bd30-abfec407ec68',trip_ids:tripIds}),signal:AbortSignal.timeout(90000)});
-  return {detail:JSON.stringify({http:response.status,result:await response.json()})};
+ const actorId=(context as {userId:string}).userId;
+ const db=await gate(actorId);
+ if(Date.now()>Date.parse('2026-10-03T00:00:00Z'))throw new Error('Rollout continuation expired');
+ const companyId='c246bbf7-a748-47cc-b1b4-a723395567a8';
+ const {data:audit,error}=await db.from('billing_audit_log').select('billing_record_id').eq('action','session_rollout_queue_released');
+ if(error)throw new Error(error.message);
+ const ids=[...new Set((audit??[]).map(a=>a.billing_record_id))];
+ if(!ids.length)return {detail:'No rollout-held bills remain to continue.'};
+ const {data:rows,error:rowError}=await db.from('billing_records').select('id').eq('company_id',companyId).eq('status','queued').is('state_confirmation_number',null).in('id',ids);
+ if(rowError)throw new Error(rowError.message);
+ const recordIds=(rows??[]).map(r=>r.id);
+ if(!recordIds.length)return {detail:'No eligible queued bills remain in this rollout.'};
+ const {dispatchLeasedSubmissions}=await import('@/lib/submissionQueue.server');
+ const result=await dispatchLeasedSubmissions(db,actorId,{companyId,recordIds,worker:'owner-session-rollout'});
+ return {detail:JSON.stringify({scope:'existing-rollout-queue',...result})};
 });
 
 /** Owner-only read of existing robot evidence. Never starts a portal session. */

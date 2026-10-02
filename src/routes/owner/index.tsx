@@ -416,7 +416,7 @@ function CompanyCard({
         try { const result = await authorizedRecovery(); setHealth({ok:true,active:true,detail:result.detail}); }
         catch(e) { toast.error(e instanceof Error ? e.message : 'Recovery failed'); }
         finally { setChecking(false); }
-      }}>Recover four interrupted queued bills</Button>}
+      }}>Continue existing Unicare queue</Button>}
       {c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" onClick={async () => {
         try { setHealth({ok:true,active:true,detail:(await inspectRecovery()).detail}); }
         catch(e) { toast.error(e instanceof Error ? e.message : 'Could not read evidence'); }
