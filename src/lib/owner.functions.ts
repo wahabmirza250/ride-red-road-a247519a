@@ -25,7 +25,7 @@ export const inspectAuthorizedRobotBills = createServerFn({method:'POST'})
     await gate((context as {userId:string}).userId);
     const evidence = [];
     for (const tripId of ['18be4ce3-4296-4898-9723-c49baac04fd8','24bfd0c2-71a2-4b64-9642-4d2b4a9d2755']) {
-      const key = `c246bbf7-a748-47cc-b1b4-a723395567a8:${tripId}`;
+      const key = `c246bbf7-a748-47cc-b1b4-a723395567a8::${tripId}`;
       const response = await fetch(`${ROBOT_BASE_URL}/ledger/${encodeURIComponent(key)}`,{headers:robotServiceHeaders(),signal:AbortSignal.timeout(15000)});
       if (!response.ok) throw new Error(`Could not read saved evidence (${response.status})`);
       evidence.push(await response.json());
