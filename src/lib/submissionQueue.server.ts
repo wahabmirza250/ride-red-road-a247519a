@@ -1,3 +1,4 @@
+import {isSubmissionCircuitRejection} from './circuitRejection';
 /**
  * PERSISTENT SUBMISSION QUEUE (server-side worker layer).
  *
@@ -135,7 +136,7 @@ export function isTransientSubmitError(msg: string | null | undefined): boolean 
  * These are NEVER auto-retried — the reconciler / claim search decides.
  */
 export function isAmbiguousSubmitError(msg: string | null | undefined): boolean {
-  if (!msg) return false;
+  if (!msg || isSubmissionCircuitRejection(msg)) return false;
   return (
     /confirm|already submitted|claim may exist|SUBMITTED_UNVERIFIED/i.test(String(msg)) ||
     looksLikePossiblySubmittedTimeout(msg)

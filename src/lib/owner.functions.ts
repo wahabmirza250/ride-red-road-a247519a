@@ -58,9 +58,9 @@ export const searchJenniferClaim = createServerFn({method:'POST'})
   }
   const response=await fetch(ROBOT_BASE_URL+'/search-claims',{method:'POST',headers:{...robotServiceHeaders(),'Content-Type':'application/json'},body:JSON.stringify({company_id:companyId,provider_id:'b072fccb-9504-41b7-bd30-abfec407ec68',member_id:'O351735',service_date:'01/14/2026'}),signal:AbortSignal.timeout(15000)});
   const result=await response.json();
-  if(!response.ok||!result.jobId) throw new Error('Read-only claim search could not start');
+  if(!response.ok||!result.jobId) return {detail:JSON.stringify({http:response.status,result})};
   const {error:saveError}=await db.from('billing_audit_log').insert({billing_record_id:billId,action:'incident_readonly_search_started',actor_type:'user',actor_id:(context as {userId:string}).userId,notes:JSON.stringify({jobId:result.jobId,mode:'search_only'})});
-  if(saveError) throw new Error(saveError.message);
+  if(saveError) return {detail:JSON.stringify({search:result,auditError:saveError.message})};
   return {detail:JSON.stringify(result)};
 });
 

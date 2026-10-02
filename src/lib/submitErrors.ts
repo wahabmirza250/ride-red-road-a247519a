@@ -1,3 +1,4 @@
+import {isSubmissionCircuitRejection,CIRCUIT_REJECTION_MESSAGE} from './circuitRejection';
 /**
  * SUBMISSION ERROR CLASSIFICATION + USER-SAFE MESSAGES.
  *
@@ -217,6 +218,7 @@ export function isPortalStep1ValidationFailure(msg: string | null | undefined): 
  */
 export function sanitizeSubmitError(msg: string | null | undefined): string {
   const raw = String(msg ?? "").trim();
+  if (isSubmissionCircuitRejection(raw)) return CIRCUIT_REJECTION_MESSAGE;
   if (!raw) return "Submission could not be started. It is queued for a safe retry.";
   if (/PORTAL_SESSION_ACTIVE|you did not log\s*off your previous session/i.test(raw))
     return "The state portal is holding a previous login session. Sign out of that portal session or let it expire, then verify the connection. Keep this bill; this login attempt did not submit it.";
