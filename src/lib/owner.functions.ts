@@ -41,83 +41,41 @@ export const inspectAuthorizedRobotBills = createServerFn({method:'POST'})
   });
 
 
-/** Incident-specific read-only portal search. Never calls submit/reconcile or clears uncertainty. */
+/** Incident-specific read-only portal search for the interrupted January 27 bill. Never calls submit/reconcile or clears uncertainty. */
 export const searchJenniferClaim = createServerFn({method:'POST'})
 .middleware([requireSupabaseAuth]).handler(async ({context})=>{
   const db=await gate((context as {userId:string}).userId);
   if(Date.now()>Date.parse('2026-10-03T00:00:00Z')) throw new Error('Incident search expired');
-  const billId='0d58e776-b2eb-4730-9e64-5c6f0f56c211';
+  const billId='28ed7d1f-169d-4538-a2a3-6c29fe464f6f';
   const companyId='c246bbf7-a748-47cc-b1b4-a723395567a8';
   const {data:bill,error}=await db.from('billing_records').select('id,trip_id').eq('id',billId).eq('company_id',companyId).single();
-  if(error||bill?.trip_id!=='6a23c5f0-7985-4e69-bc52-4a97459439ea') throw new Error('Incident bill mismatch');
-  const {data:audit,error:auditError}=await db.from('billing_audit_log').select('notes').eq('billing_record_id',billId).eq('action','incident_readonly_search_v4_started').order('created_at',{ascending:false}).limit(1);
+  if(error||bill?.trip_id!=='35faec6e-0e0b-4be8-933d-3d519c2a4c36') throw new Error('Incident bill mismatch');
+  const {data:audit,error:auditError}=await db.from('billing_audit_log').select('notes').eq('billing_record_id',billId).eq('action','restart_incident_readonly_search_started').order('created_at',{ascending:false}).limit(1);
   if(auditError) throw new Error(auditError.message);
   if(audit?.[0]?.notes) {
     const jobId=JSON.parse(audit[0].notes).jobId;
     const response=await fetch(ROBOT_BASE_URL+'/job-status/'+encodeURIComponent(jobId),{method:'GET',headers:robotServiceHeaders(),signal:AbortSignal.timeout(15000)});
     return {detail:JSON.stringify({http:response.status,job:await response.json()})};
   }
-  const response=await fetch(ROBOT_BASE_URL+'/search-claims',{method:'POST',headers:{...robotServiceHeaders(),'Content-Type':'application/json'},body:JSON.stringify({company_id:companyId,provider_id:'b072fccb-9504-41b7-bd30-abfec407ec68',member_id:'O351735',service_date:'01/14/2026'}),signal:AbortSignal.timeout(15000)});
+  const response=await fetch(ROBOT_BASE_URL+'/search-claims',{method:'POST',headers:{...robotServiceHeaders(),'Content-Type':'application/json'},body:JSON.stringify({company_id:companyId,provider_id:'b072fccb-9504-41b7-bd30-abfec407ec68',member_id:'Q446196',service_date:'01/27/2026'}),signal:AbortSignal.timeout(15000)});
   const result=await response.json();
   if(!response.ok||!result.jobId) return {detail:JSON.stringify({http:response.status,result})};
-  const {error:saveError}=await db.from('billing_audit_log').insert({billing_record_id:billId,action:'incident_readonly_search_v4_started',actor_type:'admin',actor_id:(context as {userId:string}).userId,notes:JSON.stringify({jobId:result.jobId,mode:'search_only'})});
+  const {error:saveError}=await db.from('billing_audit_log').insert({billing_record_id:billId,action:'restart_incident_readonly_search_started',actor_type:'admin',actor_id:(context as {userId:string}).userId,notes:JSON.stringify({jobId:result.jobId,mode:'search_only'})});
   if(saveError) return {detail:JSON.stringify({search:result,auditError:saveError.message})};
   return {detail:JSON.stringify(result)};
 });
 
-/** Temporary owner-authorized recovery of exactly two existing Unicare bills. */
-export const recoverAuthorizedUnicareBills = createServerFn({ method: 'POST' })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const db = await gate((context as {userId:string}).userId);
-    if (Date.now() > Date.parse('2026-10-03T00:00:00Z')) throw new Error('This recovery authorization has expired');
-    const companyId = 'c246bbf7-a748-47cc-b1b4-a723395567a8';
-    const ids = ['54e7f43d-1eb5-4115-8eb9-a767846a73d0','239dbc5a-0977-4b07-837a-838cd3cd0d60'];
-    const {data: rows,error} = await db.from('billing_records').select('id,status,trip_id,state_confirmation_number,medicaid_trips!inner(pickup_at,robot_job_id,robot_confirmation_number,submitted_confirmation)').eq('company_id',companyId).in('id',ids);
-    if (error || rows?.length !== 2) throw new Error('Authorized bills could not be verified');
-    const expectedDates:Record<string,string> = {
-      '54e7f43d-1eb5-4115-8eb9-a767846a73d0':'2026-01-22',
-      // The owner confirmed February 2 against the original paper.
-      '239dbc5a-0977-4b07-837a-838cd3cd0d60':'2026-02-02'
-    };
-    const {denverDateISO} = await import('@/lib/billingHelpers');
-    for (const row of rows) {
-      const trip:any = row.medicaid_trips;
-      if (!trip?.pickup_at || denverDateISO(trip.pickup_at) !== expectedDates[row.id]) {
-        throw new Error('The service date changed from the authorized bill. Recovery requires review.');
-      }
-    }
-    const {resolveBillingProviderId} = await import('@/lib/providerResolve.server');
-    const providerId = await resolveBillingProviderId(db,companyId);
-    if (!providerId) throw new Error('Billing provider is missing');
-    const response = await fetch(`${ROBOT_BASE_URL}/recover-portal-login`,{
-      method:'POST',headers:{...robotServiceHeaders(),'Content-Type':'application/json'},
-      body:JSON.stringify({provider_id:providerId,company_id:companyId,trip_ids:rows.map(r=>r.trip_id)}),
-      signal:AbortSignal.timeout(90000)
-    });
-    const recovered = await response.json();
-    if (!response.ok || !recovered.account_active) throw new Error(recovered.error || 'Scoped recovery could not verify portal access');
-    for (const row of rows) {
-      const trip:any = row.medicaid_trips;
-      if (!recovered.recovered_trip_ids?.includes(row.trip_id) || row.state_confirmation_number || trip?.robot_confirmation_number || trip?.submitted_confirmation) continue;
-      const {data: changed,error:tripError} = await db.from('medicaid_trips').update({robot_job_id:null,robot_last_status:'PORTAL_NAVIGATION_FAILED',robot_last_message:'Owner-authorized recovery: proven failure before claim entry; safe to retry.'}).eq('id',row.trip_id).eq('robot_job_id',trip.robot_job_id).is('robot_confirmation_number',null).select('id');
-      if (tripError) throw new Error(tripError.message);
-      if (!changed?.length) continue;
-      const {error:updateError} = await db.from('billing_records').update({status:'queued',failure_code:null,failure_stage:null,submission_error:null,submit_last_error:null,requires_human_step:false,submit_next_attempt_at:null,submit_locked_until:null,submit_worker:null}).eq('id',row.id).in('status',['needs_fix','submitting','queued']).is('state_confirmation_number',null);
-      if(updateError) throw new Error(updateError.message);
-      await db.from('billing_audit_log').insert({billing_record_id:row.id,action:'owner_scoped_presubmit_recovery',actor_id:(context as {userId:string}).userId,actor_type:'user',notes:'Explicit authorization for this bill. Robot verified claim form and released proven pre-submit ledger failure; no submission receipt was removed.'});
-      row.status='queued';
-    }
-    const {reconcileRobotJob} = await import('@/lib/robotReconcile.server');
-    const outcomes = [];
-    for (const row of rows) {
-      if (row.status === 'submitting') outcomes.push(await reconcileRobotJob(db,row.id,(context as {userId:string}).userId));
-    }
-    const {dispatchLeasedSubmissions} = await import('@/lib/submissionQueue.server');
-    // Only queued records can be leased. Never override uncertainty or receipts.
-    const sent = await dispatchLeasedSubmissions(db,(context as {userId:string}).userId,{companyId,recordIds:ids,worker:'owner-authorized-two-bills'});
-    return {detail: JSON.stringify({outcomes,started:sent.started,blocked:sent.blocked})};
-  });
+/** Release only the four jobs proven interrupted before Confirm. No submission. */
+export const recoverAuthorizedUnicareBills=createServerFn({method:'POST'}).middleware([requireSupabaseAuth]).handler(async({context})=>{
+  const db=await gate((context as {userId:string}).userId);
+  if(Date.now()>Date.parse('2026-10-03T00:00:00Z')) throw new Error('Incident recovery expired');
+  const companyId='c246bbf7-a748-47cc-b1b4-a723395567a8';
+  const tripIds=['194ddfbd-f764-4210-aaae-629236d5c922','2ec33534-1ee2-46b9-9ef2-7811ccd783b0','7827c962-72c5-4905-a962-3be7a14ba461','36607f0d-a14b-42db-baa0-5dddec87a370'];
+  const {data:trips,error}=await db.from('medicaid_trips').select('id,robot_confirmation_number,submitted_confirmation').eq('company_id',companyId).in('id',tripIds);
+  if(error||trips?.length!==4||trips.some(t=>t.robot_confirmation_number||t.submitted_confirmation))throw new Error('Recovery evidence changed');
+  const response=await fetch(ROBOT_BASE_URL+'/recover-portal-login',{method:'POST',headers:{...robotServiceHeaders(),'Content-Type':'application/json'},body:JSON.stringify({company_id:companyId,provider_id:'b072fccb-9504-41b7-bd30-abfec407ec68',trip_ids:tripIds}),signal:AbortSignal.timeout(90000)});
+  return {detail:JSON.stringify({http:response.status,result:await response.json()})};
+});
 
 /** Owner-only read of existing robot evidence. Never starts a portal session. */
 export const getRobotFailureScreenshot = createServerFn({ method: "POST" })

@@ -416,7 +416,7 @@ function CompanyCard({
         try { const result = await authorizedRecovery(); setHealth({ok:true,active:true,detail:result.detail}); }
         catch(e) { toast.error(e instanceof Error ? e.message : 'Recovery failed'); }
         finally { setChecking(false); }
-      }}>Resume authorized Jenna and Juan bills</Button>}
+      }}>Recover four interrupted queued bills</Button>}
       {c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" onClick={async () => {
         try { setHealth({ok:true,active:true,detail:(await inspectRecovery()).detail}); }
         catch(e) { toast.error(e instanceof Error ? e.message : 'Could not read evidence'); }
@@ -426,7 +426,7 @@ function CompanyCard({
         try {setHealth({ok:true,active:true,detail:(await searchIncident()).detail});}
         catch(e){toast.error(e instanceof Error?e.message:'Search failed');}
         finally{setChecking(false);}
-      }}>Search Jennifer claim — read only</Button>}
+      }}>Search January 27 claim — read only</Button>}
       <Button variant="outline" size="sm" disabled={loadingImage} onClick={async () => {
         setLoadingImage(true);
         try { setRobotImage((await screenshotFn()).image); }
