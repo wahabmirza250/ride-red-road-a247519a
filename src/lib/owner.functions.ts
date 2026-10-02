@@ -49,7 +49,7 @@ export const searchJenniferClaim = createServerFn({method:'POST'})
   const companyId='c246bbf7-a748-47cc-b1b4-a723395567a8';
   const {data:bill,error}=await db.from('billing_records').select('id,trip_id').eq('id',billId).eq('company_id',companyId).single();
   if(error||bill?.trip_id!=='6a23c5f0-7985-4e69-bc52-4a97459439ea') throw new Error('Incident bill mismatch');
-  const {data:audit,error:auditError}=await db.from('billing_audit_log').select('notes').eq('billing_record_id',billId).eq('action','incident_readonly_search_v2_started').order('created_at',{ascending:false}).limit(1);
+  const {data:audit,error:auditError}=await db.from('billing_audit_log').select('notes').eq('billing_record_id',billId).eq('action','incident_readonly_search_v3_started').order('created_at',{ascending:false}).limit(1);
   if(auditError) throw new Error(auditError.message);
   if(audit?.[0]?.notes) {
     const jobId=JSON.parse(audit[0].notes).jobId;
@@ -59,7 +59,7 @@ export const searchJenniferClaim = createServerFn({method:'POST'})
   const response=await fetch(ROBOT_BASE_URL+'/search-claims',{method:'POST',headers:{...robotServiceHeaders(),'Content-Type':'application/json'},body:JSON.stringify({company_id:companyId,provider_id:'b072fccb-9504-41b7-bd30-abfec407ec68',member_id:'O351735',service_date:'01/14/2026'}),signal:AbortSignal.timeout(15000)});
   const result=await response.json();
   if(!response.ok||!result.jobId) return {detail:JSON.stringify({http:response.status,result})};
-  const {error:saveError}=await db.from('billing_audit_log').insert({billing_record_id:billId,action:'incident_readonly_search_v2_started',actor_type:'admin',actor_id:(context as {userId:string}).userId,notes:JSON.stringify({jobId:result.jobId,mode:'search_only'})});
+  const {error:saveError}=await db.from('billing_audit_log').insert({billing_record_id:billId,action:'incident_readonly_search_v3_started',actor_type:'admin',actor_id:(context as {userId:string}).userId,notes:JSON.stringify({jobId:result.jobId,mode:'search_only'})});
   if(saveError) return {detail:JSON.stringify({search:result,auditError:saveError.message})};
   return {detail:JSON.stringify(result)};
 });
