@@ -41,8 +41,20 @@ export const recoverAuthorizedUnicareBills = createServerFn({ method: 'POST' })
     if (Date.now() > Date.parse('2026-10-03T00:00:00Z')) throw new Error('This recovery authorization has expired');
     const companyId = 'c246bbf7-a748-47cc-b1b4-a723395567a8';
     const ids = ['54e7f43d-1eb5-4115-8eb9-a767846a73d0','239dbc5a-0977-4b07-837a-838cd3cd0d60'];
-    const {data: rows,error} = await db.from('billing_records').select('id,status,trip_id,state_confirmation_number,medicaid_trips!inner(robot_job_id,robot_confirmation_number,submitted_confirmation)').eq('company_id',companyId).in('id',ids);
+    const {data: rows,error} = await db.from('billing_records').select('id,status,trip_id,state_confirmation_number,medicaid_trips!inner(pickup_at,robot_job_id,robot_confirmation_number,submitted_confirmation)').eq('company_id',companyId).in('id',ids);
     if (error || rows?.length !== 2) throw new Error('Authorized bills could not be verified');
+    const expectedDates:Record<string,string> = {
+      '54e7f43d-1eb5-4115-8eb9-a767846a73d0':'2026-01-22',
+      // The owner confirmed February 2 against the original paper.
+      '239dbc5a-0977-4b07-837a-838cd3cd0d60':'2026-02-02'
+    };
+    const {denverDateISO} = await import('@/lib/billingHelpers');
+    for (const row of rows) {
+      const trip:any = row.medicaid_trips;
+      if (!trip?.pickup_at || denverDateISO(trip.pickup_at) !== expectedDates[row.id]) {
+        throw new Error('The service date changed from the authorized bill. Recovery requires review.');
+      }
+    }
     const {resolveBillingProviderId} = await import('@/lib/providerResolve.server');
     const providerId = await resolveBillingProviderId(db,companyId);
     if (!providerId) throw new Error('Billing provider is missing');
