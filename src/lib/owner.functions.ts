@@ -39,6 +39,31 @@ export const inspectAuthorizedRobotBills = createServerFn({method:'POST'})
     return {detail:JSON.stringify(evidence)};
   });
 
+
+/** Incident-specific read-only portal search. Never calls submit/reconcile or clears uncertainty. */
+export const searchJenniferClaim = createServerFn({method:'POST'})
+.middleware([requireSupabaseAuth]).handler(async ({context})=>{
+  const db=await gate((context as {userId:string}).userId);
+  if(Date.now()>Date.parse('2026-10-03T00:00:00Z')) throw new Error('Incident search expired');
+  const billId='0d58e776-b2eb-4730-9e64-5c6f0f56c211';
+  const companyId='c246bbf7-a748-47cc-b1b4-a723395567a8';
+  const {data:bill,error}=await db.from('billing_records').select('id,trip_id').eq('id',billId).eq('company_id',companyId).single();
+  if(error||bill?.trip_id!=='6a23c5f0-7985-4e69-bc52-4a97459439ea') throw new Error('Incident bill mismatch');
+  const {data:audit,error:auditError}=await db.from('billing_audit_log').select('notes').eq('billing_record_id',billId).eq('action','incident_readonly_search_started').order('created_at',{ascending:false}).limit(1);
+  if(auditError) throw new Error(auditError.message);
+  if(audit?.[0]?.notes) {
+    const jobId=JSON.parse(audit[0].notes).jobId;
+    const response=await fetch(ROBOT_BASE_URL+'/job-status/'+encodeURIComponent(jobId),{method:'GET',headers:robotServiceHeaders(),signal:AbortSignal.timeout(15000)});
+    return {detail:JSON.stringify({http:response.status,job:await response.json()})};
+  }
+  const response=await fetch(ROBOT_BASE_URL+'/search-claims',{method:'POST',headers:{...robotServiceHeaders(),'Content-Type':'application/json'},body:JSON.stringify({company_id:companyId,provider_id:'b072fccb-9504-41b7-bd30-abfec407ec68',member_id:'O351735',service_date:'01/14/2026'}),signal:AbortSignal.timeout(15000)});
+  const result=await response.json();
+  if(!response.ok||!result.jobId) throw new Error('Read-only claim search could not start');
+  const {error:saveError}=await db.from('billing_audit_log').insert({billing_record_id:billId,action:'incident_readonly_search_started',actor_type:'user',actor_id:(context as {userId:string}).userId,notes:JSON.stringify({jobId:result.jobId,mode:'search_only'})});
+  if(saveError) throw new Error(saveError.message);
+  return {detail:JSON.stringify(result)};
+});
+
 /** Temporary owner-authorized recovery of exactly two existing Unicare bills. */
 export const recoverAuthorizedUnicareBills = createServerFn({ method: 'POST' })
   .middleware([requireSupabaseAuth])

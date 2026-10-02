@@ -46,6 +46,7 @@ import {
   getRobotFailureScreenshot,
   recoverAuthorizedUnicareBills,
   inspectAuthorizedRobotBills,
+  searchJenniferClaim,
   setCompanyStatus,
   setCompanyTwilioPhone,
   setCompanyLimits,
@@ -237,6 +238,7 @@ function CompanyCard({
   const screenshotFn = useServerFn(getRobotFailureScreenshot);
   const authorizedRecovery = useServerFn(recoverAuthorizedUnicareBills);
   const inspectRecovery = useServerFn(inspectAuthorizedRobotBills);
+  const searchIncident=useServerFn(searchJenniferClaim);
   const [robotImage, setRobotImage] = useState<string | null>(null);
   const [loadingImage, setLoadingImage] = useState(false);
   const removeCompany = useServerFn(deleteCompany);
@@ -419,6 +421,12 @@ function CompanyCard({
         try { setHealth({ok:true,active:true,detail:(await inspectRecovery()).detail}); }
         catch(e) { toast.error(e instanceof Error ? e.message : 'Could not read evidence'); }
       }}>Check four uncertain Unicare attempts</Button>}
+      {c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" disabled={checking} onClick={async()=>{
+        setChecking(true);
+        try {setHealth({ok:true,active:true,detail:(await searchIncident()).detail});}
+        catch(e){toast.error(e instanceof Error?e.message:'Search failed');}
+        finally{setChecking(false);}
+      }}>Search Jennifer claim — read only</Button>}
       <Button variant="outline" size="sm" disabled={loadingImage} onClick={async () => {
         setLoadingImage(true);
         try { setRobotImage((await screenshotFn()).image); }
