@@ -24,7 +24,7 @@ export const inspectAuthorizedRobotBills = createServerFn({method:'POST'})
   .handler(async ({context}) => {
     const db = await gate((context as {userId:string}).userId);
     const companyId='c246bbf7-a748-47cc-b1b4-a723395567a8';
-    const tripIds=['6fb9e45e-22e9-4366-a385-56547845630e','dd6d75bc-6c68-4f79-bdf4-36f40868586e','89cd67a4-0094-43ca-800a-a28d2ed824dc','194ddfbd-f764-4210-aaae-629236d5c922','2ec33534-1ee2-46b9-9ef2-7811ccd783b0','7827c962-72c5-4905-a962-3be7a14ba461','35faec6e-0e0b-4be8-933d-3d519c2a4c36','36607f0d-a14b-42db-baa0-5dddec87a370'];
+    const tripIds=['9ca59f09-fad6-49cc-8429-10ec6a67c217','c2bae03b-3c26-4b2b-9603-09e303206d54','6fb9e45e-22e9-4366-a385-56547845630e','dd6d75bc-6c68-4f79-bdf4-36f40868586e','89cd67a4-0094-43ca-800a-a28d2ed824dc','194ddfbd-f764-4210-aaae-629236d5c922','2ec33534-1ee2-46b9-9ef2-7811ccd783b0','7827c962-72c5-4905-a962-3be7a14ba461','35faec6e-0e0b-4be8-933d-3d519c2a4c36','36607f0d-a14b-42db-baa0-5dddec87a370'];
     const {data:trips,error}=await db.from('medicaid_trips').select('id,robot_job_id').eq('company_id',companyId).in('id',tripIds);
     if(error) throw new Error(error.message);
     const state=await fetch(ROBOT_BASE_URL+'/',{headers:robotServiceHeaders(),signal:AbortSignal.timeout(15000)});
