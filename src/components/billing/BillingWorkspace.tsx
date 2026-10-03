@@ -1532,7 +1532,13 @@ function AwaitingPortalTab({
                   Submitted: {r.submitted_at ? formatDateTime(r.submitted_at) : "not submitted yet"}
                 </div>
 
-                {r.status === "pending_submit" && (
+                {requiresManualVerification(r) || r.robot_last_status === "BLOCKED_POSSIBLE_DUPLICATE" ? (
+                  <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-xs text-amber-600">
+                    {r.robot_last_status === "BLOCKED_POSSIBLE_DUPLICATE"
+                      ? "A claim already exists for this passenger and date. Open verification to compare it before resubmitting."
+                      : "Submission outcome needs verification. Open verification before making changes."}
+                  </div>
+                ) : r.status === "pending_submit" && (
                   <div className="mt-2 flex items-start gap-2 rounded-lg bg-info/10 p-2 text-xs text-info">
                     <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>{WAITING_FOR_SLOT_MESSAGE}</span>
@@ -1548,7 +1554,7 @@ function AwaitingPortalTab({
                   passengerName={r.passenger_name}
                   onPreview={onPreviewPdf}
                 />
-                {r.status === "pending_submit" && (
+                {r.status === "pending_submit" && !requiresManualVerification(r) && r.robot_last_status !== "BLOCKED_POSSIBLE_DUPLICATE" && (
                   <>
                     <Button
                       size="sm"
@@ -1572,7 +1578,11 @@ function AwaitingPortalTab({
                   </>
                 )}
 
-                {queueById.get(r.id)?.cancellable === false ? (
+                {requiresManualVerification(r) || r.robot_last_status === "BLOCKED_POSSIBLE_DUPLICATE" ? (
+                  <Button size="sm" variant="outline" onClick={() => onOpen(r.id)}>
+                    Open verification
+                  </Button>
+                ) : queueById.get(r.id)?.cancellable === false ? (
                   <span className="text-[11px] text-muted-foreground">
                     Already submitted — cannot be cancelled
                   </span>
