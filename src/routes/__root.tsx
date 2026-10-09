@@ -5,6 +5,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -142,6 +143,10 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const publicDemo = useRouterState({ select: (state) => state.location.pathname === '/demo' || state.location.pathname === '/demo/' });
+
+  // Public sample data needs no account, private queries, or demo heartbeat.
+  if (publicDemo) return <QueryClientProvider client={queryClient}><ThemeProvider><GlobalThemeToggle /><Outlet /></ThemeProvider></QueryClientProvider>;
 
   return (
     <QueryClientProvider client={queryClient}>
