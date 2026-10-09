@@ -6,7 +6,7 @@ const db: any = supabaseAdmin;
 async function checked(query: any) { const { data, error } = await query; if (error) throw new Error(`Demo setup: ${error.message}`); return data; }
 function idFor(company: string, key: string) { const h = createHash('sha256').update(`${company}:${key}`).digest('hex'); return `${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`; }
 
-export async function prepareActualDemo(ownerId: string, options: {session?: boolean} = {}) {
+export async function prepareActualDemo(ownerId: string, options: {session?: boolean; publicDemo?: boolean} = {}) {
   const slug = `demo-${ownerId.replaceAll('-','').slice(0,16)}`;
   let company = await checked(db.from('companies').select('id,url_slug,is_demo,demo_owner_id').eq('demo_owner_id',ownerId).eq('is_demo',true).maybeSingle());
   if (!company) {
@@ -20,7 +20,7 @@ export async function prepareActualDemo(ownerId: string, options: {session?: boo
   async function account(accountEmail: string, first: string, last: string, presenter: boolean) {
     let profile = await checked(db.from('profiles').select('id,company_id').eq('email',accountEmail).maybeSingle());
     if (!profile) {
-      const res = await db.auth.admin.createUser({ email:accountEmail,password:randomUUID()+randomUUID(),email_confirm:true,user_metadata:{first_name:first,last_name:last,company_id:companyId},app_metadata:{is_demo:true,demo_company_slug:slug,demo_owner_id:ownerId} });
+      const res = await db.auth.admin.createUser({ email:accountEmail,password:randomUUID()+randomUUID(),email_confirm:true,user_metadata:{first_name:first,last_name:last,company_id:companyId},app_metadata:{is_demo:true,demo_company_slug:slug,demo_owner_id:ownerId,...(options.publicDemo ? {public_demo:true,demo_company_id:companyId} : {})} });
       if (res.error || !res.data.user) {
         // Recover a previous interrupted provisioning attempt without changing any existing login.
         let recovered: any = null;
@@ -37,6 +37,7 @@ export async function prepareActualDemo(ownerId: string, options: {session?: boo
     if (profile.company_id !== companyId) throw new Error('Demo account belongs to another company.');
     const { data: auth, error } = await db.auth.admin.getUserById(profile.id);
     if (error || auth.user?.app_metadata?.demo_owner_id !== ownerId) throw new Error('Demo account ownership mismatch.');
+    if (options.publicDemo && (auth.user?.app_metadata?.public_demo !== true || auth.user?.app_metadata?.demo_company_id !== companyId)) throw new Error('Public demo identity mismatch.');
     await checked(db.from('profiles').upsert({id:profile.id,email:accountEmail,company_id:companyId,first_name:first,last_name:last,phone:null,sms_alerts_enabled:false,is_active:true},{onConflict:'id'}).select('id').single());
     const roles = presenter ? ['admin','driver','passenger','dispatch','billing','admin_biller'] : ['driver'];
     await checked(db.from('user_roles').upsert(roles.map(role=>({user_id:profile.id,company_id:companyId,role})),{onConflict:'user_id,role'}));

@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refresh,
       signOut: async () => {
         try { await (await import('./push')).unsubscribePush(); } catch { /* Server sessions are still revoked below. */ }
-        await supabase.auth.signOut();
+        await supabase.auth.signOut(session?.user.app_metadata?.public_demo === true ? { scope: 'local' } : undefined);
       },
     }),
     [session, roles, loading, refresh],

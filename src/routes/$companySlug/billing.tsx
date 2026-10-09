@@ -104,7 +104,7 @@ function BillingLayout() {
             <SideLink key={item.to} {...item} active={isActive(item.to, item.exact)} />
           ))}
 
-          <button
+          {user.app_metadata?.is_demo !== true && <button
             type="button"
             onClick={() => setClaimsOpen((v) => !v)}
             className="mt-4 flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
@@ -115,8 +115,8 @@ function BillingLayout() {
             <ChevronDown
               className={cn("ml-auto h-3.5 w-3.5 transition-transform", claimsOpen && "rotate-180")}
             />
-          </button>
-          {claimsOpen && (
+          </button>}
+          {user.app_metadata?.is_demo !== true && claimsOpen && (
             <div className="ml-4 flex flex-col gap-0.5 border-l border-white/10 pl-3">
               {CLAIM_STAGES.map((s) => (
                 <AppLink

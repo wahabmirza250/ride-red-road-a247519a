@@ -1,7 +1,7 @@
 import { BillingSetupPanel } from "@/components/billing/BillingSetupPanel";
 import { QueryNotice } from "@/components/admin/QueryNotice";
 import { useWorkspaceSearch } from "@/lib/useWorkspaceSearch";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -76,6 +76,8 @@ function AdminBillingPage() {
   const { isAdmin, user } = useAuth();
   const isDemo = user?.app_metadata?.is_demo === true;
   const [tab, setTab] = useWorkspaceSearch("tab", "overview");
+  const { companySlug } = Route.useParams();
+  if (isDemo) return <Navigate to="/$companySlug/medicaid-billing/super-edi" params={{ companySlug }} />;
 
   if (!isAdmin) {
     return <div className="p-6 text-sm text-muted-foreground">Admins only.</div>;

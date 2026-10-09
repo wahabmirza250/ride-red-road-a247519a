@@ -262,12 +262,12 @@ export function SuperEdiWorkspace({ billingApp = false }: { billingApp?: boolean
           >
             Check connection
           </Button>
-          <AppLink
+          {!isDemo && <AppLink
             to={billingApp ? "/billing/portal" : "/medicaid-billing/hcpf"}
             className="ml-3 underline"
           >
             Open portal billing
-          </AppLink>
+          </AppLink>}
         </details>
       )}
       {tab === "review" && workbench.isError && (

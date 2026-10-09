@@ -2,9 +2,11 @@ import { useLocation } from "@tanstack/react-router";
 import { Bot, Radio } from "lucide-react";
 import { AppLink } from "@/lib/appLink";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 /** Keep both submission methods visible on desktop, tablets, and phones. */
 export function BillingMethodNavigation({ billingApp = false }: { billingApp?: boolean }) {
+  const isDemo = useAuth().user?.app_metadata?.is_demo === true;
   const pathname = useLocation({ select: (location) => location.pathname }).replace(/\/$/, "");
   const robot = pathname.endsWith("/portal") || pathname.endsWith("/hcpf");
   const edi =
@@ -30,7 +32,7 @@ export function BillingMethodNavigation({ billingApp = false }: { billingApp?: b
   ];
   return (
     <nav aria-label="Billing method" className="mb-5 grid grid-cols-2 gap-2">
-      {methods.map(({ label, detail, to, active, icon: Icon }) => (
+      {methods.filter(method => !isDemo || method.icon !== Bot).map(({ label, detail, to, active, icon: Icon }) => (
         <AppLink
           key={to}
           to={to}

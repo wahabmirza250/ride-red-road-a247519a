@@ -1,8 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { useAuth } from "@/lib/auth";
 import { BillingWorkspace } from "@/components/billing/BillingWorkspace";
 export const Route = createFileRoute("/$companySlug/billing/portal")({
   head: () => ({ meta: [{ title: "Robot billing — NEMT Solutions" }] }),
-  component: () => (
+  component: PortalPage,
+});
+function PortalPage() {
+  const { companySlug } = Route.useParams();
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user?.app_metadata?.is_demo === true) return <Navigate to="/$companySlug/billing/edi" params={{ companySlug }} />;
+  return (
     <div className="space-y-4">
       <header>
         <h1 className="text-2xl font-semibold">Robot billing</h1>
@@ -12,5 +20,5 @@ export const Route = createFileRoute("/$companySlug/billing/portal")({
       </header>
       <BillingWorkspace />
     </div>
-  ),
-});
+  );
+}
