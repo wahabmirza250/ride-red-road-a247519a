@@ -28,7 +28,7 @@ export const retryVerifiedModifierFailure = createServerFn({method:'POST'})
     const {isSubmissionQueuePaused}=await import('@/lib/submissionQueue.server');
     if((await isSubmissionQueuePaused(db)).paused) throw new Error('Submission queue is paused');
     const attempts = [
-      ['66f85574-24b4-40e5-bcb8-73b3bf413e08','010e7afc-7378-44ee-a9f0-cc019394cae7','trip-010e7afc-7378-44ee-a9f0-cc019394cae7-full-1791494808102-1791494809782'],
+      ['66f85574-24b4-40e5-bcb8-73b3bf413e08','010e7afc-7378-44ee-a9f0-cc019394cae7','trip-010e7afc-7378-44ee-a9f0-cc019394cae7-full-1791559329623-1791559331094'],
       ['0535cb1f-1623-40bd-b18a-15ae3fa7c0f5','2ec33534-1ee2-46b9-9ef2-7811ccd783b0','trip-2ec33534-1ee2-46b9-9ef2-7811ccd783b0-full-1791494808209-1791494810129'],
       ['c11a0780-36ee-4a3b-9c34-20ce21cd607f','c2bae03b-3c26-4b2b-9603-09e303206d54','trip-c2bae03b-3c26-4b2b-9603-09e303206d54-full-1791495830206-1791495833291'],
       ['73ac2b51-3d06-4900-a18e-1468f7bbd0d1','9ca59f09-fad6-49cc-8429-10ec6a67c217','trip-9ca59f09-fad6-49cc-8429-10ec6a67c217-full-1791495853241-1791495856083']
@@ -55,7 +55,7 @@ export const retryVerifiedModifierFailure = createServerFn({method:'POST'})
       const {data:reserved,error:reserveError}=await db.from('billing_records').update({status:'needs_fix',requires_human_step:true,failure_code:'modifier_recovery_reserved'}).eq('id',billId).eq('company_id',companyId).eq('status',row.status).is('state_confirmation_number',null).or('failure_code.is.null,failure_code.neq.modifier_recovery_reserved').select('id');
       if(reserveError) throw new Error(reserveError.message);
       if(!reserved?.length) throw new Error('Bill changed while recovery was checking it');
-      const {error:auditError}=await db.from('billing_audit_log').insert({billing_record_id:billId,actor_id:actorId,actor_type:'admin',action:'modifier_presubmit_recovery',notes:JSON.stringify({jobId,ledgerState:ledger.state,error:job.result.error,repair:'2f185e7',scope:'one verified pre-submit failure'})});
+      const {error:auditError}=await db.from('billing_audit_log').insert({billing_record_id:billId,actor_id:actorId,actor_type:'admin',action:'modifier_presubmit_recovery',notes:JSON.stringify({jobId,ledgerState:ledger.state,error:job.result.error,repair:'79d007e',scope:'one verified pre-submit failure'})});
       if(auditError) throw new Error(auditError.message);
       const {data:changed,error:tripError}=await db.from('medicaid_trips').update({robot_job_id:null,robot_last_status:'error',robot_last_message:job.result.error}).eq('id',tripId).eq('company_id',companyId).eq('robot_job_id',jobId).is('robot_confirmation_number',null).is('submitted_confirmation',null).select('id');
       if(tripError || !changed?.length) throw new Error(tripError?.message || 'Trip changed during recovery');
