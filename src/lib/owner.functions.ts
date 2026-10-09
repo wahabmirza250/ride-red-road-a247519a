@@ -18,6 +18,56 @@ import { passwordError } from "@/lib/passwordError";
 
 const ROBOT_BASE_URL = "https://redart-hcpf-automation-production.up.railway.app";
 
+/** One at a time, only the four observed modifier failures before Submit. */
+export const retryVerifiedModifierFailure = createServerFn({method:'POST'})
+  .middleware([requireSupabaseAuth]).handler(async ({context}) => {
+    const actorId = (context as {userId:string}).userId;
+    const db = await gate(actorId);
+    if (Date.now() > Date.parse('2026-10-10T06:00:00Z')) throw new Error('Modifier recovery window has ended');
+    const companyId = 'c246bbf7-a748-47cc-b1b4-a723395567a8';
+    const {isSubmissionQueuePaused}=await import('@/lib/submissionQueue.server');
+    if((await isSubmissionQueuePaused(db)).paused) throw new Error('Submission queue is paused');
+    const attempts = [
+      ['66f85574-24b4-40e5-bcb8-73b3bf413e08','010e7afc-7378-44ee-a9f0-cc019394cae7','trip-010e7afc-7378-44ee-a9f0-cc019394cae7-full-1791494808102-1791494809782'],
+      ['0535cb1f-1623-40bd-b18a-15ae3fa7c0f5','2ec33534-1ee2-46b9-9ef2-7811ccd783b0','trip-2ec33534-1ee2-46b9-9ef2-7811ccd783b0-full-1791494808209-1791494810129'],
+      ['c11a0780-36ee-4a3b-9c34-20ce21cd607f','c2bae03b-3c26-4b2b-9603-09e303206d54','trip-c2bae03b-3c26-4b2b-9603-09e303206d54-full-1791495830206-1791495833291'],
+      ['73ac2b51-3d06-4900-a18e-1468f7bbd0d1','9ca59f09-fad6-49cc-8429-10ec6a67c217','trip-9ca59f09-fad6-49cc-8429-10ec6a67c217-full-1791495853241-1791495856083']
+    ];
+    const readRobot = async (path:string) => {
+      const response = await fetch(ROBOT_BASE_URL+path,{headers:robotServiceHeaders(),signal:AbortSignal.timeout(15000)});
+      if(!response.ok) throw new Error(`Robot evidence unavailable (${response.status})`);
+      return response.json();
+    };
+    const health = await readRobot('/');
+    if(health.submissions_paused || health.submission_circuit?.open || health.runtime?.active_sessions !== 0 || health.runtime?.queued_sessions !== 0) throw new Error('Wait for the active robot work to finish before this recovery');
+    for(const [billId,tripId,jobId] of attempts) {
+      const {data:row,error} = await db.from('billing_records').select('id,status,trip_id,state_confirmation_number,medicaid_trips!inner(id,miles,robot_job_id,robot_confirmation_number,submitted_confirmation)').eq('id',billId).eq('company_id',companyId).single();
+      if(error) throw new Error(error.message);
+      const trip:any = row.medicaid_trips;
+      if(trip.id!==tripId || trip.robot_job_id!==jobId || !['needs_fix','submitting'].includes(row.status)) continue;
+      if(row.state_confirmation_number || trip.robot_confirmation_number || trip.submitted_confirmation || !(Number(trip.miles)>0 && Number(trip.miles)<=50)) continue;
+      const key=companyId+'::'+tripId;
+      const ledger=await readRobot('/ledger/'+encodeURIComponent(key));
+      const job=await readRobot('/job-status/'+encodeURIComponent(jobId));
+      const preSubmit=(value:unknown)=>typeof value==='string' && value.startsWith('BLOCKED_MODIFIER_COMMIT_UNVERIFIED:') && value.includes('Submit was not clicked.');
+      if(ledger.key!==key || ledger.job_id!==jobId || ledger.state!=='failed' || ledger.claim_id || !preSubmit(ledger.note) || job.jobId!==jobId || job.status!=='error' || !job.finishedAt || !preSubmit(job.result?.error) || job.result?.claim_id) throw new Error('Saved evidence does not prove a modifier failure before Submit');
+      // Reserve the bill before clearing stale app flags. No receipt is erased.
+      const {data:reserved,error:reserveError}=await db.from('billing_records').update({status:'needs_fix',requires_human_step:true,failure_code:'modifier_recovery_reserved'}).eq('id',billId).eq('company_id',companyId).eq('status',row.status).is('state_confirmation_number',null).or('failure_code.is.null,failure_code.neq.modifier_recovery_reserved').select('id');
+      if(reserveError) throw new Error(reserveError.message);
+      if(!reserved?.length) throw new Error('Bill changed while recovery was checking it');
+      const {error:auditError}=await db.from('billing_audit_log').insert({billing_record_id:billId,actor_id:actorId,actor_type:'admin',action:'modifier_presubmit_recovery',notes:JSON.stringify({jobId,ledgerState:ledger.state,error:job.result.error,repair:'2f185e7',scope:'one verified pre-submit failure'})});
+      if(auditError) throw new Error(auditError.message);
+      const {data:changed,error:tripError}=await db.from('medicaid_trips').update({robot_job_id:null,robot_last_status:'error',robot_last_message:job.result.error}).eq('id',tripId).eq('company_id',companyId).eq('robot_job_id',jobId).is('robot_confirmation_number',null).is('submitted_confirmation',null).select('id');
+      if(tripError || !changed?.length) throw new Error(tripError?.message || 'Trip changed during recovery');
+      const {error:queueError}=await db.from('billing_records').update({status:'queued',requires_human_step:false,failure_code:null,failure_stage:null,submission_error:null,submit_last_error:null,submit_next_attempt_at:null,submit_locked_until:null,submit_worker:null}).eq('id',billId).eq('company_id',companyId).eq('failure_code','modifier_recovery_reserved').is('state_confirmation_number',null);
+      if(queueError) throw new Error(queueError.message);
+      const {dispatchLeasedSubmissions}=await import('@/lib/submissionQueue.server');
+      const result=await dispatchLeasedSubmissions(db,actorId,{companyId,recordIds:[billId],worker:'owner-modifier-repair'});
+      return {detail:JSON.stringify({billId,...result})};
+    }
+    return {detail:'No remaining original modifier failure is eligible for this recovery.'};
+  });
+
 /** Owner-only read of the five interrupted Unicare attempts under investigation. No portal session or submission. */
 export const inspectAuthorizedRobotBills = createServerFn({method:'POST'})
   .middleware([requireSupabaseAuth])

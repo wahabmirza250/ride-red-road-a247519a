@@ -46,6 +46,7 @@ import {
   getRobotFailureScreenshot,
   recoverAuthorizedUnicareBills,
   inspectAuthorizedRobotBills,
+  retryVerifiedModifierFailure,
   searchJenniferClaim,
   setCompanyStatus,
   setCompanyTwilioPhone,
@@ -238,6 +239,7 @@ function CompanyCard({
   const screenshotFn = useServerFn(getRobotFailureScreenshot);
   const authorizedRecovery = useServerFn(recoverAuthorizedUnicareBills);
   const inspectRecovery = useServerFn(inspectAuthorizedRobotBills);
+  const retryModifier = useServerFn(retryVerifiedModifierFailure);
   const searchIncident=useServerFn(searchJenniferClaim);
   const [robotImage, setRobotImage] = useState<string | null>(null);
   const [loadingImage, setLoadingImage] = useState(false);
@@ -427,6 +429,12 @@ function CompanyCard({
         catch(e){toast.error(e instanceof Error?e.message:'Search failed');}
         finally{setChecking(false);}
       }}>Search January 27 claim — read only</Button>}
+      {c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" disabled={checking} onClick={async()=>{
+        setChecking(true);
+        try {setHealth({ok:true,active:true,detail:(await retryModifier()).detail});}
+        catch(e){toast.error(e instanceof Error?e.message:'Modifier recovery failed');}
+        finally{setChecking(false);}
+      }}>Retry one verified modifier failure</Button>}
       <Button variant="outline" size="sm" disabled={loadingImage} onClick={async () => {
         setLoadingImage(true);
         try { setRobotImage((await screenshotFn()).image); }
