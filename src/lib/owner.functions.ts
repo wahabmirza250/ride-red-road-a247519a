@@ -123,23 +123,28 @@ export const searchJenniferClaim = createServerFn({method:'POST'})
   return {detail:JSON.stringify(result)};
 });
 
-/** Resume only existing user-queued bills held for the session rollout. */
+/** Process only the fixed October 10 backlog explicitly authorized by the owner. */
 export const recoverAuthorizedUnicareBills=createServerFn({method:'POST'}).middleware([requireSupabaseAuth]).handler(async({context})=>{
  const actorId=(context as {userId:string}).userId;
  const db=await gate(actorId);
- if(Date.now()>Date.parse('2026-10-03T00:00:00Z'))throw new Error('Rollout continuation expired');
- const companyId='c246bbf7-a748-47cc-b1b4-a723395567a8';
- const {data:audit,error}=await db.from('billing_audit_log').select('billing_record_id').eq('action','session_rollout_queue_released');
+ const {processOwnerUnicareBacklog}=await import('@/lib/ownerUnicareBacklog.server');
+ return {detail:JSON.stringify(await processOwnerUnicareBacklog(db,actorId))};
+});
+
+/** Poll only the two interrupted jobs in this backlog; never resubmit them. */
+export const reconcileOwnerUnicareBacklog=createServerFn({method:'POST'}).middleware([requireSupabaseAuth]).handler(async({context})=>{
+ const actorId=(context as {userId:string}).userId;
+ const db=await gate(actorId);
+ const ids=['24d61f07-7aa7-4d16-bc5e-5e10c765404c','b8a34547-ad83-4c5a-baab-6a2d888d6030'];
+ const {data:rows,error}=await db.from('billing_records').select('id,trip_id').eq('company_id','c246bbf7-a748-47cc-b1b4-a723395567a8').in('id',ids);
  if(error)throw new Error(error.message);
- const ids=[...new Set((audit??[]).map(a=>a.billing_record_id))];
- if(!ids.length)return {detail:'No rollout-held bills remain to continue.'};
- const {data:rows,error:rowError}=await db.from('billing_records').select('id').eq('company_id',companyId).eq('status','queued').is('state_confirmation_number',null).in('id',ids);
- if(rowError)throw new Error(rowError.message);
- const recordIds=(rows??[]).map(r=>r.id);
- if(!recordIds.length)return {detail:'No eligible queued bills remain in this rollout.'};
- const {dispatchLeasedSubmissions}=await import('@/lib/submissionQueue.server');
- const result=await dispatchLeasedSubmissions(db,actorId,{companyId,recordIds,worker:'owner-session-rollout'});
- return {detail:JSON.stringify({scope:'existing-rollout-queue',...result})};
+ const {reconcileRobotJob}=await import('@/lib/robotReconcile.server');
+ const results=[];
+ for(const row of rows??[]) {
+   try {results.push({id:row.id,...await reconcileRobotJob(db,row.id,actorId)});}
+   catch(e){results.push({id:row.id,error:e instanceof Error?e.message:'Could not check job'});}
+ }
+ return {detail:JSON.stringify(results)};
 });
 
 /** Owner-only read of existing robot evidence. Never starts a portal session. */

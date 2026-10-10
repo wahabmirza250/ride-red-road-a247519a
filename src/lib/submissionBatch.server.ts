@@ -34,6 +34,8 @@ export type BatchCandidate = {
   serviceDate: string | null;
   /** Acknowledged resubmission: gets a fresh idempotency version. */
   resubmit?: boolean;
+  /** Owner backlog: only a fresh approved record may enter this batch. */
+  requireFreshApproved?: boolean;
 };
 
 export type BatchEnqueueResult = {
@@ -123,6 +125,10 @@ export async function enqueueSubmissionBatch(
       }
 
       const status = String(current.status ?? "");
+      if (c.requireFreshApproved && status !== "approved") {
+        result.failed.push({ id: c.id, reason: "Bill changed after review; it was not queued." });
+        return;
+      }
       if (isActiveQueueStatus(status)) {
         result.duplicates.push(c.id);
         return;
@@ -141,7 +147,7 @@ export async function enqueueSubmissionBatch(
         version,
       });
 
-      const { data: flipped, error } = await supabase
+      let flip = supabase
         .from("billing_records")
         .update({
           status: "queued",
@@ -162,8 +168,15 @@ export async function enqueueSubmissionBatch(
           submit_batch_id: result.batchId,
         })
         .eq("id", c.id)
-        .eq("status", status)
-        .select("id");
+        .eq("status", status);
+      if (c.requireFreshApproved) flip = flip
+        .eq("company_id", c.companyId)
+        .eq("requires_human_step", false)
+        .eq("submit_attempt_count", 0)
+        .is("state_confirmation_number", null)
+        .is("failure_code", null)
+        .is("submit_last_error", null);
+      const { data: flipped, error } = await flip.select("id");
 
       let statusAfter: string | null = null;
       if (!error && (flipped ?? []).length === 0) {

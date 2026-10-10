@@ -45,6 +45,7 @@ import {
   runPortalHealthCheck,
   getRobotFailureScreenshot,
   recoverAuthorizedUnicareBills,
+  reconcileOwnerUnicareBacklog,
   inspectAuthorizedRobotBills,
   retryVerifiedModifierFailure,
   searchJenniferClaim,
@@ -238,6 +239,7 @@ function CompanyCard({
   const healthCheck = useServerFn(runPortalHealthCheck);
   const screenshotFn = useServerFn(getRobotFailureScreenshot);
   const authorizedRecovery = useServerFn(recoverAuthorizedUnicareBills);
+  const reconcileBacklog = useServerFn(reconcileOwnerUnicareBacklog);
   const inspectRecovery = useServerFn(inspectAuthorizedRobotBills);
   const retryModifier = useServerFn(retryVerifiedModifierFailure);
   const searchIncident=useServerFn(searchJenniferClaim);
@@ -418,7 +420,13 @@ function CompanyCard({
         try { const result = await authorizedRecovery(); setHealth({ok:true,active:true,detail:result.detail}); }
         catch(e) { toast.error(e instanceof Error ? e.message : 'Recovery failed'); }
         finally { setChecking(false); }
-      }}>Continue existing Unicare queue</Button>}
+      }}>Process current Unicare backlog</Button>}
+      {c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" disabled={checking} onClick={async () => {
+        setChecking(true);
+        try { setHealth({ok:true,active:true,detail:(await reconcileBacklog()).detail}); }
+        catch(e) { toast.error(e instanceof Error ? e.message : 'Could not check interrupted jobs'); }
+        finally { setChecking(false); }
+      }}>Check current interrupted jobs</Button>}
       {c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" onClick={async () => {
         try { setHealth({ok:true,active:true,detail:(await inspectRecovery()).detail}); }
         catch(e) { toast.error(e instanceof Error ? e.message : 'Could not read evidence'); }
