@@ -131,12 +131,13 @@ export const recoverAuthorizedUnicareBills=createServerFn({method:'POST'}).middl
  return {detail:JSON.stringify(await processOwnerUnicareBacklog(db,actorId))};
 });
 
-/** Poll only the two interrupted jobs in this backlog; never resubmit them. */
+/** Poll existing jobs in this fixed backlog; never resubmit them. */
 export const reconcileOwnerUnicareBacklog=createServerFn({method:'POST'}).middleware([requireSupabaseAuth]).handler(async({context})=>{
  const actorId=(context as {userId:string}).userId;
  const db=await gate(actorId);
- const ids=['24d61f07-7aa7-4d16-bc5e-5e10c765404c','b8a34547-ad83-4c5a-baab-6a2d888d6030'];
- const {data:rows,error}=await db.from('billing_records').select('id,trip_id').eq('company_id','c246bbf7-a748-47cc-b1b4-a723395567a8').in('id',ids);
+ const {UNICARE_BACKLOG_IDS}=await import('@/lib/ownerUnicareBacklog.server');
+ const ids=[...UNICARE_BACKLOG_IDS,'24d61f07-7aa7-4d16-bc5e-5e10c765404c','b8a34547-ad83-4c5a-baab-6a2d888d6030'];
+ const {data:rows,error}=await db.from('billing_records').select('id,trip_id').eq('company_id','c246bbf7-a748-47cc-b1b4-a723395567a8').eq('status','submitting').in('id',ids);
  if(error)throw new Error(error.message);
  const {reconcileRobotJob}=await import('@/lib/robotReconcile.server');
  const results=[];
@@ -1234,3 +1235,4 @@ export const deleteSubscriptionPayment = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
