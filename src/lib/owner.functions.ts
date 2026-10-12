@@ -136,7 +136,7 @@ export const reconcileOwnerUnicareBacklog=createServerFn({method:'POST'}).middle
  const actorId=(context as {userId:string}).userId;
  const db=await gate(actorId);
  const {UNICARE_BACKLOG_IDS}=await import('@/lib/ownerUnicareBacklog.server');
- const ids=[...UNICARE_BACKLOG_IDS,'24d61f07-7aa7-4d16-bc5e-5e10c765404c','b8a34547-ad83-4c5a-baab-6a2d888d6030'];
+ const ids=[...UNICARE_BACKLOG_IDS,...["03789906-e551-495d-bd8b-76ae31a59585","4a9f469e-a394-430f-8797-5967ece5a6e0","b26b9151-8d57-4517-87d6-7181c7b36beb","b951c7b3-d1f7-4464-841e-401d0c99661b","bc257410-b64a-4ae5-ac6c-0355011b75aa","ce770f70-6e0e-4221-b685-185d89695c41","d35680bf-e2ae-4bb2-a51b-2d7aaa3c2ba0","dc058a80-9f6d-4266-88cf-9673b4c39ab0","e8ff6f7f-e16f-4d4b-a985-322c31f41692","fec21f90-15a0-47df-9887-0f02ddfd3c48"]];
  const {data:rows,error}=await db.from('billing_records').select('id,trip_id').eq('company_id','c246bbf7-a748-47cc-b1b4-a723395567a8').eq('status','submitting').in('id',ids);
  if(error)throw new Error(error.message);
  const {reconcileRobotJob}=await import('@/lib/robotReconcile.server');
