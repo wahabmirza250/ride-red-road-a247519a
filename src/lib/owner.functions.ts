@@ -1287,3 +1287,22 @@ export const checkUnicareClaimStatuses=createServerFn({method:"POST"}).middlewar
  const result=await runClaimStatusSync(db,{actorId,recordIds:ids,budgetMs:100000});
  return {detail:JSON.stringify({enqueued,...result})};
 });
+
+/** Durable searches of held Unicare bills: stores candidates, never releases a hold. */
+export const findUnicareHeldClaims=createServerFn({method:"POST"}).middleware([requireSupabaseAuth]).handler(async({context})=>{
+ const db=await gate((context as {userId:string}).userId);const companyId="c246bbf7-a748-47cc-b1b4-a723395567a8";
+ const {data:rows,error}=await db.from("billing_records").select("id,trip_id,medicaid_trips!inner(pickup_at,miles,riders(medicaid_id))").eq("company_id",companyId).in("status",["needs_fix","pending_submit","submitting"]).is("state_confirmation_number",null).order("created_at");
+ if(error)throw new Error(error.message);
+ const {data:searches,error:searchError}=await db.from("claim_search_jobs").select("billing_record_id,state,next_attempt_at").eq("company_id",companyId).eq("purpose","owner_attention");
+ if(searchError)throw new Error(searchError.message);
+ const {stepTripSearch}=await import("@/lib/searchLedger.server");const {denverDateISO}=await import("@/lib/billingHelpers");
+ const now=Date.now();const results=[];
+ for(const row of rows??[]){
+  const trip=row.medicaid_trips;const search=(searches??[]).find((s:any)=>s.billing_record_id===row.id);
+  if(Number(trip.miles)>50||search?.state==="done"||search?.state==="exhausted"||(search?.next_attempt_at&&Date.parse(search.next_attempt_at)>now))continue;
+  const d=denverDateISO(trip.pickup_at).split("-");const date=d[1]+"/"+d[2]+"/"+d[0];
+  results.push({id:row.id,...await stepTripSearch(db,{recordId:row.id,tripId:row.trip_id,companyId,memberId:String(trip.riders.medicaid_id??"").trim(),serviceDate:date,purpose:"owner_attention"})});
+  break; // One read-only job per owner kick; no automatic submission or linkage.
+ }
+ return {detail:JSON.stringify({results,remainingHeld:rows?.length??0})};
+});
