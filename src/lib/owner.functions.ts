@@ -1277,7 +1277,8 @@ export const recoverUnicareMileageHolds=createServerFn({method:"POST"}).middlewa
 /** Owner-only read-only refresh; strictly Unicare, never submission. */
 export const checkUnicareClaimStatuses=createServerFn({method:"POST"}).middleware([requireSupabaseAuth]).handler(async({context})=>{
  const actorId=(context as {userId:string}).userId;const db=await gate(actorId);
- const {data:rows,error}=await db.from("billing_records").select("id").eq("company_id","c246bbf7-a748-47cc-b1b4-a723395567a8").in("status",["submitted","approved","suspended"]).not("state_confirmation_number","is",null);
+ const now=new Date().toISOString();
+ const {data:rows,error}=await db.from("billing_records").select("id").eq("company_id","c246bbf7-a748-47cc-b1b4-a723395567a8").in("status",["submitted","approved","suspended"]).not("state_confirmation_number","is",null).or("status_check_next_at.is.null,status_check_next_at.lte."+now).or("status_check_locked_until.is.null,status_check_locked_until.lt."+now).order("status_checked_at",{ascending:true,nullsFirst:true}).limit(3);
  if(error)throw new Error(error.message);
  const {enqueueClaimStatusChecks,runClaimStatusSync}=await import("@/lib/claimStatusSync.server");
  const ids=(rows??[]).map((r:any)=>r.id);
