@@ -1236,3 +1236,53 @@ export const deleteSubscriptionPayment = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+/** October 12: only the ten observed false cross-leg mileage holds. */
+export const recoverUnicareMileageHolds=createServerFn({method:"POST"}).middleware([requireSupabaseAuth]).handler(async({context})=>{
+ const actorId=(context as {userId:string}).userId; const db=await gate(actorId);
+ const companyId="c246bbf7-a748-47cc-b1b4-a723395567a8";
+ const ids=["03789906-e551-495d-bd8b-76ae31a59585","4a9f469e-a394-430f-8797-5967ece5a6e0","b26b9151-8d57-4517-87d6-7181c7b36beb","b951c7b3-d1f7-4464-841e-401d0c99661b","bc257410-b64a-4ae5-ac6c-0355011b75aa","ce770f70-6e0e-4221-b685-185d89695c41","d35680bf-e2ae-4bb2-a51b-2d7aaa3c2ba0","dc058a80-9f6d-4266-88cf-9673b4c39ab0","e8ff6f7f-e16f-4d4b-a985-322c31f41692","fec21f90-15a0-47df-9887-0f02ddfd3c48"];
+ const {resolveBillingProviderId}=await import("@/lib/providerResolve.server");
+ const provider=await resolveBillingProviderId(db,companyId);
+ if(provider!=="b072fccb-9504-41b7-bd30-abfec407ec68")throw new Error("Provider changed");
+ const {assertRobotSubmissionPreflight}=await import("@/lib/billingHelpers");
+ const {enqueueSubmissionBatch}=await import("@/lib/submissionBatch.server");
+ const {dispatchLeasedSubmissions,isSubmissionQueuePaused}=await import("@/lib/submissionQueue.server");
+ if((await isSubmissionQueuePaused(db)).paused)throw new Error("Submission queue paused");
+ const {REAL_SUBMISSIONS_PAUSED}=await import("@/lib/submissionPause"); if(REAL_SUBMISSIONS_PAUSED)throw new Error("Submissions paused");
+ const {data:rows,error}=await db.from("billing_records").select("*,medicaid_trips!inner(*,riders(medicaid_id))").eq("company_id",companyId).in("id",ids);
+ if(error)throw new Error(error.message);
+ const candidates=[]; const skipped=[]; const queued=[];
+ for(const row of rows??[]){
+  const trip=row.medicaid_trips;
+  if(row.status==="queued"&&!trip.robot_job_id&&!row.state_confirmation_number){queued.push(row.id);continue;}
+  if(row.status!=="needs_fix"||row.failure_code!=="miles_out_of_range"||!/^Billed mileage/.test(row.submission_error??"")||Number(row.submit_attempt_count??0)!==0||trip.robot_job_id||row.state_confirmation_number||trip.robot_confirmation_number||trip.submitted_confirmation){skipped.push(row.id);continue;}
+  const {data:legs,error:legError}=await db.from("medicaid_trip_legs").select("*").eq("medicaid_trip_id",trip.id);
+  if(legError)throw new Error(legError.message);
+  const valid=legs?.length===2&&legs.every((l:any)=>l.pickup_odometer!=null&&l.dropoff_odometer!=null&&Number(l.dropoff_odometer)>Number(l.pickup_odometer));
+  const total=(legs??[]).reduce((s:number,l:any)=>s+Number(l.dropoff_odometer)-Number(l.pickup_odometer),0);
+  if(!valid||total<=0||total>50||Math.abs(total-Number(trip.miles))>0.01){skipped.push(row.id);continue;}
+  try{await assertRobotSubmissionPreflight(db,{billingRecordId:row.id,trip,providerUserId:provider,mode:"full"});}catch(e){skipped.push({id:row.id,error:String(e)});continue;}
+  const {error:auditError}=await db.from("billing_audit_log").insert({billing_record_id:row.id,actor_id:actorId,actor_type:"admin",action:"false_mileage_hold_corrected",notes:JSON.stringify({previous:row.submission_error,total,legs,reason:"Sum passenger legs; exclude empty driving gap"})});
+  if(auditError)throw new Error(auditError.message);
+  const {data:changed,error:updateError}=await db.from("billing_records").update({status:"approved",requires_human_step:false,submission_error:null,fix_notes:null,failure_code:null,failure_stage:null}).eq("id",row.id).eq("company_id",companyId).eq("status","needs_fix").eq("failure_code","miles_out_of_range").is("state_confirmation_number",null).select("id");
+  if(updateError)throw new Error(updateError.message);
+  if(changed?.length)candidates.push({id:row.id,companyId,tripId:trip.id,serviceDate:trip.pickup_at,resubmit:false,requireFreshApproved:true});
+ }
+ const batch=await enqueueSubmissionBatch(db,{actorId,candidates,label:"Owner-authorized false mileage hold recovery"});
+ queued.push(...batch.enqueued);
+ const result=queued.length?await dispatchLeasedSubmissions(db,actorId,{companyId,recordIds:queued,worker:"owner-mileage-recovery"}):{};
+ return {detail:JSON.stringify({recovered:batch.enqueued.length,skipped,failures:batch.failed,...result})};
+});
+/** Owner-only read-only refresh; strictly Unicare, never submission. */
+export const checkUnicareClaimStatuses=createServerFn({method:"POST"}).middleware([requireSupabaseAuth]).handler(async({context})=>{
+ const actorId=(context as {userId:string}).userId;const db=await gate(actorId);
+ const {data:rows,error}=await db.from("billing_records").select("id").eq("company_id","c246bbf7-a748-47cc-b1b4-a723395567a8").in("status",["submitted","approved","suspended"]).not("state_confirmation_number","is",null);
+ if(error)throw new Error(error.message);
+ const {enqueueClaimStatusChecks,runClaimStatusSync}=await import("@/lib/claimStatusSync.server");
+ const ids=(rows??[]).map((r:any)=>r.id);
+ if(!ids.length)return {detail:"No captured claims to check."};
+ const enqueued=await enqueueClaimStatusChecks(db,{recordIds:ids,companyId:"c246bbf7-a748-47cc-b1b4-a723395567a8"});
+ const result=await runClaimStatusSync(db,{actorId,recordIds:ids,budgetMs:100000});
+ return {detail:JSON.stringify({enqueued,...result})};
+});

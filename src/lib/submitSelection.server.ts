@@ -164,11 +164,19 @@ export async function submitSelectedRecords(
           ...claimSanityIssues({ service_date: corrected.serviceDate ?? trip?.pickup_at ?? null }),
         ];
       } else {
+        const { data: legs, error: legError } = await supabase.from("medicaid_trip_legs")
+          .select("leg_index,pickup_odometer,dropoff_odometer").eq("medicaid_trip_id", trip.id);
+        if (legError) throw new Error(legError.message);
+        const { correctedTotalMiles, correctedMileageIssues } = await import("@/lib/correctedMileage");
         const { milesFromOdometer } = await import("@/lib/claimSanity");
-        issues = claimSanityIssues({
-          billed_miles: milesFromOdometer(trip?.odometer_start, trip?.odometer_end),
-          service_date: trip?.pickup_at ?? null,
-        });
+        // A round-trip odometer span includes empty driving between legs.
+        // Only each passenger leg contributes to the billed total.
+        const total = legs?.length ? correctedTotalMiles(legs) :
+          milesFromOdometer(trip?.odometer_start, trip?.odometer_end);
+        issues = [
+          ...(legs?.length ? correctedMileageIssues({ legs }) : []),
+          ...claimSanityIssues({ billed_miles: total, service_date: trip?.pickup_at ?? null }),
+        ];
       }
       if (issues.length) {
         skipped.push({

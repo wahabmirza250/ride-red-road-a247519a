@@ -38,6 +38,8 @@ import { StaffManagerDialog } from "@/components/owner/StaffManagerDialog";
 import { SubscriptionsPanel } from "@/components/owner/SubscriptionsPanel";
 
 import {
+  recoverUnicareMileageHolds,
+  checkUnicareClaimStatuses,
   createCompany,
   deleteCompany,
   getOwnerOverview,
@@ -238,6 +240,8 @@ function CompanyCard({
   const toggleStatus = useServerFn(setCompanyStatus);
   const healthCheck = useServerFn(runPortalHealthCheck);
   const screenshotFn = useServerFn(getRobotFailureScreenshot);
+  const recoverMileage = useServerFn(recoverUnicareMileageHolds);
+  const checkStatuses = useServerFn(checkUnicareClaimStatuses);
   const authorizedRecovery = useServerFn(recoverAuthorizedUnicareBills);
   const reconcileBacklog = useServerFn(reconcileOwnerUnicareBacklog);
   const inspectRecovery = useServerFn(inspectAuthorizedRobotBills);
@@ -414,6 +418,8 @@ function CompanyCard({
 
 
 
+{c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" disabled={checking} onClick={async()=>{setChecking(true);try{setHealth({ok:true,active:true,detail:(await recoverMileage()).detail});}catch(e){toast.error(e instanceof Error?e.message:"Could not complete");}finally{setChecking(false);}}}>Recover verified mileage holds</Button>}
+{c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" disabled={checking} onClick={async()=>{setChecking(true);try{setHealth({ok:true,active:true,detail:(await checkStatuses()).detail});}catch(e){toast.error(e instanceof Error?e.message:"Could not complete");}finally{setChecking(false);}}}>Refresh Unicare claim statuses</Button>}
       <Button variant="outline" size="sm" disabled={checking} onClick={() => onHealthCheck(true)}>Verify login &amp; recover blocked bills</Button>
       {c.id === 'c246bbf7-a748-47cc-b1b4-a723395567a8' && <Button variant="outline" size="sm" disabled={checking} onClick={async () => {
         setChecking(true);
